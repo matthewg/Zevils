@@ -774,22 +774,34 @@ sub irc_subparms($;$$) {
 
 # Format an IRC private message - you must still irc_send it!
 sub irc_privmsg($$$;$$$) {
-	my($from, $to, $msg, $prefix, $notice, $screenname, $line, $ret, $text, $temp) = @_;
+	my($from, $to, $msg, $prefix, $notice, $screenname, $line, $ret, $text, $maxlen, $temp) = @_;
 	$prefix ||= "";
 
 	return unless $from and $to and $msg;
 
 	$to = "#aimirc-$screenname" if $screenname and $aim_connections{normalize $to}{screennames}{$screenname}{inchan};
 
-	$from = substr($from, 0, $ircservers{$servermode}{nicklen});
+	$from = ircify($from);
 	if($from ne $usnick and not haskeys($nicks{noprefix($from)})) {
 		irc_send(irc_newnick($from));
 	}
 
+	$maxlen = 450 - length($from) - length($to);
 	foreach $line(split(/[\r\n]+/, $msg)) {
 		$text = "$prefix$line";
 		while($text) {
-			$temp = substr($text, 0, 498 - length($from) - length($to), "");
+
+			#IRC has a max cmd len of 512.
+			#Split up messages which would exceed this length
+			#Try to split up on word boundaries.
+
+			if(length($text) > $maxlen) {
+				$temp = substr($text, 0, $maxlen, "");
+				$text = $1.$text if $temp =~ s/\s+(\S+)$//;
+			} else {
+				$temp = $text;
+				$text = "";
+			}
 			$ret .= ":$from " . ($notice ? "NOTICE" : "PRIVMSG") . " $to :$temp\r\n";
 		}
 	}
