@@ -459,7 +459,7 @@ sub mainloop() {
 			#}
 
 			local $SIG{ALRM} = sub { confess "IMIRC got stuck?" };
-			alarm 3;
+			alarm 10;
 
 			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
 
