@@ -113,6 +113,19 @@ END
 			if(\$type != "one-time" && \$type != "recurring") {
 				return "Invalid Type";
 			} else {
+				# Fill in a sensible default date (next time this time will come around)
+				# if the user doesn't already have one
+				if(\$type == "one-time" && !\$_SESSION["mon"] && !\$_SESSION["day"]) {
+					\$usertime = \$_SESSION["hr"]*60*60 + \$_SESSION["min"]*60;
+					\$currtime = date("G")*60*60 + date("i")*60 - 60*60*2; #Two-hour fudge factor
+
+					\$timestamp = time(); #Timestamp on which to base the day/month to generate
+					if(\$currtime > \$usertime) \$timestamp += 60*60*24;
+
+					\$_SESSION["mon"] = date("n", \$timestamp);
+					\$_SESSION["day"] = date("d", \$timestamp);						
+				}
+
 				return "";
 			}
 END
