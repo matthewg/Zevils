@@ -743,7 +743,7 @@ sub process_irc_message($) {
 		my $dude;
 
 		#print STDERR "Got $nick joining $screenname ($_)\n";
-		if(not defined $irc_connections->{$screenname} or $irc_connections->{$screenname} ne $nick) {
+		if(not defined $irc_connections->{$screenname} or $irc_connections->{$screenname} ne $nick or not $oscar) {
 			#print STDERR "Doing bounce_join\n";
 			bounce_join($nick, nickchan($screenname));
 		} else {
