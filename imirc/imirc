@@ -1782,6 +1782,7 @@ sub oscar_buddy_in($$$$) {
 			$sndata->{away}->{$buddy} = 1;
 		}
 		if(!$away->{buddy}) {
+			irc_send(irc_privmsg($usnick, $nick, time " - $sndata->{ison}"));
 			if(time - $sndata->{ison} > 30) {
 				$oscar->get_away($buddy);
 			} else {
