@@ -1975,7 +1975,7 @@ sub irc_send($;$) {
 	return unless $msg;
 
 ##HACK HACK HACK HACK
-	$msg =~ s/connection reset by peer/Too many people using aimirc.  Wait for someone to sign off.  Sorry, AOL's fault, not mine./i;
+#	$msg =~ s/connection reset by peer/Too many people using aimirc.  Wait for someone to sign off.  Sorry, AOL's fault, not mine./i;
 
 	$flags ||= 0;
 	$nodbg = 1 if $flags & 1;
