@@ -361,7 +361,7 @@ while(1) {
 	log_debug("Done with wakes");
 
 	if(
-	   ($Finnegan::Config::use_cisco and $phonecalls >= $Finnegan::Config::Cisco::max_simultaneous_calls)
+	   ($Finnegan::Config::use_cisco and $phonecalls < $Finnegan::Config::Cisco::max_simultaneous_calls)
 	or
 	   (!$Finnegan::Config::use_cisco and scalar(keys(%phonelines_avail)))
 	) {
