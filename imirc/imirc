@@ -1050,15 +1050,16 @@ sub process_irc_message($) {
 				if($buddyconf->{online}) {
 					local $^W = 0;
 					my $msg = "Buddy Info for $buddyconf->{screenname}\r\n";
-					$msg .= "Group: \t\t".$oscar->findgroup($param)."\r\n";
+					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
 					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
-					$msg .= "Idle Time: \t\t".($buddyconf->{idle}/60)." minutes\r\n";
+					$msg .= "Idle Time: \t".($buddyconf->{idle}/60)." minutes\r\n";
 
 					$msg .= "User Class: \t";
 					$msg .= " TRIAL" if $buddyconf->{trial};
 					$msg .= " AOL" if $buddyconf->{aol};
 					$msg .= " AIM" if $buddyconf->{free};
 					$msg .= " ADMIN" if $buddyconf->{admin};
+					$msg .= " AWAY" if $buddyconf->{away};
 					$msg .= "\r\n";
 
 					$msg .= "Warning Level: \t$buddyconf->{evil}%\r\n";
@@ -1891,18 +1892,19 @@ sub oscar_buddy_info($$$) {
 		irc_send(":".ircify($prefix.$buddy)." AWAY :".html2txt($buddat->{awaymsg})."\r\n");
 	} else {
 		local $^W = 0;
-		my $msg = "Buddy Info for $buddat->{screenname}\r\n";
+		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
-		$msg .= "Idle Time: \t\t".($buddat->{idle}/60)." minutes\r\n";
+		$msg .= "Idle Time: \t".($buddat->{idle}/60)." minutes\r\n";
 
 		$msg .= "User Class: \t";
 		$msg .= " TRIAL" if $buddat->{trial};
 		$msg .= " AOL" if $buddat->{aol};
 		$msg .= " AIM" if $buddat->{free};
 		$msg .= " ADMIN" if $buddat->{admin};
+		$msg .= " AWAY" if $buddyconf->{away};
 		$msg .= "\r\n";
 
-		$msg .= "Warning Level: \t$buddat->{evil}%\r\n";
+		$msg .= "Warning Level: $buddat->{evil}%\r\n";
 		if($buddat->{profile}) {
 			$msg .= "---------------------\r\n";
 			$msg .= "Profile\r\n";
