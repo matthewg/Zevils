@@ -38,10 +38,15 @@ require "../../include/finnegan.inc";
 <Position>1</Position>
 </SoftKeyItem>
 
-<SoftKeyItem>
+<?
+
+//Disabled, because this needs Expire: -1 header, which breaks 7940/60.  c.f. include/cisco-funcs.php
+/*<SoftKeyItem>
 <Name>Exit</Name>
 <URL>SoftKey:Exit</URL>
 <Position>3</Position>
-</SoftKeyItem>
+</SoftKeyItem>*/
+
+?>
 
 </CiscoIPPhoneMenu>

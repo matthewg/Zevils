@@ -1,7 +1,9 @@
 <?
 
 header("Content-type: text/xml");
-header("Expires: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
+
+//THIS BREAKS 7940/7960!  Alas, this means no SoftKey:Exit.
+//header("Expires: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
 
 ob_start("nlstrip");
 db_start();
