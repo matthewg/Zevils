@@ -304,7 +304,7 @@ sub update_stories($) {
 			'stories',
 			{
 				nntp_snum => ++$snum,
-				-nntp_posttime => 'NOW()'
+				-nntp_ctime => 'NOW()'
 			},
 			'sid = '.$self->{slash_db}->sqlQuote($story->{sid})
 		);
