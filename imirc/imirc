@@ -830,18 +830,20 @@ sub process_irc_message($) {
 			}
 		}
 	} elsif(/^PART +#aimchat-(\d+)/i) {
-		Toc::debug_print("$nick left aimchat $1 ($chattopics{$1}).", "chat", 1);
-		if($aim_connections{$nnick} and $chattopics{$1}) {
-			chat_leave($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1) if $aim_connections{$nnick};
-			irc_send(":$usnick PART #aimchat-$1\r\n");
-			foreach $who(keys %{$chats{$1}}) {
-				delete $chats{$1}{$who};
-				delete $nicks{normalize($who)}{"chat-$1"};
-				irc_send(":$prefix$who PART #aimchat-$1\r\n");
+		if(exists $aim_connections{$nnick}{screennames}{$chatnames{$1}}) {
+			Toc::debug_print("$nick left aimchat $1 ($chattopics{$1}).", "chat", 1);
+			if($aim_connections{$nnick} and $chattopics{$1}) {
+				chat_leave($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1) if $aim_connections{$nnick};
+				irc_send(":$usnick PART #aimchat-$1\r\n");
+				foreach $who(keys %{$chats{$1}}) {
+					delete $chats{$1}{$who};
+					delete $nicks{normalize($who)}{"chat-$1"};
+					irc_send(":$prefix$who PART #aimchat-$1\r\n");
+				}
+				delete $chattopics{$1};
+				delete $chatnames{$1};
+				delete $chatjoined{$1};
 			}
-			delete $chattopics{$1};
-			delete $chatnames{$1};
-			delete $chatjoined{$1};
 		}
 	} elsif(/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i) {
 		$msg = process_ctcp($nnick, $usnick, $2);
@@ -1576,6 +1578,7 @@ sub process_aim_message($$$) {
 					splice(@{$connection->{screennames}{$screenname}{pounces}}, $i, 1);
 					splice(@{$pounces{$screenname}}, $i, 1) if $savepounces > 0;
 					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $i sent to $pounce->{who}."));
+					$i--;
 				}
 			}
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 1);
@@ -1896,7 +1899,8 @@ sub do_signon($$$$) {
 		}
 		if($pounces{safename $nparam}) {
 			$aim_connections{$nnick}{screennames}{$nparam}{pounces} = $pounces{safename $nparam};
-			irc_send(irc_privmsg($usnick, $nnick, "You have " . scalar @{$pounces{safename $nparam}} . " pounces.")) if scalar @{$pounces{safename $nparam}};
+			$pouncecount = scalar @{$pounces{safename $nparam}};
+			irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".")) if $pouncecount > 0;
 		}
 		if($profiles{safename $nparam}) {
 			set_info($aim_connections{$nnick}{screennames}{$nparam}{socket}, $profiles{safename $nparam});
@@ -1909,29 +1913,44 @@ sub do_signon($$$$) {
 
 # Signoff a particular screenname
 sub do_signoff($$;$) {
-	my ($nick, $connection, $already_off, $xnick, $nparam, %config) = @_;
+	my ($nick, $connection, $already_off, $xnick, $nparam, %config, $chat, $screenname, $who) = @_;
 
-	$nparam = safename Toc::_hnick($connection);
+	$screenname = Toc::_hnick($connection);
+	$nparam = safename $screenname;
 	if($nparam and $savebuddies > 0) {
-		%config = deref(get_config(Toc::_hnick($connection)));
+		%config = deref(get_config($screenname));
 		$buddylists{$nparam} = conf2str(%config);
 	}
 
-	delete $irc_connections{Toc::_hnick($connection)};
+	foreach $chat(keys %chatnames) {
+		next unless $chatnames{$chat} eq $screenname;
+		foreach $who(keys %{$chats{$chat}}) {
+			delete $chats{$chat}{$who};
+			delete $nicks{normalize($who)}{"chat-$chat"};
+			irc_send(":$prefix$who PART #aimchat-$chat\r\n");
+		}
+		delete $chattopics{$chat};
+		delete $chatnames{$chat};
+		delete $chatjoined{$chat};
+		irc_send(":$usnick KICK #aimchat-$chat $nick :The screenname you were using in this chatroom is no longer signed on to AOL Instant Messenger.\r\n");
+		irc_send(":$usnick PART #aimchat-$chat\r\n");
+	}
+
+	delete $irc_connections{$screenname};
 	foreach $xnick(keys %nicks) {
 		delete $nicks{$xnick}{$nick};
 		next if normalize $xnick eq normalize $usnick;
 		irc_send(":$prefix$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
 
-	delete $aim_connections{$nick}{screennames}{Toc::_hnick($connection)};
+	delete $aim_connections{$nick}{screennames}{$screenname};
 
 	if(UNIVERSAL::isa($connection, "IO::Socket::INET")) {
 		delete $aim_connections{$connection->fileno};
 		signoff($connection);
 	}
 	if($aim_connections{$nick}) {
-		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as " . Toc::_hnick($connection))) unless $already_off;
+		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname")) unless $already_off;
 		if(haskeys $aim_connections{$nick}{screennames}) {
 			$xnick = (keys %{$aim_connections{$nick}{screennames}})[0];
 			irc_send(irc_privmsg($usnick, $nick, "Your new default screenname is $xnick."));
