@@ -29,7 +29,7 @@ $task{$me}{code} = sub {
 
 	my $stories = $slashdb->sqlSelectAllHashref(
 		"sid",
-		"sid, displaystatus, snum, section_snum",
+		"sid, section, displaystatus, snum, section_snum",
 		"stories",
 		$where,
 		"ORDER BY time"
