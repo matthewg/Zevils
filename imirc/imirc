@@ -1177,6 +1177,7 @@ sub process_irc_message($) {
 		} elsif ($cmd eq "confirm_account") {
 			$oscar->confirm_account();
 		} elsif ($cmd eq "loadbuddies") {
+			$sndata->{blmerge} = $param;
 			$dccget{$nick} = $screenname;
 			irc_send(irc_ctcp($usnick, $nick, "loadbuddies"));
 			irc_send(irc_privmsg($usnick, $nick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
@@ -1331,7 +1332,8 @@ User {
 				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
 				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
 				irc_send("$foo :savebuddies [TOC] - DCC SENDs you a copy of your buddylist.  By default it will be in \"OSCAR format\" - use the TOC parameter for \"TOC format\".\r\n", 1) if $dccip;
-				irc_send("$foo :loadbuddies - DCC GETs a copy of your buddylist and uses that as your new buddylist.  You must do this before sending the file.\r\n", 1);
+				irc_send("$foo :loadbuddies [merge] - DCC GETs a copy of your buddylist and uses that as your new buddylist.  You must do this before sending the file.  If the merge parameter is present, the new buddylist will be merged with your current buddylist.  Otherwise, it will replace your buddylist.\r\n", 1);
+				irc_send("$foo :clonebuddies [--merge] to|from screenname - Copy the buddylist to/from your current screenname to/from another screenname you are signed on under.  The direction given in the command is with respect to your default screenname, i.e. use 'to' to clone the buddylist of your default screenname \2to\2 the other screenname.  Behavior in regards to merging/replacing of the buddylist is the same as that of loadbuddies.\r\n", 1);
 				irc_send("$foo :reorder_groups group1, group2, ... - Changes the order of the groups in your buddylist.\r\n", 1);
 				irc_send("$foo :reorder_groups group buddy1, buddy2, ... - Changes the order of the buddies in a group on your buddylist.\r\n", 1);
 				irc_send("$foo :set_buddy_comment buddy comment - Associate a brief comment with a buddy.  This can be something like the buddy's real name.\r\n", 1);
@@ -1492,6 +1494,41 @@ User {
 				$param =~ /(\d+)/;
 				$oscar->chat_decline($chats{$1}->{url});
 				delete $chats{$1};
+			}
+		} elsif($cmd eq "clonebuddies}) {
+			local @ARGV = split(/\s+/, "$param $extra");
+			my $merge = 0;
+			my $errors = &GetOptions(
+				"merge|m" => \$merge
+			);
+			($param, $extra) = @ARGV;
+
+			if(!$errors or @ARGV != 2) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: clonebuddies [--merge] to|from screennam", "", "", $screenname));
+			} elsif($extra eq $aim_connections->{$nick}->{aimnick} {
+				irc_send(irc_privmsg($usnick, $nick, "Can't use clonebuddies on your default screenname.", "", "", $screenname));
+			} elsif(!exists($aim_connections->{$nick}->{screennames}->{$extra})) {
+				irc_send(irc_privmsg($usnick, $nick, "You can only use clonebuddies with a screenname that you are currently signed on under.", "", "", $screenname));
+			} else {
+				if($param eq "to") {
+					my $xsndata = $aim_connections->{$nick}->{screennames}->{$extra};
+					$xsndata->{blmerge} = $merge;
+					if(loadbuddies($xsndata->{oscar}, export_buddylist($oscar, 1), $xsndata)) {
+						irc_send(irc_privmsg($usnick, $nick, "Buddylist cloned successfully.", "", "", $xsndata->{screenname}));
+					} else {
+						irc_send(irc_privmsg($usnick, $nick, "Couldn't clone buddylist.", "", "", $xsndata->{screenname}));
+					}
+				} elsif($param eq "from") {
+					$sndata->{blmerge} = $merge;
+					my $xsndata = $aim_connections->{$nick}->{screennames}->{$extra};
+					if(loadbuddies($sndata->{oscar}, export_buddylist($xsndata->{oscar}, 1), $sndata)) {
+						irc_send(irc_privmsg($usnick, $nick, "Buddylist cloned successfully.", "", "", $screenname));
+					} else {
+						irc_send(irc_privmsg($usnick, $nick, "Couldn't clone buddylist.", "", "", $screenname));
+					}
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, "Direction for clonebuddies must be 'to' or 'from'.", "", "", $screenname));
+				}
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -2564,9 +2601,10 @@ sub irc_ctcp($$$;$) {
 
 #Someone's sending us a file: DCC SEND filename IPaddr port filesize
 
-sub loadbuddies($$) {
-	my($oscar, $buff) = @_;
+sub loadbuddies($$$) {
+	my($oscar, $buff, $sndata) = @_;
 	my($line, $pmode, %buddies, @permit, @deny, %bnotes);
+	my($merge) = delete $sndata->{merge};
 	my $profile = "";
 
 	if($buff !~ /^Buddy {$/m) { #TOC-style
@@ -2661,29 +2699,31 @@ sub loadbuddies($$) {
 	$oscar->add_permit(@permit);
 	$oscar->add_deny(@deny);
 
-	foreach my $group($oscar->groups) {
-		my @currbuddies = $oscar->buddies($group);
-		$buddies{$group} ||= [];
-		my @newbuddies = @{$buddies{$group}};
+	if(!$merge) {
+		foreach my $group($oscar->groups) {
+			my @currbuddies = $oscar->buddies($group);
+			$buddies{$group} ||= [];
+			my @newbuddies = @{$buddies{$group}};
+			for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
+				splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+			}
+			$oscar->remove_buddy($group, @currbuddies);
+		}
+
+		my @currbuddies = $oscar->get_permitlist;
+		my @newbuddies = @permit;
 		for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
 			splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
 		}
-		$oscar->remove_buddy($group, @currbuddies);
-	}
+		$oscar->remove_permit(@currbuddies);
 
-	my @currbuddies = $oscar->get_permitlist;
-	my @newbuddies = @permit;
-	for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
-		splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+		@currbuddies = $oscar->get_denylist;
+		@newbuddies = @deny;
+		for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
+			splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+		}
+		$oscar->remove_deny(@currbuddies);
 	}
-	$oscar->remove_permit(@currbuddies);
-
-	@currbuddies = $oscar->get_denylist;
-	@newbuddies = @deny;
-	for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
-		splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
-	}
-	$oscar->remove_deny(@currbuddies);
 
 	$oscar->commit_buddylist;
 
@@ -2911,7 +2951,8 @@ sub process_dcc($$) {
 				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
 				close $dcc->{socket};
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
-				if(loadbuddies($aim_connections->{$dcc->{for}}->{screennames}->{$screenname}->{oscar}, $dcc->{what})) {
+				my $sndata = $aim_connections->{$dcc->{for}}->{screenname};
+				if(loadbuddies($sndata->{oscar}, $dcc->{what}, $sndata)) {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "Buddylist loaded.", "", "", $screenname));
 				} else {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "Could not load buddylist.", "", "", $screenname));
