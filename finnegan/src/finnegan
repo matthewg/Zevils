@@ -519,24 +519,42 @@ sub make_call($$) {
 						$end->("success", "done");
 						exit 0;
 					} elsif($status == 3) { # Snooze
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						if($type eq "wake") {
+							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						}
 						$end->("success", "snooze");
 						exit 0;
 					} elsif($status == 1) { # Busy
 						$end->("failure", "busy signal");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						if($type eq "wake") {
+							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						}
 						exit 1;
 					} elsif($status == 2) { # No dial tone
 						$end->("failure", "no dial tone");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						if($type eq "wake") {
+							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						}
 						exit 1;
 					} elsif($status == 4) { # Timed out
-						$end->("failure", "time out");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						$end->("failure", "time out - snooze");
+						if($type eq "wake") {
+							if($snooze_ok) {
+								$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+							} else {
+								if($row->{date}) {
+									$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
+								} else {
+									$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
+								}
+							}
+						}
 						exit 1;
 					} else {
 						$end->("failure", "unknown exit code $status");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						if($type eq "wake") {
+							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+						}
 						exit 1;
 					}
 				}
