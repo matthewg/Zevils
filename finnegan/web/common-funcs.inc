@@ -2,6 +2,13 @@
 
 eval(implode('', file('../src/brancal.inc')));
 
+// seed with microseconds
+function make_seed() {
+    list($usec, $sec) = explode(' ', microtime());
+    return (float) $sec + ((float) $usec * 100000);
+}
+srand(make_seed());
+
 function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $TEMPLATE;
 	global $NO_CLASSES;
@@ -213,7 +220,7 @@ function db_error() {
 }
 
 function log_ext($extension, $event, $result, $data = "") {
-	if(!$data)
+	if(!$data || $result == "success")
 		$data = "NULL";
 	else
 		$data = "'$data'";
@@ -224,7 +231,7 @@ function log_ext($extension, $event, $result, $data = "") {
 }
 
 function log_wake($wake_id, $extension, $event, $result, $data = "") {
-	if(!$data)
+	if(!$data || $result == "success")
 		$data = "NULL";
 	else
 		$data = "'$data'";
@@ -257,91 +264,90 @@ function pin_ok($extension, $pin, $newpin = 0) {
 	$ok = 0;
 	$error = "";
 
-	if(!preg_match('/^[0-9]{1,4}$/', $pin)) {
+	if(!preg_match('/^[0-9]{0,4}$/', $pin)) {
 		if(!$newpin) {
-			if(!$pin) {
-				if(!(isset($_POST["op"]) && $_POST["op"] == "Set PIN")) {
-					echo $TEMPLATE["viewcalls_start_noext"];
-					echo $TEMPLATE["no_pin"];
-					$extension_ok = 0;
-					do_end();
-				} else {
-					$extension_ok = 1;
-					return 1;
-				}
-			} else {
-				echo $TEMPLATE["pin_invalid"];
-				$error = "pin_invalid";
-			}
-		} else {
+			echo $TEMPLATE["pin_invalid"];
+			$error = "pin_invalid";
+	} else {
 			echo $TEMPLATE["pin_set_new_invalid"];
 			return 0;
 		}
 	} else {
-		if($newpin) return 1;
+		if($newpin) {
+			if(!$pin) {
+				echo $TEMPLATE["pin_set_new_invalid"];
+				return 0;
+			} else {
+				return 1;
+			}
+		}
+
 		$result = mysql_query(sprintf("SELECT pin FROM prefs WHERE extension='%s'", $extension));
 		if(!$result) db_error();
 
 		$row = mysql_fetch_array($result, MYSQL_NUM);
 		if(!$row || !$row[0]) {
-			if(!$newpin && !$pin) {
-				if(!(isset($_POST["op"]) && $_POST["op"] == "Set PIN")) {
-					echo $TEMPLATE["viewcalls_start_noext"];
-					echo $TEMPLATE["no_pin"];
-					$extension_ok = 0;
-					do_end();
+			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='getwakes' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
+					getenv("REMOTE_ADDR")));
+			if(!$result) db_error();
+			$log_row = mysql_fetch_row($result);
+
+			echo $TEMPLATE["viewcalls_start_noext"];
+			if($log_row[0] >= 3) {
+				echo $TEMPLATE["too_many_newpins"];
+				log_ext($extension, "getwakes", "failure", "too_many_newpins");
+			} else {
+				$pin = "";
+				for($i = 0; $i < 4; $i++) $pin .= rand(0, 9);
+				if(!$row) {
+					if(!mysql_query("INSERT INTO prefs (extension, pin, forgot_pin) VALUES ('$extension', '$pin', 1)")) db_error();
 				} else {
-					$extension_ok = 1;
-					return 1;
+					if(!mysql_query("UPDATE prefs SET pin='$pin', forgot_pin=1 WHERE extension='$extension'")) db_error();
 				}
+
+				echo $TEMPLATE["no_pin"];
+				echo "<p>(But since we don't actually make calls yet, I'll just tell you that the PIN is $pin.)</p>\n";
+				log_ext($extension, "getwakes", "failure", "gen_pin");
 			}
+			$extension_ok = 0;
+			do_end();
 		} else {
 			$goodpin = $row[0];
 
-			if($pin) {
-				$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
-						$extension, getenv("REMOTE_ADDR")));
-				if(!$result) db_error();
+			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
+					$extension, getenv("REMOTE_ADDR")));
+			if(!$result) db_error();
 
-				$count = 0;
-				$lockout = 0;
-				while($row = mysql_fetch_array($result, MYSQL_NUM)) {
-					if($row[0] >= 3) {
-						$count++;
-						if($row[1] == $extension && $row[2] == getenv("REMOTE_ADDR")) {
-							$lockout = 2;
-							break;
-						}
-					} else if($row[0] == 2) {
-						$lockout = 1;
+			$count = 0;
+			$lockout = 0;
+			while($row = mysql_fetch_array($result, MYSQL_NUM)) {
+				if($row[0] >= 3) {
+					$count++;
+					if($row[1] == $extension && $row[2] == getenv("REMOTE_ADDR")) {
+						$lockout = 2;
+						break;
 					}
+				} else if($row[0] == 2) {
+					$lockout = 1;
 				}
+			}
 
-				if($count > 1) $lockout = 2;
+			if($count > 1) $lockout = 2;
 
-				if($lockout == 2) {
-					echo $TEMPLATE["pin_bruteforce"];
-					$error = "pin_bruteforce";
-				} else if($pin != $goodpin) {
-					if($lockout) echo $TEMPLATE["pin_bruteforce_warn"];
-					echo $TEMPLATE["pin_error"];
-					$error = "pin_error";
-				} else {
-					$ok = 1;
-				}
+			if($lockout == 2) {
+				echo $TEMPLATE["pin_bruteforce"];
+				$error = "pin_bruteforce";
+			} else if($pin != $goodpin) {
+				if($lockout) echo $TEMPLATE["pin_bruteforce_warn"];
+				echo $TEMPLATE["pin_error"];
+				$error = "pin_error";
 			} else {
 				$ok = 1;
 			}
 		}
 	}
 
-	if($ok) {
-		if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
-			$extension, "getwakes", "success", getenv("REMOTE_ADDR")))) db_error();
-	} else {
-		if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, data, ip) VALUES ('%s', '%s', '%s', NOW(), '%s', '%s')",
-				$extension, "getwakes", "failure", $error, getenv("REMOTE_ADDR")))) db_error();
-	}
+	log_ext($extension, "getwakes", $ok ? "success" : "failure", $error);
 
 	return $ok;
 }

@@ -29,7 +29,8 @@ Main page (wake-up call list, index.php) items:
 
 	viewcalls_start: Start of the 'view wake-up calls' page.  This will be called immediately after 'page_start'.
 	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
-	no_pin: Yell at the user for not having a PIN and let them set one.
+	no_pin: Tell the user that we've generated a PIN and will be calling them shortly.
+	too_many_newpins: Complain that there have been too many PIN generations triggered from this IP.
 	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
 	viewcalls_end_noext: This is called instead of viewcalls_end if we don't know the user's extension.
 

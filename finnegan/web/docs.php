@@ -9,6 +9,14 @@ and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.
 END_FAQITEM
 ),
 
+	array("Does Finnegan have a 'snooze button' feature?", <<<END_FAQITEM
+Yes, press any button your phone's keypad during a wake-up call,
+and it will act as if you had pressed the snooze button on a regular
+alarm clock.  That is, you will be called again in 9 minutes.  You can
+only snooze up to 4 times on the same instance of a wake-up call.
+END_FAQITEM
+),
+
 	array("Who recorded those fabulous messages?", <<<END_FAQITEM
 The prompts, numbers, and the "This is your wake-up call" and "WAKE UP!!" wake-up messages
 were recorded by <a href="http://www.zevils.com/">Matthew Sachs</a>.

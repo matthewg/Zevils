@@ -136,16 +136,14 @@ END_DELETE_CONFIRM
 
 	"no_pin" => <<<END_NO_PIN
 <p class="error">
-You have not set a PIN.  Please set one now using the form below.  Your PIN may be between one
-and four digits long.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
-Your PIN is not protected by very strong security.<br />
-<input type="hidden" name="oldpin" value="" /><br />
-New PIN: <input type="password" name="pin1" size="5" maxlength="4" /><br />
-Confirm new PIN: <input type="password" name="pin2" size="5" maxlength="4" /><br />
-<input type="submit" name="op" value="Set PIN" />
+Your extension does not have a PIN.  We've generated a random one for you, and
+will be calling you with it shortly.  If you're not at your phone right now,
+come back here when you are, and type in your extension and click "Forgot PIN".
 </p>
 END_NO_PIN
 ,
+
+	"too_many_newpins" => errmsg("This computer has caused too many PINs to be generated.  Please try again later."),
 
 	"viewcalls_end" => <<<END_VIEWCALLS_END
 <p>
@@ -267,9 +265,12 @@ Time: <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><
 2. Select a wake-up message.  This is the message you will hear when you pick up your wake-up call.<br />
 Messages:
 </p><ol>
-<!-- <li>"Hello, this is Matthew Sachs, and I pronounce 'Finnegan' as 'Finnegan'.</li> -->
-<li>"This is your wake-up call."</li>
-<li>"WAKE UP!!"</li>
+<!-- <li><a href="messages/finnegan-pronounce.mp3">"Hello, this is Matthew Sachs, and I pronounce 'Finnegan' as 'Finnegan'.</a></li> -->
+<li><a href="messages/finnegan-standard.mp3">"This is your wake-up call."</li>
+<li><a href="messages/finnegan-shout.mp3">"WAKE UP!!"</a></li>
+<li><a href="messages/finnegan-medley.mp3">Musical Medley</a.</li>
+<li><a href="messages/finnegan-atomant.mp3">"Up and at 'em, Atom Ant"</a></li>
+<li><a href="messages/finnegan-sleepyhead.mp3">"Wake up, wake up you sleepy head"</a></li>
 </ol><p>
 Message: <input type="text" name="message" size="3" maxlength="2" value="__MESSAGE__" />
 </p><p>
