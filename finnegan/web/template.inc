@@ -51,7 +51,7 @@
  *		Form parameters:
  *			extension: User's extension
  *			pin: User's PIN (4-digit number).  If the user did not previously have a PIN, and one is present here, a PIN will be set.  Otherwise, this must match the user's previously-set PIN.
- *			save: If this parameter is present, the user's PIN and extension will be saved in a cookie.
+ *			saveping: If this parameter is present, the user's PIN will be saved in a cookie.
  *			op: Either 'login' to log the user in, or 'forgotpin' to have the system call the user's extension and tell the user his/her PIN.
  *
  *	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
@@ -94,7 +94,7 @@
  *
  *	Link to take the user to a documentation page. (docs.php)
  *
- *	Submitting to index.php with op='delcookie' will clear the user's saved PIN and extension.
+ *	Submitting to index.php with op='Log Out' will clear the user's saved PIN.
  *
  *	Submitting to index.php with op='setpin', and parameters 'oldpin', 'pin1', and 'pin2'
  *	will change the user's PIN.  oldpin must match the previous PIN, and pin1 and pin2
@@ -210,6 +210,17 @@ END_WAKE_LIST_END
 ,
 
 	"viewcalls_end" => <<<END_VIEWCALLS_END
+<p>
+Use this form to set or change your PIN.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
+Your PIN is not protected by very strong security. <br />
+Old PIN: <input type="password" name="oldpin" size="5" length="4" /><br />
+New PIN: <input type="password" name="pin1" size="5" length="4" /><br />
+Confirm new PIN: <input type="password" name="pin2" size="5" length="4" /><br />
+<p>
+Log out to have your browser forget your PIN.  Note that you should do this even if you did
+not check the "Save PIN" box, unless you want the browser to remember your PIN.<br />
+<input method="submit" name="op" value="Log Out" />
+</p>
 </form>
 END_VIEWCALLS_END
 ,
@@ -226,11 +237,11 @@ Welcome to Finnegan, the Brandeis wake-up call system, brought to you by the <a 
 and the <a href="http://www.brancog.org/">Computer Operators Group</a>.
 </p><p>
 Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.
-If you'd like your extension and PIN to be saved on this computer, check the 'Save Information' box.
+If you'd like your PIN to be saved on this computer, check the 'Save PIN' box.
 </p><p>
 Extension: <input type="text" name="extension" size="6" length="5" value="__EXTENSION__" /><br />
 PIN: <input type="password" name="pin" size="5" length="4" /><br />
-<input type="checkbox" name="save" value="1" />Save Information<br />
+<input type="checkbox" name="savepin" value="1" />Save PIN<br />
 <input type="submit" name="op" value="View Wake-up Calls" />
 </p>
 END_GET_EXTENSION
@@ -271,6 +282,14 @@ The PIN you entered is incorrect.  If you've forgotten your PIN, please
 click the "Forgot PIN" button, and the system will call you with your PIN.
 </p>
 END_PIN_ERROR
+,
+
+	"pin_mismatch" => <<<END_PIN_MISMATCH
+<p class="error">
+The values you entered for 'New PIN' and 'Confirm New PIN' don't match.
+Please try again.
+</p>
+END_PIN_MISMATCH
 ,
 
 	"pin_empty" => <<<END_PIN_EMPTY
