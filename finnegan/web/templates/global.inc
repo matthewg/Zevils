@@ -96,7 +96,16 @@ END
 );
 
 if($FinneganConfig->testmode) {
-	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server</h1>';
+	$TEMPLATE["global"]["start"] .= <<<END
+<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server</h1>
+<p class="status"><big>Finnegan is still under active development.  Please have patience while we
+finish writing and testing the system.  In particular, our capacity is currently very limited.
+In particular, if you try to set a wake-up call and get a message that no phone lines are available,
+we are aware of the problem.  For announcements about the service, or if you have anything you'd like to
+say about it, visit <a href="http://my.brandeis.edu/bboard/q-and-a?topic%5fid=592">the Finnegan bboard</a>.</big></p>
+END
+;
+
 }
 if($FinneganConfig->nocalls) {
 	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
