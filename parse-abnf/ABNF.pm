@@ -387,13 +387,156 @@ sub _printparse {
 	return $retval;
 }
 
-# Helper method for add
-sub add_ruleparse($$$;$) {
-	my ($self, $rule, $intoks, $parent) = @_; # Do not use this method while intoksicated! ;)
+############################################################
+# Helper methods for add
+# This is where a parse is turned into an op tree.
+
+# Returns the number of vaules in an op
+sub values($$) {
+	my ($self, $op) = @_;
+
+	return scalar(@{$op->{value}}) if $op->{value};
+	return 0;
+}
+
+# Promote an op into an OP_TYPE_OPS, encapsulating existing values a sub-ops.
+# This can even be used on ops that are alread OP_TYPE_OPS in cases like foo *bar.
+sub promote_op($$;$) {
+	my ($self, $op, $parentreps) = @_;
+	my $newval;
+
+	if($self->values($op)) {
+		$newval = {
+			mode => $op->{mode},
+			type => $op->{type},
+			values => $op->{value}
+		};
+		if(!$parentreps) {
+			$newval->{minreps} = $op->{minreps} if exists($op->{minreps});
+			$newval->{maxreps} = $op->{maxreps} if exists($op->{maxreps});
+
+			delete $op->{minreps};
+			delete $op->{maxreps};
+		}
+	}
+
+	$op->{mode} = OP_MODE_AGGREGATOR;
+	$op->{type} = OP_TYPE_OPS;
+	$op->{value} = [];
+	push @{$op->{value}}, $newval if $newval;
+}
+
+# Insert a value into an op.
+sub insert_value($$$$) {
+	my ($self, $op, $type, $value) = @_;
+	my ($minreps, $maxreps, $ourrep);
+
+	if($self->{nextrep}) {
+		$self->{nextrep} =~ /(\d*)\*?(\d*)/;
+		$minreps = $1 || 0;
+		$maxreps = $2 || -1;
+	}
+
+	# We set nextalt when we encounter a /
+	# At this point, it means that the previous token should be alternated with the current token.
+	#
+	if($self->{nextalt}) {
+		delete $self->{nextalt};
+		if($self->values($op) > 1 and $op->{mode} != OP_MODE_ALTERNATOR) {
+			$self->promote_op($op);
+			my $newval = {
+				mode => OP_MODE_ALTERNATOR,
+				type => $type,
+				value => [pop @{$op->{value}}]
+			};
+			push @{$op->{value}}, $newval;
+			return $self->insert_value($newval, $type, $value);
+		} else {
+			$op->{mode} = OP_MODE_ALTERNATOR;
+		}
+	}
+	$op->{mode} ||= OP_MODE_AGGREGATOR;
+
+	if($self->{nextrep}) {
+		$ourrep = 1;
+		delete $self->{nextrep};
+		if($self->values($op)) {
+			$self->promote_op($op, 1);
+			my $newval = {
+				mode => OP_MODE_AGGREGATOR,
+				type => $type,
+				minreps => $minreps,
+				maxreps => $maxreps
+			};
+			push @{$op->{value}}, $newval;
+			return $self->insert_value($newval, $type, $value);
+		} else {
+			$op->{minreps} = $minreps;
+			$op->{maxreps} = $maxreps;
+		}
+	}
+
+	# "foo" bar, or something of the sorts - promote rule to an op and encapsulate the existing and new rules.
+	# Or if rule is already an op, just encapsulate the new value.
+	if(exists($op->{type}) and $op->{type} != $type) { 
+		my $newval = {
+			mode => $op->{mode},
+			type => $type,
+		};
+		$self->promote_op($op) if $op->{type} != OP_TYPE_OPS;
+		push @{$op->{value}}, $newval;
+		return $self->insert_value($newval, $type, $value);
+	}
+	$op->{type} = $type;
+
+	if($type == OP_TYPE_NUMVAL) {
+		$value =~ /^\s*([bdx])([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)\s*$/;
+		my $numtype = $1;
+		my $left = $2;
+		my $conjunction = $3;
+		my $right = $4;
+		if($numtype eq "x") {
+			$left = hex $left;
+			$right = hex $right if $right;
+		} elsif($numtype eq "b") {
+			$left = oct "0b$left";
+			$right = oct "0b$right" if $right;
+		}
+		if($conjunction) {
+			if($self->values($op) and $op->{mode} != OP_MODE_ALTERNATOR) {
+				my $newval = {
+					mode => OP_MODE_ALTERNATOR,
+					type => $type
+				};
+				if($ourrep) {
+					$newval->{minreps} = delete $op->{minreps};
+					$newval->{maxreps} = delete $op->{maxreps};
+				}
+				$self->promote_op($op);
+				push @{$op->{value}}, $newval;
+				$op = $newval;
+			} else {
+				$op->{mode} = OP_MODE_ALTERNATOR;
+			}
+				
+			if($conjunction eq "-") {
+				push @{$op->{value}}, map {chr} ($left..$right);
+			} elsif($conjunction eq ".") {
+				push @{$op->{value}}, chr($left), chr($right);
+			}
+		} else {
+			push @{$op->{value}}, chr($left);
+		}
+	} else {
+		push @{$op->{value}}, $value;
+	}
+}
+
+sub add_ruleparse($$$;$\@) {
+	my ($self, $rule, $intoks, $parent, @saverules) = @_; # Do not use this method while intoksicated! ;)
 	my @intoks = ref($intoks) eq "GLOB" ? @{*$intoks} : @$intoks;
 	my $rulename = "";
-	my $intok;
-	my @saverules;
+	my ($intok, $type, $value);
 
 	$rulename = ${*$intoks} if ref($intoks) eq "GLOB";
 	#print tabify("$rulename\n") if $rulename;
@@ -410,168 +553,70 @@ sub add_ruleparse($$$;$) {
 		if(ref($intok) eq "GLOB") {
 			#print tabify("Got GLOB.\n");
 			$tablevel++;
-			$self->add_ruleparse($rule, $intok, $rulename);
+			$self->add_ruleparse($rule, $intok, $rulename, @saverules);
 			$tablevel--;
 		} elsif(ref($intok) eq "ARRAY") {
 			#print tabify("Got ARRAY.\n");
-			$self->add_ruleparse($rule, $intok, $rulename);
+			$self->add_ruleparse($rule, $intok, $rulename, @saverules);
 		} else {
-			#print tabify("Got $parent/$rulename/$intok.\n");
-			if($rulename eq "rulename" or $rulename eq "group" or $rulename eq "option" or $rulename =~ /(char|bin|dec|hex)-val/) {
-				my ($type, $minreps, $maxreps, $rulebak);
-
-				if($rulename eq "char-val") {
-					$type = OP_TYPE_CHARVAL;
-				} elsif($rulename =~ /val$/) {
-					$type = OP_TYPE_NUMVAL;
-				} else {
-					$type = OP_TYPE_OPS;
-				}
-
-				# We set nextalt when we encounter a /
-				# At this point, it means that the previous token should be alternated with the current token.
-				#
-				if($self->{nextalt}) {
-					if($rule->{value} and scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) {
-						my $newval = {
-							mode => OP_MODE_ALTERNATOR,
-							type => $rule->{type},
-							value => [pop @{$rule->{value}}]
-						};
-						push @{$rule->{value}}, $newval;
-						$rulebak = $rule;
-						$rule = $newval;
-					} else {
-						$rule->{mode} = OP_MODE_ALTERNATOR;
-					}
-					delete $self->{nextalt};
-				}
-
-				$rule->{mode} ||= OP_MODE_AGGREGATOR;
-
-				if($self->{nextrep}) {
-					$self->{nextrep} =~ /(\d*)\*?(\d*)/;
-					$minreps = $1 || 0;
-					$maxreps = $2 || -1;
-				}
-
-				if($rulename eq "option") {
-					if($intok =~ /\s*\[\s*/) {
-						croak "ABNF error: Repetition specified on option!" if $self->{nextrep}; # Just in case the user does something stupid like 1*[foo]
-						$rule->{type} ||= OP_TYPE_OPS;
-						push @saverules, $rule;
-						$rule = {};
-						$rule->{minreps} = 0;
-						$rule->{maxreps} = 1;
-						push @{$saverules[-1]->{value}}, $rule;
-					} else { # "]"
-						$rule = pop @saverules;
-					}
-				} elsif($rulename eq "group") {
-					if($intok =~ /\s*\(\s*/) {
-						$rule->{type} ||= OP_TYPE_OPS;
-						push @saverules, $rule;
-						$rule = {};
-						if($self->{nextrep}) {
-							$rule->{minreps} = $minreps;
-							$rule->{maxreps} = $maxreps;
-							delete $self->{nextrep};
+			#print STDERR tabify("Got $parent/$rulename/$intok(".scalar(@saverules).").\n");
+			if($rulename eq "group" or $rulename eq "option") {
+				if($intok =~ /[\(\[]/) { # group/option start
+					push @saverules, $rule;
+					if($self->{nextalt}) {
+						if($rule->{mode} and $rule->{mode} != OP_MODE_ALTERNATOR) { # foo / (bar baz)
+							$type = $rule->{type};
+							$value = pop @{$rule->{value}};
+							$self->promote_op($rule) unless $rule->{type} == OP_TYPE_OPS;
+							my $newval = {
+								mode => OP_MODE_ALTERNATOR
+							};
+							delete $self->{nextalt};
+							$self->insert_value($newval, $type, $value);
+							push @{$rule->{value}}, $newval;
+							$rule = $newval;
 						}
-						push @{$saverules[-1]->{value}}, $rule;
-					} else { # ")"
-						$rule = pop @saverules;
+					} else {
+						$self->promote_op($rule);
 					}
-				} elsif($rulename =~ /-val$/ or $rulename eq "rulename") {
-					my $tmprule = $rule;
 
-					# Okay, at this point $intok is a value of some sort: either a rule or a (char,num)-val
+					push @{$rule->{value}}, {};
+					$rule = $rule->{value}->[-1];
 
 					if($self->{nextrep}) {
+						croak "ABNF error: Repetition specified on option!" if $rulename eq "option"; # Just in case the user does something stupid like 1*[foo]
+
+						$self->{nextrep} =~ /(\d*)\*?(\d*)/;
+						$rule->{minreps} = $1 || 0;
+						$rule->{maxreps} = $2 || -1;
+
 						delete $self->{nextrep};
-						$tmprule = {};
-						$tmprule->{type} = $type;
-						$tmprule->{minreps} = $minreps;
-						$tmprule->{maxreps} = $maxreps;
-						$tmprule->{mode} = $rule->{mode};
-
-						# In the event of something like "foo" *"bar", we need to put "bar"
-						# inside its own op so that we can give it separate (min,max)reps.
-						# If rule has values and isn't an op (if it doesn't have values it won't have a type either)
-						#  then we promote it to an op and encapsulate its existing values.
-						$rule->{type} ||= OP_TYPE_OPS;
-						if($rule->{type} != OP_TYPE_OPS) {
-							$rule->{value} = [
-								{
-									type => $rule->{type},
-									mode => $rule->{mode},
-									value => $rule->{value}
-								},
-								$tmprule
-							];
-							
-							$rule->{type} = OP_TYPE_OPS;
-						} elsif($rule->{value} and scalar(@{$rule->{value}})) {
-							push @{$rule->{value}}, $tmprule;
-						} else {
-							$tmprule = $rule;
-							$rule->{minreps} = $minreps;
-							$rule->{maxreps} = $maxreps;
-						}
+					} elsif($rulename eq "option") {
+						$rule->{minreps} = 0;
+						$rule->{maxreps} = 1;
 					}
-
-					# "foo" bar, or something of the sorts - promote rule to an op and encapsulate the existing and new rules.
-					# Or if rule is already an op, just encapsulate the new value.
-					if(exists($tmprule->{type}) and $tmprule->{type} != $type) { 
-						my $newval = {
-							mode => $tmprule->{mode},
-							type => $type,
-						};
-						if($tmprule->{type} != OP_TYPE_OPS) {
-							$tmprule->{value} = [
-								{
-									type => $tmprule->{type},
-									mode => $tmprule->{mode},
-									value => $tmprule->{value}
-								},
-								$newval
-							];
-							$tmprule->{type} = OP_TYPE_OPS;
-						} else {
-							push @{$tmprule->{value}}, $newval;
-						}
-						$tmprule = $newval;
-					}
-					$tmprule->{type} = $type;
-
-					if($rulename eq "bin-val" or $rulename eq "dec-val" or $rulename eq "hex-val") {
-						$intok =~ /^\s*[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)\s*$/;
-						my $left = $1;
-						my $conjunction = $2;
-						my $right = $3;
-						if($rulename eq "hex-val") {
-							$left = hex $left;
-							$right = hex $right if $right;
-						} elsif($rulename eq "bin-val") {
-							$left = oct "0b$left";
-							$right = oct "0b$right" if $right;
-						}
-
-						if($conjunction) {
-							$tmprule->{mode} = OP_MODE_ALTERNATOR; #Is this always correct?  I think concatenated foo-vals always get their own op, no?
-
-							if($conjunction eq "-") {
-								push @{$tmprule->{value}}, map {chr} ($left..$right);
-							} elsif($conjunction eq ".") {
-								push @{$tmprule->{value}}, chr($left), chr($right);
-							}
-						} else {
-							push @{$tmprule->{value}}, chr($left);
-						}
-					} elsif($rulename eq "char-val" or $rulename eq "rulename") {
-						push @{$tmprule->{value}}, $intok;
-					}
+				} else { # group/option end
+					$rule = pop @saverules;
 				}
-				$rule = $rulebak if $rulebak;
+			} elsif($rulename eq "rulename" or $rulename =~ /(char|bin|dec|hex)-val/) {
+				if($rulename eq "rulename") {
+					$type = OP_TYPE_OPS;
+				} elsif($rulename =~ /char-val/) {
+					$type = OP_TYPE_CHARVAL;
+				} else {
+					$type = OP_TYPE_NUMVAL;
+				}
+
+				# Consider (*foo bar).  We need to make sure bar doesn't get foo's reps.
+				# We do this by forcing foo into its own op.  scalar(@saverules) means we're
+				# inside a group or option.
+				if(scalar(@saverules) and $self->{nextrep}) {
+					$self->promote_op($rule);
+					push @{$rule->{value}}, {};
+					$self->insert_value($rule->{value}->[-1], $type, $intok);
+				} else {
+					$self->insert_value($rule, $type, $intok);
+				}
 			} elsif($rulename eq "repeat") {
 				$intok =~ s/\s//g;
 				$self->{nextrep} = $intok;
