@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 $license = <<EOF
 Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
@@ -482,6 +482,7 @@ sub mainloop() {
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
+			$rin = $ein = '';
 			foreach $nick(keys %aim_connections) {
 				foreach $screenname(keys %{$aim_connections{$nick}{screennames}}) {
 					if(!$aim_connections{$nick}{screennames}{$screenname}{socket}) {
@@ -503,6 +504,16 @@ sub mainloop() {
 				next unless vec($ein, $fileno, 1) or vec($rin, $fileno, 1);
 				$nick = $fds[$fileno]->{nick};
 
+				if(vec($ein, $fileno, 1)) {
+					$screenname = $fds[$fileno]->{screenname};
+					$connection = $aim_connections{$nick};
+					$multinick = "";
+					$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick} or $connection->{screennames}{$screenname}{inchan};
+					irc_send(irc_privmsg($usnick, $nick, "There was an 511 error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+					do_signoff($nick, $connection->{screennames}{$screenname}{socket});
+					next;
+				}
+
 				if($nick eq $usnick) {
 					$_ = irc_recv(1); #Don't block
 					process_irc_message($_) if $_;
@@ -514,7 +525,7 @@ sub mainloop() {
 					if($msg eq "-1" and $! != EAGAIN) {
 						$multinick = "";
 						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick} or $connection->{screennames}{$screenname}{inchan};
-						irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+						irc_send(irc_privmsg($usnick, $nick, "There was an 526 error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 						do_signoff($nick, $connection->{screennames}{$screenname}{socket});
 					} elsif($msg ne "-1") {
 						process_aim_message($connection, $msg, $screenname);
@@ -803,7 +814,7 @@ sub process_irc_message($) {
 			if($sndata->{is_idle}) {
 				$sndata->{is_idle} = 0;
 				if($sndata->{socket} and set_idle($sndata->{socket}, 0) == -1 and $! != EAGAIN) {
-					irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection: $err", "", "", $screenname), 2);
+					irc_send(irc_privmsg($usnick, $nick, "There was an 815 error with your AOL Instant Messenger connection: $err", "", "", $screenname), 2);
 					do_signoff($nnick, $sndata->{socket});
 				}
 			}
@@ -2359,12 +2370,12 @@ sub timestuff($) {
 				next unless $sndata->{ison};
 				if($sndata->{socket}) {
 					if($sndata->{socket} and sflap_keepalive($sndata->{socket}) == -1 and $! != EAGAIN) {
-						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an 2371 error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 						do_signoff(normalize $connection->{nick}, $sndata->{socket});
 					} else {
 						if($sndata->{report_idle} and not $sndata->{is_idle} and ($currtime - $sndata->{idletime}) >= 360) {
 							if($sndata->{socket} and set_idle($sndata->{socket}, $currtime - $sndata->{idletime}) == -1 and $! != EAGAIN) {
-								irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+								irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an 2376 error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 								do_signoff($connection->{nick}, $sndata->{socket});
 							} else {
 								$sndata->{is_idle} = 1;
@@ -2372,7 +2383,7 @@ sub timestuff($) {
 						}
 					}
 				} elsif($! != EAGAIN) {
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+					irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an 2384 error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 					do_signoff($connection->{nick}, undef);
 				}
 			}
