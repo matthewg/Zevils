@@ -405,7 +405,7 @@ sub process_aim_message {
 
 		if(($ar eq "") and $connection->{away} and not $connection->{away_buddies}{$inick}) {
 			$connection->{away_buddies}{$inick} = 1;
-			my $msg = quote("toc_send_im $inick ") . "\"" . quote(txt2html($connection->{away})) . \" auto";
+			my $msg = quote("toc_send_im $inick ") . "\"" . quote(txt2html($connection->{away})) . "\" auto";
 			sflap_put($connection->{socket}, sflap_encode($msg, 0, 1));
 		}
 		$nicks{normalize($inick)}{$connection->{nick}} = time if $nicks{normalize($inick)}{$connection->{nick}} != -1;
