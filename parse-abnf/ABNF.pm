@@ -1,3 +1,6 @@
+# REP ROLLBACK!
+# RETVAL CONUNDRUM!
+
 # Parse::ABNF
 #
 # Copyright (c) 2001 Matthew Sachs <matthewg@zevils.com>.  All rights reserved.
@@ -186,6 +189,9 @@ if the final example given for a return value for C<matches> was exploded, it wo
         ]
     }
 
+Alright, I know it's all very confusing.  If you figure out a better way to explain it or a simpler
+way of doing it in the first place, let me know.
+
 =back
 
 =head1 SEE ALSO
@@ -344,23 +350,29 @@ sub rules($;$) {
 
 }
 
-# $rule is a hashref, not a rule name.  This doesn't work on OP_TYPE_OPS.
-sub _doesmatch($$$) {
-	my($self, $rule, $data) = @_;
-
-	if($rule->{type} == OP_TYPE_NUMVAL) {
-		return 1 if $data eq join("", @{$rule->{value}});
-	} elsif($rule->{type} == OP_TYPE_CHARVAL) {
-		return 1 if lc($data) eq lc(join("", @{$rule->{value}}));
-	} else {
-		croak "Invalid ABNF operand type: ".$rule->{type};
-	}
-
-	return 0;
-}
+# Woah, what's going on here?
+# What's with the matches being this thin wrapper for this _matches thing?
+# Well, _matches is recursive, right?  The child-matches needs to be able to
+# modify the parent-matches $data.  So we do this by declaring it dynamically scoped.
+#
+# But if we did that in the same scope as our matching routine, then when we recursed
+# we'd do that declaration again and hide the $data that we're interested in.
+# 
+# Hence the wrapper.
+#
+# If that makes sense to you then I congratulate you on your understanding of perl's scoping rules.
 
 sub matches($$$;@) {
-	my($self, $rule, $data, @matchrules) = @_;
+	my($self, $rule, $tmpdata, @matchrules) = @_;
+	our $data;
+	$data = $tmpdata;
+
+	$self->_matches($rule, @matchrules);
+}
+
+sub _matches($$;@) {
+	my($self, $rule, @matchrules) = @_;
+	no strict qw(vars); # We need this because $data comes from matches which the compiler doesn't know yet.
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -374,7 +386,7 @@ sub matches($$$;@) {
 		$rule = $self->{$rule} or croak "Unknown ABNF rule: $rule";
 	}
 
-	my ($rep, $maxreps, $minreps, $mode, @matchdata, $matchdatum, $didmatch, $retval);
+	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata);
 
 	# What, I go to the trouble of writing a parser for you and now you want me to comment it?
 	# Especially the really complex critical methods?  Fine, I guess you don't care if your little
@@ -391,26 +403,40 @@ sub matches($$$;@) {
 	# Bar doesn't match so we try baz.  That matches so it's on to buzz.  But buzz doesn't match, so we want to
 	# backtrack to the state of $data right after we matched foo before we try quux.
 	#
-	# Each operand has @matchdata.  We go through those in a loop, the terminating condidition of which varies
-	# depending on if the current op is an aggregator or an alternator.  The current @matchdata is $matchdatum.
-	# Really, I just did it that way because I wanted an excuse to use datum.  It makes me sound smart.
+	# Each operand has @matchvalues.  We go through those in a loop, the terminating condidition of which varies
+	# depending on if the current op is an aggregator or an alternator.  The current @matchvalues is $matchvalue.
+	#
+	#
+	# Oh, and this prevdata thing?  When we have an aggregator, we need to keep chopping away at data after
+	# a match.  But maybe halfway through the aggregator, a match will fail which causes the whole aggregator
+	# to fail.  And maybe we have another branch of an alternator that we can fall back on.  So data needs
+	# to be restored to the state it was in before we started down the failed aggregator.
 	
 
 	$maxreps = exists($rule->{maxreps}) ? $rule->{maxreps} : 1;
 	$minreps = exists($rule->{minreps}) ? $rule->{minreps} : 1;
-	@matchdata = @{$rule->{data}};
-	$mode = exists($rule->{mode}) ? OP_MODE_AGGREGATOR : OP_MODE_ALTERNATOR; #singleton is effectively the same as either one
+	@matchvalues = @{$rule->{value}};
+	$mode = exists($rule->{mode}) ? $rule->{mode} : OP_MODE_ALTERNATOR; #singleton is effectively the same as either one
 
-	REP: for($rep = 0; $rep >= $minreps and ($maxreps == -1 or $rep < $maxreps); $rep++) {
+	REP: for($rep = 0; $rep < $minreps or ($maxreps == -1 or $rep < $maxreps); $rep++) {
 		$didmatch = 1;
-		MATCHDATUM: foreach $matchdatum(@matchdata) {
+		$prevdata = $data;
+		MATCHVALUE: foreach $matchvalue(@matchvalues) {
 			if($rule->{type} != OP_TYPE_OPS) {
-				$didmatch = $self->_doesmatch($rule, $data);
-				if($didmatch and exists($matchrules{$tokname})) {
-					push @$retval, $data;
+				if($rule->{type} == OP_TYPE_NUMVAL) {
+					$didmatch = substr($data, 0, length($matchvalue)) eq $matchvalue;
+				} elsif($rule->{type} == OP_TYPE_CHARVAL) {
+					 $didmatch = substr(lc($data), 0, length($matchvalue)) eq lc($matchvalue);
+				} else {
+					croak "Invalid ABNF operand type: ".$rule->{type};
 				}
+				if($didmatch) {
+					push @$retval, $data if exists($matchrules{$tokname});
+					$data = substr($data, length($matchvalue)); # Exorcise the bit that we matched from the start of $data
+				}
+
 			} else {
-				$didmatch = $self->matches($rule, $data, @matchrules);
+				$didmatch = $self->_matches($matchvalue, @matchrules);
 				if($didmatch and exists($matchrules{$tokname})) {
 					if(ref($rule)) {
 						push @$retval, $didmatch;
@@ -421,11 +447,12 @@ sub matches($$$;@) {
 			}
 
 			# We have a couple of terminal conditions for matching this op...
-			last MATCHDATUM if $mode == OP_MODE_ALTERNATOR and $didmatch;
-			last MATCHDATUM if $mode == OP_MODE_AGGREGATOR and not $didmatch;
+			last MATCHVALUE if $mode == OP_MODE_ALTERNATOR and $didmatch;
+			last MATCHVALUE if $mode == OP_MODE_AGGREGATOR and not $didmatch;
 		}
 
 		if(!$didmatch) {
+			$data = $prevdata;
 			if($rep+1 >= $minreps) {
 				$didmatch = 1;
 				last REP;
@@ -709,7 +736,7 @@ use constant ABNF_PARSETREE => {
 };
 
 sub BEGIN {
-	$ABNF = { ABNF_PARSETREE };
+	$ABNF = ABNF_PARSETREE;
 	bless $ABNF, "Parse::ABNF";
 }
 
