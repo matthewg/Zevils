@@ -2428,6 +2428,7 @@ sub irc_quit($;$) {
 sub irc_invite($$$) {
 	my($from, $channel, $who) = @_;
 
+	return "" if $servermode eq "bahamut" and $who =~ /^$prefix/;
 	return ":$from INVITE $who $channel\r\n";
 }
 
