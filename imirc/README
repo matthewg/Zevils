@@ -40,6 +40,10 @@ like this:
 	http://www.zevils.com/programs/imirc/imstat/ and add yourself to the
 	networks list.
 
+	For information on dealing with nickname length limitations,
+	see the file README.ircu - it applies to many other IRC servers,
+	not just ircu.
+
 Usage:
 	You need an AOL Instant Messenger account.
 	Let's say your AIM account is tocname and the password is tocpass.
