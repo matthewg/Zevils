@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chantimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $numeric);
+use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chantimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $numeric $starttime);
 
 sub loadconf();
 sub loaddat($);
@@ -76,6 +76,8 @@ sub irc_quit($;$);
 sub irc_invite($$$);
 sub ircirfy($);
 sub bounce_join($$);
+
+$starttime = time;
 
 $| = 1;
 
@@ -1001,8 +1003,22 @@ sub process_irc_message($) {
 			%config = deref get_config $screenname if $screenname;
 		}
 
-		unless($screenname or ($cmd eq "signon") or ($cmd eq "help")) {
+		unless($screenname or ($cmd eq "stats") or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
+		} elsif($cmd eq "stats") {
+			if($param eq "users") {
+				irc_send(irc_privmsg($usnick, $nick, scalar(keys(%irc_connections)) . ": " . join(", ", keys %irc_connections)));
+			} elsif($param eq "uptime") {
+				my($days, $hours, $minutes, $seconds);
+				$seconds = time - $starttime;
+				$minutes = int($seconds / 60);
+				$seconds -= $minutes*60;
+				$hours = int($minutes / 60);
+				$minutes -= $hours*60;
+				$days = int($hours / 24);
+				$hours -= $days*24;
+				irc_send(irc_privmsg($usnick, $nick, sprintf("Up $days day(s), %02d:%02d:%02d", $hours, $minutes, $seconds)));
+			}
 		} elsif($cmd eq "signon") {
 			$param = normalize $param;
 			unless($param and $extra) {
