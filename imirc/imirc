@@ -1901,7 +1901,7 @@ sub oscar_buddy_info($$$) {
 		$msg .= " AOL" if $buddat->{aol};
 		$msg .= " AIM" if $buddat->{free};
 		$msg .= " ADMIN" if $buddat->{admin};
-		$msg .= " AWAY" if $buddyconf->{away};
+		$msg .= " AWAY" if $buddat->{away};
 		$msg .= "\r\n";
 
 		$msg .= "Warning Level: $buddat->{evil}%\r\n";
