@@ -85,7 +85,7 @@ sub BEGIN {
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 0.58 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.58;
+	$@ .= "We require Net::OSCAR 0.59 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.59;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -430,8 +430,13 @@ sub loadconf() {
 		} elsif($IO::Poll::VERSION < 0.05) {
 			print STDERR "Your version of IO::Poll is too old - falling back to select\n";
 			$usepoll = 0;
+		} elsif($Net::OSCAR::VERSION < 0.60) {
+			print STDERR "Your version of Net::OSCAR is not new enough for \$usepoll.\n";
+			print STDERR "\$usepoll requires Net::OSCAR 0.60 or newer; you have $Net::OSCAR::VERSION.\n";
+			print STDERR "Falling back to select.\n";
+			$usepoll = 0;
 		} elsif($IO::Poll::VERSION == 0.05) {
-			print STDERR "Your version of IO::Poll has the remove bug - enabling workaround\n";
+			print STDERR "Your version of IO::Poll has the remove bug - enabling workaround.\n";
 			*{IO::Poll::remove} = sub {
 				my $self = shift;
 				my $io = shift;
