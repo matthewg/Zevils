@@ -1657,6 +1657,12 @@ sub process_irc_message($) {
 	} elsif(/^NICK +(\S+) *(.*)/) { #Nick change
 		my $newnick = $1;
 		my(@args) = split(/\s+/, $2);
+
+		if($newnick =~ /^$prefix/) {
+			irc_send(irc_kill($usnick, $newnick, "Attempt to impersonate an AOL Instant Messenger user"));
+			return;
+		}
+
 		if($aim_connections->{$nick}) {
 			$newnick = new Net::OSCAR::Screenname $1;
 			foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
@@ -2513,6 +2519,11 @@ sub irc_recv(;$) {
 sub irc_stats($$) {
 	my($who, $what) = @_;
 	return ":$who STATS $what\r\n";
+}
+
+sub irc_kill($$$) {
+	my($sender, $target, $reason) = @_;
+	return ":$sender KILL $target :$reason\r\n";
 }
 
 # Warn if a screenname is being mangled to work with IRC
