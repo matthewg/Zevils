@@ -3932,6 +3932,7 @@ sub io_events($$;$) {
 sub kill_phantoms() {
 	while(my($handle, $associate) = each %fdmap) {
 		next unless UNIVERSAL::isa($associate, "Net::OSCAR::Connection");
+		next unless $associate->session();
 		next if grep {$_ eq $associate->session->screenname} keys %$irc_connections;
 		$associate->session->signoff;
 		io_events($handle, "deleted");
