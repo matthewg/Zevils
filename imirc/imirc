@@ -142,12 +142,13 @@ do { $upstream->print($ircservers{$servermode}{pass}) if $ourpass and $ircserver
 $upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $@\n";
 
 if($theirpass and $ircservers{$servermode}{theirpass}) {
-	while(($in !~ /PASS (.+)( :1)?/)) {
+	while(($in !~ /PASS (.+)/)) {
 		chomp($in = $upstream->getline);
 		warn "$in\n" if $debug >= 2;
 	}
 	
-	$in =~ /^PASS (.+)( :1)?/;
+	$in =~ s/ :1//;
+	$in =~ /^PASS (.+)/;
 	$pass = $1;
 	$pass =~ s/\s*//g;	#Remove spaces from crypted password
 	if($pass ne $theirpass and $pass ne crypt($theirpass, substr($pass, 0, 2))) { die("Upstream server gave the wrong password!\n"); }
