@@ -101,7 +101,7 @@ $version = $VERSION = '1.5 $Revision$';
 $prefix = "AIM-";
 $usnick = "IMServ";
 $oldnick = "AIMServ";
-$conversion = 0;
+$confversion = 0;
 $chatchan = "#aimchat-";
 $nickchan = "#aimchan-";
 $us = "imserv.your.irc.net";
