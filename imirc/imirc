@@ -205,9 +205,6 @@ sub loadconf() {
 		exit 1;
 	}
 
-	print "Output: $output\n" unless defined($output);
-	print "output\n";
-
 	if(defined $output) {
 		close STDOUT;
 		close STDERR;
@@ -226,7 +223,7 @@ sub loadconf() {
 
 	foreach $conffile(@conffiles) {
 		$conffile =~ s/~/$home/;
-		print STDERR "Trying to read config file $conffile\n" if $verbose;
+		print "Trying to read config file $conffile\n"; # if $verbose;
 		if(-r $conffile) {
 			print STDERR "Reading config file $conffile\n" if $verbose;
 			$confversion = 0;
