@@ -1599,9 +1599,13 @@ sub process_irc_message($) {
 				$oscar->get_away($param);
 			}
 		} elsif($cmd eq "relnotes") {
+			$param =~ s/^\*//;
 			if(!$param) {
-				irc_send(irc_privmsg($usnick, $nick, "Available release notes (ones you haven't seen are marked with a *): " .
-					join(", ", map { $sndata->{relnotes}->{$_} ? "\t$_" : "\t*$_" } keys %{RELNOTES()}), "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "Available release notes (ones you haven't seen are marked with a *): ", "", "", $screenname));
+				map {
+					irc_send(irc_privmsg($usnick, $nick, ($sndata->{relnotes}->{$_} ? "\t$_" : "\t*$_"), "", "", $screenname));
+				} keys %{RELNOTES()};
+				irc_send(irc_privmsg($usnick, $nick, "To view a release note, pass it as a parameter to the relnotes command (e.g. give $usnick the command relnotes 1.5", "", "", $screenname));
 			} elsif(RELNOTES()->{$param}) {
 				irc_send(irc_privmsg($usnick, $nick, RELNOTES()->{$param}, "", "", $screenname));
 				$sndata->{relnotes}->{$param} = 1;
@@ -2148,7 +2152,7 @@ sub oscar_signon_done($) {
 	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0203})) {
 		map { $sndata->{relnotes}->{$_} = 1 } split(",", $oscar->get_app_data()->{0x0203});
 	}
-	if(grep { !$sndata->{relnotes}->{$_} } keys %{RELNOTES()}, "", "", $screenname) {
+	if(grep { !exists($sndata->{relnotes}->{$_}) } keys %{RELNOTES()}) {
 		irc_send(irc_privmsg($usnick, $nick, "You have unseen release notes - use the $usnick relnotes command.", "", "", $screenname));
 	}
 
