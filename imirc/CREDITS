@@ -12,3 +12,4 @@ Thanks to:
 	Marko Asplund <aspa@hip.fi> for IO::Socket:SSL and help with same
 	geniusj (Chan reaping fix, Hybrid kick fix)
 	IpAddress (Syntax error fallthrough, Debugging)
+	VBScript (Debugging)
