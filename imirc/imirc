@@ -713,7 +713,7 @@ sub process_irc_message($) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
-	} elsif(!/#imirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +:(\S+)/i)) {
+	} elsif(!/#imirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +: *(\S+)/i)) {
 		my $screenname = new Net::OSCAR::Screenname $1;
 		$screenname =~ s/,.*//;
 		$nick = $2 if $2;
