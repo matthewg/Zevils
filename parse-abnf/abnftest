@@ -3,9 +3,29 @@
 use strict;
 use Data::Dumper;
 use ABNF;
+use vars qw($debuglevel);
+
+sub usage($) {
+	my $message = shift;
+
+	die <<EOF;
+$message
+Usage: abnftest [-d [debuglevel]] command parameters (give rules on standard input)
+
+command is one of optree or matches
+
+Parameters:
+	optree - no parameters
+	matches - rule datafile
+EOF
+}
 
 sub prettify {
 	my($rule, $tmp, $newrule) = shift;
+
+	#_mode and _type sort near the top of whatever order Data::Dumper uses.
+	#This way we get the important traits together at the top - makes
+	#things easier on the eyes.
 
 	$tmp = delete $rule->{type};
 	if($tmp == 1) {
@@ -31,19 +51,28 @@ sub prettify {
 	}
 }
 
-die "Usage: abnftest rule data optree|matches (give rules on standard input)\n" unless scalar @ARGV == 3;
+my ($action, $rule, $data) = ("", "", "");
+$action = shift;
+if($action and $action eq "-d") {
+	$debuglevel = 1;
+	$action = shift;
+	if($action =~ /^\d+$/) {
+		$debuglevel = $action;
+		$action = shift;
+	}
+}
+if($action and $action eq "matches") {
+	$rule = shift;
+	$data = shift;
+}
 
+usage("Too many parameters!") if @ARGV;
+usage("No command given!") unless $action;
+usage("Invalid command!") unless $action eq "optree" or $action eq "matches";
+usage("Not enough parameters!") if $action eq "matches" and (not $data or not $rule);
+	
 my @rules = <STDIN>;
-my $rule = shift;
-my $data = shift;
-my $action = shift;
 my $obj = Parse::ABNF->new(@rules);
-
-die "Invalid action!\n" unless $action eq "optree" or $action eq "matches";
-
-open(DATA, $data) or die "Couldn't open data: $data\n";
-$data = join("", <DATA>);
-close DATA;
 
 if($action eq "optree") {
 	#Print a version of obj without the core rules
@@ -51,12 +80,18 @@ if($action eq "optree") {
 	my $key;
 	%$printobj = %$obj;
 	foreach $key(keys %$printobj) {
+		next if $key eq "DEBUG";
 		delete $printobj->{$key} and next if $printobj->{$key}->{core};
 		prettify($printobj->{$key});
 	
 	}
-	warn Data::Dumper->new([$printobj])->Quotekeys(0)->Terse(1)->Dump(), "\n============\n";
+	print Data::Dumper->new([$printobj])->Quotekeys(0)->Terse(1)->Dump(), "\n============\n";
 } elsif($action eq "matches") {
+	open(DATA, $data) or die "Couldn't open data $data: $!\n";
+	$data = join("", <DATA>);
+	close DATA;
+
+	$obj->DEBUG($debuglevel);
 	my $parse = $obj->matches($rule, $data, "*");
 	die "No match!\n" unless $parse;
 	$obj->printparse($parse);
