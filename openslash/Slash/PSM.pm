@@ -125,6 +125,5 @@ sub _crapout($$$) {
 
 #The actual packages s/PSM-/PSM::/ in their package statement, but I wanted PSM/ to be reserved for the PSMs themselves.
 require Slash::PSM_SlashSite;
-require Slash::PSM_Section;
 
 1;
