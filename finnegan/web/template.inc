@@ -27,7 +27,7 @@
  *		ID: Unique identifier for this wake-up call
  *		DELETE: If 'SELECTED', this wake-up call was flagged for deletion.
  *			Otherwise, blank.  Note that wake-up calls marked for
- *			deletion will be wrapped in <div class="wake-delete">...</div>
+ *			deletion will be wrapped in <span class="wake-delete">...</span>
  *		TIME: Time that the wake-up call is set for
  *		MESSAGE: Number of the wake-up message that the call is using
  *		DATE: Date that the wake-up call is set for
@@ -36,13 +36,13 @@
  *		DELETE: As above
  *		TIME: As above
  *		MESSAGE: As above
- *		DAYS: List of days of week, with active ones in div class 'weekday-on',
+ *		DAYS: List of days of week, with active ones in span class 'weekday-on',
  *			temporarily inactive ones in class 'weekday-off', and temporarily
  *			active ones in class 'weekday-temp'.  For instance, for a wake-up
  *			call which is normally active on Monday, Wednesday, and Thursday,
  *			but this week the user has deactivated Wednesday and checked off
  *			Tuesday instead, DAYS would be set to:
- *				<div class="weekday-on">Mon</div>, <div class="weekday-temp">Tue</div>, <div class="weekday-off">Wed</div>, <div class="weekday-on">Thu</div>
+ *				<span class="weekday-on">Mon</span>, <span class="weekday-temp">Tue</span>, <span class="weekday-off">Wed</span>, <span class="weekday-on">Thu</span>
  *		CAL: Type of calendar that the wake-up call uses: 'Regular'/'Brandeis'/'National Holidays'
  *	wake_list_end: End of the wake-up call list
  *
@@ -113,6 +113,20 @@ $TEMPLATE = array(
 <html>
 <head>
 <title>__TITLE__</title>
+<style type="text/css">
+th {
+	font-weight: bold
+}
+.weekday-off {
+	text-decoration: line-through
+}
+.weekday-on {
+	
+}
+.weekday-temp {
+	font-style: italic
+}
+</style>
 </head>
 <body>
 END_PAGE_START
@@ -151,6 +165,7 @@ END_WAKE_LIST_START
 	<td><a href="mkwake.php?id=__ID__;extension=__EXTENSION__">Edit</a></td>
 	<td>__TIME__</td>
 	<td>__DATE__</td>
+	<td></td>
 </tr>
 END_WAKE_LIST_ITEM_ONCE
 ,

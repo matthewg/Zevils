@@ -58,7 +58,7 @@ $inv_months = array("Jan" => 1, "Feb" => 2, "Mar" => 3, "Apr" => 4, "May" => 5, 
 function date_to_user($sql_date) {
 	global $months;
 	if(!preg_match('/^\d\d\d\d-(\d\d)-(\d\d)$/', $sql_date, $matches)) return "";
-	$month = $matches[1];
+	$month = 0+$matches[1];
 	$day = $matches[2];
 	return array($months[$month], $day);
 }
@@ -68,6 +68,13 @@ function date_to_sql($month, $day) {
 	global $inv_months;
 	if(!isset($inv_months[$month])) return "";
 	return "1984-" . $inv_months[$month] . "-$day";
+}
+
+function do_end() {
+	global $TEMPLATE;
+	echo $TEMPLATE["form_end"];
+	echo $TEMPLATE["page_end"];
+	exit;
 }
 
 $extension = "";
@@ -96,31 +103,31 @@ if($extension_ok) {
 	);
 	$dbh = get_dbh();
 	if(!$dbh) {
-		echo preg_replaec("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);
-		goto end;
+		echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);
+		do_end();
 	}
 	printf('<input type="hidden" name="extension" value="%s">',
 		$extension);
 
 	$result = mysql_query("SELECT wake_id, time, message, date, std_weekdays, cur_weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
 	if(!$result) {
-		echo preg_replace("/__ERROR__/", "Invalid query: " . mysql_error(), $TEMPLATE["db_error"];
-		goto end;
+		echo preg_replace("/__ERROR__/", "Invalid query: " . mysql_error(), $TEMPLATE["db_error"]);
+		do_end();
 	} else {
-		$count = mysql_num_rows();
+		$count = mysql_num_rows($result);
 		echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wake_list_start"]);
 		while($count && ($row = mysql_fetch_assoc($result))) {
 			$delete = "";
-			if($_POST["op"] == "delete" && isset($_POST["id"][$row["wake_id"]])) {
+			if(isset($_POST["op"]) && $_POST["op"] == "delete" && isset($_POST["id"][$row["wake_id"]])) {
 				$delete = "SELECTED";
-				echo '<div class="wake-delete">';
+				echo '<span class="wake-delete">';
 			}
-			$date = date_to_user($row["date"]);
-			if(!$date) {
-				echo preg_replace("/__DATE__/", $row["date"], $TEMPLATE["date_error"]);
-				goto end;
-			}
-			if(isset($row["time"])) {
+			if($row["date"]) {
+				$date = date_to_user($row["date"]);
+				if(!$date) {
+					echo preg_replace("/__DATE__/", $row["date"], $TEMPLATE["date_error"]);
+					do_end();
+				}
 				echo preg_replace(
 					array("/__ID__/",
 					      "/__DELETE__/",
@@ -131,7 +138,7 @@ if($extension_ok) {
 					      $delete,
 					      $row["time"],
 					      $row["message"],
-					      $date),
+					      "$date[0] $date[1]"),
 					$TEMPLATE["wake_list_item_once"]
 				);
 			} else {
@@ -151,11 +158,11 @@ if($extension_ok) {
 					if(isset($cur_days_assoc[$day])) $cur = 1;
 
 					if($cur && $std)
-						$days[] = "<div class=\"weekday-on\">$day</div>";
+						$days[] = "<span class=\"weekday-on\">$day</span>";
 					else if($cur)
-						$days[] = "<div class=\"weekday-temp\">$day</div>";
+						$days[] = "<span class=\"weekday-temp\">$day</span>";
 					else if($std)
-						$days[] = "<div class=\"weekday-off\">$day</div>";
+						$days[] = "<span class=\"weekday-off\">$day</span>";
 				}
 				$daytext = implode(", ", $days);
 
@@ -182,7 +189,7 @@ if($extension_ok) {
 					$TEMPLATE["wake_list_item_recur"]
 				);
 			}
-			if($delete) echo "</div>";
+			if($delete) echo "</span>";
 		}
 		echo $TEMPLATE["wake_list_end"];
 	}
@@ -196,8 +203,6 @@ if($extension_ok) {
 	echo preg_replace("/__EXTENSION__/", $extension, $TEMPLATE["get_extension"]);
 }
 
-end:
-echo $TEMPLATE["form_end"];
-echo $TEMPLATE["page_end"];
+do_end();
 
 ?>
