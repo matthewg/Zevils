@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Modem::Vgetty;
+use POSIX;
+
+$pid = fork;
+exit if $pid;
+die "Couldn't fork: $!" unless defined($pid);
+
+POSIX::setsid() or die "Can't start a new session: $!";
+
+my $brancal_timestamp = 0;
+
+
+my $v = new Modem::Vgetty;
+$v->add_handler('BUSY_TONE', 'endh', sub { $v->stop; exit(0); });
+$v->add_handler('NO_DIAL_TONE', 'hangup', sub { $v->send("ATH0"); });
+local $SIG{ALRM} = sub { $v->stop; };
+$v->enable_events;
+$v->autostop("ON");
+$v->dial("92896");
+$v->waitfor("READY");
+
+$v->play_and_wait("/root/samples/816pm.rmd");
+$v->shutdown;
