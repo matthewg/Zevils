@@ -2525,6 +2525,8 @@ sub irc_stats($$) {
 
 sub irc_kill($$$) {
 	my($sender, $target, $reason) = @_;
+
+	do_signoff_all($target) if $aim_connections->{$target};
 	return ":$sender KILL $target :$reason\r\n";
 }
 
