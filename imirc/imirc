@@ -3445,8 +3445,6 @@ sub txt2html($) {
 				$inunderline = 1;
 				"<u>";
 			}
-		} elsif($1 eq $plain) {
-			$inbold = $initalic = $inunderline = 0;
 		}
 	!ge;
 	return $msg;
