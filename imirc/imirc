@@ -1468,7 +1468,7 @@ Buddy {
 # Process an incoming TOC message
 sub process_aim_message($$$) {
 	my ($connection, $msg, $screenname) = @_;
-	my($cmd, $val, $inick, $ar, $pounce);
+	my($cmd, $val, $inick, $ar, $pounce, %pouncehash, $pouncenum);
 	my($nnick) = normalize($connection->{nick});
 
 	my($multinick, $socket) = ("", $connection->{screennames}{$screenname}{socket});
@@ -1560,9 +1560,10 @@ sub process_aim_message($$$) {
 			unless($temp{Buddies}{$nnick}{online}) {
 				truncwarn($connection->{nick}, $inick);
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
-				$i = -1;
-				foreach $pounce(@{$connection->{screennames}{$screenname}{pounces}}) {
-					$i++;
+				$i = 0;
+				map { $pouncehash{$i++} = $_ } @{$connection->{screennames}{$screenname}{pounces}};
+				foreach $pouncenum(keys %pouncehash) {
+					$pounce = $pouncehash{$pouncenum};
 					Toc::debug_print("$pounce->{who} eq $nnick?", "IRC", 1);
 					next unless normalize $pounce->{who} eq $nnick;
 					Toc::debug_print("Yep.", "IRC", 1);
@@ -1575,10 +1576,14 @@ sub process_aim_message($$$) {
 					}
 					Toc::debug_print("Sending $tmp.", "IRC", 1);
 					message($socket, $nnick, $tmp, 1);
-					splice(@{$connection->{screennames}{$screenname}{pounces}}, $i, 1);
-					splice(@{$pounces{$screenname}}, $i, 1) if $savepounces > 0;
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $i sent to $pounce->{who}."));
-					$i--;
+					delete $pouncehash{$pouncenum};
+					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $pouncenum sent to $pounce->{who}."));
+				}
+				@{$connection->{screennames}{$screenname}{pounces}} = ();
+				map { push @{$connection->{screennames}{$screenname}{pounces}}, $_ } values %pouncehash;
+				if($savepounces > 0) {
+					@{$pounces{$screenname}} = ();
+					map { push @{$pounces{$screenname}}, $_ } values %pouncehash;
 				}
 			}
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 1);
