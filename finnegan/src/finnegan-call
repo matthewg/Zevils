@@ -29,6 +29,8 @@ $v->waitfor("READY");
 
 if($type eq "wake") {
 	$v->add_handler('RECEIVED_DTMF', 'readnum', sub {
+		$v->stop;
+		$v->expect("READY");
 		if($snooze_ok) {
 			$v->play_and_wait("../rmd/wake/snooze-ok.rmd");
 			$v->send("ATH0");
