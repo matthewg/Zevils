@@ -244,6 +244,7 @@ sub process_irc_message {
 		unless($aim_connections{$nick} or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password")) unless $param and $extra;
 			@ret = signon $param, $extra, sub {
 				irc_send(irc_privmsg($usnick, $nick, $_[0]))
 			};
@@ -301,6 +302,7 @@ sub process_irc_message {
 				delete $aim_connections{$nick};
 				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
 		} elsif ($cmd eq "buddyinfo") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname")) unless $param;
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			$param = lc($param);
 			$group = $temp{Buddies}{$param}{group};
@@ -315,14 +317,17 @@ sub process_irc_message {
 				irc_send(irc_privmsg($usnick, $nick,  "That persion is either not on your buddy list or not signed on."));
 			}
 		} elsif ($cmd eq "add_buddy") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: add_buddy screenname [group]")) unless $param;
 			$param = lc($param);
 			$group = $extra || "Buddies";
 			add_buddy($aim_connections{$nick}{socket}, $param, $group);
 		} elsif ($cmd eq "remove_buddy") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname")) unless $param;
 			$param = lc($param);
 			remove_buddy($aim_connections{$nick}{socket}, $param);
 			irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname [anon]")) unless $param;
 			$param = lc($param);
 			if($extra ne "anon") {
 				$extra = 0;
@@ -331,18 +336,23 @@ sub process_irc_message {
 			}
 			evil($aim_connections{$nick}{socket}, $param, $extra);
 		} elsif ($cmd eq "add_permit") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname")) unless $param;
 			$param = lc($param);
 			add_permit($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "add_deny") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname")) unless $param;
 			$param = lc($param);
 			add_deny($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "remove_deny") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname")) unless $param;
 			$param = lc($param);
 			remove_deny($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "remove_permit") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname")) unless $param;
 			$param = lc($param);
 			remove_permit($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "join") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_id OR join chat_name")) unless $param;
 			if($aim_connections{$nick}{chats}{$param} == 1) { #We're invited
 				chat_accept($aim_connections{$nick}{socket}, $param);
 			} else {
@@ -351,35 +361,46 @@ sub process_irc_message {
 		} elsif ($cmd eq "get_permit_mode") {
 			irc_send(irc_privmsg($usnick, $nick, $aim_connections{$nick}{permtype}));
 		} elsif ($cmd eq "set_permit_mode") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode")) unless $param;
 			$aim_connections{$nick}{permtype} = $param;
 			permtype($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "list_permit_modes") {
 			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
 		} elsif ($cmd eq "chat") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: chat chat_id text")) unless $param and $extra;
 			chat_send($aim_connections{$nick}{socket}, $param, $extra);
 		} elsif ($cmd eq "whisper") {
 			$extra =~ /(\S+) (.*)/;
+			irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text")) unless $param and $1 and $2;
 			chat_whisper($aim_connections{$nick}{socket}, $param, $1, $2);
 		} elsif ($cmd eq "chat_evil" or $cmd eq "chat_warn") {
-			$extra =~ /(\S+) (.*)/;
+			$extra =~ /(\S+) ?(.*)/;
+			irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd chat_id screenname [anon]")) unless $param and $extra;
 			$foo = undef;
 			$foo = "norm" if $2 ne "anon";
 			$foo ne "norm" ? $foo = 1 : $foo = 0;
-			evil($aim_connections{$nick}{socket}, $param, $foo);
+			chat_evil($aim_connections{$nick}{socket}, $param, $1, $foo);
 		} elsif ($cmd eq "invite") {
 			$param = lc($param);
-			$extra =~ /(\S+) (\S+)/;
+			$extra =~ /(\S+) (.+)/;
+			irc_send(irc_privmsg($usnick, $nick, "Usage: invite buddy1,buddy2,...,buddyN chat_id message")) unless $param and $1 and $2;
 			@temp = split(/,/, $param);
-			chat_invite($aim_connections{$nick}{socket}, $1, @temp, $2);
+			chat_invite($aim_connections{$nick}{socket}, $1, $2, @temp);
 		} elsif ($cmd eq "part") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: part chat_id")) unless $param;
 			delete $aim_connections{$nick}{chat}{$param};
 			chat_leave($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "info") {
 			$param = lc($param);
+			irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname")) unless $param;
 			get_info($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "set_info") {
-			set_info($aim_connections{$nick}{socket}, "$param $extra");
+			my $text;
+			irc_send(irc_privmsg($usnick, $nick, "Usage: set_info info")) unless $param;
+			$extra ? $text = "$param $extra" : $text = $param;
+			set_info($aim_connections{$nick}{socket}, $text);
 		} elsif ($cmd eq "get_dir") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname")) unless $param;
 			get_directory($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "set_dir") {
 			$param = "$param $extra" if $extra;
@@ -426,6 +447,7 @@ sub process_irc_message {
 		} elsif ($cmd eq "color") {
 			$aim_connections{$nick}{color} = $param;
 		} elsif ($cmd eq "add") {
+			irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname")) unless $param;
 			$param =~ tr/ //d; $inick = lc($param);
 			unless($nicks{normalize($inick)}) {
 				irc_send(irc_newnick($prefix . $param));
@@ -433,44 +455,54 @@ sub process_irc_message {
 			$nicks{$inick}{$nick} = time;
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
-			$upstream->print("$foo :aimirc $version, (c)1999 Matthew Sachs.\r\n");
-			$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
-			$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
-			$upstream->print("$foo :The following commands are available (use /msg $usnick command params to send):\r\n");
-			$upstream->print("$foo :NOTE: Remove all spaces from nicks.  nick is an AIM nick, not an IRC one.\r\n");
-			$upstream->print("$foo :help - show this screen\r\n");
-			$upstream->print("$foo :signon nick pass - sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands\r\n");
-			$upstream->print("$foo :signoff - sign off of AIM\r\n");
-			$upstream->print("$foo :buddyinfo name - get signon time, idle time, evil level, and user class for a buddy\r\n");
-			$upstream->print("$foo :add_buddy nick [group] - add nick to your buddy list.  If you give a group, buddy will be added to that group\r\n");
-			$upstream->print("$foo :remove_buddy nick - remove nick from your buddy list\r\n");
-			$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - warn nick, optionally anonymously\r\n");
-			$upstream->print("$foo :add_permit nick - add nick to your permit list, removing from deny list\r\n");
-			$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit and buddy lists\r\n");
-			$upstream->print("$foo :remove_permit nick - remove nick from permit list\r\n");
-			$upstream->print("$foo :remove_deny nick - remove nick from deny list\r\n");
-			$upstream->print("$foo :join topic - create and join a new chatroom with topic set to topic\r\n");
-			$upstream->print("$foo :chat chat_id message - send message to chat chat_id\r\n");
-			$upstream->print("$foo :whisper chat_id user message - whisper to user in chat chat_id\r\n");
-			$upstream->print("$foo :chat accept_ chat_id - accept an invitation to chat chat_id\r\n");
-			$upstream->print("$foo :invite buddy1,buddy2,...,buddyn chat_id message - invite buddies into a chat\r\n");
-			$upstream->print("$foo :info nick - get info for nick\r\n");
-			$upstream->print("$foo :set_info new info - set your info\r\n");
-			$upstream->print("$foo :onbuddies - list buddies who are currently on\r\n");
-			$upstream->print("$foo :buddylist - list all buddies\r\n");
-			$upstream->print("$foo :permitlist - see who is on your permit list\r\n");
-			$upstream->print("$foo :denylist - see who is on your deny list\r\n");
-			$upstream->print("$foo :get_permit_mode - see your current permit mode\r\n");
-			$upstream->print("$foo :set_permit_mode newmode - set your permit mode\r\n");
-			$upstream->print("$foo :list_permit_modes - list the valid permit modes and their definitions\r\n");
-			$upstream->print("$foo :get_dir nick - Get directory info for nick\r\n");
-			$upstream->print("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n");
-			$upstream->print("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n");
-			$upstream->print("$foo :bold 0/1 - When set to 1 (the default), HTML bold tags will be translated to their IRC formatting equivalent.\r\n");
-			$upstream->print("$foo :italic 0/1 - When set to 1 (the default), HTML italic tags will be translated to their IRC formatting equivalent.\r\n");
-			$upstream->print("$foo :underlined 0/1 - When set to 1 (the default), HTML underlined tags will be translated to their IRC formatting equivalent.\r\n");
-			$upstream->print("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n");
-			#$upstream->print("$foo :color 0/1 - When set to 1 (the default), HTML color (<FONT COLOR=...>)  tags will be translated to their IRC formatting equivalent.\r\n");
+			if($param eq "basics") {
+				$upstream->print("$foo :help - show this screen\r\n");
+				$upstream->print("$foo :signon nick pass - sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands\r\n");
+				$upstream->print("$foo :signoff - sign off of AIM\r\n");
+				$upstream->print("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n");
+				$upstream->print("$foo :get_permit_mode - see your current permit mode\r\n");
+				$upstream->print("$foo :set_permit_mode newmode - set your permit mode\r\n");
+				$upstream->print("$foo :list_permit_modes - list the valid permit modes and their definitions\r\n");
+			} elsif($param eq "buddies") {
+				$upstream->print("$foo :add_permit nick - add nick to your permit list, removing from deny list\r\n");
+				$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit and buddy lists\r\n");
+				$upstream->print("$foo :buddyinfo name - get signon time, idle time, evil level, and user class for a buddy\r\n");
+				$upstream->print("$foo :add_buddy nick [group] - add nick to your buddy list.  If you give a group, buddy will be added to that group\r\n");
+				$upstream->print("$foo :remove_buddy nick - remove nick from your buddy list\r\n");
+				$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - warn nick, optionally anonymously\r\n");
+				$upstream->print("$foo :remove_permit nick - remove nick from permit list\r\n");
+				$upstream->print("$foo :remove_deny nick - remove nick from deny list\r\n");
+				$upstream->print("$foo :onbuddies - list buddies who are currently on\r\n");
+				$upstream->print("$foo :buddylist - list all buddies\r\n");
+				$upstream->print("$foo :permitlist - see who is on your permit list\r\n");
+				$upstream->print("$foo :denylist - see who is on your deny list\r\n");
+			} elsif($param eq "chat") {
+				$upstream->print("$foo :join topic - create and join a new chatroom with topic set to topic\r\n");
+				$upstream->print("$foo :chat chat_id message - send message to chat chat_id\r\n");
+				$upstream->print("$foo :whisper chat_id user message - whisper to user in chat chat_id\r\n");
+				$upstream->print("$foo :accept chat_id - accept an invitation to chat chat_id\r\n");
+				$upstream->print("$foo :invite buddy1,buddy2,...,buddyn chat_id message - invite buddies into a chat\r\n");
+				$upstream->print("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - warn nick inside chat_id, optionally anonymously\r\n");
+				$upstream->print("$foo :part chat_id - leave chatroom chat_id\r\n");
+			} elsif($param eq "misc") {
+				$upstream->print("$foo :info nick - get info for nick\r\n");
+				$upstream->print("$foo :set_info new info - set your info\r\n");
+				$upstream->print("$foo :get_dir nick - Get directory info for nick\r\n");
+				$upstream->print("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n");
+				$upstream->print("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n");
+				$upstream->print("$foo :bold 0/1 - When set to 1 (the default), HTML bold tags will be translated to their IRC formatting equivalent.\r\n");
+				$upstream->print("$foo :italic 0/1 - When set to 1 (the default), HTML italic tags will be translated to their IRC formatting equivalent.\r\n");
+				$upstream->print("$foo :underlined 0/1 - When set to 1 (the default), HTML underlined tags will be translated to their IRC formatting equivalent.\r\n");
+			} else {
+				$upstream->print("$foo :aimirc $version, (c)1999 Matthew Sachs.\r\n");
+				$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
+				$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
+				$upstream->print("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n");
+				$upstream->print("$foo :basics buddies chat misc\r\n");
+				$upstream->print("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n");
+				$upstream->print("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to $prefixSomeDude.\r\n");
+				$upstream->print("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n");
+			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
