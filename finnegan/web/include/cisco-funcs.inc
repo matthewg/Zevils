@@ -28,7 +28,7 @@ function get_extension() {
 		} else {
 			$extension = $matches[1];
 
-			if(preg_match("/Product ID.*<TD>(.*?)\\b/mi", $phonepage, $matches))
+			if(preg_match("!Product ID.*?<TD>(.*?)\\b!mi", $phonepage, $matches))
 				$PHONE_MODEL = $matches[1];
 			else
 				$PHONE_MODEL = "";
@@ -80,7 +80,7 @@ function format_wake($wake) {
 		else if($wake["cal_type"] == "Brandeis")
 			$cal = "Brandeis";
 
-		return "x$time; $daytext; $cal";
+		return "$x$time; $daytext; $cal";
         }
 }
 
