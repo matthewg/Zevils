@@ -182,14 +182,26 @@ use Carp;
 # Well, if you're reading the source code, you probably want to know something about the internals of this beast.
 # First, a warning to the educated: I have no formal knowledge of parsing, so my terminology probably differs from yours.
 # What we do is we parse the ABNF that the user gives us and turn it into an "op tree".  This op tree is a sequence
-# of operands: "all-ops", "any-ops", or "terminal".  Each operand has a value, as well as an optional token name,
-# minimum repeat count, and maximum repeat count.  Terminal operands are the leafiest parts of the tree.  The value of
-# a terminal operand is a regular expression.  Terminal operands are used for expressing actual character data.
+# of operands: "ops", "char-val", or "num-val".  Each operand has a value, mode (OP_MODE_ALTERNATOR or OP_MODE_AGGREGATOR - 
+# see below) as well as an optional token name, minimum repeat count, and maximum repeat count.  Char-val and num-val are
+# terminal operands and are the leafiest parts of the tree.  The value of char-val is a string which is matched case-
+# insensitively.  The value of a num-val is a string which is matched as an exact byte-sequence.
 #
-# any-ops and all-ops are similar.  An any-op is a collection of alternative operands, similar to the '|' operator in
-# regular expressions.  An all-op is an ordered sequence of operands which must be matched in its entirety.  Both
-# any-ops and all-ops have lists of tokens as their values.  These lists can contain a mixture of strings which are
-# the names of other tokens and literal operands given as anonymous hashes.
+# Operands can have a number of traits.
+#
+# The first two traits, minreps and maxreps, work as a pair.  They are used to specify repeat counts - that is, how many
+# times an operand may be matched.  If they are not specified, an operand must be matched once and only once.  If one
+# is present, however, the other must also be present.  A maxreps of -1 is used to signify no upper bound on the number of
+# repetitions.
+#
+# Each operand can be an alternator, an aggregator, or a singleton.  An alternator will match any of its values once
+# and only once (per repeat - if maxreps is greater than 1, it may match a different operand on the next repetition.)
+# An aggregator must match all of its values in the order that they are present.  A singleton only has one value.
+# The singleton mode is the default.
+#
+# An op is a collection of operands.  It is used as a connector to form complicated constructs.
+# You also need ops to form larger rules from collections of smaller ones. Ops have lists of tokens as their values.
+# These lists can contain a mixture of strings which are the names of other tokens and literal operands given as anonymous hashes.
 #
 # That will all make a lot more sense once you look at the parse tree for CORE_RULES given below... go do that and
 # then come back here.
@@ -204,84 +216,100 @@ use Carp;
 # Once you have the parse tree, the rest is pretty self-explanatory.  I mean it's not easy, but there's no special
 # trick.  You just go through the parse tree...
 
+use constant OP_MODE_SINGLETON => 0;
+use constant OP_MODE_ALTERNATOR => 1;
+use constant OP_MODE_AGGREGATOR => 2;
+
 use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
 	{
 		tokname => "ALPHA",
-		type => "terminal",
-		value => '[\x41-\x5A\x61-\x7A]' # A-Z / a-z
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [map {chr} (0x41..0x5A, 0x61..0x7A)] # A-Z / a-z
 	},{
 		tokname => "BIT",
-		type => "terminal",
-		value => "[01]"
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [qw(chr(0) chr(1))]
 	},{
 		tokname => "CHAR",
-		type => "terminal",
-		value => '[\x01-\x7F]' # any 7-bit US-ASCII character, excluding NUL
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [map {chr} (0x01..0x7F)] # any 7-bit US-ASCII character, excluding NUL
 	},{
 		tokname => "CR",
-		type => "terminal",
-		value => '\x0D' # carriage return
+		type => "num-val",
+		value => [chr(0x0D)] # carriage return
 	},{
 		tokname => "CRLF",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [qw(CR LF)] # Internet standard newline
 	},{
 		tokname => "CTL",
-		type => "terminal",
-		value => '[\x00-\x1F\x7F]' # controls
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [map {chr} (0x00..0x1F, 0x7F)] # controls
 	},{
 		tokname => "DIGIT",
-		type => "terminal",
-		value => '[\x30-39]' # 0-9
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [map {chr} (0x30..0x39)] # 0-9
 	},{
 		tokname => "DQUOTE",
-		type => "terminal",
-		value => '\x22' # " (Double Quote)
+		type => "num-val",
+		value => [chr(0x22)] # " (Double Quote)
 	},{
 		tokname => "HEXDIG",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [
 			"DIGIT",
 			{
-				type => "terminal",
-				value => '[A-F]'
+				type => "char-val",
+				mode => OP_MODE_ALTERNATOR,
+				value => [qw(A B C D E F)]
 			}
 		]
 	},{
 		tokname => "HTAB",
-		type => "terminal",
-		value => '\x09' # horizontal tab
+		type => "num-val",
+		value => [chr(0x09)] # horizontal tab
 	},{
 		tokname => "LF",
-		type => "terminal",
-		value => '\x0A' # linefeed
+		type => "num-val",
+		value => [chr(\x0A)] # linefeed
 	},{
 		tokname => "LWSP",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		minreps => 0,
 		maxreps => -1,
 		value => [
 			{
-				type => "any-ops",
+				type => "ops",
+				mode => OP_MODE_ALTERNATOR,
 				value => [qw(WSP CRLF)]
 			},
 			"WSP"
 		] # linear white space (past newline)
 	},{
 		tokname => "OCTET",
-		type => "terminal",
-		value => '[\x00-\xFF]' # 8 bits of data
+		type => "num-val",
+		value => [map {chr} (0x00..0xFF)] # 8 bits of data
 	},{
 		tokname => "SP",
-		type => "terminal",
-		value => '\x20' # space
+		type => "num-val",
+		value => [chr(0x20)] # space
 	},{
 		tokname => "VCHAR",
-		type => "terminal",
-		value => '[\x21-\x7E]' # visible (printing) characters
+		type => "num-val",
+		mode => OP_MODE_ALTERNATOR,
+		value => [map {chr} (0x21..0x7E)] # visible (printing) characters
 	},{
 		tokname => "WSP",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [qw(SP HTAB)] # white space
 	}
 );
@@ -349,14 +377,16 @@ use constant ABNF_PARSETREE => (
 		tokname => "rulelist",
 		minreps => 1,
 		maxreps => -1,
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [
 			"rule", 
 			{
-				type => "all-ops",
+				type => "ops",
+				mode => OP_MODE_AGGREGATOR,
 				value => [
 					{
-						type => "all-ops",
+						type => "ops",
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(c-wsp)]
@@ -366,70 +396,84 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "rule",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [qw(rulename defined-as elements c-nl)]
 	},{
 		tokname => "rulename",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => ["ALPHA", 
 			{
-				type => "any-ops",
+				type => "ops",
+				mode => OP_MODE_ALTERNATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => ["ALPHA", "DIGIT", {type => "terminal", value => "-"}]
+				value => ["ALPHA", "DIGIT", {type => "num-val", value => ["-"]}]
 			}
 		]
 	},{
 		tokname => "defined-as",
-		type => "all-ops",
-		value => ["maybe-some-c-wsp", {type => "terminal", value => '=/?'}, "maybe-some-c-wsp"]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => ["maybe-some-c-wsp", {type => "num-val", value => ["="]}, {type => "num-val", minreps => 0, maxreps => 1, value => ["/"]}, "maybe-some-c-wsp"]
 	},{
 		tokname => "elements",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [qw(alternation maybe-some-c-wsp)]
 	},{
 		tokname => "c-wsp",
-		type => "any-ops",
-		value => ["WSP", {type => "all-ops", value => [qw(c-nl WSP)]}]
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
+		value => ["WSP", {type => "ops", mode => OP_MODE_ALTERNATOR, value => [qw(c-nl WSP)]}]
 	},{
 		tokname => "maybe-some-c-wsp",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		minreps => 0,
 		maxreps => -1,
 		value => [qw(c-wsp)]
 	},{
 		tokname => "c-nl",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [qw(comment CRLF)]
 	},{
 		tokname => "comment",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "terminal", value => ";"},
+			{type => "num-val", value => [";"]},
 			{
-				type => "any-ops", 
+				type => "ops",
+				mode => OP_MODE_ALTERNATOR,
 				minreps => 0,
 				maxreps => -1,
 				value => [qw(WSP VCHAR)]
-			},{type => "all-ops", value => [qw(CRLF)]}
+			},"CRLF"
 		]
 	},{
 		tokname => "alternation",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => ["concatenation",
 			{
-				type => "all-ops",
+				type => "ops",
+				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => ["maybe-some-c-wsp", {type => "terminal", value => "/"}, "maybe-some-c-wsp", "concatenation"]
+				value => ["maybe-some-c-wsp", {type => "num-val", value => ["/"]}, "maybe-some-c-wsp", "concatenation"]
 			}
 		]
 	},{
 		tokname => "concatenation",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => ["repetition",
 			{
-				type => "all-ops",
+				type => "ops",
+				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
 				value => [qw(maybe-some-c-wsp repetition)]
@@ -437,10 +481,11 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "repetition",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [
 			{
-				type => "all-ops",
+				type => "ops",
 				minreps => 0,
 				maxreps => 1,
 				value => [qw(repeat)]
@@ -448,23 +493,25 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "repeat",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [
 			{
-				type => "all-ops",
+				type => "ops",
 				minreps => 1,
 				maxreps => -1,
 				value => [qw(DIGIT)]
 			},{
-				type => "all-ops",
+				type => "ops",
+				mode => OP_MODE_AGGREGATOR,
 				value => [
 					{
-						type => "all-ops",
+						type => "ops",
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(DIGIT)]
-					},{type => "terminal", value => '\*'},{
-						type => "all-ops",
+					},{type => "num-val", value => ['*']},{
+						type => "ops",
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(DIGIT)]
@@ -474,45 +521,53 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "element",
-		type => "any-ops",
+		type => "ops",
+		mode => OP_MODE_ALTERNATOR,
 		value => [qw(rulename group option char-val num-val prose-val)]
 	},{
 		tokname => "group",
-		type => "all-ops",
-		value => [{type => "terminal", value => '\('}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "terminal", value => '\)'}]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => [{type => "num-val", value => ['(']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "num-val", value => [')']}]
 	},{
 		tokname => "option",
-		type => "all-ops",
-		value => [{type => "terminal", value => '\['}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "terminal", value => '\]'}]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => [{type => "terminal", value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "num-val", value => [']']}]
 	},{
 		tokname => "char-val",
-		type => "all-ops",
-		value => ["DQUOTE", {type => "terminal", value => '[\x20-21\x23-7E]*'}, "DQUOTE"]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => ["DQUOTE", {type => "num-val", minreps => 0, maxreps => -1, value => [map {chr} (0x20,0x21,0x23..0x7E)]}, "DQUOTE"]
 	},{
 		tokname => "num-val",
-		type => "all-ops",
-		value => [{type => "terminal", value => "%"}, {type => "any-ops", value => [qw(bin-val dec-val hex-val)]}]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => [{type => "num-val", value => ["%"]}, {type => "ops", mode => OP_MODE_ALTERNATOR, value => [qw(bin-val dec-val hex-val)]}]
 	},{
 		tokname => "bin-val",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "terminal", value => "b"},
-			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(BIT)]},
-			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+			{type => "num-val", value => ["b"]},
+			{type => "ops", minreps => 1, maxreps => -1, value => [qw(BIT)]},
+			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "terminal", value => '\.'}, {
-						type => "all-ops",
+					value => [{type => "num-val", value => ['.']}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(BIT)]
 					}]
 				},{
-					type => "all-ops",
-					value => [{type => "terminal", value => "-"}, {
-						type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
+					value => [{type => "num-val", value => ["-"]}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(BIT)]
@@ -522,25 +577,28 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "dec-val",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "terminal", value => "d"},
-			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(DIGIT)]},
-			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+			{type => "num-val", value => ["d"]},
+			{type => "ops", minreps => 1, maxreps => -1, value => [qw(DIGIT)]},
+			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "terminal", value => '\.'}, {
-						type => "all-ops",
+					value => [{type => "num-val", value => ['.']}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(DIGIT)]
 					}]
 				},{
-					type => "all-ops",
-					value => [{type => "terminal", value => "-"}, {
-						type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
+					value => [{type => "num-val", value => ["-"]}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(DIGIT)]
@@ -550,25 +608,28 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "hex-val",
-		type => "all-ops",
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "terminal", value => "x"},
-			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(HEXDIG)]},
-			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+			{type => "num-val", value => ["x"]},
+			{type => "ops", minreps => 1, maxreps => -1, value => [qw(HEXDIG)]},
+			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "terminal", value => '\.'}, {
-						type => "all-ops",
+					value => [{type => "num-val", value => ['.']}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(HEXDIG)]
 					}]
 				},{
-					type => "all-ops",
-					value => [{type => "terminal", value => "-"}, {
-						type => "all-ops",
+					type => "ops",
+					mode => OP_MODE_AGGREGATOR,
+					value => [{type => "num-val", value => ["-"]}, {
+						type => "ops",
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(HEXDIG)]
@@ -578,8 +639,9 @@ use constant ABNF_PARSETREE => (
 		]
 	},{
 		tokname => "prose-val",
-		type => "all-ops",
-		value => [{type => "terminal", value => "<"}, {type => "terminal", value => '[\x20-\x3D\x3F-\x7E]*'}, {type => "terminal", value => ">"}]
+		type => "ops",
+		mode => OP_MODE_AGGREGATOR,
+		value => [{type => "num-val", value => ["<"]}, {type => "num-val", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => -1, value => [map {chr} (0x20..0x3D, 0x3F..0x7E)]}, {type => "num-val", value => [">"]}]
 	}
 );
 
