@@ -19,6 +19,7 @@ void LWA_MsgBox(GLUI *parent, const char *title, const char *fmt, ...);
 GLUI_StaticText *LWA_LabelLabel(GLUI *glui, GLUI_Panel *panel, char *text);
 char *float2str(float f);
 
+int FIX_Y(int y);
 void DrawStart(SDL_Surface *screen);
 void DrawEnd(SDL_Surface *screen);
 void DrawPixel(SDL_Surface *screen, int x, int y, Uint8 R, Uint8 G, Uint8 B);

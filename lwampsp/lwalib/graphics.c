@@ -7,7 +7,7 @@ int screen_width = 0;
 int screen_height = 0;
 
 /* Screen has upper-left as 0,0; we use lower-left */
-static int FIX_Y(int y) { return screen_height - y - 1; }
+int FIX_Y(int y) { return screen_height - y - 1; }
 
 static GLUI *msgbox_parent, *msgbox_box;
 static int glut_win;
