@@ -18,7 +18,7 @@ push @INC, $dirname;
 $CPAN::Config->{makepl_arg} = "LIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
 $CPAN::Config->{prerequisites_policy} = "follow";
 
-foreach my $mod (qw(HTML::FormatText HTML::Parse LWP::Simple Net::OSCAR)) {
+foreach my $mod (qw(HTML::FormatText HTML::Parse Net::OSCAR)) {
 	my $obj = CPAN::Shell->expand('Module', $mod);
 	next if $obj->inst_version() and $mod ne "Net::OSCAR";
 	print "Installing $mod...\n";
