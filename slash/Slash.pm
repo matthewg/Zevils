@@ -325,7 +325,7 @@ sub getadmininfo
 	my $c=sqlSelectMany("sessions.aid, authors.seclev, section, url","sessions, authors",
 		"sessions.aid=authors.aid AND session=".$dbh->quote($session));
 
-	if(not ($aid, $seclev,$section,$url)=$c->fetchrow_array) {
+	if($c and not ($aid, $seclev,$section,$url)=$c->fetchrow_array) {
 		($aid,$seclev,$section,$url)=("",0,"","");
 	} else {
 		sqlUpdate("sessions","session=".$dbh->quote($session),(-lasttime=>'now()'));
