@@ -241,12 +241,14 @@ if($prompt && $process) {
 	if(isset($prompts[$prompt]["values"])) $values = $prompts[$prompt]["values"];
 	if(sizeof($values) == 1) {
 		$vallist = $_SESSION[$values[0]];
-		if(!$vallist) $do_me = 0;
+		/* 'advanced' is the only one allowed to be blank */
+		if(!$vallist && ($prompt != "advanced")) $do_me = 0;
 	} else {
 		$vallist = array();
 		for($i = 0; $i < sizeof($values); $i++) {
 			$vallist[$i] = $_SESSION[$values[$i]];
-			if(!$vallist[$i]) $do_me = 0;
+			/* 'advanced' is the only one allowed to be blank */
+			if(!$vallist[$i] && ($prompt != "advanced")) $do_me = 0;
 		}
 	}
 
