@@ -595,7 +595,7 @@ sub html2txt {
 	foreach $node (@{$parsetree->extract_links("a")}) { #For every <A HREF
 		($link, $elem) = @$node;
 		while(ref(${$$elem{_content}}[0])) {
-			${$$elem{_content}}[0] = ${$$elem{_content}}[0]->{_content};
+			${$$elem{_content}}[0] = ${$$elem{_content}}[0]->{_content}[0];
 		}
 		${$$elem{_content}}[0] .= " {$link}";
 	}
