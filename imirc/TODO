@@ -2,12 +2,34 @@ Unclassified:
 	Write a TOC server and a set of stress tests and regression tests.
 
 Real Soon Now:
-	savebuddies/loadbuddies for buddylist backup
-		CTCP SAVEBUDDIES, CTCP LOADBUDDIES for scriptability
+	server-side buddylist backups, server-side profile saving, and pounces.
+		Add profile info to OSCAR savebuddies/loadbuddies
+		Write to disk when we shut down and also every $checkpoint minutes
+		Config options (defaults):
+			$dcc (1) - allow DCC (savebuddies/loadbuddies)
+			$savebuddies (1) - keep buddylist backups on disk
+			$saveprofiles (1) - keep profiles on disk
+			$savepounces (1) - save pounces on disk
+			$checkpoint (60) - write to disk every N minutes (<= 0 disables)
+			$directory ($home/.aimirc/) - where to store the files
+		Notify how many pounces they have on signon
+		Notify if restoring buddylist from backup on signon
+		Notify if setting profile on signon
+		Pounce commands:
+			add_pounce screenname text
+			remove_pounce number
+			list_pounces
+		We keep everything in memory (hashes) and only write to disk when we checkpoint
+	"Short-circuiting"
+		When sending an IM, check to see if the target is signed onto
+		the local aimirc.  If so, don't go through TOC.
+			$shortcircuit config option (default on)
+			%irc_connections - keys are normalized screennames, values are normalized IRC nicks
+	Support %x escapes in profiles
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
-	  every signon in documentation/help message.
+	  every signon in documentation/help message. - only if server-side-saves disabled
 	AWAY tracking for everyone, not just keys %aim_connections
 		This prevents the following from causing IRC/AIM away desynch:
 			:SomeDude AWAY :foo
@@ -18,18 +40,14 @@ Real Soon Now:
 
 Probably/Second Priority:
 	#buddies-SCREENNAME (geniusj)
-	Option to have AIMServ store a backup of your buddylist (textfile) 
+	Write a help intro/overview
 
 Pending/Maybe:
 	(#aimirc-debug or IRC or AIMServ?) stats command
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
-	Default set_info?
 	Ability to join chatrooms in different exchange
-	"Short-circuiting"
-		When sending an IM, check to see if the target is signed onto
-		the local aimirc.  If so, don't go through TOC.
 
 Wishlist:
 	Fix #aimirc-debug reload command
