@@ -1420,8 +1420,13 @@ sub process_irc_message($) {
 					delete $sndata->{nicklen};
 					$oscar->commit_buddylist;
 				} else {
-					$oscar->get_app_data()->{0x0201} = $sndata->{nicklen} = $param;
-					$oscar->commit_buddylist;
+					my $appdata = $oscar->get_app_data();
+					if(!$appdata) {
+						irc_send(irc_privmsg($usnick, $nick, "Appdata was undefined?", "", "", $screenname);
+					} else {
+						$appdata->{0x0201} = $sndata->{nicklen} = $param;
+						$oscar->commit_buddylist;
+					}
 				}
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "Unknown preference.", "", "", $screenname));
