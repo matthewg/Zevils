@@ -436,7 +436,7 @@ sub make_call($$) {
 			$audio_dir = "../wav-mono8";
 		} else {
 			$audio_ext = "rmd";
-			$audio_dir = "rmd";
+			$audio_dir = "../rmd";
 		}
 
 		$db_connected = 0; # Don't log "Finnegan going down!" when we exit.
