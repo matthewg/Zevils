@@ -15,8 +15,9 @@ is given in parentheses:)
 
 	HTML::FormatText (HTML-Format)
 	HTML::Parse (HTML-Tree)
+	Regexp::Shellish (Regexp-Shellish)
 
-See the permodinstall manpage (perldoc perlmodinstall) for information
+See the perlmodinstall manpage (perldoc perlmodinstall) for information
 on obtaining and installing modules.
 
 
