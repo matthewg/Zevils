@@ -262,7 +262,7 @@ sub loadconf() {
 
 	Getopt::Long::Configure("no_pass_through");
 
-	$errors = &GetOptions(\%cfghash,
+	$errors = &GetOptions(
 		"us=s" => \$us,
 		"them=s" => \$them,
 		"themport=i" => \$themport,
