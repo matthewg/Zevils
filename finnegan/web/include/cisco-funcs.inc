@@ -17,7 +17,7 @@ function nlstrip($contents) {
 function get_extension() {
 	global $PHONE_MODEL;
 
-	if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") return "92896";
+	return "92896"; //if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") return "92896";
 
 	# Cache phone webpages, otherwise phones hate us
 	$extension = "";

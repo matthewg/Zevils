@@ -46,6 +46,8 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 		}
 
 		$oldvalues["cal_type"] = $wake["cal_type"];
+
+		mysql_free_result($result);
 	}
 } else if(isset($_SESSION["id"])) {
 	$id = $_SESSION["id"];
@@ -380,9 +382,9 @@ if(!$title) {
 
 // Build URLs
 $url = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prompt&amp;do=1";
-if($prev) {
+if(isset($prev)) {
 	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prev&amp;do=0";
-} else if($id) {
+} else if(isset($id)) {
 	//if($PHONE_MODEL == "CP-7912G")
 		$prevurl = $FinneganCiscoConfig->url_base . "/service/wakeprops.php?id=$id";
 	//else

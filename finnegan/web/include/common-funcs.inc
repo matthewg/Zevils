@@ -90,6 +90,11 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type, $max_sno
 
 
 	if(!$id) {
+		printf("INSERT INTO wakes (%s) VALUES (%s)",
+			implode(", ", $cols),
+			implode(", ", $values)
+		);
+
 		if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
 			implode(", ", $cols),
 			implode(", ", $values)
@@ -104,6 +109,7 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type, $max_sno
 		for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
 
 		#if(!mysql_query("UPDATE wakes SET next_trigger_time=NULL, this_trigger_time=NULL $set WHERE extension='$extension' AND wake_id=$id")) db_error();
+		echo "UPDATE wakes SET next_trigger=NULL, trigger_date=NULL, snooze_count=0, trigger_snooze=NULL, $set WHERE extension='$extension' AND wake_id=$id";
 		if(!mysql_query("UPDATE wakes SET next_trigger=NULL, trigger_date=NULL, snooze_count=0, trigger_snooze=NULL, $set WHERE extension='$extension' AND wake_id=$id")) db_error();
 		$event = "edit";
 	}

@@ -123,6 +123,7 @@ while($count && ($row = mysql_fetch_assoc($result))) {
 }
 echo $TEMPLATE["wakes"]["list_end"];
 if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls") echo $TEMPLATE["wakes"]["delete_confirm"];
+mysql_free_result($result);
 
 page_end();
 

@@ -20,7 +20,7 @@ if(isset($_POST["op"])) {
 
 if($auth_ok) {
 	redirect("wakes.php");
-} else if($auth_error != "no_extension") {
+} else if($auth_error != "no_extension" && $auth_error) {
 	if(isset($TEMPLATE["login"][$auth_error])) {
 		echo $TEMPLATE["login"][$auth_error];
 	} else {

@@ -126,6 +126,8 @@ if(isset($_POST["submit"])) {
 			echo $TEMPLATE["mkwake"]["too_many_wakes"];
 			log_wake("0", $extension, $event, "failure", "too_many_wakes");
 		}
+
+		mysql_free_result($result);
 	}
 
 	if(!$error) {
@@ -209,6 +211,8 @@ if(isset($_POST["submit"])) {
 		else
 			$caltype_brandeis = "selected";
 	}
+
+	mysql_free_result($result);
 }
 
 $message_links = "";
@@ -218,9 +222,17 @@ if($id && $message == 0)
 for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
 	$msg = $FinneganConfig->messages[$i];
 	$selected = "";
-	if($msg["id"] == $message) $selected = "selected";
-	$message_links .= preg_replace(array("/__URL__/", "/__NAME__/"), array("messages/".$msg["mp3"], $msg["message"]), $TEMPLATE["mkwake"]["message_link"]);
-	$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array($msg["id"], $msg["message"], $selected), $TEMPLATE["mkwake"]["message_option"]);
+	if($msg["id"] == $message) $selected = "checked";
+	$message_links .= preg_replace(
+		array("/__URL__/", "/__NAME__/", "/__NUM__/", "/__SELECTED__/"),
+		array("messages/".$msg["mp3"], $msg["message"], $msg["id"], $selected),
+		$TEMPLATE["mkwake"]["message_link"]
+	);
+	$message_options .= preg_replace(
+		array("/__URL__/", "/__NAME__/", "/__NUM__/", "/__SELECTED__/"),
+		array("messages/".$msg["mp3"], $msg["message"], $msg["id"], $selected),
+		$TEMPLATE["mkwake"]["message_option"]
+	);
 }
 if($message == -1)
 	$selected = "selected";

@@ -10,8 +10,8 @@ $TEMPLATE["login"] = array(
 	"extension_invalid" => errmsg("The extension you entered is invalid."),
 	"extension_forbidden" => errmsg("That extension is not allowed to receive wake-up calls."),
 	"pin_invalid" => errmsg("The PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
-	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, please click the \"Forgot PIN\" button, and the system will call you with your PIN."),
-	"pin_bruteforce" => errmsg("You have entered too many incorrect PINs and are temporarily locked out of the system. Please wait an hour, and then click the 'Forgot PIN' button below."),
+	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, set a new one through the phone service."),
+	"pin_bruteforce" => errmsg("You have entered too many incorrect PINs and are temporarily locked out of the system. Please wait an hour."),
 	"too_many_newpins" => errmsg("You have been generating too many PINs and have been temporarily locked out of the system.  Please wait an hour."),
 
 	"no_pin" => <<<END
@@ -40,14 +40,12 @@ END
 Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.  If you've never used the system before, leave your PIN blank.
 If you'd like your PIN to be saved on this computer, check the 'Save PIN' box.
 </p><p>
-If you've forgotten your PIN and would like to have the system call you and you it,
-click the "Forgot PIN" button below.
+If you've forgotten your PIN, set a new one through the service on the phone.
 </p><p>
 Extension: <input type="text" name="extension" size="6" maxlength="5" value="__EXTENSION__" /><br />
 PIN: <input type="password" name="pin" size="5" maxlength="4" /><br />
 <input type="checkbox" name="savepin" value="1" />Save PIN<br />
-<input type="submit" name="op" value="View Wake-up Calls" /><br />
-<input type="submit" name="op" value="Forgot PIN" />
+<input type="submit" name="op" value="Log In" />
 </p>
 </form>
 END
