@@ -150,3 +150,16 @@ New/Edit Wake-Up Call items (mkwake.php):
 Documentation items (docs.php):
 	docs_start: Start of the documentation page.
 	docs_end: End of the documentation page.
+
+	docs_index_start: Start of list of FAQ questions.
+	docs_index_entry: Entry in FAQ index
+		NAME
+		NUM
+	docs_index_end
+
+	docs_body_start
+	docs_body_entry: Entry in FAQ
+		NAME
+		NUM
+		CONTENTS
+	docs_body_end

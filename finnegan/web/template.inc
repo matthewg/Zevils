@@ -63,8 +63,11 @@ END_MKWAKE_EDIT_START
 ,
 
 	"docs_start" => <<<END_DOCS_START
-<h1><a href="index.php">View Your Wake-up Calls</a></h1>
-<h1><a href="mkwake.php">Create a New Wake-up Call</a></h1>
+<ul class="navigation">
+<li><a href="index.php">View Your Wake-up Calls</a></li>
+<li><a href="mkwake.php">Create a New Wake-up Call</a></li>
+</ul>
+<h3>Documentation</h3>
 END_DOCS_START
 ,
 
@@ -297,5 +300,34 @@ Current Active Weekdays:<br />
 <input type="reset" />
 </p>
 END_MKWAKE_FORM
+,
+
+	"docs_index_start" => <<<END_DOCS_INDEX_START
+<h4>Index</h4>
+<ol class="faq_index">
+END_DOCS_INDEX_START
+,
+
+	"docs_index_entry" => <<<END_DOCS_INDEX_ENTRY
+<li><a href="#__NUM__">__NAME__</></li>
+END_DOCS_INDEX_ENTRY
+,
+
+	"docs_index_end" => <<<END_DOCS_INDEX_END
+</ol>
+END_DOCS_INDEX_END
+,
+
+	"docs_body_start" => "",
+
+	"docs_body_entry" => <<<END_DOCS_BODY_ENTRY
+<a name="__NUM__" /><h4>__NUM__. __NAME__</h4>
+<p class="faq_item">
+__CONTENTS__
+</p>
+END_DOCS_BODY_ENTRY
+,
+
+	"docs_body_end" => ""
 );
 ?>
