@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-@ARGV = qw(--debug 2 --output aimirc.log);
-
 $license = <<EOF
 Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
 
