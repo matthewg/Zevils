@@ -35,7 +35,7 @@ sub _noinherit($$$) {
 	_crapout(Slash::PSM::PSM_ERR_CRIT, 4, "PSM $class did not override the $method method!") if $class ne $shouldbe;
 }
 
-sub init($$$;$) {
+sub new($$$;$) {
 	my($psmver, $frontend, $slashsite, $conf, $psm, $capability, $cpsm, $currcape, %seencapes) = @_;
 	$confdir = $conf if $conf;
 	_loadconf("$confdir/psm.conf");
