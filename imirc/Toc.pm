@@ -230,11 +230,16 @@ sub sflap_get($;$) {
 
 =pod
 
-=item signon(NICK, PASSWORD[, STATUS])
+=item signon(NICK, PASSWORD, [SOCKSUB[, STATUS]])
 
 Returns an array consisting of a return value (0 for success, -1 for failure), an IO::Socket::INET object, 
 and a group configuration hash.  $Net::Toc::err will be set to the error message if there
 is an error.
+
+Socksub, if present, must be a code ref which does the IO::Socket::INET call.
+This is present so that you can use something like IO::Socket::SSL instead
+and so you can provide an easy way to specify an alternate TOC server/port
+(yeah, there are better ways to do that.  But that's not what I did.  *phbbt*.)
 
 The IO::Socket::INET object returned by this function is a bit special, so if you plan on using your own IO::Handle
 object with the Net::Toc functions, pay attention.  The IO::Socket object is based around a globref.  What that means,
@@ -255,8 +260,8 @@ with $_[0] set to the text of the message.
 
 =cut
 
-sub signon($$;&) {
-	my($username, $password, $status) = @_;
+sub signon($$&;&) {
+	my($username, $password, $socksub, $status) = @_;
 	my($socket, $msg, $config, $buddy, $flags);
 
 	$username = normalize($username);
@@ -268,16 +273,24 @@ sub signon($$;&) {
 	debug_print("$username is trying to sign on", "signon", 1);
 
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
-	$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898', Timeout => 60) or do {
+	if(ref $socksub eq "CODE") {
+		$socket = &$socksub;
+	} else {
+		$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898', Timeout => 60);
+	}
+
+	unless($socket) {
 		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
 		$err = "Couldn't create socket: $@";
 		return -1;
-	};
+	}
 
 	debug_print("$username has established a connection to toc.oscar.aol.com", "signon", 2);
-	#debug_print("SSL cipher: $socket->get_cipher", "SSL", 2);
-	#debug_print("SSL cert: $socket->get_peer_certificate->subject_name", "SSL", 2);
-	#debug_print("SSL CA: $socket->get_peer_certificate->issuer_name", "SSL", 2);
+	if($socket->isa("IO::Socket::SSL")) {
+		debug_print("SSL cipher: $socket->get_cipher", "SSL", 2);
+		debug_print("SSL cert: $socket->get_peer_certificate->subject_name", "SSL", 2);
+		debug_print("SSL CA: $socket->get_peer_certificate->issuer_name", "SSL", 2);
+	}
 
 	${*$socket}{'net_toc_username'} = $username;
 	&$status("Connected, switching to FLAP encoding") if ref $status eq "CODE";

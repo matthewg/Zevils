@@ -238,6 +238,8 @@ $ssl = 1;
 $fork = 1;
 $verbose = 0;
 $sendidle = 1;
+$tocserver = 'toc.oscar.aol.com';
+$tocport = 80;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
 Getopt::Long::Configure("no_ignore_case");
@@ -299,7 +301,9 @@ $errors = &GetOptions(
 	"debug:i" => \$debug,
 	"debuglevel=s\%" => \%debuglevel,
 	"verbose_signon:i" => \$verbose_signon,
-	"sendidle:i" => \$sendidle
+	"sendidle:i" => \$sendidle,
+	"tocserver=s" => \$tocserver,
+	"tocport=i" => \$tocport,
 );
 
 if(!$errors) {
@@ -355,6 +359,39 @@ if(!$errors) {
 
 foreach $server(keys %temp) { #Preserve custom ircservers
 	$ircservers{$server} = $temp{$server};
+}
+
+if($ssl) {
+	eval {
+		require SSLv3;
+	};
+
+	if($@) {
+		print STDERR "Couldn't require SSLv3.\n";
+		print STDERR "Probably due to a problem with IO::Socket::SSL.  Here's what Perl thinks:\n";
+		print STDERR "$@\n";
+		print STDERR "\n\n";
+		print STDERR "And here's what that probably means...\n\n";
+		print STDERR "You do not have the IO::Socket::SSL module installed.\n";
+		print STDERR "There are at least two possible ways to install these modules:\n";
+		print STDERR "1) [preferred] Get them as a package from your OS vendor or Linux distributor.\n";
+		print STDERR "2) Use the CPAN module to install it.  Run perl -MCPAN -e shell and \n";
+		print STDERR "        type install IO::Socket::SSL when you get to the CPAN prompt.\n";
+		print STDERR "3) Download the source from CPAN and install it.  The source is located\n";
+		print STDERR "        at http://www.perl.com/CPAN/modules/by-module/IO/ in a file\n";
+		print STDERR "        called IO-Socket-SSL-VERSION.tar.gz where VERSION is the latest version\n";
+		print STDERR "        of IO::Socket::SSL.\n";
+		print STDERR "Note that IO::Socket::SSL has a couple of dependencies.\n";
+		print STDERR "It requires the Net::SSLeay perl module and the OpenSSL library.\n";
+		print STDERR "\n";
+		print STDERR "IO::Socket::SSL is only required if you want to use SSL to communicate with TOC.\n";
+		print STDERR "SSL is a type of encryption.\n";
+		print STDERR "If you don't want SSL, set $ssl to 0 in your aimirc.conf (or .aimirc)\n";
+		print STDERR "Alternatively, you can use the --ssl 0 command-line option.\n";
+		die "\n";
+	}
+
+	SSLv3->context_init(SSL_verify_mode => 0x00, SSL_server => 0);
 }
 
 unless($reload) {
@@ -1368,9 +1405,9 @@ sub do_signon {
 	$nnick = normalize($tnick);
 
 	if($verbose_signon) {
-		@ret = signon $nparam, $textra, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
+		@ret = signon $nparam, $textra, \&socksub, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
 	} else {
-		@ret = signon $nparam, $textra;
+		@ret = signon $nparam, $textra, \&socksub;
 	}
 	if($ret[0] == 0) {
 		$aim_connections{$nnick}{nick} = $nnick;
@@ -1411,4 +1448,19 @@ sub do_signoff {
 	}
 }
 
-
+sub socksub {
+	if($ssl) {
+		SSLv3->new(
+			PeerAddr => $tocserver,
+			PeerPort => $tocport,
+			SSL_verify_mode => 0x00,
+			Timeout => 60,
+		);
+	} else {
+		IO::Socket::INET->new(
+			PeerAddr => $tocserver,
+			PeerPort => $tocport,
+			Timeout => 60,
+		);
+	}
+}
