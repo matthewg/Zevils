@@ -259,8 +259,15 @@ function pin_ok($extension, $pin, $newpin = 0) {
 
 	if(!preg_match('/^[0-9]{1,4}$/', $pin)) {
 		if(!$newpin) {
-			echo $TEMPLATE["pin_invalid"];
-			$error = "pin_invalid";
+			if(!$pin) {
+				echo $TEMPLATE["viewcalls_start_noext"];
+				echo $TEMPLATE["no_pin"];
+				$extension_ok = 0;
+				do_end();
+			} else {
+				echo $TEMPLATE["pin_invalid"];
+				$error = "pin_invalid";
+			}
 		} else {
 			echo $TEMPLATE["pin_set_new_invalid"];
 			return 0;
