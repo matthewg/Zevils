@@ -164,10 +164,8 @@ $aimselect = IO::Select->new();
 $ircselect = IO::Select->new();
 $ircselect->add($upstream);
 
-if($debug) {
-	$upstream->print(":$usnick JOIN #aimirc-debug\r\n");
-	$upstream->print(":$us MODE #aimirc-debug +nk $ourpass\r\n");
-}
+$upstream->print(":$usnick JOIN #aimirc-debug\r\n");
+$upstream->print(":$us MODE #aimirc-debug +nk $ourpass\r\n");
 
 while(1 == 1) {
 	exit(255) unless $upstream;
@@ -515,7 +513,7 @@ sub process_irc_message {
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
+	} elsif($debug and /:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
 		$nick = $1; $target = normalize(aimnick($2)); $msg = $3;
 		if($2 eq "#aimirc-debug") {
 			$msg =~ s/^(aimserv)\S*\s+//;
@@ -524,9 +522,38 @@ sub process_irc_message {
 			} elsif($msg =~ /^newnick (.+)/ and $1) {
 				irc_send(irc_newnick($1));
 			} elsif($msg =~ /^setlevel (\S+) (\S+)/) {
-				$debug{$1} = $2;
+				if($1 eq "all") {
+					foreach $level(keys %debug) { $debug{$level} = $2; }
+				} else {
+					$debug{$1} = $2;
+				}
+			} elsif($msg =~ /^rehash/) {
+				rehash;
+			} elsif($msg =~ /^showlevels/) {
+				foreach $level(keys %debug) { irc_send(irc_privmsg("$level: $debug{$level}")); }
+			} elsif($msg =~ /^raw (\S+) (.+)/ and $1 and $2) {
+				if($1 eq "irc") {
+					irc_send($2);
+				} elsif($aim_connections{$1}) {
+					sflap_put($aim_connections{$1}{socket}, sflap_encode($2, 0, 1));
+				} else {
+					$success = 0;
+					AIMNICK: foreach $nick(keys %aim_connections) {
+						if($aim_connections{$nick}{aolnick} eq $1) {
+							$success = 1;
+							sflap_put($aim_connections{$nick}{socket}, sflap_encode($2, 0, 1));
+							last AIMNICK;
+						}
+					}
+					irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't find that person."));
+				}
+			} elsif($msg =~ /^eval (.+)/ and $1) {
+				undef $@;
+				eval { exec $@; };
+				$@ =~ tr/\r//d;
+				foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
 			} else {
-				irc_send(irc_privmsg($usnick, "#aimirc-debug", "To use aimserv admin commands, say 'aimserv, command params'.  Valid commands are restart, newnick (which takes the nick to create as a parameter), and setlevel (which takes a type and a level as parameters - only messages less then or equal to that level will be shown for that type.)"));
+				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
 		} else {
 			message($aim_connections{$nick}{socket}, $target, $msg);
@@ -722,4 +749,21 @@ sub irc_send {
 sub deref($) {
 	my $href = shift;
 	return %$href;
+}
+
+sub rehash {
+	if(-r "/etc/aimirc.conf") {
+		undef $@;
+		eval { require "/etc/aimirc.conf"; };
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@ or "Reloaded /etc/aimirc.conf"));
+	} else {
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Not loading /etc/aimirc.conf - couldn't read"));
+	}
+	if(-r "$home/.aimirc") {
+		undef $@;
+		eval { require "$home/.aimirc" if -r "$home/.aimirc"; };
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@ or "Reloaded $home/.aimirc"));
+	} else {
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Not loading $home/.aimirc - couldn't read"));
+	}
 }
