@@ -682,7 +682,7 @@ sub process_aim_message {
 	} elsif($cmd eq "IM_IN") {
 		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
-		($inick = $1) =~ tr/ //d;
+		$inick = normalize($1);
 		Toc::debug_print("$prefix$inick is sending an IM to $connection->{nick}: $3", "IM", 2);
 		unless($nicks{normalize($inick)}) {
 			irc_send(irc_newnick($prefix . $inick));
@@ -696,10 +696,15 @@ sub process_aim_message {
 		}
 
 		if(($ar eq "") and $connection->{away} and (time - $connection->{away_buddies}{$inick} > $time)) {
-			my $tmp = $connection->{away};
-			my $aol = substr(get_config($connection->{aimnick})->{Buddies}{$inick}{class}, 0, 1) eq "A";
-			my $tmp .= "[automated reply] " if $aol;
-			message($connection->{socket}, $inick, $connection->{away}, 1);
+			my $tmp;
+			my %config = deref(get_config($connection->{aimnick}));
+			my $class = $config{Buddies}{$inick}{class};
+			if(substr($class, 0, 1) eq "A") {
+				$tmp = "[automated reply] " . $connection->{away};
+			} else {
+				$tmp = $connection->{away};
+			}
+			message($connection->{socket}, $inick, $tmp, 1);
 		}
 		$connection->{away_buddies}{$inick} = time;
 		$nicks{normalize($inick)}{$connection->{nick}} = time if $nicks{normalize($inick)}{$connection->{nick}} != -1;
@@ -871,6 +876,7 @@ sub reload {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloading $0..."));
 	$reload = 1;
 	undef $@;
+	local $SIG{__DIE__} = sub { $@ = shift; };
 	do $0;
 	foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
 	if($@) {
