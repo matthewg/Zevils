@@ -18,13 +18,13 @@ How it works:
 		<!-- crypto init AsymmetricAlgo:SymmetricAlgo --> auto
 	AsymmetricAlgo and SymmetricAlgo are the algorithms that we want to use.
 	After sending or receiving a crypto init, each client should do (at least for El Gamal - different asymmetric algorithms will have slightly different sequences):
-		<!-- crypto pubkey p -->[P part of public key] auto
-		<!-- crypto pubkey g -->[G part of public key] auto
-		<!-- crypto pubkey y -->[Y part of public key] auto
+		<!-- crypto pubkey p -->[P part of public key] <!-- endkey -->
+		<!-- crypto pubkey g -->[G part of public key] <!-- endkey -->
+		<!-- crypto pubkey y -->[Y part of public key] <!-- endkey -->
 	(No, don't actually send [braces].)  You see, an El Gamal public key has three parts.  These are called p, g, and y.
 
 	Okay. so both clients have each other's public key.  Now each sends:
-		<!-- crypto sessionkey -->[session key to use for symmetric algorithm, encrypted to other client's public key] auto
+		<!-- crypto sessionkey -->[session key to use for symmetric algorithm, encrypted to other client's public key]<!-- endkey -->
 	The session key should be some big randomly-generated number.
 
 	Now every time the clients want to exchange IMs, they encrypt the contents (NOT the SFLAP headers!!) with the session key.
