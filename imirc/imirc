@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap);
 
 
 # DCC states
@@ -144,6 +144,7 @@ $shortcircuit = 1;
 $numeric = num2base64(42);
 $require_qlines = 1;
 $kill_impersonaters = 1;
+$usepoll = 1;
 $debug = 0;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
@@ -312,6 +313,7 @@ sub loadconf() {
 		"ignorehosts=s\@" => \@ignorehosts,
 		"require_qlines:i" => \$require_qlines,
 		"kill_impersonaters:i" => \$kill_impersonaters,
+		"usepoll:i" => \$usepoll,
 	);
 
 	if(!$errors) {
@@ -411,6 +413,18 @@ sub loadconf() {
 	$usnick = new Net::OSCAR::Screenname $usnick;
 	$oldnick = new Net::OSCAR::Screenname $oldnick if $oldnick;
 
+	if($usepoll) {
+		eval {
+			require IO::Poll;
+			IO::Poll->import(qw(POLLIN POLLOUT POLLHUP POLLERR POLLNVAL));
+		}
+		if($@) {
+			print STDERR "Couldn't load IO::Poll - falling back to select\n";
+			print STDERR "$@\n";
+			$usepoll = 0;
+		}
+	}
+
 	if(defined $output) {
 		close STDOUT;
 		close STDERR;
@@ -452,6 +466,7 @@ sub mainloop() {
 	$oscarprime->set_callback_log(\&oscar_log);
 	$oscarprime->set_callback_buddylist_error(\&oscar_buddylist_error);
 	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
+	$oscarprime->set_callback_connection_changes(\&oscar_connection_changed) if $usepoll;
 
 	unless($reload) {
 		$chatseq = 0;
@@ -486,50 +501,94 @@ sub mainloop() {
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
-			$rin = $win = $ein = '';
-			foreach $nick(keys %$aim_connections) {
-				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
-					if(!$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}) {
-						delete $aim_connections->{$nick}->{screennames}->{$screenname};
-						next;
+			if(!$usepoll) {
+				$rin = $win = $ein = '';
+				foreach $nick(keys %$aim_connections) {
+					foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
+						if(!$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}) {
+							delete $aim_connections->{$nick}->{screennames}->{$screenname};
+							next;
+						}
+						my($readers, $writers) = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->selector_filenos();
+						$rin |= $readers;
+						$win |= $writers;
 					}
-					my($readers, $writers) = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->selector_filenos();
-					$rin |= $readers;
-					$win |= $writers;
 				}
+
+				vec($rin, $upstream->fileno, 1) = 1;
+				foreach my $dcc(@dccqueue) {
+					if($dcc->{state} & DCC_STATE_WRITE) {
+						vec($win, fileno($dcc->{socket}), 1) = 1;
+					} else {
+						vec($rin, fileno($dcc->{socket}), 1) = 1;
+					}
+				}
+
+				$ein = $rin | $win;
 			}
 
-			vec($rin, $upstream->fileno, 1) = 1;
-			foreach my $dcc(@dccqueue) {
-				if($dcc->{state} & DCC_STATE_WRITE) {
-					vec($win, fileno($dcc->{socket}), 1) = 1;
-				} else {
-					vec($rin, fileno($dcc->{socket}), 1) = 1;
-				}
+			my $timeout = @getbuff ? 0.01 : 5;
+			if(!$usepoll) {
+				select($rin, $win, $ein, $timeout) or @getbuff or goto CLEANUP;
+			} else {
+				my $rv = $poll->poll($timeout * 1000); # poll timeout is in milliseconds
+				die "Poll error: $!" if $rv == -1;
+				$rv or @getbuff or goto CLEANUP;
 			}
-
-			$ein = $rin | $win;
-			select($rin, $win, $ein, @getbuff ? 0.01 : 5) or @getbuff or goto CLEANUP;
 
 			local $SIG{ALRM} = sub { confess "IMIRC got stuck?" };
 			alarm 10;
 
-			debug_print("Processing OSCARs...", "irc", 2);
+			my($do_irc, @do_dcc) = 0;
+			$do_irc = 1 if @getbuff;
 
-			foreach $nick(keys %$aim_connections) {
-				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
-					eval {
-						$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
-					};
-					if($@) {
-						irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
-						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+			if($usepoll) {
+				debug_print("Processing poll results...", "irc", 2);
+				foreach my $handle ($poll->handles(POLLIN | POLLOUT | POLLERR | POLLHUP)) {
+					my $events = $poll->events($handle);
+					my $target = $fdmap{fileno($handle)};
+
+					if(!ref($target)) { # DCC
+						for(my $dccno = 0; $dccno < length(@dccqueue); $dccno++) {
+							if($dccqueue[$dccno] == $target) {
+								$do_dcc[$dccno] = 1;
+								last;
+							}
+						}
+					} elsif($target->isa("Net::OSCAR::Connection")) {
+						eval {
+							$target->process_one($events & POLLIN, $events & POLLOUT, $events & (POLLERR | POLLHUP));
+						}
+						if($@) {
+							my $screenname = $target->session->screenname;
+							my $nick = $irc_connections->{$screenname};
+							irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
+							do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+						}
+					} else { # upstream
+						$do_irc = 1;
 					}
 				}
+			} else {
+				debug_print("Processing OSCARs...", "irc", 2);
+
+				foreach $nick(keys %$aim_connections) {
+					foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
+						eval {
+							$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
+						};
+						if($@) {
+							irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
+							do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+						}
+					}
+				}
+
+				$do_irc = 1 if vec($rin, $upstream->fileno, 1);
 			}
 
 			debug_print("Processing IRC...", "irc", 2);
-			process_irc_message(irc_recv()) if vec($rin, $upstream->fileno, 1) or @getbuff;
+			process_irc_message(irc_recv()) if $do_irc or @getbuff;
 
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
@@ -543,13 +602,14 @@ sub mainloop() {
 				}
 
 				if($dcc->{state} & DCC_STATE_WRITE) {
-					next unless vec($win, fileno($dcc->{socket}), 1);
+					next unless $usepoll ? $do_dcc[$i] : vec($win, fileno($dcc->{socket}), 1);
 				} else {
-					next unless vec($rin, fileno($dcc->{socket}), 1);
+					next unless $usepoll ? $do_dcc[$i] : vec($rin, fileno($dcc->{socket}), 1);
 				}
 
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
+
 
 			CLEANUP:
 			$currtime ||= time;
@@ -575,8 +635,8 @@ sub mainloop() {
 				}
 			}
 
-			#Do this loop about once every 100 seconds
-			if((($currtime % 100) == 0) and ($currtime - $lasttime) >= 100) { #Cleanup nicks
+			#Do this loop no more than once every 100 seconds
+			if(($currtime - $lasttime) >= 100) { #Cleanup nicks
 				timestuff($currtime);
 				$lasttime = $currtime;
 			}
@@ -620,6 +680,10 @@ sub connect_to_irc() {
 	}
 
 	${*$upstream}{imirc_connected} = 1;
+	if($usepoll) {
+		$poll->mask($upstream => POLLIN);
+		$fdmap{fileno($upstream)} = $upstream;
+	}
 }
 
 # Create a new IRCnick, with mangling and anti-collide
@@ -2226,6 +2290,24 @@ sub oscar_buddylist_ok($) {
 	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 }
 
+# For $usepoll
+sub oscar_connection_changed($$$) {
+	my($oscar, $connection, $status) = @_;
+
+	$connection = $connection->get_filehandle;
+	if($status eq "read") {
+		$poll->mask($connection => POLLIN);
+	} elsif($status eq "write") {
+		$poll->mask($connection => POLLOUT);
+	} elsif($status eq "readwrite") {
+		$poll->mask($connection => POLLIN | POLLOUT);
+	} elsif($status eq "deleted") {
+		$poll->mask($connection => 0);
+		delete $fdmap{fileno($connection->get_filehandle)} if $connection->get_filehandle;
+	}
+	$fdmap{fileno($connection->get_filehandle)} = $connection unless $status eq "deleted";
+}
+
 sub oscar_log($$$) {
 	my($oscar, $level, $msg) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
@@ -2447,6 +2529,10 @@ sub do_signoff($$;$) {
 	for(my $i = $#dccqueue; $i >= 0; $i--) {
 		my $dcc = $dccqueue[$i];
 		next unless $screenname and $dcc->{screenname} eq $screenname;
+		if($usepoll) {
+			$poll->mask($dcc->{socket} => 0);
+			delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket};
+		}
 		close $dcc->{socket} if $dcc->{socket};
 		debug_print("Closed DCC $dcc->{desc} for $screenname due to signoff", "DCC", 3);
 		splice(@dccqueue, $i, 1);
@@ -2842,6 +2928,10 @@ sub process_ctcp($$$$$) {
 					$dcc = $dccqueue[$i];
 					next unless $dcc->{for} eq $from;
 					debug_print("$from rejected our DCC.", "DCC", 1);
+					if($usepoll) {
+						$poll->mask($dcc->{socket} => 0);
+						delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket};
+					}
 					close $dcc->{socket} if $dcc->{socket};
 					splice(@dccqueue, $i, 1);
 				}
@@ -2880,6 +2970,10 @@ sub process_ctcp($$$$$) {
 						sent => 0,
 						received => 0,
 					};
+					if($usepoll) {
+						$poll->mask($socket => dcc_state_poll_mask(DCC_STATE_GET_CONNECT));
+						$fdmap{fileno($socket)} = $dccqueue[-1];
+					}
 					delete $dccget{$from};
 					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename.", "", "", $screenname));
 				}
@@ -3060,6 +3154,10 @@ sub irc_dcc($$$$$$) {
 		sent => 0,
 		received => 0
 	};
+	if($usepoll) {
+		$poll->mask($socket => dcc_state_poll_mask(DCC_STATE_SEND_LISTEN));
+		$fdmap{fileno($socket)} = $dccqueue[-1];
+	}
 	debug_print("DCC SEND (litening on $dccip:$port) buff: $what", "DCC", 3);
 	return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " $port " . length($what));
 }
@@ -3158,6 +3256,7 @@ sub process_dcc($$) {
 	my $screenname = $dcc->{screenname};
 	my $buff;
 	my $rv = undef;
+	my $retval = 0;
 
 	debug_print("Got activity on DCC $dcc->{desc} from $dcc->{from} to $dcc->{to}...", "DCC", 3);
 
@@ -3167,10 +3266,15 @@ sub process_dcc($$) {
 		accept $newsocket, $dcc->{socket} or die "Couldn't accept: $!";
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		set_blocking($newsocket, 0);  # This pisses it off.
+		if($usepoll) {
+			$poll->mask($dcc->{socket} => 0);
+			delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket};
+		}
 		close $dcc->{socket};
 		$dcc->{socket} = $newsocket;
 		$dcc->{state} = DCC_STATE_SEND_READY;
-		return 1;
+		$retval = 1;
+		goto DCC_CLEANUP;
 	} elsif($dcc->{state} == DCC_STATE_SEND_READY) {
 		debug_print("...State DCC_STATE_SEND_READY", "DCC", 3);
 		my $send = $dcc->{send} % 2048;
@@ -3179,11 +3283,13 @@ sub process_dcc($$) {
 		my $rv = syswrite $dcc->{socket}, $buff, $send;
 		if(!defined($rv)) {
 			if($! == EAGAIN) {
-				return 1; # Why did select tell us we were ready, though?
+				$retval = 1; # Why did select tell us we were ready, though?
+				goto DCC_CLEANUP;
 			} else {
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
 				close $dcc->{socket};
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 		} else {
 			substr($buff, 0, $rv) = "";
@@ -3196,11 +3302,13 @@ sub process_dcc($$) {
 		my $rv = sysread $dcc->{socket}, $buff, 4;
 		if(!defined($rv)) {
 			if($! == EAGAIN) {
-				return 1; # Why did select tell us we were ready, though?
+				$retval = 0; # Why did select tell us we were ready, though?
+				goto DCC_CLEANUP;
 			} else {
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
 				close $dcc->{socket};
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 		} else {
 			($dcc->{received}) = unpack("N", $buff);
@@ -3211,31 +3319,36 @@ sub process_dcc($$) {
 				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
 				close $dcc->{socket};
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 		}
 	} elsif($dcc->{state} == DCC_STATE_GET_CONNECT) {
 		debug_print("...State DCC_STATE_GET_CONNECT", "DCC", 3);
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		$dcc->{state} = DCC_STATE_GET_READY;
-		return 1;
+		$retval = 1;
+		goto DCC_CLEANUP;
 	} elsif($dcc->{state} == DCC_STATE_GET_READY) {
 		debug_print("...State DCC_STATE_GET_READY", "DCC", 3);
 		my $buff;
 		my $rv = sysread $dcc->{socket}, $buff, 2048;
 		if(!defined($rv)) {
 			if($! == EAGAIN) {
-				return 1; # Why did select tell us we were ready, though?
+				$retval = 1; # Why did select tell us we were ready, though?
+				goto DCC_CLEANUP;
 			} else {
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
 				close $dcc->{socket};
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 		} else {
 			$dcc->{what} .= $buff;
 			$dcc->{received} += $rv;
 			$dcc->{state} = DCC_STATE_GET_SENDACK if $dcc->{received} % 2048 == 0 or $dcc->{received} == $dcc->{size};
-			return 1;
+			$retval = 1;
+			goto DCC_CLEANUP;
 		}
 	} elsif($dcc->{state} == DCC_STATE_GET_SENDACK) {
 		debug_print("...State DCC_STATE_GET_SENDACK", "DCC", 3);
@@ -3246,7 +3359,8 @@ sub process_dcc($$) {
 			} else {
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
 				close $dcc->{socket};
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 		} else {
 			$dcc->{state} = DCC_STATE_GET_READY if $dcc->{received} % 2048 != 0;
@@ -3261,16 +3375,26 @@ sub process_dcc($$) {
 				} else {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "Could not load buddylist.", "", "", $screenname));
 				}
-				return 0;
+				$retval = 0;
+				goto DCC_CLEANUP;
 			}
 
-			return 1;
+			$retval = 1;
+			goto DCC_CLEANUP;
 		}
 	} else {
 		debug_print("...State unknown ($dcc->{state})", "DCC", 3);
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "Unknown state $dcc->{state}!  Please email matthewg\@zevils.com.", "", "", $screenname));
-		return 0;
+		$retval = 0;
+		goto DCC_CLEANUP;
 	}
+
+	DCC_CLEANUP:
+	if($usepoll) {
+		$poll->mask($dcc->{socket} => $retval ? dcc_state_poll_mask($dcc->{state}) : 0);
+		$fdmap{fileno($dcc->{socket})} = $dcc if $dcc->{socket};
+	}
+	return $retval;
 }
 
 sub send_im($$$$) {
@@ -3519,6 +3643,10 @@ sub did_quit($) {
 		$dcc = $dccqueue[$i];
 		next unless $dcc->{for} eq $nick;
 		debug_print("Closing DCC socket for transfer to $nick", "DCC", 1);
+		if($usepoll) {
+			$poll->mask($dcc->{socket} => 0);
+			delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket};
+		}
 		close $dcc->{socket};
 		splice(@dccqueue, $i, 1);
 	}
@@ -3539,4 +3667,12 @@ sub checkstats() {
 sub IsTS() {
 	return 1 if $servermode eq "ts" or $servermode eq "bahamut" or $servermode eq "dancer";
 	return 0;
+}
+
+# returns a poll mask (POLLIN | POLLOUT) based on a DCC state
+sub dcc_state_poll_mask($) {
+	my $state = shift;
+
+	return POLLOUT if $state & DCC_STATE_WRITE;
+	return POLLIN;
 }
