@@ -6,7 +6,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err update_buddy get_config strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
+@EXPORT_OK = qw($err update_config signoff update_buddy get_config strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
@@ -16,6 +16,35 @@ $VERSION = '0.80';
 
 Toc - Do stuff with AOL's Toc protocol, which is what AOL Instant Messenger and its ilk users.
 AOL, AOL Instant Messenger, AIM, and Toc are probably registered trademarks of America Online.
+
+=item update_config(HANDLE, CONF)
+
+Call this when you get a toc CONFIG message.
+
+=cut
+
+sub update_config($$) {
+	my($handle, $conf) = @_;
+	
+	($config{_hnick($handle)}{permtype}, $config{_hnick($handle)}{groups}) = str2conf($conf);
+	
+}
+
+=pod
+
+=item signoff(HANDLE)
+
+Signoff from AIM.
+
+=cut
+
+sub signoff($) {
+	my($handle) = shift;
+	delete $config{_hnick($handle)};
+	$handle->close;
+}
+
+=pod
 
 =item update_buddy(AIM_SCREENNAME, NICK, CLASS, EVIL_LEVEL, SIGNON_TIME, IDLE_TIME, ONLINE?)
 
@@ -633,6 +662,9 @@ In all other cases, it is called automatically when needed.  Returns the result 
 
 sub set_config($$$) {
 	my($handle, $config, $permtype) = @_;
+	$config{_hnick($handle)}{groups} = $config;
+	$config{_hnick($handle)}{permtype} = $permtype;
+
 	sflap_do($handle, conf2str($permtype, $config));
 }
 
@@ -838,7 +870,7 @@ sub conf2str($\%) {
 =item str2conf(STRING)
 
 Takes a string in the format that toc_set_config wants and that the signon process
-produces and returns an array consisting of a permit type and a config-hash of the type returned by signon.
+produces and returns an array consisting of a permit type and a config-hashref of the type returned by signon.
 You almost definately should not be calling this directly - let signon handle things.  Actually, I suppose you
 would use str2conf/conf2str to export and import a Toc configuration.
 

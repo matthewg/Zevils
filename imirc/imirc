@@ -171,18 +171,17 @@ sub process_irc_message {
 				$aim_connections{$nick}{aimnick} = $param;
 				$aim_connections{$nick}{socket} = $ret[1];
 				$aim_connections{$nick}{permtype} = $ret[2];
-				$aim_connections{$nick}{groups} = \%{$ret[3]};
+				%temp = %{$ret[3]};
 				$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
-				foreach $buddy(keys %{$aim_connections{$nick}{groups}->{Buddies}}) {
+				foreach $buddy(keys %{$temp{Buddies}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
 					add_buddy($aim_connections{$nick}{socket}, $buddy);
-					$aim_connections{$nick}{groups}{Buddies}{$buddy}{online} = 0;
 				}
-				foreach $buddy(keys %{$aim_connections{$nick}{groups}->{permit}}) {
+				foreach $buddy(keys %{$temp{permit}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
 					add_permit($aim_connections{$nick}{socket}, $buddy);
 				}
-				foreach $buddy(keys %{$aim_connections{$nick}{groups}->{deny}}) {
+				foreach $buddy(keys %{$temp{deny}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
 					add_deny($aim_connections{$nick}{socket}, $buddy);
 				}
@@ -197,38 +196,38 @@ sub process_irc_message {
 				irc_send(irc_privmsg($usnick, $nick, $err));
 			}
 		} elsif ($cmd eq "buddylist") {
-			$aim_connections{$nick}{groups} = get_config($nick);
-			for $buddy(keys %{$aim_connections{$nick}{groups}->{Buddies}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$buddy ($aim_connections{$nick}{groups}->{Buddies}{$buddy}{group})"));
+			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
+			for $buddy(keys %{$temp{Buddies}}) {
+				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})"));
 			}
 		} elsif ($cmd eq "onbuddies") {
-			$aim_connections{$nick}{groups} = get_config($nick);
-			for $buddy(keys %{$aim_connections{$nick}{groups}->{Buddies}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$buddy ($aim_connections{$nick}{groups}->{Buddies}{$buddy}{group})")) if ($aim_connections{$nick}{groups}->{Buddies}{$buddy}{online} == 1);
+			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
+			for $buddy(keys %{$temp{Buddies}}) {
+				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})")) if ($temp{Buddies}{$buddy}{online} == 1);
 			}
 		} elsif ($cmd eq "permitlist") {
-			$aim_connections{$nick}{groups} = get_config($nick);
-			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$aim_connections{$nick}{groups}->{permit}}))));
+			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
+			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{permit}}))));
 		} elsif ($cmd eq "denylist") {
-			$aim_connections{$nick}{groups} = get_config($nick);
-			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$aim_connections{$nick}{groups}->{deny}}))));
+			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
+			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
 				delete $nicks{normalize($aim_connections{$nick}{aimnick})};
 				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
-				$aim_connections{$nick}{socket}->close if $aim_connections{$nick}{socket};
+				signoff($aim_connections{$nick}{socket});
 				delete $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick};
 				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
 		} elsif ($cmd eq "buddyinfo") {
-			$aim_connections{$nick}{groups} = get_config($nick);
+			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			$param = lc($param);
-			$group = $aim_connections{$nick}{groups}->{Buddies}{$param}{group};
-			if($aim_connections{$nick}{groups}->{Buddies}{$param}) {
+			$group = $temp{Buddies}{$param}{group};
+			if($temp{Buddies}{$param}) {
 				local $^W = 0;
 				$msg = ":$usnick PRIVMSG $nick :";
 				$msg .= "Group: $group\t" if $group and $group ne "Buddies";
-				$msg .= "Signon time: " . localtime($aim_connections{$nick}{groups}->{Buddies}{$param}{signon}) . "\tIdle time: $aim_connections{$nick}{groups}->{Buddies}{$param}{idle} minutes\tUser class: ";
-				$msg .= parseclass($aim_connections{$nick}{groups}->{Buddies}{$param}{class}) . "\r\n";
+				$msg .= "Signon time: " . localtime($temp{Buddies}{$param}{signon}) . "\tIdle time: $temp{Buddies}{$param}{idle} minutes\tUser class: ";
+				$msg .= parseclass($temp{Buddies}{$param}{class}) . "\r\n";
 				irc_send($msg);
 			} else {
 				irc_send(irc_privmsg($usnick, $nick,  "That persion is either not on your buddy list or not signed on."));
@@ -444,7 +443,7 @@ sub process_aim_message {
 		$val =~ /([^:]+):?(.*)/;
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . strerror($1)));
 	} elsif($cmd eq "CONFIG") {
-		($connection->{permtype}, $connection->{groups}) = str2conf($msg);
+		update_config($connection->{socket}, $msg);
 	} elsif($cmd eq "IM_IN") {
 		$val =~ /([^:]+):(.):(.*)/;
 		($inick = $1) =~ tr/ //d;
@@ -468,14 +467,14 @@ sub process_aim_message {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
 		($inick = $1) =~ tr/ //d; $inick = lc($inick);
 		if($2 eq "T") {
-			$connection->{groups} = get_config($connection->{nick});
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $connection->{groups}->{Buddies}{$inick}{online};
+			%temp = deref(get_config($connection->{aimnick}));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $temp{Buddies}{$inick}{online};
 			{
 				local $^W = 0;
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($connection->{groups}->{Buddies}{$inick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($connection->{groups}->{Buddies}{$inick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($temp{Buddies}{$inick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($temp{Buddies}{$inick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
 			}
-			update_buddy($connection->{nick}, $inick, $6, $3, $4, $5, 1);
+			update_buddy($connection->{aimnick}, $inick, $6, $3, $4, $5, 1);
 
 			irc_send(irc_newnick($prefix . $inick)) unless scalar keys %{$nicks{normalize($inick)}};;
 			$nicks{normalize($inick)}{$connection->{nick}} = -1;
@@ -575,4 +574,9 @@ sub Toc::debug_print($$$) {
 sub irc_send {
 	Toc::debug_print("To IRC  : $_[0]", "irc", 2);
 	$upstream->print($_[0]);
+}
+
+sub deref($) {
+	my $href = shift;
+	return %$href;
 }
