@@ -42,16 +42,16 @@ sub next_num($$;$) {
 		return $snum;
 	} elsif($type eq "section_snum") {
 		my $section = $what;
-		my $snum = $self->sqlSelectAll("next_snum", "sections", "section=".$self->sqlQuote($section));
+		my $snum = $self->sqlSelectAll("nntp_next_snum", "sections", "section=".$self->sqlQuote($section));
 		return undef unless $snum;
-		$self->sqlUpdate("sections", {next_snum => $snum->[0]->[0] + 1}, "section=".$self->sqlQuote($section));
+		$self->sqlUpdate("sections", {nntp_next_snum => $snum->[0]->[0] + 1}, "section=".$self->sqlQuote($section));
 		return $snum->[0]->[0];
 	} elsif($type eq "cnum") {
 		my $id = $what;
 
-		my $cnum = $self->sqlSelectAll("next_cnum", "discussions", "id=$id");
+		my $cnum = $self->sqlSelectAll("nntp_next_cnum", "discussions", "id=$id");
 		return undef unless $cnum;
-		$self->sqlUpdate("discussions", {next_cnum => $cnum->[0]->[0] + 1}, "id=$id");
+		$self->sqlUpdate("discussions", {nntp_next_cnum => $cnum->[0]->[0] + 1}, "id=$id");
 		return $cnum->[0]->[0];
 	}
 }

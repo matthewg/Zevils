@@ -44,7 +44,7 @@ sub new($;@) {
 	$self->{slash_user} = getCurrentUser();
 	$self->{slash_nntp} = getObject("Slash::NNTP") or croak "Couldn't get Slash::NNTP - is the NNTP plugin installed for $self->{slash_slashsite}?";
 
-	$self->{root} = $self->groupname("slash.$self->{slash_slashsite}");
+	$self->{root} ||= $self->groupname("slash." . lc($self->{slash_db}->getVar("sitename", "value"));
 
 	return $self;
 }
@@ -116,8 +116,8 @@ sub articles($$;$) {
 	
 }
 
-sub article($$$) {
-	my($self, $type, $msgid) = @_;
+sub article($$$;@) {
+	my($self, $type, $msgid, @headers) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
 	$self->consume_subscription() unless $type "head";

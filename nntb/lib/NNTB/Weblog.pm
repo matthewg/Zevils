@@ -24,6 +24,61 @@ weblog to NNTB.  NNTB, or Network News Transport for 'Blogs, allows one to
 access weblogs via NNTP.  Unless otherwise stated, you B<MAY> override all
 methods.
 
+=head2 GROUP HIERARCHY
+
+There are a few things that NNTP needs.  The first thing you need to plan
+is the layout of your groups.  NNTP groups have a semi-hierchial layout
+where the left-most portions are the broadest - the opposite of the way
+hostnames are constructed.  Roots are configurable by the user, but you
+should provide a default that is the name of your weblog system followed
+by the name of the site; for instance, C<slash.slashdot> or C<scoop.kuro5hin>.
+
+Not every level of the hierarchy has to exist.  For instance, having a group
+called C<slash.slashdot.text.stories.foo_bar> does not imply having groups
+C<slash>, C<slash.slashdot>, C<slash.slashdot.text>, etc.
+
+If your weblog uses HTML as its native format for stories and comments,
+you must keep in mind that many news clients may not support HTML; you should
+provide two parallel hierarchies, one for text and one for HTML.  This really
+takes up very little additional effort, and an HTML to text conversion function
+suitable for use in C<NNTB::Weblog> modules is provided by the base C<NNTB::Weblog>
+class.  For instance, you could have:
+
+	weblog.site
+		.text
+			.stories - This would have all front-page stories
+				.some_section
+				.other_section
+					.foo_bar_story - Comments for that story
+		.html
+			.stories - Same as above, but in HTML format
+				...etc...
+
+Note that you should ignore the text/html in the newsgroup name when a user
+posts an article and instead look at the C<Content-Type> header.
+
+=head2 ARTICLE IDENTIFIERS
+
+NNTP has two distinct systems of article identifiers; you must implement both.
+The first system is a globally-unique message ID.  Message IDs are enclosed in
+angle brackets and typically have an at sign in them.  Here's an example of a
+message ID:
+
+	E<lt>1234@5678.site.weblogE<gt>
+
+In the example above, 1234 might be the comment ID and 5678 might be the story
+ID.
+
+The other way of identifying an article is its article number; article numbers
+are monotonically increasing integers that are unique only within a particular
+group.
+
+=head2 TIMES
+
+You also need to be aware of the time that an article was posted or a group
+was created.  For instance, clients will ask for the names of all groups
+created since a particular date in order to update their list of valid groups.
+
 =head1 METHODS
 
 =over 4
@@ -46,6 +101,18 @@ hashref; it is recommended that you inherit this constructor, e.g.:
 	my $type = shift;
 	my $self = $type-E<gt>SUPER::new;
 
+The object returned by C<SUPER::new> may also have some parameters set.  These
+parameters are:
+
+=over 4
+
+=item $self-E<gt>{root}
+
+The user-selected root for the NNTP group hierarchy.  If and only if this is not
+defined, you B<MUST> provide a default.
+
+=back
+
 You may then proceed to do any weblog-specific initialization.  You will be given
 a hash of the settings for this particular instance of your module as parameters
 to this method.
@@ -55,13 +122,16 @@ For client-specific initialization, see L<"got_client"> below.
 
 =cut
 
-sub new($) {
+sub new(@) {
 	my $class = ref($_[0]) || $_[0] || "NNTB::Weblog";
 	croak "Do not instantiate NNTB::Weblog directly; use one of its subclasses." if $class eq "NNTB::Weblog";
 
 	shift;
 	my $self = { };
 	bless $self, $class;
+
+	my %params = @_;
+	($self->{root}) = delete $params{root};
 
 	return $self;
 }
@@ -181,11 +251,16 @@ sub articles($$;$) { return undef; }
 
 =pod
 
-=item article TYPE MSGID
+=item article TYPE MSGID [HEADERS]
 
 This method should return the indicated article.  C<TYPE> will
 be one of "article", "head", or "body", indicating which portion of 
-the article to return.  Return undef if the article does not exist.
+the article to return.  If C<TYPE> is "head", C<HEADERS> may be a list of
+which headers to return; return only those headers if C<HEADERS> is present,
+otherwise return all headers.  The headers should be returned as a single
+string.
+
+Return undef if the article does not exist.
 
 =cut
 
@@ -290,6 +365,10 @@ See http://www.zevils.com/programs/nntb/ for support.
 =head1 AUTHOR
 
 Matthew Sachs E<lt>matthewg@zevils.comE<gt>.
+
+=head1 SEE ALSO
+
+RFCs 977 and 2980
 
 =head1 LEGAL
 
