@@ -640,6 +640,7 @@ sub mainloop() {
 			#Do this loop about once every 100 seconds
 			if((($currtime % 100) == 0) and ($currtime - $lasttime) >= 100) { #Cleanup nicks
 				timestuff($currtime);
+				$lasttime = $currtime;
 			}
 		}
 	}
@@ -1266,7 +1267,10 @@ Buddy {
 		} elsif ($cmd eq "remove_pounce") {
 			unless(defined $param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number"));
-			} elsif($savepounces <= 0) {
+				return;
+			}
+			$param = 0 if $param eq "";
+			if($savepounces <= 0) {
 				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
 			} elsif($sndata->{pounces}->[$param]) {
 				splice(@{$sndata->{pounces}}, $param, 1);
@@ -1503,6 +1507,9 @@ Buddy {
 	} elsif(/^NICK +(\S+)/) { #Nick change
 		if($aim_connections{$nnick}) {
 			$newnick = normalize($1);
+			foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
+				$irc_connections{$screenname} = $newnick;
+			}
 			$aim_connections{$newnick} = $aim_connections{$nnick};
 			$aim_connections{$newnick}{nick} = $newnick;
 			delete $aim_connections{$nnick};
@@ -1994,9 +2001,7 @@ sub do_signon($$$$) {
 
 		irc_send(irc_privmsg($tusnick, $nnick, "Sent signon attempt for $nparam..."));
 
-		unless($nicks{$nparam}) {
-			irc_send(irc_newnick($prefix . $tparam));
-		}
+		irc_send(irc_newnick($prefix . $tparam));
 		$nicks{$nparam}{$nnick} = -1;
 	} else {
 		irc_send(irc_privmsg($tusnick, $nnick, $err));
@@ -2160,7 +2165,7 @@ sub timestuff($) {
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %nicks) {
 		next if normalize($anick) eq normalize($usnick);
-		next if exists $aim_connections{normalize($anick)};
+		next if exists $irc_connections{noprefix($anick)};
 		next if $anick =~ /^chat-\d+/;
 		$kill = 1;
 		Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
@@ -2203,6 +2208,7 @@ sub timestuff($) {
 				$multinick = "";
 				$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 				$sndata = $connection->{screennames}{$screenname};
+				next unless $sndata->{ison};
 				if($sndata->{socket}) {
 					if(sflap_keepalive($sndata->{socket}) == -1 and $! != EAGAIN) {
 						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
@@ -2483,6 +2489,7 @@ sub checkpoint() {
 		if($savebuddies > 1) {
 			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
 			foreach $screenname(keys %buddylists) {
+				unlink "$directory/buddylists/$screenname";
 				next unless $buddylists{$screenname};
 				open(BUDDYLIST, ">$directory/buddylists/$screenname") or next;
 				print BUDDYLIST $buddylists{$screenname};
@@ -2492,6 +2499,7 @@ sub checkpoint() {
 		if($saveprofiles > 1) {
 			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
 			foreach $screenname(keys %profiles) {
+				unlink "$directory/profiles/$screenname";
 				next unless $profiles{$screenname};
 				open(PROFILE, ">$directory/profiles/$screenname") or next;
 				print PROFILE $profiles{$screenname};
@@ -2501,6 +2509,7 @@ sub checkpoint() {
 		if($savepounces > 1) {
 			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
 			foreach $screenname(keys %pounces) {
+				unlink "$directory/pounces/$screenname";
 				next unless scalar @{$pounces{$screenname}};
 				open(POUNCES, ">$directory/pounces/$screenname") or next;
 				foreach $pounce(@{$pounces{$screenname}}) {
