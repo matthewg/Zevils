@@ -331,10 +331,12 @@ function cifs_connect_share(&$smb, $share) {
 	}
 }
 
-function cifs_add_transaction_header(&$smb, &$packet, $data) {
-	$packet = "";
+function cifs_make_transaction(&$smb, $name, $parameters, $data) {
+	$name = cifs_str2uni($smb, $name);
+
+	$packet = cifs_make_header(0x25, $smb);
 	$packet .= chr(14); //parameter word count
-	$packet .= pack("v", 14*4); //parameter byte count
+	$packet .= pack("v", strlen($parameters)); //parameter byte count
 	$packet .= pack("v", strlen($data)); //data count
 	$packet .= pack("v", 1024); //max parameter count
 	$packet .= pack("v", 65504); //max data count
@@ -344,14 +346,34 @@ function cifs_add_transaction_header(&$smb, &$packet, $data) {
 	$packet .= pack("V", 0); //timeout
 	$packet .= pack("v", 0); //reserved
 
-	$packet .= pack("v", 14*4); //parameter byte count this packet
-	$packet .= pack("v", $smb["unicode"] ? 90 : 76); //parameter offset
-	$packet .= pack("v", 0); //data count
-	$packet .= pack("v", $smb["unicode"] ? 109 : 95); //data offset
-	$packet .= chr(0); //setup count
+	$paramoffset = 64 + strlen($name);
+	if($paramoffset % 2 == 1) { //pad to SHORT
+		$paramoffset++;
+		$parampadding = chr(0);
+	} else {
+		$parampadding = "";
+	}
+
+	$dataoffset = $paramoffset + strlen($parameters);
+	/*if($dataoffset % 2 == 1) { //pad to SHORT
+		$dataoffset++;
+		$datapadding = chr(0);
+	} else {*/
+		$datapadding = "";
+	//}
+
+	$packet .= pack("v", strlen($parameters)); //parameter byte count this packet
+	$packet .= pack("v", $paramoffset); //parameter offset (from header start)
+	$packet .= pack("v", strlen($data)); //data bytes sent this buffer
+	$packet .= pack("v", $dataoffset); //data offset (from header start)
+	$packet .= chr(0); //setup count (in words)
 	$packet .= chr(0); //reserved
-	$packet .= pack("v", $smb["unicode"] ? 46 : 32); //byte count
-	if($smb["unicode"]) $packet .= chr(0); //SMB Pipe Protocol
+	$packet .= pack("v", 1 + strlen($parampadding) + strlen($datapadding) + strlen($name) + strlen($parameters) + strlen($data)); //Count of data bytes
+	$packet .= chr(0) . $name . $parampadding; //Name
+	$packet .= $parameters . $datapadding;
+	$packet .= $data;
+
+	return $packet;
 }
 
 function cifs_readdir(&$smb, $path) {
@@ -380,7 +402,7 @@ function cifs_readdir(&$smb, $path) {
 	$extradata .= pack("v", INFOLEVEL);
 	$extradata .= pack("V", 0);
 	if(substr($path, strlen($path) - 1, 1) != "/") $path .= "/";
-	$extradata .= cifs_str2uni("$path*", $smb);
+	$extradata .= cifs_str2uni($smb, "$path*");
 
 	$packet .= pack("v", strlen($extradata)) . $extradata;
 	
@@ -420,33 +442,14 @@ function cifs_enum_shares(&$smb) {
 	cifs_connect_share($smb, "IPC\$");
 	if($smb["error"]) return;
 
-	$packet = cifs_make_header(0x25, $smb);
-	$packet .= chr(14); //parameter count
-	$packet .= pack("v", 19); //total parameter count
-	$packet .= pack("v", 0); //data count
-	$packet .= pack("v", 1024); //max parameter count
-	$packet .= pack("v", 65504); //max data count
-	$packet .= chr(0); //max setup count
-	$packet .= chr(0); //reserved
-	$packet .= pack("v", 0); //flags
-	$packet .= pack("V", 4); //timeout
-	$packet .= pack("v", 0); //reserved
+	$data = pack("v", 0); //NetShareEnum
+	$data .= "WrLeh" . chr(0); //parameter descriptor
+	$data .= "B13BWz" . chr(0); //return descriptor
+	$data .= pack("v", 1); //detail level
+	$data .= pack("v", 65504); //return buffer length
 
-	$packet .= pack("v", 19); //parameter count
-	$packet .= pack("v", $smb["unicode"] ? 90 : 76); //parameter offset
-	$packet .= pack("v", 0); //data count
-	$packet .= pack("v", $smb["unicode"] ? 109 : 95); //data offset
-	$packet .= chr(0); //setup count
-	$packet .= chr(0); //reserved
-	$packet .= pack("v", $smb["unicode"] ? 46 : 32); //byte count
-	if($smb["unicode"]) $packet .= chr(0); //SMB Pipe Protocol
+	$packet = cifs_make_transaction($smb, "\\PIPE\\LANMAN", $data, "");
 
-	$packet .= cifs_str2uni($smb, "\\PIPE\\LANMAN");
-	$packet .= pack("v", 0); //NetShareEnum
-	$packet .= "WrLeh" . chr(0); //parameter descriptor
-	$packet .= "B13BWz" . chr(0); //return descriptor
-	$packet .= pack("v", 1); //detail level
-	$packet .= pack("v", 65504); //return buffer length
 
 	netbios_send_packet($smb["sock"], $packet);
 	$data = netbios_get_packet($smb["sock"]);
