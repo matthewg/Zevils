@@ -1562,7 +1562,7 @@ sub process_aim_message($$$) {
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
 				$i = 0;
 				map { $pouncehash{$i++} = $_ } @{$connection->{screennames}{$screenname}{pounces}};
-				foreach $pouncenum(keys %pouncehash) {
+				foreach $pouncenum(sort { $a <=> $b } keys %pouncehash) {
 					$pounce = $pouncehash{$pouncenum};
 					Toc::debug_print("$pounce->{who} eq $nnick?", "IRC", 1);
 					next unless normalize $pounce->{who} eq $nnick;
