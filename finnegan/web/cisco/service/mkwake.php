@@ -12,7 +12,7 @@ session_start();
 // Initialize variables for editing an existing wake
 $oldvalues = array();
 if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUEST["id"])) {
-	$id = $_REQUEST["id"];
+	$_SESSION["id"] = $_REQUEST["id"];
 	if(!isset($_REQUEST["prompt"])) { //We only need to load from DB the first time - afterwards, everything's in the query string
 		$result = @mysql_query("SELECT * FROM wakes WHERE extension='$extension' AND wake_id=$id");
 		if(!$result) db_error();
@@ -41,14 +41,17 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 
 		$oldvalues["cal_type"] = $wake["cal_type"];
 	}
+} else if(isset($_SESSION["id"])) {
+	$id = $_SESSION["id"];
 } else {
+	$_SESSION["id"] = "";
 	$id = "";
 }
 
 // Grab variables from query string
 $playmsg = isset($_REQUEST["playmsg"]) ? $_REQUEST["playmsg"] : "";
-$prompt = isset($_REQUEST["prompt"]) ? $_REQUEST["prompt"] : 0;
-$process = isset($_REQUEST["process"]) ? $_REQUEST["process"] : 0;
+$prompt = isset($_REQUEST["p"]) ? $_REQUEST["p"] : 0;
+$process = isset($_REQUEST["do"]) ? $_REQUEST["do"] : 0;
 
 if($playmsg) redirect("Play:".$FinneganCiscoConfig->tftp_prefix."finmsg-$message");
 
@@ -293,9 +296,9 @@ if(!$title) {
 }
 
 // Build URLs
-$url = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prompt&amp;process=1&amp;".ini_get("session.name")."=" . session_id();
+$url = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prompt&amp;do=1";
 if($prev)
-	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prev&amp;process=0&amp;".ini_get("session.name")."=" . session_id();
+	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prev&amp;do=0";
 else
 	$prevurl = $FinneganCiscoConfig->url_base . "/service/index.php";
 
@@ -461,7 +464,7 @@ if($seltype == "CiscoIPPhoneMenu") {
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>Help</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?prompt=<?echo $prompt?>&amp;prevurl=<?echo preg_replace("/&/", "!", current_url())?></URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?p=<?echo $prompt?>&amp;prevurl=<?echo preg_replace("/&/", "!", current_url())?></URL>
 <Position>4</Position>
 </SoftKeyItem>
 <? echo "</$seltype>\n"; ?>

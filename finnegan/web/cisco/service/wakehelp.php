@@ -3,7 +3,7 @@
 $cisco = 1;
 require "../../include/finnegan.inc";
 
-$prompt = isset($_REQUEST["prompt"]) ? $_REQUEST["prompt"] : "time";
+$prompt = isset($_REQUEST["p"]) ? $_REQUEST["p"] : "time";
 $prevurl = preg_replace("/!/", "&", $_REQUEST["prevurl"]);
 
 if($prompt == "time") {
