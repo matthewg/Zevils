@@ -320,7 +320,7 @@ sub loadconf() {
 		},
 		ircu => {
 			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us +i :AOL Instant Messenger services\r\n",
-			server => "SERVER $us 1 _TIME_ _TIME_ P09 :AIM Services\r\n",
+			server => "SERVER $us 1 _TIME_ _TIME_ P09 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
@@ -328,7 +328,7 @@ sub loadconf() {
 		},
 		rfc => {
 			nick => "NICK _NICK_ 1\r\n:_NICK_ USER _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger serices\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
@@ -336,7 +336,7 @@ sub loadconf() {
 		},
 		ts => {
 			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 3 1 0 :_TIME_\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 3 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
@@ -344,7 +344,7 @@ sub loadconf() {
 		},
 		unreal => {
 			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 30,
@@ -352,14 +352,14 @@ sub loadconf() {
 		},
 		p0210 => {
 			nick => "NICK _NICK_ 1 +i _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			nicklen => 9,
 			pass => "PASS $ourpass 0210030002 IRC\r\n",
 		},
 		p10 => {
 			nick => "$numeric N _NICK_ 1 _TIME_ _USER_ _USER_.$us +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\n$numeric EB\r\n$numeric EA\r\n",
+			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger Services\r\n$numeric EB\r\n$numeric EA\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
@@ -367,7 +367,7 @@ sub loadconf() {
 		},
 		bahamut => {
 			nick => "NICK _NICK_ 2 _TIME_ +i _USER_ _USER_.$us $us _TIME_ :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 3 1 0 :_TIME_\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 3 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 30,
