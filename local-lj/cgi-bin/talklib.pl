@@ -1243,7 +1243,12 @@ sub format_text_mail {
         $text .= "$who replied to your $LJ::SITENAMESHORT comment in which you said:";
     }
     $text .= "\n\n";
-    $text .= indent(html2txt($parent->{body}), ">") . "\n\n";
+
+    # indent won't apply the leadchar (">") to blank lines
+    my $parent_text = indent(html2txt($parent->{body}), ">") . "\n\n";
+    $parent_text =~ s/^(\s*)$/>$1/gm;
+    $text .= $parent_text;
+
     $text .= (LJ::u_equals($targetu, $comment->{u}) ? 'Your' : 'Their') . " reply was:\n\n";
     if ($comment->{subject}) {
         $text .= Text::Wrap::wrap("  Subject: ",
@@ -1428,7 +1433,7 @@ sub indent {
     my $a = shift;
     my $leadchar = shift || " ";
     $Text::Wrap::columns = 76;
-    return Text::Wrap::wrap("$leadchar ", "$leadchar ", $a);
+    return Text::Wrap::fill("$leadchar ", "$leadchar ", $a);
 }
 
 sub blockquote {
