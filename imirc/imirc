@@ -646,6 +646,7 @@ sub process_irc_message($) {
 			bounce_join($nick, nickchan($screenname));
 		} else {
 			my $chan = nickchan($screenname);
+			delete $chantimer{$chan};
 			$aim_connections->{$nick}->{screennames}->{$screenname}->{inchan} = 1;
 			irc_send(irc_join($usnick, $chan));
 			irc_send(irc_mode($us, $chan, "+o $usnick"));
@@ -670,6 +671,7 @@ sub process_irc_message($) {
 		if(not $chats{$chat} or !$screenname or not grep { normalize($_) eq normalize($chats{$chat}->{screenname}) } @screennames) {
 			bounce_join($nick, chatchan($chat));
 		} else {
+			delete $chantimer{chatchan($chan)};
 			$oscar = $aim_connections->{$nick}->{screennames}->{$chats{$chat}->{screenname}}->{oscar};
 			$chats{chat}->{joined} = 1;
 			if($chats{$chat}->{invited}) {
@@ -767,7 +769,7 @@ sub process_irc_message($) {
 				foreach my $who(keys %{$chats{$1}->{members}}) {
 					delete $chats{$1}->{members}->{$who};
 					delete $nicks->{$who}->{"chat-$1"};
-					irc_send(irc_part(ircify($prefix.$who), "#aimchat-$1"));
+					irc_send(irc_part(ircify($prefix.$who), chatchan($1)));
 				}
 				delete $chats{$1};
 			}
@@ -825,7 +827,7 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "stats") {
 			if($param eq "users" and $msg =~ /users $ourpass/) {
-				irc_send(irc_privmsg($usnick, $nick, "$usercount users (max $maxusers): " . join(", ", keys %$irc_connections)));
+				irc_send(irc_privmsg($usnick, $nick, "$usercount users (max $maxusers): " . join(", " , keys %$irc_connections)));
 			} elsif($param eq "users") {
 				irc_send(irc_privmsg($usnick, $nick, "$usercount users (max $maxusers)"));
 			} elsif($param eq "uptime") {
@@ -1355,6 +1357,7 @@ User {
 					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n", 1);
 					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
 					irc_send("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n", 1);
+					irc_send("$foo :show text - Evaluate text as Perl code and display its output in the channel.  All exceptions will be trapped and displayed.\r\n", 1);
 				} else {
 					irc_send("$foo :Debugging support is not enabled.  Edit /etc/aimirc.conf or $home/.aimirc and send SIGHUP to PID $$.\r\n", 1);
 				}
@@ -1504,6 +1507,11 @@ User {
 			} elsif($msg =~ /^eval (.+)/ and $1) {
 				eval $1;
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+			} elsif($msg =~ /^show (.+)/ and $1) {
+				eval "irc_send(irc_privmsg($usnick, \"#aimirc-debug\", $1));";
+				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+			} elsif($msg =~ /#/) {
+				# Do nothing
 			} else {
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
@@ -1700,7 +1708,7 @@ sub oscar_buddy_out($$$) {
 	delete $away->{$buddy};
 	my $inick = ircify($prefix.$buddy);
 	if($sndata->{inchan}) {
-		irc_send(irc_part($inick, normalize("#aimirc-$screenname")));
+		irc_send(irc_part($inick, nickchan($screenname)));
 	} else {
 		irc_send(irc_privmsg($usnick, $nick, "$buddy has departed"));
 	}
@@ -1793,6 +1801,7 @@ sub oscar_chat_invite($$$$$) {
 	irc_send(irc_privmsg($usnick, $nick, "$from has invited us to chatroom $chat for the following reason: " .  html2txt($msg) . "To accept, join $chan", "", "", $screenname));
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
+	irc_send(irc_mode($usnick, $chan, "+ints"));
 	irc_send(irc_invite($usnick, $chan, $nick));
 }
 
@@ -2727,6 +2736,7 @@ sub ircify($) {
 
 sub bounce_join($$) {
 	my($nick, $chan) = @_;
+
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_mode($usnick, $chan, "+isntb *!*@*"));
@@ -2856,5 +2866,5 @@ sub mkchan($$) {
 	return new Net::OSCAR::Screenname "#". ircify("$prefix-$suffix");
 }
 
-sub chatchan($) { return mkchan("aimchat", shift); }
+sub chatchan($) { confess "chatchan \"\"!" unless $_[0]; return mkchan("aimchat", shift); }
 sub nickchan($) { return mkchan("aimirc", shift); }
