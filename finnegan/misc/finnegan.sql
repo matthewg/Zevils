@@ -13,8 +13,6 @@ CREATE TABLE wakes (
 	std_weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cur_weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cal_type SET('normal', 'holidays', 'Brandeis') NULL,
-	verified BIT NOT NULL DEFAULT 0,
-	verify_tries TINYINT NOT NULL DEFAULT 0,
 	snooze_interval INT NOT NULL DEFAULT 9,
 	snooze_time TIME NULL,
 	snooze_count INT NOT NULL DEFAULT 0,
