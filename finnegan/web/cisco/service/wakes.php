@@ -13,7 +13,7 @@ $wakes = get_wakes();
 <?
 
 while($wake = mysql_fetch_assoc($wakes)) {
-	echo <MenuItem>\n";
+	echo "<MenuItem>\n";
 	echo "<Name>" . format_wake($wake) . "</Name>\n";
 
 	if($PHONE_MODEL == "CP-7912G")

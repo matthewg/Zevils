@@ -26,12 +26,14 @@ function get_extension() {
 			else
 				cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
 		} else {
+			$extension = $matches[1];
+
 			if(preg_match("/Product ID.*<TD>(.*?)\\b/mi", $phonepage, $matches))
 				$PHONE_MODEL = $matches[1];
 			else
 				$PHONE_MODEL = "";
 
-			return $matches[1];
+			return $extension;
 		}
 	}
 }
