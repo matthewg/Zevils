@@ -1174,6 +1174,7 @@ sub process_irc_message($$) {
 			} else {
 				$oscar->rename_group($param, $extra);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "add_buddy") {
 			unless($param) {
@@ -1184,6 +1185,7 @@ sub process_irc_message($$) {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->add_buddy($group, @buddies);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
@@ -1203,6 +1205,7 @@ sub process_irc_message($$) {
 					$oscar->remove_buddy($remgroup, @{$rembuds{$remgroup}});
 				}
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			unless($param) {
@@ -1223,6 +1226,7 @@ sub process_irc_message($$) {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->add_permit(@buddies);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
@@ -1231,6 +1235,7 @@ sub process_irc_message($$) {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->add_deny(@buddies);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
@@ -1239,6 +1244,7 @@ sub process_irc_message($$) {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->remove_deny(@buddies);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
@@ -1247,6 +1253,7 @@ sub process_irc_message($$) {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->remove_permit(@buddies);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
@@ -1272,6 +1279,7 @@ sub process_irc_message($$) {
 				} else {
 					$oscar->set_visibility($param);
 					$oscar->commit_buddylist;
+					$oscar->{__IMIRC_blmod}++
 				}
 			}
 		} elsif ($cmd eq "list_permit_modes") {
@@ -1291,6 +1299,7 @@ sub process_irc_message($$) {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				$oscar->set_info($text);
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif ($cmd eq "get_dir") {
 			#unless($param) {
@@ -1416,6 +1425,7 @@ sub process_irc_message($$) {
 				} else {
 					$oscar->get_app_data($group, $param)->{0x0200} = $extra;
 					$oscar->commit_buddylist;
+					$oscar->{__IMIRC_blmod}++
 				}
 			}
 		} elsif ($cmd eq "remove_pounce") {
@@ -1429,6 +1439,7 @@ sub process_irc_message($$) {
 				} else {
 					delete $oscar->get_app_data($group, $param)->{0x0200};
 					$oscar->commit_buddylist;
+					$oscar->{__IMIRC_blmod}++
 				}
 			}
 		} elsif ($cmd eq "show_pounce") {
@@ -1634,6 +1645,7 @@ sub process_irc_message($$) {
 					delete $oscar->get_app_data()->{0x0201} if $oscar->get_app_data();
 					delete $sndata->{nicklen};
 					$oscar->commit_buddylist;
+					$oscar->{__IMIRC_blmod}++
 				} else {
 					my $appdata = $oscar->get_app_data();
 					if(!$appdata) {
@@ -1641,6 +1653,7 @@ sub process_irc_message($$) {
 					} else {
 						$appdata->{0x0201} = $sndata->{nicklen} = $param;
 						$oscar->commit_buddylist;
+						$oscar->{__IMIRC_blmod}++
 					}
 				}
 			} elsif($cmd eq "ctcp") {
@@ -1654,6 +1667,7 @@ sub process_irc_message($$) {
 					$sndata->{ctcp} = 0;
 				}
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "Unknown preference.", "", "", $screenname));
 			}
@@ -1663,6 +1677,7 @@ sub process_irc_message($$) {
 			} else {
 				$oscar->reorder_groups($param, split(/(?:,|\s)\s*/, $extra));
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif($cmd eq "reorder_buddies") {
 			if(!$param and !$extra) {
@@ -1670,6 +1685,7 @@ sub process_irc_message($$) {
 			} else {
 				$oscar->reorder_buddies($param, split(/(?:,|\s)\s*/, $extra));
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			}
 		} elsif($cmd eq "set_buddy_comment") {
 			if(!$param and !$extra) {
@@ -1679,6 +1695,7 @@ sub process_irc_message($$) {
 				if($group) {
 					$oscar->set_buddy_comment($group, $param, $extra);
 					$oscar->commit_buddylist;
+					$oscar->{__IMIRC_blmod}++
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "Couldn't find that buddy.", "", "", $screenname));
 				}
@@ -1754,6 +1771,7 @@ sub process_irc_message($$) {
 				$sndata->{relnotes}->{$param} = 1;
 				$oscar->get_app_data()->{0x0203} = join(",", sort keys %{$sndata->{relnotes}}) if $oscar->get_app_data();
 				$oscar->commit_buddylist;
+				$oscar->{__IMIRC_blmod}++
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "That release note does not exist.  Use the relnotes command without any parameters to get a list of available release notes.", "", "", $screenname));
 			}
@@ -2033,6 +2051,7 @@ sub oscar_buddy_in($$$$) {
 			$oscar->send_im($buddy, $tmp, 1);
 			delete $buddat->{data}->{0x0200};
 			$oscar->commit_buddylist;
+			$oscar->{__IMIRC_blmod}++
 			irc_send(irc_privmsg($usnick, $nick, "Pounce to $buddy has been sent.", "", "", $screenname));
 		}
 	}
@@ -2332,6 +2351,10 @@ sub oscar_buddylist_error($$$) {
 	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Error $error occured while $what on your buddylist.", "", "", $screenname));
+	if(--$oscar->{__IMIRC_blmod}) {
+		$oscar->{__IMIRC_blmod} = 1;
+		$oscar->commit_buddylist;
+	}
 }
 
 sub oscar_buddylist_ok($) {
@@ -2339,6 +2362,10 @@ sub oscar_buddylist_ok($) {
 	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
+	if(--$oscar->{__IMIRC_blmod}) {
+		$oscar->{__IMIRC_blmod} = 1;
+		$oscar->commit_buddylist;
+	}
 }
 
 sub oscar_connection_changed($$$) {
@@ -3166,6 +3193,7 @@ sub loadbuddies($$$) {
 	$oscar->add_deny(@deny) if @deny;
 
 	$oscar->commit_buddylist;
+	$oscar->{__IMIRC_blmod}++
 
 	return 1;
 }
