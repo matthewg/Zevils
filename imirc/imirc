@@ -1264,8 +1264,8 @@ sub process_aim_message($$$) {
 				$tmp = $connection->{away};
 			}
 			message($socket, $nnick, $tmp, 1);
+			$connection->{screenames}{$screenname}{away_buddies}{$nnick} = time;
 		}
-		$connection->{screenames}{$screenname}{away_buddies}{$nnick} = time;
 		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
 	} elsif($cmd eq "UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
