@@ -120,7 +120,7 @@ sub prepare_statements() {
 	$log_forgot_pin_start = $dbh->prepare("INSERT INTO log_ext (extension, event, start_time, phoneline) VALUES (?, 'forgotpin', NOW(), ?)");
 	$log_forgot_pin_end = $dbh->prepare("UPDATE log_ext SET result=?, end_time=NOW(), data=? WHERE log_id=?");
 	$get_insertid = $dbh->prepare("SELECT LAST_INSERT_ID()");
-	$wake_maxsnooze = $dbh->prepare("SELECT ISNULL(max_snooze_count, '$Finnegan::Config::max_snooze_count') FROM wakes WHERE wake_id=?");
+	$wake_maxsnooze = $dbh->prepare("SELECT max_snooze_count FROM wakes WHERE wake_id=?");
 }
 prepare_statements();
 
@@ -578,13 +578,12 @@ sub make_call($$) {
 				$timeout = $Finnegan::Config::max_wake_duration;
 
 				# Grab the user's "max snooze count" for this wake.
-				# If it's NULL, we automatically fill in the default at SELECT-time (via the ISNULL SQL function.)
 				# If they specified too many snoozes, kick them.
 				#
 				my $rv = $wake_maxsnooze->execute($row->{wake_id});
 				my $this_maxsnooze = ($wake_maxsnooze->fetchrow_arrayref())->[0];
 				$this_maxsnooze = $Finnegan::Config::max_snooze_count
-					if $this_maxsnooze > $Finnegan::Config::max_snooze_count;
+					if !defined($this_maxsnooze) or $this_maxsnooze > $Finnegan::Config::max_snooze_count;
 
 				$snooze_ok = 1 if $row->{snooze_count} < $this_maxsnooze;
 			} else {
