@@ -13,9 +13,9 @@ if(isset($_REQUEST["pin"])) {
 
 		set_pin($extension, $pin);
 		if($pin) {
-			cisco_message("PIN Set", "Your PIN has been set.", $FinneganConfig->url_base . "/service/index.php");
+			cisco_message("PIN Set", "Your PIN has been set.", $FinneganCiscoConfig->url_base . "/service/index.php");
 		} else {
-			cisco_message("PIN Set", "PIN cleared.  This will prevent you from accessing the system via the web.", $FinneganConfig->url_base . "/service/index.php");
+			cisco_message("PIN Set", "PIN cleared.  This will prevent you from accessing the system via the web.", $FinneganCiscoConfig->url_base . "/service/index.php");
 		}
 	}
 } else {
