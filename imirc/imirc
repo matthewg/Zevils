@@ -223,15 +223,13 @@ $version = $VERSION = "0.90";
 #Defaults
 $prefix = "AIM-";
 $usnick = "AIMServ";
-$us = "aimserv.your.irc.net"; #IRC server name to claim to be
-$them = "127.0.0.1"; #Hostname of IRC server to connect to
+$us = "aimserv.your.irc.net";
+$them = "127.0.0.1";
 $themport = 6667;
 $ourpass = "foo";
 $theirpass = "bar";
-$servermode = "dal2";  #Should be either dal2 or dragonfire.
-			#You can try something else, but I don't think the
-			#default method works.
-$time = 60*5; #Five minutes.
+$servermode = "dal2";
+$time = 60*5; #Five minutes
 $verbose_signon = 0;
 $ssl = 1;
 @default_conffiles = ("/etc/aimirc.conf", "$home/.aimirc");
@@ -241,6 +239,13 @@ $sendidle = 1;
 $tocserver = 'toc.oscar.aol.com';
 $tocport = 80;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
+
+
+#First we check to see what config files to use.
+#Then we use the config files.
+#Then we process command-line options.
+#We do it this way so that command-line options can override config files, and
+#  you can still specify config files on the command-line.
 
 Getopt::Long::Configure("no_ignore_case");
 Getopt::Long::Configure("pass_through");
@@ -258,6 +263,8 @@ if(!$errors) {
 	print STDERR "Try $0 --help if you need help.\n";
 	exit 1;
 }
+
+#Okay, try loading the config files
 
 $foundconfig = 0;
 foreach $conffile(@conffiles) {
@@ -282,6 +289,8 @@ unless($foundconfig) {
 	print STDERR "   file (why?) then just give it a blank config file to make it happy.\n";
 	exit 1;
 }
+
+#Now process additional command-line options
 
 Getopt::Long::Configure("no_pass_through");
 
@@ -435,9 +444,6 @@ $SIG{CHLD} = \&REAPER;
 
 #Connect
 
-#enc: `sflap encode buflen (1 iff TYPE_SIGNON else 0) seqno`
-#dec: `sflap decode`
-
 $| = 1;
 
 unless($reload) {
@@ -495,7 +501,7 @@ unless($reload) {
 	irc_send(":$usnick MODE $usnick -i\r\n");
 	irc_send(":$usnick MODE $usnick +oa\r\n");
 
-	irc_send(send_join($usnick, "#aimirc-debug"));
+	send_join($usnick, "#aimirc-debug");
 	send_server_mode("#aimirc-debug +o $usnick");
 	irc_send(":$usnick MODE #aimirc-debug +nk $ourpass\r\n");
 	$aimircdebug = 1;
@@ -517,8 +523,9 @@ unless($reload) {
 			}
 		}
 
+		#Sleep for .01 seconds to give the CPU time to relax
 		select(undef, undef, undef, .01);
-		$_ = irc_recv(1);
+		$_ = irc_recv(1); #Don't block
 		process_irc_message($_) if $_;
 
 		#if($upstream->error or $upstream->eof) {
@@ -528,6 +535,7 @@ unless($reload) {
 
 		$currtime = time;
 
+		#Do this loop about once every 100 seconds
 		if((($currtime % 100) == 0) and ($currtime - $lasttime) >= 100) { #Cleanup nicks
 			$lasttime = $currtime;
 			Toc::debug_print("Reaping nicks...", "nicks", 3);
@@ -556,13 +564,15 @@ unless($reload) {
 				}
 			}
 
+			#Part from the chat-channels that we joined in response to someone joining a #aimchat-1234 without being invited or doing an AIMServ join
 			foreach $chattimer(keys %chattimer) {
 				if(($currtime - $chattimer{$chattimer}) >= 60) {
 					irc_send(":$usnick PART #aimchat-$chattimer\r\n");
 				}
 			}
 
-			
+
+			#Only send idle/keepalive packets every other time through the loop
 			if($keepalive) {
 				foreach $connection(keys %aim_connections) {
 					if($aim_connections{$connection}{socket}) {
@@ -682,7 +692,7 @@ sub process_irc_message {
 		$nnick = normalize($nick);
 
 		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
-			irc_send(send_join($usnick, "#aimchat-$chat"));
+			send_join($usnick, "#aimchat-$chat");
 			send_server_mode("#aimchat-$chat +isnto $usnick");
 			irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
 			$chattimer{$chat} = time;
@@ -771,7 +781,7 @@ sub process_irc_message {
 		irc_send("TOPIC #aimchat-$chat :$chattopics{$chat}\r\n");
 	} elsif(/^KICK +#aimchat-(\d+) +(\S+)/i) {
 		irc_send("503 $nick :Cannot kick users from AIM chat channels.\r\n");
-		irc_send(send_join($2, "#aimchat-$1"));
+		send_join($2, "#aimchat-$1");
 		if(normalize($2) eq normalize($usnick)) {
 			if($servernmode eq "ts") {
 				irc_send("MODE #aimchat-$1 +o $usnick\r\n");
@@ -1038,7 +1048,7 @@ sub process_irc_message {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
 	} elsif(/^PRIVMSG +(\S+) +:?(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
-		$target = normalize(aimnick($longnicks{normalize($1)})); $msg = $2;
+		$target = noprefix($longnicks{normalize($1)}); $msg = $2;
 		$recipient = normalize($1);
 
 		if($recipient eq "#aimirc-debug" and $debug) {
@@ -1208,7 +1218,7 @@ sub process_aim_message {
 		chomp $topic;
 
 		$chattopics{$1} = $topic;
-		irc_send(send_join($usnick, "#aimchat-$1"));
+		send_join($usnick, "#aimchat-$1");
 		send_server_mode("#aimchat-$1 +o $usnick");
 		irc_send(":$usnick MODE #aimchat-$1 +sint\r\n");
 		irc_send(":$usnick TOPIC #aimchat-$1 :$topic\r\n");
@@ -1252,7 +1262,7 @@ sub process_aim_message {
 			foreach $who(@who) {
 				next if normalize($who) eq normalize($connection->{aimnick});
 				$chats{$1}{$who} = 1;
-				irc_send(send_join("$prefix$who", "#aimchat-$1"));
+				send_join("$prefix$who", "#aimchat-$1");
 
 				$nicks{normalize($who)}{chat-$1} = 1;
 				irc_newnick($who);
@@ -1296,14 +1306,6 @@ sub html2txt {
 	return $msg;
 }
 
-sub aimnick {
-	my($nick) = shift;
-	$nick = lc($nick);
-	$nick =~ s/^$prefix//i;
-	return $nick;
-}
-
-
 sub Toc::debug_print($$$) {
 	my($text, $type, $level) = @_;
 	my($line, @lines);
@@ -1324,7 +1326,6 @@ sub Toc::debug_print($$$) {
 }
 
 sub irc_send {
-	lock $upstream;
 	my ($msg, $nodbg) = @_;
 
 	return unless $msg;
@@ -1526,7 +1527,7 @@ sub send_join($$) {
 		$ret = ":$user JOIN $channel\r\n";
 	}
 
-	return $ret;
+	irc_send($ret);
 }
 
 sub irc_recv() {
