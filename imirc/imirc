@@ -198,15 +198,15 @@ sub loadconf() {
 		"output=s" => \$output
 	);
 
-	print Data::Dumper::Dumper(\@conffiles);
-
 	@conffiles = @default_conffiles unless $conffiles[0];
-	print Data::Dumper::Dumper(\@conffiles);
 
 	if(!$errors) {
 		print STDERR "Try $0 --help if you need help.\n";
 		exit 1;
 	}
+
+	print "Output: $output\n" unless defined($output);
+	print "output\n";
 
 	if(defined $output) {
 		close STDOUT;
