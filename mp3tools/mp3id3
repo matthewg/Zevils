@@ -19,7 +19,9 @@ sub dispver {
 sub glist {
 	my $i;
 
-	for($i = 0; $i < $#MPEG::MP3Info::mp3_genres; $i++) { print "$i:\t$MPEG::MP3Info::mp3_genres[$i]\n"; }
+	&use_winamp_genres unless $standard;
+
+	for($i = 0; $i <= $#MPEG::MP3Info::mp3_genres; $i++) { print "$i:\t$MPEG::MP3Info::mp3_genres[$i]\n"; }
 	print "All other genres are unknown.\n";
 	exit 0;
 }
@@ -83,7 +85,7 @@ Getopt::Long::Configure("no_ignore_case");
 $errors = &GetOptions("version|v" => \&dispver,
 "delete" => \$delete,
 "d" => \$delete,
-"list|l" => \&glist,
+"list|l" => \$list_option,
 "songname|s:s" => \$songname,
 "artist|a:s" => \$artist,
 "album|A:s" => \$album,
@@ -92,6 +94,8 @@ $errors = &GetOptions("version|v" => \&dispver,
 "genre|g:s" => \$genre,
 "no-winamp|n" => \$standard,
 "help|h" => \&help);
+
+&glist if $list_option;
 
 if(!$errors) {
         warn "Try mp3id3 --help if you need help.\n";
