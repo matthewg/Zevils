@@ -1455,7 +1455,7 @@ sub _get_events_comments
     # common SQL template:
     unless ($sql) {
         if ($type eq "events") {
-            $sql = "SELECT jitemid, eventtime, security, allowmask, anum, posterid ".
+            $sql = "SELECT jitemid, eventtime, security, allowmask, anum, posterid, replycount ".
                 "FROM log2 WHERE journalid=$ownerid $where $orderby $limit";
         } elsif ($type eq "comments") {
             $sql = "SELECT jtalkid, datepost, state, posterid, parenttalkid ".
@@ -1479,7 +1479,7 @@ sub _get_events_comments
     my %result_from_id;
 
     if ($type eq "events") {
-        while (my ($itemid, $eventtime, $sec, $mask, $anum, $jposterid) = $sth->fetchrow_array)
+        while (my ($itemid, $eventtime, $sec, $mask, $anum, $jposterid, $replycount) = $sth->fetchrow_array)
         {
             $count++;
             my $evt = {};
@@ -1495,6 +1495,7 @@ sub _get_events_comments
             }
             $evt->{'anum'} = $anum;
             $evt->{'poster'} = LJ::get_username($dbr, $jposterid) if $jposterid != $ownerid;
+            $evt->{'replycount'} = $replycount;
             push @$results, $evt;
         }
     } elsif ($type eq "comments") {
