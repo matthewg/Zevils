@@ -29,6 +29,12 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#You can try something else, but I don't think the
 			#default method works.
 
+require "/etc/aimirc.conf" if -r "/etc/aimirc.conf";
+require "$home/.aimirc" if -r "$home/.aimirc";
+$version = "0.80";
+
+@args = @ARGV;
+
 
 %ircservers = (
 	dal2 => {
@@ -61,12 +67,6 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 	}
 );
 
-require "/etc/aimirc.conf" if -r "/etc/aimirc.conf";
-require "$home/.aimirc" if -r "$home/.aimirc";
-
-$version = "0.80";
-
-@args = @ARGV;
 
 #We don't need no stinking ampersands!
 $pid = fork;
@@ -110,8 +110,8 @@ $SIG{CHLD} = \&REAPER;
 $| = 1;
 
 $upstream = IO::Socket::INET->new("$them:$themport");
-$upstream->print("PASS $ourpass :1\r\n") if $ourpass and $ircservers{$servermode}{uspass};
-$upstream->print(irc_subparms($ircservers{$servermode}{server}));
+do { $upstream->print("PASS $ourpass :1\r\n") if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $@\n";
+$upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $@\n";
 
 if($theirpass and $ircservers{$servermode}{theirpass}) {
 	while(($in !~ /PASS (.+) :1/)) {
@@ -132,7 +132,7 @@ if($servermode eq "dal2") {
 	}
 }
 
-$upstream->print(irc_newnick($usnick));
+$upstream->print(irc_newnick($usnick)) or die "Couldn't make aimserv: $@\n";
 $upstream->print(":$us MODE $usnick +o\r\n");
 
 $aimselect = IO::Select->new();
@@ -190,6 +190,7 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
+	warn "$input\n" if $debug >= 2;
 	return $input;
 }
 
