@@ -315,7 +315,7 @@ if($connectmode == 0 or $connectmode == 2) {
 	print STDERR "Not forking.\n" if $verbose;
 }
 
-$uid = "100";
+$uid = "101";
 
 
 unless($reload) {
@@ -469,8 +469,7 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
-	$uid++;
-	$input =~ s/_UID_/$uid/g;
+	$input =~ s/_UID_/$uid/g and $uid++;
 	return $input;
 }
 
@@ -923,7 +922,7 @@ sub process_aim_message {
 		Toc::debug_print("$connection->{nick} UPDATE_BUDDY: $val", "buddies", 1);
 		if($2 eq "T") {
 			%temp = deref(get_config($connection->{aimnick}));
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $temp{Buddies}{$inick}{online};
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $temp{Buddies}{$nnick}{online};
 			{
 				local $^W = 0;
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
