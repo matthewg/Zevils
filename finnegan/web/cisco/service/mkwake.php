@@ -514,22 +514,25 @@ if($prompt == "time") {
 
 		echo "</MenuItem>\n";
 	}
+
+?>
+<SoftKeyItem>
+<Name>Submit</Name>
+<URL><? echo "$url&amp;weekdays=$wd"; ?></URL>
+<Position>2</Position>
+</SoftKeyItem>
+<?
+
 } else if($prompt == "advanced") { ?>
 
 <InputItem>
 <DisplayName>Max Snooze Count</DisplayName>
 <QueryStringParam>max_snooze_count</QueryStringParam>
 <InputFlags>N</InputFlags>
-<DefaultValue><? if(isset($_SESSION["advanced_snooze_count"])) echo $_SESSION["advanced_snooze_count"]; ?></DefaultValue>
+<DefaultValue><? if(isset($_SESSION["max_snooze_count"])) echo $_SESSION["max_snooze_count"]; ?></DefaultValue>
 </InputItem>
 
 ?>
-
-<SoftKeyItem>
-<Name>Submit</Name>
-<URL><? echo "$url&amp;weekdays=$wd"; ?></URL>
-<Position>2</Position>
-</SoftKeyItem>
 
 <? } else if($prompt == "cal_type") {
 
