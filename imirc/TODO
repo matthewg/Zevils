@@ -1,7 +1,4 @@
-Unclassified:
-	Write a TOC server and a set of stress tests and regression tests.
-
-Real Soon Now:
+Real Soon Now/First Priority:
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
@@ -12,12 +9,23 @@ Real Soon Now:
 Probably/Second Priority:
 	#buddies-SCREENNAME (geniusj)
 	Write a help intro/overview
+	Internationalization
+		Store strings in a data file (hash - probably eval'd)
+		Translate docs too?
+			Might as well.
+		Hmm, I guess I could try to do a Spanish translation...
+		Pig-latin translation!
+		set_lang command - Make it sticky
+			$directory/preferences/screenname
+				Other preferences?
+		use locale
 
-Pending/Maybe:
+Maybe/Third Priority:
 	(#aimirc-debug or IRC or AIMServ?) stats command
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
+	Write a TOC server and a set of stress tests and regression tests.
 
 Wishlist:
 	Fix #aimirc-debug reload command
