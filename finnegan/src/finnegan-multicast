@@ -92,14 +92,17 @@ sub log_debug($) {
 
 my @sockets = ();
 foreach my $message (map { $_->{id} } @$Finnegan::Config::messages, {id => 0}) {
-	$sockets[$message] = IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::multicast_port_base + $message*2) or die "Couldn't create multicast socket: $@\n";
-	$sockets[$message]->add($Finnegan::Config::Cisco::multicast_addr) or die "Couldn't add multicast address: $@\n";
-	$sockets[$message]->loopback(0);
-	$sockets[$message]->{__FINNEGAN_RTP} = RTP->new();
+	$sockets[$message] = {
+		rtp => RTP->new(),
+		mcast => IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::multicast_port_base + $message*2),
+	};
+	die "Couldn't create multicast socket: $@\n" unless $sockets[$message]->{mcast};
+	$sockets[$message]->{mcast}->mcast_add($Finnegan::Config::Cisco::multicast_addr) or die "Couldn't add multicast address: $@\n";
+	$sockets[$message]->{mcast}->mcast_dest($Finnegan::Config::Cisco::multicast_addr.":".($Finnegan::Config::Cisco::multicast_port_base + $message*2));
+	$sockets[$message]->{mcast}->mcast_loopback(0);
 }
 
-my $timestamp = 0;
-while(1) {
+sub get_generic_sample() {
 	my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
 	$hour =~ s/^0//;
 	$minute =~ s/^0//;
@@ -121,27 +124,34 @@ while(1) {
 	$audio .= $samples{"./wake/$ampm.ul"}->{data};
 	$audio .= $samples{"./wake/edit.ul"}->{data};
 
-	open(TMP, ">/tmp/$$.ul");
-	print TMP $audio;
-	close TMP;
+	return $audio;
+}
 
-	my %audios;
-	for(my $i = 0; $i < @sockets; $i++) {
-		$audios{$i} = {
-			socket => $sockets[$i],
-			data => $audio . $samples{"./messages/$i.ul"}->{data},
-		};
-	}
+my $timestamp = 0;
+my @audios;
+for(my $i = 0; $i < @sockets; $i++) {
+	$audios[$i] = {
+		socket => $sockets[$i],
+		data => $samples{"./messages/$i.ul"}->{data} . get_generic_sample(),
+		message => $i
+	};
+}
 
-	while(keys %audios) {
-		foreach(keys %audios) {
-			my $payload = substr($audios{$_}->{data}, 0, PACKET_SIZE, "");
-			$audios{$_}->{socket}->mcast_send($audios{$_}->{socket}->{__FINNEGAN_RTP}->make_packet(SECONDS_PER_PACKET, $payload));
-			if(!length($audios{$_}->{data})) {
-				# Send a half-second of silence
-				$audios{$_}->{socket}->{__FINNEGAN_RTP}->make_packet(0.5, "");
-				delete $audios{$_};
-			}
+open(FOO, ">/tmp/foo.ul");
+select FOO;
+$| = 1;
+select STDOUT;
+
+while(1) {
+	for(my $i = 0; $i < @audios; $i++) {
+		my $payload = substr($audios[$i]->{data}, 0, PACKET_SIZE, "");
+		print FOO $payload if $i == 0;
+		$audios[$i]->{socket}->{mcast}->mcast_send($audios[$i]->{socket}->{rtp}->make_packet(SECONDS_PER_PACKET, $payload));
+		if(!length($audios[$i]->{data})) {
+			# Send a half-second of silence
+			$audios[$i]->{socket}->{rtp}->make_packet(0.5, "");
+			$audios[$i]->{data} = $samples{"./messages/$i.ul"}->{data} . get_generic_sample();
 		}
 	}
+	select(undef, undef, undef, SECONDS_PER_PACKET); # Hope the client has a good jitter-buffer...
 }

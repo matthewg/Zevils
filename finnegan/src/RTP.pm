@@ -2,8 +2,9 @@ package RTP;
 
 use strict;
 use warnings;
-use Time::HiRes qw(time);
+use Time::HiRes qw(gettimeofday);
 use Carp qw(confess);
+use RTP_ts;
 
 use constant SECS_BETWEEN_1900_1970 => 2208988800; # From rat's rtp_dump.c - for converting to NTP time
 
@@ -39,8 +40,9 @@ sub new($) {
 	my $self = {
 		ssrc => pack("N", int(rand(0xFFFFFFFF))), # Random 32-bit int, pre-packed since it's static
 		seqno => int(rand(0x10000)), # Random 16-bit int, not pre-packed since we need to increment it
-		timestamp_time => time() - SECS_BETWEEN_1900_1970,
+		timestamp_time => [gettimeofday()]
 	};
+	$self->{timestamp_time}->[0] += SECS_BETWEEN_1900_1970;
 	bless $self, $class;
 
 	return $self;
@@ -50,11 +52,19 @@ sub new($) {
 # RTP timestamps are 32-bit unsigned ints.  The high-order 16 bits are the low-order 16 bits
 # of the time, in seconds, from UTC Jan 1st 1900.  The low-order 16 bits are the high-order
 # 16 bits of the fractional part of the time.
+#
+# I have no idea what "the fractional part of the time" is supposed to be, I made a guess
+# but it was wrong, so I ripped some weird code from the NTP sources.
 sub make_timestamp($) {
 	my $self = shift;
-	my $int = int($self->{timestamp_time});
-	my $frac = $self->{timestamp_time} - $int;
-	return pack("N", (($int & 0x0000FFFF) << 16) | ($frac & 0xFFFF0000));
+	my($seconds, $microseconds) = @{$self->{timestamp_time}};
+
+	my $timestamp_float =
+		$RTP_ts::ustotslo[$microseconds & 0xff]
+		+ $RTP_ts::ustotsmid[($microseconds >> 8) & 0xff]
+		+ $RTP_ts::ustotshi[($microseconds >> 16) & 0xf];
+
+	return pack("N", (($seconds & 0x0000FFFF) << 16) | (($timestamp_float & 0xFFFF0000) >> 16));
 }
 
 # Creates an RTP packet from an RTP object.
@@ -66,9 +76,18 @@ sub make_packet($$$) {
 	confess "send_packet isn't a static method" unless ref($self);
 
 	my $packet = "";
-	$packet = $header . pack("nN", $self->{seqno}++) . $self->make_timestamp() . $self->{ssrc} . $payload if $payload;
-	$self->{timestamp_time} += $length;
+	$packet = $header . pack("n", $self->{seqno}++) . $self->make_timestamp() . $self->{ssrc} . $payload if $payload;
+
+	$self->{timestamp_time}->[1] += ($length*1000000)%1000000;
+	$self->{timestamp_time}->[0] += int($length);
+	while($self->{timestamp_time}->[1] >= 1000000) {
+		$self->{timestamp_time}->[1] -= 1000000;
+		$self->{timestamp_time}->[0]++;
+	}
+
 	return $packet;
 }
+
+
 
 1;
