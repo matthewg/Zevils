@@ -1346,8 +1346,8 @@ sub process_irc_message($) {
 				irc_send("$foo :Note on savebuddies\\loadbuddies: savebuddies will send you a CTCP savebuddies (loadbuddies sends CTCP loadbuddies.\r\n", 1);
 				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
 				irc_send("$foo :There are two buddylist formats which savebuddies and loadbuddies understand.\r\n", 1);
-				irc_send("$foo :The preferred format, TOC format, is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
 				irc_send("$foo :OSCAR format is the format that the Windows AOL Instant Messenger client exports its buddylist in.\r\n", 1);
+				irc_send("$foo :TTOC format is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
 			} elsif($param eq "chat") {
 				irc_send("$foo :join chat_name - Create/join a chatroom called chat_name.\r\n", 1);
 				irc_send("$foo :join_exchange exchange chat_name - Create/join a chatroom in a different exchange (see below.)\r\n", 1);
@@ -1579,7 +1579,7 @@ sub process_irc_message($) {
 
 		my $target = noprefix($longnicks->{$1}); my $msg = $3;
 		my $recipient = $1;
-		$msg = process_ctcp($nick, $1, $msg, $screenname);
+		$msg = process_ctcp($nick, $recipient, $msg, $screenname);
 		return unless $msg;
 
 		if($recipient eq "#imirc-debug" and $debug) {
@@ -1908,9 +1908,11 @@ sub oscar_im_in($$$$) {
 
 	my $inick = ircify($prefix.$from);
 	my $notice = 0;
+	my $ctcp = 0;
 	my $ar = "";
 
 	$notice = 1 if $msg =~ /<!-- NOTICE -->/;
+	$ctcp = 1 if $msg =~ /<!-- CTCP -->/;
 
 	irc_send(irc_newnick($prefix.$from));
 	unless($nicks->{$from}->{$screenname}) {
@@ -1923,8 +1925,12 @@ sub oscar_im_in($$$$) {
 	$msg = $ar . join("\n", html2txt($msg, $nick));
 	
 	my $recipient = $nick;
-	$recipient = nickchan($screenname) if $sndata->{inchan} == 2;
-	irc_send(irc_privmsg($inick, $recipient, $msg, "", $notice, $screenname));
+	$recipient = nickchan($screenname) if $sndata->{inchan} == 2 and !$ctcp;
+	if($ctcp) {
+		irc_send(irc_ctcp($inick, $recipient, $msg, $notice));
+	} else {
+		irc_send(irc_privmsg($inick, $recipient, $msg, "", $notice, $screenname));
+	}
 
 	if(!$away and $irc_away->{$nick}) {
 		if(time - $sndata->{away_buddies}->{$from} > $time) {
@@ -2671,7 +2677,8 @@ sub process_ctcp($$$$) {
 	my ($delim, @ctcp, $ctcp, $cmd, $args) = (chr(001));
 	my($filename, $ipaddr, $port, $filesize, $socket, $buff, $flags);
 
-	return $message unless $message =~ /$delim/; 
+	return $message unless $message =~ /$delim/;
+	$to = noprefix($longnicks->{$to});
 
 	@ctcp = map { $_ = irc_ctcp_unquote $_; debug_print("CTCP: $_", "ctcp", 2) if $_; $_; } split(/$delim+/, $message);
 	shift @ctcp;
@@ -2683,15 +2690,16 @@ sub process_ctcp($$$$) {
 		$cmd = $1; $args = $2;
 
 		debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
-		if($cmd eq "PING") {
-			if($irc_connections->{noprefix($to)} eq $from) {
-				$aim_connections->{$from}->{oscar}->send_im($to, "<!-- NOTICE --><!-- CTCP -->$ctcp");
-			} else {
-				irc_send(irc_ctcp($to, $from, $ctcp, 1)) if $cmd eq "PING";
-			}
+		if($to ne $usnick and $to ne $oldnick) {
+			$aim_connections->{$from}->{oscar}->send_im($to, "<!-- NOTICE --><!-- CTCP -->$ctcp");
+			next;
 		}
-		$message .= "\02ACTION\02 $args" if $cmd eq "ACTION"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
-		if($cmd eq "DCC") {
+
+		if($cmd eq "PING") {
+			irc_send(irc_ctcp($to, $from, $ctcp, 1));
+		} elsif($cmd eq "ACTION") {
+			$message .= "\02ACTION\02 $args"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
+		} elsif($cmd eq "DCC") {
 			$screenname = $dccget{$from} || "";
 			($cmd, $args) = split(/ /, $args, 2);
 			if($cmd eq "REJECT") {
