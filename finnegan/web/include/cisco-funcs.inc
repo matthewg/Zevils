@@ -14,7 +14,7 @@ function get_extension() {
 	$phonepage = implode("", @file("http://".$_SERVER["REMOTE_ADDR"]."/"));
 	if(!$phonepage) {
 		cisco_message("Invalid Extension", "Cannot find your extension: " . $_SERVER["REMOTE_ADDR"]);
-	} else if(!preg_match("!Phone DN.*?<TD>[0-9]*([6-9][0-9]{4})\\b!mi", $phonepage, $matches)) {
+	} else if(!preg_match("!Phone DN.*?<TD>(?:<[^>]*>)*[0-9]*([6-9][0-9]{4})\\b!mi", $phonepage, $matches)) {
 		cisco_message("Invalid Extension", "Cannot parse extension information");
 	} else {
 		$check = extension_check($matches[1]);
