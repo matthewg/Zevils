@@ -52,14 +52,16 @@ function pin_check($extension, $pin, $newpin = 0) {
 				return "too_many_newpins";
 			} else {
 				$pin = "";
-				for($i = 0; $i < 4; $i++) $pin .= rand(0, 9);
-				if(!$row) {
-					if(!mysql_query("INSERT INTO prefs (extension, pin, forgot_pin) VALUES ('$extension', '$pin', 1)")) db_error();
-				} else {
-					if(!mysql_query("UPDATE prefs SET pin='$pin', forgot_pin=1 WHERE extension='$extension'")) db_error();
-				}
+				if(!$FinneganConfig->use_cisco || !$FinneganCiscoConfig->use_xml_service) {
+					for($i = 0; $i < 4; $i++) $pin .= rand(0, 9);
+					if(!$row) {
+						if(!mysql_query("INSERT INTO prefs (extension, pin, forgot_pin) VALUES ('$extension', '$pin', 1)")) db_error();
+					} else {
+						if(!mysql_query("UPDATE prefs SET pin='$pin', forgot_pin=1 WHERE extension='$extension'")) db_error();
+					}
 
-				if($FinneganConfig->nocalls) echo "<p>(Since we're not making calls, I'll just tell you that the PIN is $pin.)</p>\n";
+					if($FinneganConfig->nocalls) echo "<p>(Since we're not making calls, I'll just tell you that the PIN is $pin.)</p>\n";
+				}
 				log_ext($extension, "auth", "failure", "gen_pin");
 				return "no_pin";
 			}

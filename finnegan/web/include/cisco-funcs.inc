@@ -15,7 +15,17 @@ function get_extension() {
 	} else if(!preg_match("!Phone DN.*?<TD>[0-9]*([6-9][0-9]{4})\\b!mi", $phonepage, $matches)) {
 		cisco_message("Invalid Extension", "Cannot parse extension information");
 	} else {
-		return $matches[1];
+		$check = extension_check($matches[1]);
+		if($check) {
+			if($check == "extension_invalid")
+				cisco_message("Invalid Extension", "Your extension, $matches[1], is invalid.");
+			else if($check == "extension_forbidden")
+				cisco_message("Forbidden Extension", "Your extension, $matches[1], may not use this service.");
+			else
+				cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
+		} else {
+			return $matches[1];
+		}
 	}
 }
 

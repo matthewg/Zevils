@@ -100,11 +100,21 @@ function extension_check($extension) {
 	global $FinneganConfig;
 	if(!preg_match("/".$FinneganConfig->extension_regex."/", $extension)) {
 		return "extension_invalid";
-	} else if(in_array($extension, $FinneganConfig->forbidden_extensions)) {
-		return "extension_forbidden";
-	} else {
-		return "";
 	}
+
+	for ($i = 0; $i < sizeof($FinneganConfig->forbidden_extensions); $i++) {
+		$forbid = $FinneganConfig->forbidden_extensions[$i];
+
+		if(preg_match("/^\\//", $forbid)) { # regex
+			if(preg_match($forbid, $extension)) return "extension_forbidden";
+		} else if(preg_match("/([0-9]+)-([0-9]+)/", $forbid, $matches)) { # range
+			if($extension >= $matches[1] && $extension <= $matches[2]) return "extension_forbidden";
+		} else {
+			if($extension == $forbid) return "extension_forbidden";
+		}
+	}
+
+	return "";
 }
 
 function pin_syntax_check($pin) {

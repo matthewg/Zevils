@@ -14,26 +14,27 @@ class FinneganCiscoConfig {
 
 # Basic configuration
 $url_base = "http://10.10.1.3/finnegan/cisco"; # Base of URLs to point phones at
-$tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
-$tftp_prefix = ""; # Prefix which will be prepended to any TFTP file paths we send to the phones
 $wake_method = "h323"; # How we send wakeup calls to phones; valid values are "multicast", "unicast", "h323", and "tftp".
 $max_simultaneous_calls = 15; # How many simultaneous aclls should we allow?
-$voicemail_ext = "20000"; # Extension which indicates that call has been forwarded to voicemail
-$my_ext = "92896"; # Extension which calls should appear to be from
-$my_name = "Finnegan"; # How we should be identified on caller ID
+$use_xml_service = 1; # We are using the XML service -- so don't generate PINs.
 
 # H.323 settings
 $h323_gateway = "10.10.0.51"; # IP to use for placing H.323 calls
-
-# Credentials
-$post_username = "40196"; # Username for CiscoIPPhoneExecute 
-$post_password = "12345"; # Password for CiscoIPPhoneExecute
-
-# Various timeouts
+$my_ext = "92896"; # Extension which calls should appear to be from
+$my_name = "Finnegan"; # How we should be identified on caller ID
+$voicemail_ext = "20000"; # Extension which indicates that call has been forwarded to voicemail
 $call_timeout = 900; # After this many seconds, auto-snooze
 $max_wake_timeouts = 8; # After this many call timeouts, give up
 $post_timeout = 60; # After this many seconds of trying to reach the phone, auto-snooze
 $max_unreachable_count = 8; # After this many phone contact timeouts, give up
+
+# TFTP settings
+$tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
+$tftp_prefix = ""; # Prefix which will be prepended to any TFTP file paths we send to the phones
+
+# CiscoIPPhoneExecute settings
+$post_username = "40196";
+$post_password = "12345";
 
 # (Uni|Multi)cast settings
 $rtp_ip = "127.0.0.1";
