@@ -8,7 +8,9 @@ $TEMPLATE["legal"] = array(
 	"end" => "",
 	"body" => <<<END
 <p>
-Finnegan is &copy;2004 <a href="http://www.zevils.com/">Matthew Sachs</a>.
+Finnegan is &copy;2004 <a href="http://www.zevils.com/">Matthew Sachs</a>.  Website layout &copy;2004 <a href="http://www.agblog.com/">Danny Silverman</a>.
+Wake-up messages are owned by their respective authors.
+</p><p>
 This system may only be used by members of the Brandeis community.  You may only create, edit, or delete a wake-up call on an extension
 or phone number on which you are authorized to do so.  Creating or modifying anyone else's wake-up calls, without their express
 consent, or any other unauthorized use, is strictly forbidden.  All access is logged.

@@ -5,7 +5,8 @@ $faqs = array(
 The <a href="http://union.brandeis.edu/">Student Union</a> and <a href="http://www.brancog.org/">Computer Operators Group</a>
 have provided the funding and equipment for Finnegan.  The system was developed, and is being maintained by,
 <a href="http://www.zevils.com/">Matthew Sachs</a>, with help from <a href="http://people.brandeis.edu/~zeno/">Danny Silverman</a>
-and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.
+and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.  Danny Silverman did the visual layout of the web site,
+and Nat Budin is the Finnegan audio engineer.
 END_FAQITEM
 ),
 
