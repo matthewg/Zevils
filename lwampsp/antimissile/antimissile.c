@@ -225,10 +225,10 @@ void clicked_go(int id) {
 	double Vax, Vay, Vbx, Vby, xa = 0, ya = 0, xb = 0, yb = 0;
 
 	/* Precompute rectangular velocities */
-	Vax = vector_x(site_a.velocity, deg2rad(site_a.angle));
-	Vay = vector_y(site_a.velocity, deg2rad(site_a.angle));
-	Vbx = vector_x(site_b.velocity, deg2rad(site_b.angle));
-	Vby = vector_y(site_b.velocity, deg2rad(site_b.angle));
+	Vax = vector_x(deg2rad(site_a.angle), site_a.velocity);
+	Vay = vector_y(deg2rad(site_a.angle), site_a.velocity);
+	Vbx = vector_x(deg2rad(site_b.angle), site_b.velocity);
+	Vby = vector_y(deg2rad(site_b.angle), site_b.velocity);
 
 	printf("Components: %f, %f, %f, %f\n", Vax, Vay, Vbx, Vby);
 
