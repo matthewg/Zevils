@@ -477,6 +477,7 @@ sub irc_subparms($;$$) {
 sub irc_privmsg {
 	my($from, $to, $msg, $prefix, $line, $ret) = @_;
 
+	$from = substr($from, 0, $ircservers{$servermode}{nicklen});
 	if($from ne $usnick and not $nicks{normalize($from)}) {
 		irc_send(irc_newnick($from));
 		$nicks{normalize($from)} = 1;
@@ -491,9 +492,11 @@ sub irc_privmsg {
 sub irc_newnick {
 	my($nick, $user, $string, $shortnick) = shift;
 	$nick =~ tr/ //d;
-	($user = $nick) =~ s/^$prefix//;
+	$user = $nick;
+	$user =~ s/^$prefix//;
 	$nicks{$nick} = 1;
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
+
 	$longnicks{normalize($shortnick)} = $nick;
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
 	$string .= ":$nick MODE $shortnick +i\r\n";
@@ -1153,7 +1156,7 @@ sub got_signon {
 		{
 			lock $nicks{$nparam};
 			unless($nicks{$nparam}) {
-				irc_send(irc_newnick($tprefix . $tparam));
+				irc_send(irc_newnick($prefix . $tparam));
 				$nicks{$nparam}{$tnick} = -1;
 			}
 		}
