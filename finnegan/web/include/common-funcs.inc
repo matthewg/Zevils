@@ -1,5 +1,7 @@
 <?
 
+function current_url() { return "http://" . $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"]; }
+
 function db_start() {
 	global $FinneganConfig;
 	global $dbh;
@@ -138,7 +140,7 @@ function time_to_user($sql_time) {
 
 // (10:00, 'PM') -> 22:00:00
 function time_to_sql($user_time, $ampm) {
-	if(!preg_match('/^(\d?\d):(\d\d)$/', $user_time, $matches)) return "";
+	if(!preg_match('/^(\d?\d):?(\d\d)$/', $user_time, $matches)) return "";
 	if($ampm != "AM" && $ampm != "PM") return "";
 	$hours = $matches[1];
 	$minutes = $matches[2];

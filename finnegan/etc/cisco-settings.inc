@@ -13,13 +13,13 @@ class FinneganCiscoConfig {
 #__PHPONLY_END__
 
 # Basic configuration
-$url_base = "http://10.10.3.20/finnegan/cisco"; # Base of URLs to point phones at
+$url_base = "http://192.168.242.2/finnegan/cisco"; # Base of URLs to point phones at
 $tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
 $tftp_prefix = ""; # Prefix which will be prepended to any TFTP file paths we send to the phones
 
 # Credentials
-$post_username = "operator"; # Username for CiscoIPPhoneExecute 
-$post_password = "password"; # Password for CiscoIPPhoneExecute
+$post_username = "70002"; # Username for CiscoIPPhoneExecute 
+$post_password = "12345"; # Password for CiscoIPPhoneExecute
 
 # Various timeouts
 $call_timeout = 900; # After this many seconds, auto-snooze

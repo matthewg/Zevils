@@ -15,7 +15,7 @@ require "../../include/finnegan.inc";
 </MenuItem>
 
 <MenuItem>
-<Name>New Alarms</Name>
+<Name>New Alarm</Name>
 <URL><?echo $FinneganCiscoConfig->url_base?>/service/mkwake.php</URL>
 </MenuItem>
 
@@ -25,8 +25,21 @@ require "../../include/finnegan.inc";
 </MenuItem>
 
 <SoftKeyItem>
+<Name>Select</Name>
+<URL>SoftKey:Select</URL>
+<Position>1</Position>
+</SoftKeyItem>
+
+<SoftKeyItem>
+<Name>Exit</Name>
+<URL>SoftKey:Exit</URL>
+<Position>2</Position>
+</SoftKeyItem>
+
+<SoftKeyItem>
 <Name>About</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php?prevurl=<?echo htmlentities(current_url())?></URL>
+<Position>4</Position>
 </SoftKeyItem>
 
 </CiscoIPPhoneMenu>

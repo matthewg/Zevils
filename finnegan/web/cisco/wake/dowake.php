@@ -15,14 +15,17 @@ $date = $_REQUEST["date"] ? 1 : 0;
 <SoftKeyItem>
 <Name>OK</Name>
 <URL><? echo $FinneganCiscoConfig->url_base ?>/wake/ok.php?id=<?echo $id ?>&amp;date=<?echo $date ?></URL>
+<Position>1</Position>
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>Snooze</Name>
 <URL><? echo $FinneganCiscoConfig->url_base ?>/wake/snooze.php?id=<?echo $id ?></URL>
+<Position>2</Position>
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>About</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php?prevurl=<?echo urlencode(current_url())?></URL>
+<Position>4</Position>
 </SoftKeyItem>
 </CiscoIPPhoneText>
 

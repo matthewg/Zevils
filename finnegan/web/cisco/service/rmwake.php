@@ -15,7 +15,7 @@ if($_REQUEST["id"]) {
 		cisco_message("Alarm Deleted", "Alarm deleted.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 	}
 } else {
-	cisco_error("Select Alarm", "Please select an alarm to delete.");
+	cisco_error("Select Alarm", "Please select an alarm to delete.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 }
 
 ?>
