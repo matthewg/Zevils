@@ -1710,10 +1710,11 @@ sub oscar_error($$$$$) {
 	do_signoff($nick, $oscar, 1) if $fatal;
 }
 
-sub oscar_rate_alert($$$$) {
-	my($oscar, $level, $clear, $window) = @_;
+sub oscar_rate_alert($$$$$) {
+	my($oscar, $level, $clear, $window, $worrisome) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
+	return unless $worrisome;
 	irc_send(irc_privmsg($usnick, $nick, "You're sending too fast!  Slow down!  We've been given a $level warning.", "", "", $screenname));
 	$clear = int($clear / 1000);
 	irc_send(irc_privmsg($usnick, $nick, "Wait $clear seconds before sending anything.", "", "", $screenname));
