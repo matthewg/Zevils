@@ -157,6 +157,7 @@ if($servermode eq "dal2") {
 }
 
 $upstream->print(irc_newnick($usnick)) or die "Couldn't make aimserv: $@\n";
+$upstream->print(":$usnick MODE $usnick -i\r\n");
 $upstream->print(":$us MODE $usnick +o\r\n");
 
 $aimselect = IO::Select->new();
