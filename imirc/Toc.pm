@@ -396,7 +396,7 @@ sub signon($$&;&) {
 
 	};
 
-	$err = "Connection timed out." if $@ =~ /timeout/;
+	$err = "Connection timed out." if $@ =~ /time(d )?out/;
 	alarm 0;
 	return -1 if $err;
 	croak($@) if $@;
