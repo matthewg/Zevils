@@ -1607,6 +1607,7 @@ sub process_irc_message($) {
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via IMIRC to send messages to AIM users.  /msg AIMServ help for details."));
 			}
+		}
 	} elsif(/^AWAY *(.*)/) {
 		if($1 =~ /:?(.*)/) {
 			$irc_away->{$nick} = $1;
