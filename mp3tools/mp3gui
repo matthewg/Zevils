@@ -9,7 +9,7 @@ use MPEG::MP3Info;
 use File::KGlob;
 use Cwd;
 use File::Basename;
-$version = "1.3";
+$version = "1.4";
 
 # mp3gui by Matthew Sachs <matthewg@zevils.com>
 #   This program licensed under Version 2 of the GPL.
