@@ -8,8 +8,8 @@ push @INC, File::Basename::dirname($self);
 push @INC, File::Basename::dirname($self) . "/..";
 
 use DBI;
-require strict vars;
 require Slash;
+require strict vars;
 require htmlutils;
 
 sub main
