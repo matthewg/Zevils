@@ -76,19 +76,6 @@ if you're interested in seeing it added.
 END_FAQITEM
 ),
 
-	array("Why won't it let me set a wake-up call at a particular time?", <<<END_FAQITEM
-Finnegan operates off of a computer with a limited number of modems and phone lines.  A modem can only make 
-one call at a time.  In order to prevent wake-up calls from being unable to go out due to too many
-phone lines being in use, Finnegan is very conservative as to how many wake-up calls it will let be
-scheduled for the same time.  Furthermore, because of the "snooze button", setting a wake-up call
-takes up a potential phone line not just for the time of the call, but for several lengths of time
-after the call.  The four different types of wake-up calls (one-time wake-up calls, and three different
-calendars for recurring wake-up calls) add additional complications, since recurring calls that take
-place on a Monday on the Brandeis calendar will sometimes be on a Monday on the other calendars,
-and will sometimes be on other days (when there's a Brandeis Monday in effect.)
-END_FAQITEM
-),
-
 	array("How does Finnegan know when there's a holiday, no classes, or a Brandeis Monday?", <<<END_FAQITEM
 The Finnegan team enters the data by hand,
 taking the Brandeis calendar information from <a href="http://www.brandeis.edu/registrar/cal.html">the registrar's website</a>.
