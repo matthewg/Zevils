@@ -12,30 +12,22 @@
 package LJ;
 
 use strict;
+use Carp;
 use lib "$ENV{'LJHOME'}/cgi-bin";
 use DBI;
 use DBI::Role;
 use DBIx::StateKeeper;
 use Digest::MD5 ();
-use MIME::Lite ();
 use HTTP::Date ();
 use LJ::MemCache;
 use Time::Local ();
 use Storable ();
-use Text::Wrap ();
 use Compress::Zlib ();
 use DateTime;
 use DateTime::TimeZone;
 
 do "$ENV{'LJHOME'}/cgi-bin/ljconfig.pl";
 do "$ENV{'LJHOME'}/cgi-bin/ljdefaults.pl";
-
-require "$ENV{'LJHOME'}/cgi-bin/ljlang.pl";
-require "$ENV{'LJHOME'}/cgi-bin/ljpoll.pl";
-require "$ENV{'LJHOME'}/cgi-bin/ljfeed.pl";
-require "$ENV{'LJHOME'}/cgi-bin/ljlinks.pl";
-require "$ENV{'LJHOME'}/cgi-bin/cleanhtml.pl";
-require "$ENV{'LJHOME'}/cgi-bin/htmlcontrols.pl";
 
 require "$ENV{'LJHOME'}/cgi-bin/ljlib-local.pl"
     if -e "$ENV{'LJHOME'}/cgi-bin/ljlib-local.pl";
@@ -46,22 +38,10 @@ if ($LJ::IS_DEV_SERVER) {
     *LJ::D = \&Data::Dumper::Dumper;
 }
 
-# determine how we're going to send mail
-$LJ::OPTMOD_NETSMTP = eval "use Net::SMTP (); 1;";
-
-if ($LJ::SMTP_SERVER) {
-    die "Net::SMTP not installed\n" unless $LJ::OPTMOD_NETSMTP;
-    MIME::Lite->send('smtp', $LJ::SMTP_SERVER, Timeout => 10);
-} else {
-    MIME::Lite->send('sendmail', $LJ::SENDMAIL);
-}
-
 $LJ::DBIRole = new DBI::Role {
     'timeout' => $LJ::DB_TIMEOUT,
     'sources' => \%LJ::DBINFO,
-    'weights_from_db' => $LJ::DBWEIGHTS_FROM_DB,
     'default_db' => "livejournal",
-    'messages_to' => \&procnotify_callback,
     'time_check' => 60,
     'time_report' => \&dbtime_callback,
 };
@@ -193,6 +173,8 @@ sub get_blob_domainid
     my $id = {
         "userpic" => 1,
         "phonepost" => 2,
+        "captcha_audio" => 3,
+        "captcha_image" => 4,
     }->{$name};
     # FIXME: add hook support, so sites can't define their own
     # general code gets priority on numbers, say, 1-200, so verify
@@ -503,10 +485,12 @@ sub get_log2_recent_user
         next if $item->{'security'} eq 'private' 
             and $item->{'journalid'} != $opts->{'remote'}->{'userid'};
         if ($item->{'security'} eq 'usemask') {
-            next unless 
-                ($item->{'journalid'} == $opts->{'remote'}->{'userid'})
-                or
-                ($item->{'allowmask'}+0 & $opts->{'mask'}+0);
+            my $permit = ($item->{'journalid'} == $opts->{'remote'}->{'userid'});
+            unless ($permit) {
+                my $mask = LJ::get_groupmask($item->{'journalid'}, $opts->{'remote'}->{'userid'});
+                $permit = $item->{'allowmask'}+0 & $mask+0;
+            }
+            next unless $permit;
         }
         
         # date conversion
@@ -828,18 +812,7 @@ sub get_friend_items
     my $lastmax_cutoff = 0; # if nonzero, never search for entries with rlogtime higher than this (set when cache in use)
 
     # sanity check:
-    $skip = 0 if ($skip < 0);
-
-    # what do your friends think of remote viewer?  what security level?
-    # but only if the remote viewer is a person, not a community/shared journal.
-    my $gmask_from = {};
-    if ($remote && $remote->{'journaltype'} eq "P") {
-        $sth = $dbr->prepare("SELECT ff.userid, ff.groupmask FROM friends fu, friends ff WHERE fu.userid=$userid AND fu.friendid=ff.userid AND ff.friendid=$remoteid");
-        $sth->execute;
-        while (my ($friendid, $mask) = $sth->fetchrow_array) {
-            $gmask_from->{$friendid} = $mask;
-        }
-    }
+    $skip = 0 if $skip < 0;
 
     # given a hash of friends rows, strip out rows with invalid journaltype
     my $filter_journaltypes = sub {
@@ -884,7 +857,12 @@ sub get_friend_items
         $filter_journaltypes->($friends, \%friends_u);
 
         # get update times for all the friendids
-        my $timeupdate = LJ::get_timeupdate_multi(keys %$friends);
+        my $tu_opts = {};
+        my $fcount = scalar keys %$friends;
+        if ($LJ::SLOPPY_FRIENDS_THRESHOLD && $fcount > $LJ::SLOPPY_FRIENDS_THRESHOLD) {
+            $tu_opts->{memcache_only} = 1;
+        }
+        my $timeupdate = LJ::get_timeupdate_multi($tu_opts, keys %$friends);
 
         # now push a properly formatted @friends_buffer row
         foreach my $fid (keys %$timeupdate) {
@@ -1063,7 +1041,6 @@ sub get_friend_items
             'userid' => $friendid,
             'remote' => $remote,
             'itemshow' => $itemsleft,
-            'mask' => $gmask_from->{$friendid},
             'notafter' => $lastmax,
             'dateformat' => $opts->{'dateformat'},
             'update' => $LJ::EndOfTime - $fr->[1], # reverse back to normal
@@ -1140,7 +1117,6 @@ sub get_friend_items
 #              defaults to no limit
 #           -- skip: items to skip
 #           -- itemshow: items to show
-#           -- gmask_from: optional hashref of group masks { userid -> gmask } for remote
 #           -- viewall: if set, no security is used.
 #           -- dateformat: if "S2", uses S2's 'alldatepart' format.
 #           -- itemids: optional arrayref onto which itemids should be pushed
@@ -1178,6 +1154,9 @@ sub get_recent_items
 
     my $clusterid = $opts->{'clusterid'}+0;
     my @sources = ("cluster$clusterid");
+    if (my $ab = $LJ::CLUSTER_PAIR_ACTIVE{$clusterid}) {
+        @sources = ("cluster${clusterid}${ab}");
+    }
     unshift @sources, ("cluster${clusterid}lite", "cluster${clusterid}slave")
         if $opts->{'clustersource'} eq "slave";
     my $logdb = LJ::get_dbh(@sources);
@@ -1205,20 +1184,10 @@ sub get_recent_items
     if ($skip > $maxskip) { $skip = $maxskip; }
     my $itemload = $itemshow + $skip;
 
-    # get_friend_items will give us this data structure all at once so
-    # we don't have to load each friendof mask one by one, but for
-    # a single lastn view, it's okay to just do it once.
-    my $gmask_from = $opts->{'gmask_from'};
-    unless (ref $gmask_from eq "HASH") {
-        $gmask_from = {};
-        if ($remote && $remote->{'journaltype'} eq "P" && $remoteid != $userid) {
-            ## then we need to load the group mask for this friend
-            $gmask_from->{$userid} = LJ::get_groupmask($userid, $remoteid);
-        }
+    my $mask = 0;
+    if ($remote && $remote->{'journaltype'} eq "P" && $remoteid != $userid) {
+        $mask = LJ::get_groupmask($userid, $remoteid);
     }
-
-    # what mask can the remote user see?
-    my $mask = $gmask_from->{$userid} + 0;
 
     # decide what level of security the remote user can see
     my $secwhere = "";
@@ -1392,56 +1361,6 @@ sub register_authaction
              'authcode' => $authcode,
          };
 }
-
-# <LJFUNC>
-# class: web
-# name: LJ::make_cookie
-# des: Prepares cookie header lines.
-# returns: An array of cookie lines.
-# args: name, value, expires, path?, domain?
-# des-name: The name of the cookie.
-# des-value: The value to set the cookie to.
-# des-expires: The time (in seconds) when the cookie is supposed to expire.
-#              Set this to 0 to expire when the browser closes. Set it to
-#              undef to delete the cookie.
-# des-path: The directory path to bind the cookie to.
-# des-domain: The domain (or domains) to bind the cookie to.
-# </LJFUNC>
-sub make_cookie
-{
-    my ($name, $value, $expires, $path, $domain) = @_;
-    my $cookie = "";
-    my @cookies = ();
-
-    # let the domain argument be an array ref, so callers can set
-    # cookies in both .foo.com and foo.com, for some broken old browsers.
-    if ($domain && ref $domain eq "ARRAY") {
-        foreach (@$domain) {
-            push(@cookies, LJ::make_cookie($name, $value, $expires, $path, $_));
-        }
-        return;
-    }
-
-    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime($expires);
-    $year+=1900;
-
-    my @day = qw{Sunday Monday Tuesday Wednesday Thursday Friday Saturday};
-    my @month = qw{Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec};
-
-    $cookie = sprintf "%s=%s", LJ::eurl($name), LJ::eurl($value);
-
-    # this logic is confusing potentially
-    unless (defined $expires && $expires==0) {
-        $cookie .= sprintf "; expires=$day[$wday], %02d-$month[$mon]-%04d %02d:%02d:%02d GMT",
-                $mday, $year, $hour, $min, $sec;
-    }
-
-    $cookie .= "; path=$path" if $path;
-    $cookie .= "; domain=$domain" if $domain;
-    push(@cookies, $cookie);
-    return @cookies;
-}
-
 
 # <LJFUNC>
 # class: logging
@@ -1636,36 +1555,6 @@ sub get_authas_list {
                          values %users;
 }
 
-# <LJFUNC>
-# name: LJ::make_authas_select
-# des: Given a u object and some options, determines which users the given user
-#      can switch to.  If the list exists, returns a select list and a submit
-#      button with labels.  Otherwise returns a hidden element.
-# returns: string of html elements
-# args: u, opts?
-# des-opts: Optional.  Valid keys are:
-#           'authas' - current user, gets selected in drop-down
-#           'label' - label to go before form elements
-#           'button' - button label for submit button
-#           others - arguments to pass to LJ::get_authas_list
-# </LJFUNC>
-sub make_authas_select {
-    my ($u, $opts) = @_; # type, authas, label, button
-
-    my @list = LJ::get_authas_list($u, $opts);
-
-    # only do most of form if there are options to select from
-    if (@list > 1) {
-        return ($opts->{'label'} || 'Work as user:') . " " . 
-               LJ::html_select({ 'name' => 'authas',
-                                 'selected' => $opts->{'authas'} || $u->{'user'}},
-                                 map { $_, $_ } @list) . " " .
-               LJ::html_submit(undef, $opts->{'button'} || 'Switch');
-    }
-
-    # no communities to choose from, give the caller a hidden
-    return  LJ::html_hidden('authas', $opts->{'authas'} || $u->{'user'});
-}
 
 # <LJFUNC>
 # name: LJ::comm_member_request
@@ -1973,10 +1862,10 @@ sub ljuser
     if ($LJ::DYNAMIC_LJUSER && ref $user ne 'HASH') {
         # Try to automatically pick the user type, but still
         # make something if we can't (user doesn't exist?)
-        $user = LJ::load_user($user);
+        $user = LJ::load_user($user) || $user;
 
         # Traverse the renames to the final journal
-        while ($user and $user->{'journaltype'} eq 'R') {
+        while (ref $user and $user->{'journaltype'} eq 'R') {
             LJ::load_user_props($user, 'renamedto');
             last unless length $user->{'renamedto'};
             $user = LJ::load_user($user->{'renamedto'});
@@ -1990,12 +1879,12 @@ sub ljuser
     }
     my $andfull = $opts->{'full'} ? "&amp;mode=full" : "";
     my $img = $opts->{'imgroot'} || $LJ::IMGPREFIX;
-    my $strike = $opts->{'del'} ? ' style="text-decoration: line-through underline;"' : '';
+    my $strike = $opts->{'del'} ? ' text-decoration: line-through;' : '';
     my $make_tag = sub {
         my ($fil, $dir, $x, $y) = @_;
         $y ||= $x;  # make square if only one dimension given
 
-        return "<span class='ljuser' style='white-space: nowrap;'><a href='$LJ::SITEROOT/userinfo.bml?user=$user$andfull'><img src='$img/$fil' alt='[info]' width='$x' height='$y' style='vertical-align: bottom; border: 0;' /></a><a href='$LJ::SITEROOT/$dir/$user/'$strike><b>$user</b></a></span>";
+        return "<span class='ljuser' style='white-space: nowrap;$strike'><a href='$LJ::SITEROOT/userinfo.bml?user=$user$andfull'><img src='$img/$fil' alt='[info]' width='$x' height='$y' style='vertical-align: bottom; border: 0;' /></a><a href='$LJ::SITEROOT/$dir/$user/'><b>$user</b></a></span>";
     };
 
     if ($opts->{'type'} eq 'C') {
@@ -2147,26 +2036,6 @@ sub get_cap_min
         $min = $v;
     }
     return defined $min ? $min : $LJ::CAP_DEF{$cname};
-}
-
-# <LJFUNC>
-# name: LJ::help_icon
-# des: Returns BML to show a help link/icon given a help topic, or nothing
-#      if the site hasn't defined a URL for that topic.  Optional arguments
-#      include HTML/BML to place before and after the link/icon, should it
-#      be returned.
-# args: topic, pre?, post?
-# des-topic: Help topic key.  See doc/ljconfig.pl.txt for examples.
-# des-pre: HTML/BML to place before the help icon.
-# des-post: HTML/BML to place after the help icon.
-# </LJFUNC>
-sub help_icon
-{
-    my $topic = shift;
-    my $pre = shift;
-    my $post = shift;
-    return "" unless (defined $LJ::HELPURL{$topic});
-    return "$pre<?help $LJ::HELPURL{$topic} help?>$post";
 }
 
 # <LJFUNC>
@@ -2593,54 +2462,6 @@ sub load_codes
 }
 
 # <LJFUNC>
-# name: LJ::img
-# des: Returns an HTML &lt;img&gt; or &lt;input&gt; tag to an named image
-#      code, which each site may define with a different image file with
-#      its own dimensions.  This prevents hard-coding filenames & sizes
-#      into the source.  The real image data is stored in LJ::Img, which
-#      has default values provided in cgi-bin/imageconf.pl but can be
-#      overridden in cgi-bin/ljconfig.pl.
-# args: imagecode, type?, attrs?
-# des-imagecode: The unique string key to reference the image.  Not a filename,
-#                but the purpose or location of the image.
-# des-type: By default, the tag returned is an &lt;img&gt; tag, but if 'type'
-#           is "input", then an input tag is returned.
-# des-attrs: Optional hashref of other attributes.  If this isn't a hashref,
-#            then it's assumed to be a scalar for the 'name' attribute for
-#            input controls.
-# </LJFUNC>
-sub img
-{
-    my $ic = shift;
-    my $type = shift;  # either "" or "input"
-    my $attr = shift;
-
-    my $attrs;
-    if ($attr) {
-        if (ref $attr eq "HASH") {
-            foreach (keys %$attr) {
-                $attrs .= " $_=\"" . LJ::ehtml($attr->{$_}) . "\"";
-            }
-        } else {
-            $attrs = " name=\"$attr\"";
-        }
-    }
-
-    my $i = $LJ::Img::img{$ic};
-    if ($type eq "") {
-        return "<img src=\"$LJ::IMGPREFIX$i->{'src'}\" width=\"$i->{'width'}\" ".
-            "height=\"$i->{'height'}\" alt=\"$i->{'alt'}\" title=\"$i->{'alt'}\" ".
-            "border='0'$attrs />";
-    }
-    if ($type eq "input") {
-        return "<input type=\"image\" src=\"$LJ::IMGPREFIX$i->{'src'}\" ".
-            "width=\"$i->{'width'}\" height=\"$i->{'height'}\" title=\"$i->{'alt'}\" ".
-            "alt=\"$i->{'alt'}\" border='0'$attrs />";
-    }
-    return "<b>XXX</b>";
-}
-
-# <LJFUNC>
 # name: LJ::load_user_props
 # des: Given a user hashref, loads the values of the given named properties
 #      into that user hashref.
@@ -2777,26 +2598,6 @@ sub load_user_props
 }
 
 # <LJFUNC>
-# name: LJ::bad_input
-# des: Returns common BML for reporting form validation errors in
-#      a bulletted list.
-# returns: BML showing errors.
-# args: error*
-# des-error: A list of errors
-# </LJFUNC>
-sub bad_input
-{
-    my @errors = @_;
-    my $ret = "";
-    $ret .= "<?badcontent?>\n<ul>\n";
-    foreach (@errors) {
-        $ret .= "<li>$_</li>\n";
-    }
-    $ret .= "</ul>\n";
-    return $ret;
-}
-
-# <LJFUNC>
 # name: LJ::debug
 # des: When $LJ::DEBUG is set, logs the given message to
 #      the Apache error log.  Or, if $LJ::DEBUG is 2, then
@@ -2882,6 +2683,78 @@ sub auth_okay
     return $bad_login->();
 }
 
+
+# Create a challenge token for secure logins
+sub challenge_generate
+{
+    my $goodfor = shift || 60;
+    my ($stime, $secret) = LJ::get_secret();
+
+    # challenge version, secret time, secret age, time in secs token is good for, random chars.
+    my $s_age = time() - $stime;
+    my $chalbare = "c0:$stime:$s_age:$goodfor:" . LJ::rand_chars(20);
+    my $chalsig = Digest::MD5::md5_hex($chalbare . $secret);
+    my $chal = "$chalbare:$chalsig";
+
+    return $chal;
+}
+
+# Validate login/talk md5 responses.
+# Return 1 on valid, 0 on invalid.
+sub challenge_check
+{
+    my ($u, $chal, $res, $banned) = @_;
+    return 0 unless $u;
+    my $pass = $u->{'password'};
+
+    # set the IP banned flag, if it was provided.
+    my $fake_scalar;
+    my $ref = ref $banned ? $banned : \$fake_scalar;
+    if (LJ::login_ip_banned($u)) {
+        $$ref = 1;
+        return 0;
+    } else {
+        $$ref = 0;
+    }
+
+    my ($c_ver, $stime, $s_age, $goodfor, $rand, $chalsig) = split /:/, $chal;
+    my $secret = LJ::get_secret($stime);
+    my $chalbare = "$c_ver:$stime:$s_age:$goodfor:$rand";
+
+    # Validate token
+    return 0 unless $c_ver eq 'c0'; # wrong version
+    return 0 unless time() - ($stime + $s_age) < $goodfor; # expired
+    return 0 unless Digest::MD5::md5_hex($chalbare . $secret) eq $chalsig;
+
+    # Check for token dups
+    my $good;
+    if (@LJ::MEMCACHE_SERVERS) {
+        $good = LJ::MemCache::add("chaltoken:$chal", 1, $goodfor);
+    } else {
+        my $dbh = LJ::get_db_writer();
+        my $rv = $dbh->do("SELECT GET_LOCK(?,5)", undef, $chal);
+        return 0 unless $rv;
+        if (! $dbh->selectrow_array("SELECT challenge FROM challenges WHERE challenge=?",
+                                     undef, $chal)) {
+            $dbh->do("INSERT INTO challenges SET ctime=?, challenge=?",
+                      undef, $stime + $s_age, $chal);
+            $good = 1;
+        }
+        $dbh->do("SELECT RELEASE_LOCK(?)", undef, $chal);
+    }
+    return 0 unless $good;
+
+    # Validate password
+    my $hashed = Digest::MD5::md5_hex($chal . Digest::MD5::md5_hex($pass));
+    if ($hashed eq $res) {
+        return 1;
+    } else {
+        LJ::handle_bad_login($u);
+        return 0;
+    }
+}
+
+
 # <LJFUNC>
 # name: LJ::create_account
 # des: Creates a new basic account.  <b>Note:</b> This function is
@@ -2893,7 +2766,7 @@ sub auth_okay
 # </LJFUNC>
 sub create_account
 {
-    &nodb;    
+    &nodb;
     my $o = shift;
 
     my $user = LJ::canonical_username($o->{'user'});
@@ -2913,7 +2786,7 @@ sub create_account
              "VALUES ($quser, ?, ?, ?, $LJ::MAX_DVERSION, ?)", undef,
              $o->{'name'}, $o->{'password'}, $cluster, $caps);
     return 0 if $dbh->err;
-    
+
     my $userid = $dbh->{'mysql_insertid'};
     return 0 unless $userid;
 
@@ -3634,24 +3507,6 @@ sub get_remote_noauth
 }
 
 # <LJFUNC>
-# name: LJ::did_post
-# des: When web pages using cookie authentication, you can't just trust that
-#      the remote user wants to do the action they're requesting.  It's way too
-#      easy for people to force other people into making GET requests to
-#      a server.  What if a user requested http://server/delete_all_journal.bml
-#      and that URL checked the remote user and immediately deleted the whole
-#      journal.  Now anybody has to do is embed that address in an image
-#      tag and a lot of people's journals will be deleted without them knowing.
-#      Cookies should only show pages which make no action.  When an action is
-#      being made, check that it's a POST request.
-# returns: true if REQUEST_METHOD == "POST"
-# </LJFUNC>
-sub did_post
-{
-    return (BML::get_method() eq "POST");
-}
-
-# <LJFUNC>
 # name: LJ::clear_caches
 # des: This function is called from a HUP signal handler and is intentionally
 #      very very simple (1 line) so we don't core dump on a system without
@@ -3752,6 +3607,8 @@ sub start_request
                 do "$ENV{'LJHOME'}/cgi-bin/ljconfig.pl"; 
                 do "$ENV{'LJHOME'}/cgi-bin/ljdefaults.pl"; 
             };
+            $LJ::IMGPREFIX_BAK = $LJ::IMGPREFIX;
+            $LJ::STATPREFIX_BAK = $LJ::STATPREFIX;
             $LJ::DBIRole->set_sources(\%LJ::DBINFO);
             LJ::MemCache::trigger_bucket_reconstruct();
             if ($modtime > $now - 60) {
@@ -3797,140 +3654,6 @@ sub disconnect_dbs {
     }
     %LJ::REQ_DBIX_TRACKER = ();
     %LJ::REQ_DBIX_KEEPER = ();
-}
-
-
-# <LJFUNC>
-# name: LJ::sysban_check
-# des: Given a 'what' and 'value', checks to see if a ban exists
-# args: what, value
-# des-what: The ban type
-# des-value: The value which triggers the ban
-# returns: 1 if a ban exists, 0 otherwise
-# </LJFUNC>
-sub sysban_check {
-    my ($what, $value) = @_;
-
-    # cache if ip ban
-    if ($what eq 'ip') {
-
-        if ($LJ::IP_BANNED_LOADED) {
-            return (defined $LJ::IP_BANNED{$value} &&
-                    ($LJ::IP_BANNED{$value} == 0 ||     # forever
-                     $LJ::IP_BANNED{$value} > time())); # not-expired
-        }
-
-        my $dbh = LJ::get_db_writer();
-        return undef unless $dbh;
-
-        # set this now before the query
-        $LJ::IP_BANNED_LOADED++;
-
-        # build cache
-        my $sth = $dbh->prepare("SELECT value, UNIX_TIMESTAMP(banuntil) FROM sysban " .
-                                "WHERE status='active' AND what='ip' " .
-                                "AND NOW() > bandate " .
-                                "AND (NOW() < banuntil OR banuntil IS NULL)");
-        $sth->execute();
-        return undef $LJ::IP_BANNED_LOADED if $sth->err;
-        while (my ($val, $exp) = $sth->fetchrow_array) {
-            $LJ::IP_BANNED{$val} = $exp || 0;
-        }
-
-        # return value to user
-        return $LJ::IP_BANNED{$value};
-    }
-
-    # cache if uniq ban
-    if ($what eq 'uniq') {
-
-        if ($LJ::UNIQ_BANNED_LOADED) {
-            return (defined $LJ::UNIQ_BANNED{$value} &&
-                    ($LJ::UNIQ_BANNED{$value} == 0 ||     # forever
-                     $LJ::UNIQ_BANNED{$value} > time())); # not-expired
-        }
-
-        my $dbh = LJ::get_db_writer();
-        return undef unless $dbh;
-
-        # set this now before the query
-        $LJ::UNIQ_BANNED_LOADED++;
-
-        # build cache
-        my $sth = $dbh->prepare("SELECT value, UNIX_TIMESTAMP(banuntil) FROM sysban " .
-                                "WHERE status='active' AND what='uniq' " .
-                                "AND NOW() > bandate " .
-                                "AND (NOW() < banuntil OR banuntil IS NULL)");
-        $sth->execute();
-        return undef $LJ::UNIQ_BANNED_LOADED if $sth->err;
-        while (my ($val, $exp) = $sth->fetchrow_array) {
-            $LJ::UNIQ_BANNED{$val} = $exp || 0;
-        }
-
-        # return value to user
-        return $LJ::UNIQ_BANNED{$value};
-    }
-
-    # non-ip bans come straight from the db
-    my $dbh = LJ::get_db_writer();
-    return undef unless $dbh;
-
-    return $dbh->selectrow_array("SELECT COUNT(*) FROM sysban " .
-                                 "WHERE status='active' AND what=? AND value=? " .
-                                 "AND NOW() > bandate " .
-                                 "AND (NOW() < banuntil OR banuntil=0 OR banuntil IS NULL)",
-                                 undef, $what, $value);
-}
-
-# <LJFUNC>
-# name: LJ::sysban_note
-# des: Inserts a properly-formatted row into statushistory noting that a ban has been triggered
-# args: userid?, notes, vars
-# des-userid: The userid which triggered the ban, if available
-# des-notes: A very brief description of what triggered the ban
-# des-vars: A hashref of helpful variables to log, keys being variable name and values being values
-# returns: nothing
-# </LJFUNC>
-sub sysban_note
-{
-    my ($userid, $notes, $vars) = @_;
-
-    $notes .= ":";
-    map { $notes .= " $_=$vars->{$_};" if $vars->{$_} } sort keys %$vars;
-    LJ::statushistory_add($userid, 0, 'sysban_trig', $notes);
-
-    return;
-}
-
-# <LJFUNC>
-# name: LJ::sysban_block
-# des: Notes a sysban in statushistory and returns a fake http error message to the user
-# args: userid?, notes, vars
-# des-userid: The userid which triggered the ban, if available
-# des-notes: A very brief description of what triggered the ban
-# des-vars: A hashref of helpful variables to log, keys being variable name and values being values
-# returns: nothing
-# </LJFUNC>
-sub sysban_block
-{
-    my ($userid, $notes, $vars) = @_;
-
-    LJ::sysban_note($userid, $notes, $vars);
-
-    my $msg = <<'EOM';
-<html>
-<head>
-<title>503 Service Unavailable</title>
-</head>
-<body>
-<h1>503 Service Unavailable</h1>
-The service you have requested is temporarily unavailable.
-</body>
-</html>
-EOM
-
-    BML::http_response(200, $msg);
-    return;
 }
 
 # <LJFUNC>
@@ -4003,34 +3726,47 @@ sub modify_caps {
 
     $cap_add ||= [];
     $cap_del ||= [];
+    my %cap_add_mod = ();
+    my %cap_del_mod = ();
 
     # get a u object directly from the db
     my $u = LJ::load_userid($userid, "force");
 
-    my @run_hooks = ();
+    # add new caps
+    my $newcaps = int($u->{'caps'});
+    foreach (@$cap_add) {
+        my $cap = 1 << $_;
 
-    # add caps that need to be added
-    my $cap_new = int($u->{'caps'});
-    foreach my $bit (@$cap_add) {
-        $cap_new |= (1 << $bit);
+        # about to turn bit on, is currently off?
+        $cap_add_mod{$_} = 1 unless $newcaps & $cap;
+        $newcaps |= $cap;
     }
 
-    # remove caps that need to be removed
-    foreach my $bit (@$cap_del) {
-        $cap_new = $cap_new & ~(1 << $bit);
+    # remove deleted caps
+    foreach (@$cap_del) {
+        my $cap = 1 << $_;
+
+        # about to turn bit off, is it currently on?
+        $cap_del_mod{$_} = 1 if $newcaps & $cap;
+        $newcaps &= ~$cap;
     }
 
     # run hooks for modified bits
-    $u->{'caps'} = $cap_new;
-    foreach my $bit (@$cap_add, @$cap_del) {
+    my $res = LJ::run_hook("modify_caps", 
+                           { 'u' => $u, 
+                             'newcaps' => $newcaps,
+                             'oldcaps' => $u->{'caps'},
+                             'cap_on_req'  => { map { $_ => 1 } @$cap_add },
+                             'cap_off_req' => { map { $_ => 1 } @$cap_del },
+                             'cap_on_mod'  => \%cap_add_mod,
+                             'cap_off_mod' => \%cap_del_mod,
+                           });
 
-        # return 0 if any hook doesn't return true
-        my $res = LJ::run_hook("capbit_${bit}_off", $u);
-        return 0 if defined $res && ! $res;
-    }
+    # hook should return a status code
+    return 0 if defined $res && ! $res;
 
     # update user row
-    LJ::update_user($u, { 'caps' => $cap_new });
+    LJ::update_user($u, { 'caps' => $newcaps });
 
     return $u;
 }
@@ -4271,11 +4007,11 @@ sub get_picid_from_keyword
 # <LJFUNC>
 # name: LJ::get_timezone_name
 # des: Gets the timezone for the user.
-# args: u, offsetref, defaultref
+# args: u, tzref, fakedref
 # des-u: user object.
-# des-tzref: reference to scalar to hold timezone name;
+# des-tzref: reference to scalar to hold timezone;
 # des-fakedref: reference to scalar to hold whether this timezone was
-#               faked.  0 if it is the timezone specified by the user.
+#               faked.  0 if it is the timezone specified by the user (not supported yet).
 # returns: nonzero if successful.
 # </LJFUNC>
 sub get_timezone_name {
@@ -4308,75 +4044,6 @@ sub get_current_tzoffset {
 }
 
 # <LJFUNC>
-# name: LJ::send_mail
-# des: Sends email.  Character set will only be used if message is not ascii.
-# args: opt
-# des-opt: Hashref of arguments.  <b>Required:</b> to, from, subject, body.
-#          <b>Optional:</b> toname, fromname, cc, bcc, charset, wrap
-# </LJFUNC>
-sub send_mail
-{
-    my $opt = shift;
-
-    my $msg = $opt;
-
-    # did they pass a MIME::Lite object already?
-    unless (ref $msg eq 'MIME::Lite') {
-
-        my $clean_name = sub {
-            my $name = shift;
-            return "" unless $name;
-            $name =~ s/[\n\t\(\)]//g;
-            return $name ? " ($name)" : "";
-        };
-
-        my $body = $opt->{'wrap'} ? Text::Wrap::wrap('','',$opt->{'body'}) : $opt->{'body'};
-        $msg = new MIME::Lite ('From' => "$opt->{'from'}" . $clean_name->($opt->{'fromname'}),
-                                  'To' => "$opt->{'to'}" . $clean_name->($opt->{'toname'}),
-                                  'Cc' => $opt->{'cc'},
-                                  'Bcc' => $opt->{'bcc'},
-                                  'Subject' => $opt->{'subject'},
-                                  'Data' => $body);
-
-        if ($opt->{'charset'} && ! (LJ::is_ascii($opt->{'body'}) && LJ::is_ascii($opt->{'subject'}))) {
-            $msg->attr("content-type.charset" => $opt->{'charset'});        
-        }
-
-        if ($opt->{'headers'}) {
-            $msg->add(%{$opt->{'headers'}});
-        }
-    }
-
-    # if send operation fails, buffer and send later
-    my $buffer = sub {
-
-        my $dbcm;
-        my $tries = 0;
-
-        # aim to try 10 times, but that's redundant if there are fewer clusters
-        my $maxtries = @LJ::CLUSTERS;
-        $maxtries = 10 if $maxtries > 10;
-
-        # select a random cluster master to insert to
-        while (! $dbcm && $tries < $maxtries) {
-            my $idx = int(rand() * @LJ::CLUSTERS);
-            $dbcm = LJ::get_cluster_master($LJ::CLUSTERS[$idx]);
-            $tries++;
-        }
-        return undef unless $dbcm;
-        
-        # try sending later
-        LJ::cmd_buffer_add($dbcm, 0, 'send_mail', Storable::freeze($msg));
-    };
-
-    my $rv = eval { $msg->send && 1; };
-    return 1 if $rv;
-    return 0 if $@ =~ /no data in this part/;  # encoding conversion error higher
-    return $buffer->($msg);
-
-}
-
-# <LJFUNC>
 # name: LJ::strip_bad_code
 # class: security
 # des: Removes malicious/annoying HTML.
@@ -4403,17 +4070,6 @@ sub strip_bad_code
 sub server_down_html
 {
     return "<b>$LJ::SERVER_DOWN_SUBJECT</b><br />$LJ::SERVER_DOWN_MESSAGE";
-}
-
-# <LJFUNC>
-# name: LJ::robot_meta_tags
-# des: Returns meta tags to block a robot from indexing or following links
-# returns: A string with appropriate meta tags
-# </LJFUNC>
-sub robot_meta_tags
-{
-    return "<meta name=\"robots\" content=\"noindex, nofollow, noarchive\" />\n" .
-           "<meta name=\"googlebot\" content=\"nosnippet\" />\n";
 }
 
 # <LJFUNC>
@@ -4855,6 +4511,11 @@ sub get_cluster_reader
     my $arg = shift;
     my $id = ref $arg eq "HASH" ? $arg->{'clusterid'} : $arg;
     my @roles = ("cluster${id}slave", "cluster${id}");
+    if (my $ab = $LJ::CLUSTER_PAIR_ACTIVE{$id}) {
+        $ab = lc($ab);
+        # master-master cluster
+        @roles = ("cluster${id}${ab}") if $ab eq "a" || $ab eq "b";
+    }
     return LJ::get_dbh(@roles);
 }
 
@@ -4868,35 +4529,16 @@ sub get_cluster_reader
 # </LJFUNC>
 sub get_cluster_master
 {
+    my @dbh_opts = scalar(@_) == 2 ? (shift @_) : ();
     my $arg = shift;
     my $id = ref $arg eq "HASH" ? $arg->{'clusterid'} : $arg;
     my $role = "cluster${id}";
-    return LJ::get_dbh($role);
-}
-
-# <LJFUNC>
-# name: LJ::date_to_view_links
-# class: component
-# des: Returns HTML of date with links to user's journal.
-# args: u, date
-# des-date: date in yyyy-mm-dd form.
-# returns: HTML with yyy, mm, and dd all links to respective views.
-# </LJFUNC>
-sub date_to_view_links
-{
-    my ($u, $date) = @_;
-    return unless $date =~ /^(\d\d\d\d)-(\d\d)-(\d\d)/;
-
-    my ($y, $m, $d) = ($1, $2, $3);
-    my ($nm, $nd) = ($m+0, $d+0);   # numeric, without leading zeros
-    my $user = $u->{'user'};
-    my $base = LJ::journal_base($u);
-
-    my $ret;
-    $ret .= "<a href=\"$base/$y/\">$y</a>-";
-    $ret .= "<a href=\"$base/$y/$m/\">$m</a>-";
-    $ret .= "<a href=\"$base/$y/$m/$d/\">$d</a>";
-    return $ret;
+    if (my $ab = $LJ::CLUSTER_PAIR_ACTIVE{$id}) {
+        $ab = lc($ab);
+        # master-master cluster
+        $role = "cluster${id}${ab}" if $ab eq "a" || $ab eq "b";
+    }
+    return LJ::get_dbh(@dbh_opts, $role);
 }
 
 # <LJFUNC>
@@ -5421,7 +5063,7 @@ sub cmd_buffer_flush
     my $mode = "run";
     if ($cmd =~ s/:(\w+)//) {
         $mode = $1;
-    } 
+    }
 
     # built-in commands
     my $cmds = {
@@ -6900,7 +6542,7 @@ sub procnotify_check
     my $now = time;
     return if $LJ::CACHE_PROCNOTIFY_CHECK + 30 > $now;
     $LJ::CACHE_PROCNOTIFY_CHECK = $now;
-    
+
     my $dbr = LJ::get_db_reader();
     my $max = $dbr->selectrow_array("SELECT MAX(nid) FROM procnotify");
     return unless defined $max;
@@ -7565,28 +7207,6 @@ sub kill_session
 }
 
 # <LJFUNC>
-# name: LJ::auto_linkify
-# des: Takes a plain-text string and changes URLs into <a href> tags (auto-linkification)
-# args: str
-# arg-str: The string to perform auto-linkification on.
-# returns: The auto-linkified text.
-# </LJFUNC>
-sub auto_linkify
-{
-    my $str = shift;
-    my $match = sub {
-        my $str = shift;
-        if ($str =~ /^(.*?)(&(#39|quot|lt|gt)(;.*)?)$/) {
-            return "<a href='$1'>$1</a>$2";
-        } else {
-            return "<a href='$str'>$str</a>";
-        }
-    };
-    $str =~ s!https?://[^\s\'\"\<\>]+[a-zA-Z0-9_/&=\-]! $match->($&); !ge;
-    return $str;
-}
-
-# <LJFUNC>
 # name: LJ::load_rel_user
 # des: Load user relationship information. Loads all relationships of type 'type' in
 #      which user 'userid' participates on the left side (is the source of the
@@ -7718,12 +7338,21 @@ sub alloc_user_counter
 
     my $newmax;
     my $uid = $u->{'userid'}+0;
-    my $rs = $dbcm->do("UPDATE counter SET max=LAST_INSERT_ID(max+1) WHERE journalid=? AND area=?",
-                       undef, $uid, $dom);
+    my $memkey = [$uid, "auc:$uid:$dom"];
+
+    # in a master-master DB cluster we need to be careful that in
+    # an automatic failover case where one cluster is slightly behind
+    # that the same counter ID isn't handed out twice.  use memcache
+    # as a sanity check to record/check latest number handed out.
+    my $memmax = int(LJ::MemCache::get($memkey) || 0);
+
+    my $rs = $dbcm->do("UPDATE counter SET max=LAST_INSERT_ID(GREATEST(max,$memmax)+1) ".
+                       "WHERE journalid=? AND area=?", undef, $uid, $dom);
     if ($rs > 0) {
         $newmax = $dbcm->selectrow_array("SELECT LAST_INSERT_ID()");
+        LJ::MemCache::set($memkey, $newmax);
         return $newmax;
-    }   
+    }
 
     if ($recurse) {
         # We shouldn't ever get here if all is right with the world.
@@ -7744,7 +7373,7 @@ sub alloc_user_counter
     $newmax += 0;
     $dbcm->do("INSERT IGNORE INTO counter (journalid, area, max) VALUES (?,?,?)",
                 undef, $uid, $dom, $newmax) or return undef;
-            
+
     # The 2nd invocation of the alloc_user_counter sub should do the
     # intended incrementing.
     return LJ::alloc_user_counter($u, $dom, 1);
@@ -7767,7 +7396,7 @@ sub alloc_global_counter
         $newmax = $dbh->selectrow_array("SELECT LAST_INSERT_ID()");
         return $newmax;
     }
-    
+
     return undef if $recurse;
 
     if ($dom eq "S") {
@@ -7791,16 +7420,16 @@ sub alloc_global_counter
 sub mark_user_active {
     my ($u, $type) = @_;  # not currently using type
     my $uid = $u->{userid};
-    return 0 unless $uid;
+    return 0 unless $uid && $u->{clusterid};
 
     # Update the clustertrack table, but not if we've done it for this
-    # user the past 5 hours.
-    if (LJ::MemCache::add("rate:tracked:$uid", 1, 3600*5)) {
-        my $dbh = LJ::get_db_writer();
-        return 0 unless $dbh;
-        $dbh->do("REPLACE INTO clustertrack SET ".
-                 "userid=?, timeactive=NOW(), clusterid=?", undef,
-                 $uid, $u->{clusterid}) or return 0;
+    # user in the last hour
+    if (LJ::MemCache::add("rate:tracked:$uid", 1, 3600)) {
+        my $dbcm = LJ::get_cluster_master($u);
+        return 0 unless $dbcm;
+        $dbcm->do("REPLACE INTO clustertrack2 SET ".
+                 "userid=?, timeactive=?, clusterid=?", undef,
+                 $uid, time(), $u->{clusterid}) or return 0;
     }
     return 1;
 }
@@ -7835,35 +7464,6 @@ sub weekuu_after_to_time
     my $time = ($week-1) * $WEEKSEC + 86400*3;
     $time += 10 * $uafter;
     return $time;
-}
-
-sub paging_bar
-{
-    my ($page, $pages, $opts) = @_;
-
-    my $self_link = $opts->{'self_link'} || 
-                    sub { BML::self_link({ 'page' => $_[0] }) };
-    
-    my $navcrap;
-    if ($pages > 1) {
-        $navcrap .= "<center><font face='Arial,Helvetica' size='-1'><b>";
-        $navcrap .= BML::ml('ljlib.pageofpages',{'page'=>$page, 'total'=>$pages}) . "<br />";
-        my $left = "<b>&lt;&lt;</b>";
-        if ($page > 1) { $left = "<a href='" . $self_link->($page-1) . "'>$left</a>"; }
-        my $right = "<b>&gt;&gt;</b>";
-        if ($page < $pages) { $right = "<a href='" . $self_link->($page+1) . "'>$right</a>"; }
-        $navcrap .= $left . " ";
-        for (my $i=1; $i<=$pages; $i++) {
-            my $link = "[$i]";
-            if ($i != $page) { $link = "<a href='" . $self_link->($i) . "'>$link</a>"; }
-            else { $link = "<font size='+1'><b>$link</b></font>"; }
-            $navcrap .= "$link ";
-        }
-        $navcrap .= "$right";
-        $navcrap .= "</font></center>\n";
-        $navcrap = BML::fill_template("standout", { 'DATA' => $navcrap });
-    }
-    return $navcrap;
 }
 
 sub make_login_session
@@ -7948,6 +7548,16 @@ sub nodb {
 sub isdb { return ref $_[0] && (ref $_[0] eq "DBI::db" || 
                                 ref $_[0] eq "DBIx::StateKeeper" ||
                                 ref $_[0] eq "Apache::DBI::db"); }
+
+
+use vars qw($AUTOLOAD);
+sub AUTOLOAD {
+    if ($AUTOLOAD eq "LJ::send_mail") {
+        require "$ENV{'LJHOME'}/cgi-bin/ljmail.pl";
+        goto &$AUTOLOAD;
+    }
+    croak "Undefined subroutine: $AUTOLOAD";
+}
 
 # LJ::S1::get_public_styles lives here in ljlib.pl so that 
 # cron jobs can call LJ::load_user_props without including
