@@ -105,7 +105,7 @@ sub MakeComment($;%) { print "MakeComment\n"; return qw(1); }
 sub MakePoll($;%) { print "MakePoll\n"; return qw(1); }
 sub MakeFrontendVar($;%) { print "MakeFrontendVar\n"; return qw(1); }
 
-require Slash::PSM::BSI:Section;
+require Slash::PSM::BSI::Section;
 require Slash::PSM::BSI::Topic;
 require Slash::PSM::BSI::User;
 require Slash::PSM::BSI::Story;
