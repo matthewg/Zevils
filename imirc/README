@@ -59,6 +59,9 @@ IMPORTANT NOTE:
 	aimserv, any IMs sent or received, etc.  You should almost definately set
 	up ChanServ on that channel if you have one.
 
+	#aimirc-debug can also be used to send a few administrative commands, such as
+	restart, to aimirc.
+
 Contacting the author:
 	E-Mail: matthewg@zevils.com
 	AIM: MattSachs
