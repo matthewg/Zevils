@@ -24,14 +24,14 @@ if(isset($_POST["op"]) && $_POST["op"] == "Forgot PIN" && isset($_POST["extensio
 
 $force_auth_ok = 0;
 if($FinneganConfig->testmode) {
-	if((isset($_POST["force_auth_ok"]) && $_POST["force_auth_ok"]) || (isset($_COOKIE["finnegan-force-auth-ok"]) && $_COOKIE["finnegan-force-auth-ok"])) {
-		$force_auth_ok = 1;
-		setcookie("finnegan-force-auth-ok", 1);
-	}
+	//if((isset($_POST["force_auth_ok"]) && $_POST["force_auth_ok"]) || (isset($_COOKIE["finnegan-force-auth-ok"]) && $_COOKIE["finnegan-force-auth-ok"])) {
+	//	$force_auth_ok = 1;
+	//	setcookie("finnegan-force-auth-ok", 1);
+	//}
 }
 
 check_extension_pin();
-if($FinneganConfig->testmode && $force_auth_ok) $extension_ok = 1;
+//if($FinneganConfig->testmode && $force_auth_ok) $extension_ok = 1;
 
 if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	unset($_COOKIE["finnegan-extension"]);

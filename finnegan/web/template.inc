@@ -420,7 +420,7 @@ END_DOCS_BODY_ENTRY
 
 if($FinneganConfig->testmode) {
 	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server';
-	$TEMPLATE["get_extension"] .= '<p><input type="checkbox" name="force_auth_ok" value="1" />Force Authentication Success</p>';
+	//$TEMPLATE["get_extension"] .= '<p><input type="checkbox" name="force_auth_ok" value="1" />Force Authentication Success</p>';
 }
 if($FinngeanConfig->nocalls) {
 	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
