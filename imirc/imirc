@@ -557,7 +557,6 @@ sub mainloop() {
 					my $events = $poll->events($handle);
 					my $target = $fdmap{fileno($handle)};
 
-					debug_print("Got target $target with events $events", "irc", 2);
 					if(!ref($target)) { # DCC
 						for(my $dccno = 0; $dccno < length(@dccqueue); $dccno++) {
 							if($dccqueue[$dccno] == $target) {
@@ -2305,17 +2304,18 @@ sub oscar_buddylist_ok($) {
 sub oscar_connection_changed($$$) {
 	my($oscar, $connection, $status) = @_;
 
+	my $filehandle = $connection->get_filehandle;
 	if($status eq "read") {
-		$poll->mask($connection => POLLIN);
+		$poll->mask($filehandle => POLLIN);
 	} elsif($status eq "write") {
-		$poll->mask($connection => POLLOUT);
+		$poll->mask($filehandle => POLLOUT);
 	} elsif($status eq "readwrite") {
-		$poll->mask($connection => POLLIN | POLLOUT);
+		$poll->mask($filehandle => POLLIN | POLLOUT);
 	} elsif($status eq "deleted") {
-		$poll->mask($connection => 0);
-		delete $fdmap{fileno($connection->get_filehandle)} if $connection->get_filehandle;
+		$poll->mask($filehandle => 0);
+		delete $fdmap{fileno($filehandle)} if $filehandle;
 	}
-	$fdmap{fileno($connection->get_filehandle)} = $connection unless $status eq "deleted";
+	$fdmap{fileno($filehandle)} = $connection unless $status eq "deleted";
 }
 
 sub oscar_log($$$) {
