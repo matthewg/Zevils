@@ -2664,66 +2664,37 @@ sub loadbuddies($$$) {
 			}
 		}
 	} else {
-		my @sections = ();
-		my $subection = "";
-		my $buddy = "";
-		foreach $line(split(/[\r\n]+/, $buff)) {
+		my $data = oscar_cfgparse($buff);
 
-			if($line =~ /^\s*(?!")(\S+) {\s*/) {
-				push @sections, $1;
-			} elsif($line =~ /^\s*}\s*$/) {
-				pop @sections;
-			}
+		if($data->{Config}->{version} != 1) {
+			irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "That isn't a valid buddylist.", "", "", $oscar->screenname));
+			return 0;
+		}
 
-			next if $line =~ /^\s*}/;
+		my $privmode = $data->{Privacy}->{pref};
+		if(lc($privmode) eq "allowall") {
+			$pmode = 1;
+		} elsif(lc($privmode) eq "denyall") {
+			$pmode = 2;
+		} elsif(lc($privmode) eq "allowsome") {
+			$pmode = 3;
+		} elsif(lc($privmode) eq "denysome") {
+			$pmode = 4;
+		} elsif(lc($privmode) eq "permitbuddies") {
+			$pmode = 5;
+		} else {
+			$pmode = 4;
+		}
 
-			$line =~ /^\s*(\S+)\s*(.*?)\s*$/;
-			my $var = $1; my $val = $2;
-			print STDERR join("/", @sections), "/$var == $val\n";
-			if(lc($sections[0]) eq "buddy" and lc($sections[1]) eq "list") {
-				my $group = $sections[2];
-				if($var =~ /^\s*\"(.+?)\"( {)?$/) {
-					($buddy = $1) =~ tr/ //d;
-					push @{$buddies{$group}}, $buddy;
-				} else {
-					push @{$buddies{$var}}, split(/\s+/, $val);
-				}
-			} elsif(lc($sections[0] eq "privacy")) {
-				if(lc($var) eq "allowlist" and $val) {
-					while($val =~ s/\"(.+?)\"//g) {
-						($buddy = $1) =~ tr/ //d;
-						push @permit, $buddy;
-					}
-				} elsif(lc($var) eq "denylist" and $val) {
-					while($val =~ s/\"(.+?)\"//g) {
-						($buddy = $1) =~ tr/ //d;
-						push @deny, $buddy;
-					}
-				} elsif(lc($var) eq "pref") {
-					debug_print("Permit mode is $val", "config", 3);
-					if(lc($val) eq "allowall") {
-						$pmode = 1;
-					} elsif(lc($val) eq "denyall") {
-						$pmode = 2;
-					} elsif(lc($val) eq "allowsome") {
-						$pmode = 3;
-					} elsif(lc($val) eq "denysome") {
-						$pmode = 4;
-					} elsif(lc($val) eq "permitbuddies") {
-						$pmode = 5;
-					} else {
-						$pmode = 4;
-					}
-				}
-			} elsif(lc($sections[0]) eq "buddy") {
-			} elsif(lc($sections[0]) eq "buddynote") {
-				if(lc($var) eq "notestring") {
-					$bnotes{$buddy} = $val;
-				}
-			} elsif(lc($sections[0]) eq "profile" and lc($sections[1]) eq "user") {
-				if(lc($var) eq "datablob") {
-					$profile .= $val;
-				}
+		@permit = split(/\s+/, $data->{Privacy}->{allowList});
+		@deny = split(/\s+/, $data->{Privacy}->{blockList});
+
+		$profile = $data->{User}->{profile}->{dataBlob};
+
+		foreach my $group(keys %{$data->{Buddy}->{list}}) {
+			@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
+			foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
+				$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString} if exists($data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote});
 			}
 		}
 	}
@@ -3145,3 +3116,34 @@ sub rm_nick_user($$) {
 	}
 }
 
+sub oscar_cfgparse($) {
+	my @sections = ();
+	my %data = ();
+	my @lines = split(/\n/, shift);
+
+	foreach $_(@lines) {
+		chomp;
+		my $ptr = \%data;
+		foreach my $section(@sections) {
+			$ptr = $data->{$section};
+		}
+
+	 	if(/^\s*}/) {
+			pop @sections;
+		} elsif(/\s*(.+){\s*$/) {
+			my $section = $1;
+       			$section =~ s/^"//;
+        		$section =~ s/"?\s+$//;
+        		push @sections, $section;
+        		$ptr->{$section} = {};
+		} else {
+			/^\s*"([^"]*)"\s*(.*)/ or
+				/^\s*([^\s]+)\s*(.*)/;
+			my($key, $value) = ($1, $2);
+			$ptr->{$key} .= $value;
+		}
+	}
+	return \%data;
+}
+
+}
