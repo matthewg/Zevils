@@ -1430,7 +1430,7 @@ User {
 			if(!$param and !$extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: set_buddy_comment buddy comment", "", "", $screenname));
 			} else {
-				my $group = $oscar->findgroup($param);
+				my $group = $oscar->findbuddy($param);
 				if($group) {
 					$oscar->set_buddy_comment($group, $param, $extra);
 					$oscar->commit_buddylist;
