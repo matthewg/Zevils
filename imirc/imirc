@@ -499,7 +499,7 @@ sub mainloop() {
 			#}
 
 			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
-			alarm 5;
+			alarm 10;
 
 			debug_print("Processing OSCARs...", "irc", 2);
 
