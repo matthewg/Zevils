@@ -6,6 +6,7 @@ Jan 16 2002, 1.5-rc3
 	*Fix for handling of when to send away message to people who
 	  you're conversing with
 	*Removed extraneous print from imirc.conf
+	*Require Net::OSCAR 0.57
 
 Jan  7 2002, 1.5-rc3
 	*Sometimes we weren't detecting when the IRC server closed the connection
