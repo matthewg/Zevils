@@ -581,9 +581,9 @@ sub mainloop() {
 						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
 					}
 				} elsif($connection == $upstream) {
-					$do_irc = 1;
+					$do_irc = $read | ($error << 1);
 				} else { # DCC
-					$do_dcc[$dccmap{$connection}] = 1;
+					$do_dcc[$dccmap{$connection}] = [$read, $write, $error];
 				}
 			}
 
@@ -609,7 +609,7 @@ sub mainloop() {
 					next unless $do_dcc[$i];
 				}
 
-				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
+				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime, @{$do_dcc[$i]});
 			}
 
 
@@ -3227,9 +3227,10 @@ sub bounce_join($$) {
 }
 
 
-sub process_dcc($$) {
+sub process_dcc($$$$$) {
 	my $dcc = shift;
 	my $time = shift; # Avoid numerous calls to time(2)
+	my($read, $write, $error) = @_;
 
 	$dcc->{time} = $time;
 
@@ -3301,6 +3302,11 @@ sub process_dcc($$) {
 		}
 	} elsif($dcc->{state} == DCC_STATE_GET_CONNECT) {
 		debug_print("...State DCC_STATE_GET_CONNECT", "DCC", 3);
+		if($error) {
+			irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: Couldn't connect", "", "", $screenname));
+			$retval = -1;
+			goto DCC_CLEANUP;
+		}
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		$dcc->{state} = DCC_STATE_GET_READY;
 		$retval = 1;
