@@ -2872,11 +2872,13 @@ sub ircify($;$) {
 	#
 
 	if($chan) {
-		$screenname =~ s/^#[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+		$screenname = "#$screenname" unless $screenname =~ /^#/;
+		$screenname =~ s/^.[^a-zA-Z]+/#/; #Nicks must start with [a-ZA-Z]
+		$screenname =~ tr/-#a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 	} else {
 		$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+		$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 	}
-	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 
 	return $screenname;
 }
