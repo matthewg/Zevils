@@ -24,6 +24,17 @@ Parse::ABNF v. 0.01 - Perl module for dealing with Augmented Backus-Naur Form (A
     print "$foo is a word.\n" if $word->matches("WORD", $foo);
     print "word = ", $word->abnf("WORD"), "\n";
 
+    # A more complicated example demonstrating using the matches method for parsing
+    $someproto = Parse::ABNF->new(<<END);
+commandstring = command *WSP data ; A command, optional whitespace, data
+command = "open" / "close" / "get" / "put" ; Valid commands
+data = 1*file ; Data is one or more files
+file = 1*VCHAR ; A file is a sequence of printable characters
+END
+    %results = $someproto->matches("commandstring", "open foo", qw(command data));
+    $command = $results{command};
+    $data = $results{data};
+
 =head1 DESCRIPTION
 
 This modules provides various methods for dealing with Augmented Backus-Naur Form (ABNF).
@@ -115,12 +126,12 @@ you have a rule C<preference = name *WSP "=" *WSP value>, calling this method wi
 C<MATCHRULES> set to C<("name", "value")> will cause the return value to be, if C<DATA> matches the C<preference>
 rule, a hash whose keys are C<("name", "value")> and whose values are whichever bits of C<DATA> matched those rules.
 So, assuming that the C<name> and C<value> rules were set appropriately, if C<DATA> was C<"logfile = /var/log/foo.log">,
-C<(name => "logfile", value => "/var/log/foo.log")> would be returned.
+C<< (name => "logfile", value => "/var/log/foo.log") >> would be returned.
 
 However, it can get more complicated than that.  Consider the following ruleset:
 
-    paragraph = HTAB 1*sentence CR / LF / CRLF
-    sentence = word *(" " / word) "." / "?" / "!" 0*2" "
+    paragraph = HTAB 1*sentence (CR / LF / CRLF)
+    sentence = word *(" " / word) ("." / "?" / "!") 0*2" "
     word = 1*VCHAR
 
 If the C<matches> method were called on an object with that ruleset with C<RULE> set to C<"paragraph">,
