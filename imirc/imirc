@@ -1162,25 +1162,9 @@ sub process_irc_message($$) {
 			} else {
 				my $buddyconf = $oscar->buddy($param);
 				if($buddyconf->{online}) {
-					local $^W = 0;
 					my $msg = "Buddy Info for $buddyconf->{screenname}\r\n";
 					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
-					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
-					$msg .= "Idle Time: \t".(sprintf "%.1f", (time() - $buddyconf->{idle_since})/60)." minutes\r\n";
-					$msg .= "Status: \t$buddyconf->{extended_status}\r\n" if $buddyconf->{extended_status};
-					$msg .= "Alias: \t$buddyconf->{alias}\r\n" if $buddyconf->{alias};
-					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
-					$msg .= "Icon: \tPresent\r\n" if $buddyconf->{icon_md5sum};
-
-					$msg .= "User Class: \t";
-					$msg .= " TRIAL" if $buddyconf->{trial};
-					$msg .= " AOL" if $buddyconf->{aol};
-					$msg .= " AIM" if $buddyconf->{free};
-					$msg .= " ADMIN" if $buddyconf->{admin};
-					$msg .= " AWAY" if $buddyconf->{away};
-					$msg .= "\r\n";
-
-					$msg .= "Warning Level: \t$buddyconf->{evil}%\r\n";
+					$msg .= printable_user_info($buddyconf);
 					irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname));
 				} else {
 					irc_send(irc_privmsg($usnick, $nick,  "That person is either not on your buddy list or not signed on.", "", "", $screenname));
@@ -2285,6 +2269,35 @@ sub oscar_evil($$$) {
 	irc_send(irc_privmsg($usnick, $nick, "$from has warned you.  Your new warn level is $evil%.", "", "", $screenname));
 }
 
+sub printable_user_info($) {
+	my $buddat = shift;
+	my $msg = "";
+
+	$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
+
+	my $idle_time = int((time() - $buddat->{idle_since})/60);
+	my $idle_h = int($idle_time/60);
+	my $idle_m = sprintf("%02d", $idle_time%60);
+	$msg .= "Idle Time: \t${idle_h}h:${idle_m}m\r\n";
+
+	$msg .= "Status: \t$buddat->{extended_status}\r\n" if $buddat->{extended_status};
+	$msg .= "Alias: \t$buddat->{alias}\r\n" if $buddat->{alias};
+	$msg .= "Comment: \t$buddat->{comment}\r\n" if $buddat->{comment};
+	$msg .= "Icon: \tPresent\r\n" if $buddat->{icon_md5sum};
+
+	$msg .= "User Class: \t";
+	$msg .= " TRIAL" if $buddat->{trial};
+	$msg .= " AOL" if $buddat->{aol};
+	$msg .= " AIM" if $buddat->{free};
+	$msg .= " ADMIN" if $buddat->{admin};
+	$msg .= " AWAY" if $buddat->{away};
+	$msg .= "\r\n";
+
+	$msg .= "Warning Level: $buddat->{evil}%\r\n";
+
+	return $msg;
+}
+
 sub oscar_buddy_info($$$) {
 	my($oscar, $buddy, $buddat) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
@@ -2307,32 +2320,14 @@ sub oscar_buddy_info($$$) {
 		delete $sndata->{away_requested}->{$buddy};
 	} elsif($sndata->{info_requested}->{$buddy}) {
 		delete $sndata->{info_requested}->{$buddy};
-		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
-		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
-		$msg .= "Idle Time: \t".(sprintf "%.1f", (time() - $buddat->{idle_since})/60)." minutes\r\n";
-		$msg .= "Status: \t$buddat->{extended_status}\r\n" if $buddat->{extended_status};
-		$msg .= "Alias: \t$buddat->{alias}\r\n" if $buddat->{alias};
-		$msg .= "Comment: \t$buddat->{comment}\r\n" if $buddat->{comment};
-		$msg .= "Icon: \tPresent\r\n" if $buddat->{icon_md5sum};
-
-		$msg .= "User Class: \t";
-		$msg .= " TRIAL" if $buddat->{trial};
-		$msg .= " AOL" if $buddat->{aol};
-		$msg .= " AIM" if $buddat->{free};
-		$msg .= " ADMIN" if $buddat->{admin};
-		$msg .= " AWAY" if $buddat->{away};
-		$msg .= "\r\n";
-
-		$msg .= "Warning Level: $buddat->{evil}%\r\n";
+		$msg .= printable_user_info($buddat);
 		if($buddat->{profile}) {
 			$msg .= "---------------------\r\n";
 			$msg .= "Profile\r\n";
 			$msg .= "---------------------\r\n";
 			$msg .= join("\r\n", html2txt($buddat->{profile}, $nick));
 		}
-
-
 
 		irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname));
 	}
