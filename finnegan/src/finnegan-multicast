@@ -6,8 +6,13 @@ use POSIX;
 use IO::Socket::Multicast;
 no warnings 'once';
 
+use RTP;
+
 use constant BYTES_PER_SECOND => 8000;
 use constant SECONDS_PER_PACKET => 0.02;
+use constant PACKET_SIZE => BYTES_PER_SECOND*SECONDS_PER_PACKET;
+
+my %samples = ();
 
 sub log_debug($);
 
@@ -16,14 +21,59 @@ sub load_settings {
 	my $settings = join("", <SETTINGS>);
 	close SETTINGS;
 	open(SETTINGS, "../etc/cisco-settings.inc") or die "Couldn't open settings: $!\n";
-	my $settings .= join("", <SETTINGS>);
+	$settings .= join("", <SETTINGS>);
 	close SETTINGS;
 	$settings =~ s/#__PHPONLY_START__.*?#__PHPONLY_END__//gs;
 	eval $settings;
 	die "Couldn't load settings: $@\n" if $@;
 }
 
+sub load_dir {
+	my($prefix) = shift;
+	if(!opendir(DIR, ".")) {
+		warn "Couldn't load audio samples from $prefix: $!\n";
+		return;
+	}
+
+	my @files = grep { $_ ne "." and $_ ne ".." and $_ ne "CVS" } readdir(DIR);
+	closedir(DIR);
+
+	foreach my $file (@files) {
+		if(-d $file) {
+			if(!chdir($file)) {
+				warn "Couldn't chdir to $prefix/$file: $!\n";
+				next;
+			}
+			load_dir("$prefix/$file");
+			chdir("..");
+		} elsif(-f $file) {
+			my @stat = stat($file);
+			if(!@stat) {
+				warn "Couldn't stat $prefix/$file: $!\n";
+				next;
+			}
+			my $mtime = $stat[9];
+			next if exists($samples{"$prefix/$file"}) and $samples{"$prefix/$file"}->{mtime} >= $mtime;
+			if(!open(FILE, $file)) {
+				warn "Couldn't load audio sample $prefix/$file: $!\n";
+				next;
+			}
+
+			$samples{"$prefix/$file"} = {mtime => $mtime, data => join("", <FILE>)};
+			close FILE;
+		}
+	}
+}
+
+sub load_samples {
+	chdir("../g711-mulaw") or die "Couldn't load audio samples: $!\n";
+	load_dir(".");
+	chdir("../src");
+}
+
 load_settings;
+load_samples;
+$SIG{HUP} = sub { log_debug("Reloading settings and samples..."); load_settings; load_samples; };
 
 # Daemonize
 if(!$Finnegan::Config::testmode) {
@@ -45,97 +95,53 @@ foreach my $message (map { $_->{id} } @$Finnegan::Config::messages, {id => 0}) {
 	$sockets[$message] = IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::multicast_port_base + $message*2) or die "Couldn't create multicast socket: $@\n";
 	$sockets[$message]->add($Finnegan::Config::Cisco::multicast_addr) or die "Couldn't add multicast address: $@\n";
 	$sockets[$message]->loopback(0);
+	$sockets[$message]->{__FINNEGAN_RTP} = RTP->new();
 }
 
 my $timestamp = 0;
 while(1) {
-	$packet = pack("C", 2 | );
-	
-mcast_send
-	my @samples = ();
 	my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
 	$hour =~ s/^0//;
 	$minute =~ s/^0//;
 	$ampm = lc($ampm);
 
-	my $message;
-				my @messages = map { $_->{id} } @$Finnegan::Config::messages;
-				$message = $messages[int(rand(@messages))];
-			} else {
-				$message = $row->{message};
-			}
+	my $audio = $samples{"./wake/timeis.ul"}->{data} . $samples{"./wake/hours/$hour.ul"}->{data};
 
-			@samples = (
-				"../rmd/messages/$message.rmd",
-				"../rmd/wake/timeis.rmd",
-				"../rmd/wake/hours/$hour.rmd"
-			);
-
-			if($minute > 0) {
-				if($minute > 0 and $minute < 20) {
-					push @samples, "../rmd/wake/ten-minutes/0.rmd" if $minute < 10;
-					push @samples, "../rmd/wake/one-minutes/$minute.rmd";
-				} else {
-					$minute =~ /(.)(.)/;
-					push @samples, "../rmd/wake/ten-minutes/".($1*10).".rmd";
-					push @samples, "../rmd/wake/one-minutes/$2.rmd" if $2;
-				}
-			}
-
-			push @samples, "../rmd/wake/$ampm.rmd";
-
-			push @samples, "../rmd/wake/snooze.rmd";
-			push @samples, "../rmd/wake/edit.rmd";
+	if($minute > 0) {
+		if($minute > 0 and $minute < 20) {
+			$audio .= $samples{"./wake/ten-minutes/0.ul"}->{data} if $minute < 10;
+			$audio .= $samples{"./wake/one-minutes/$minute.ul"}->{data};
 		} else {
-			my @pindigits = split(//, $row->{pin});
-			my $lastdigit = pop @pindigits;
-			my @pinsamples = map { "../rmd/forgotpin/digits-nonfinal/$_.rmd" } @pindigits;
-			push @pinsamples, "../rmd/forgotpin/digits-final/$lastdigit.rmd";
-
-			@samples = ("../rmd/forgotpin/pinis.rmd", @pinsamples, "../rmd/forgotpin/again.rmd", @pinsamples);
+			$minute =~ /(.)(.)/;
+			$audio .= $samples{"./wake/ten-minutes/".($1*10).".ul"}->{data};
+			$audio .= $samples{"./wake/one-minutes/$2.ul"}->{data} if $2;
 		}
+	}
 
-		if(!open(OUTSAMPLE, ">../tmp/$$.rmd")) {
-			$end->("failure", "Couldn't open output sample ../tmp/$$.rmd: $!");
-			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-			exit 1;
-		}
+	$audio .= $samples{"./wake/$ampm.ul"}->{data};
+	$audio .= $samples{"./wake/edit.ul"}->{data};
 
-		local $/ = undef;
+	open(TMP, ">/tmp/$$.ul");
+	print TMP $audio;
+	close TMP;
 
-		my $all_sdata = "";
+	my %audios;
+	for(my $i = 0; $i < @sockets; $i++) {
+		$audios{$i} = {
+			socket => $sockets[$i],
+			data => $audio . $samples{"./messages/$i.ul"}->{data},
+		};
+	}
 
-		my $firstsample = shift @samples;
-		log_debug("Reading sample $firstsample");
-		if(!open(SAMPLE, $firstsample)) {
-			$end->("failure", "Couldn't open input sample $firstsample: $!");
-			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-			exit 1;
-		}
-		my $sdata = <SAMPLE>;
-		print OUTSAMPLE $sdata;
-		$all_sdata = $sdata;
-		close SAMPLE;
-
-		log_debug("Reading more samples...");
-		foreach(@samples) {
-			log_debug("Reading sample $_");
-			if(!open(SAMPLE, $_)) {
-				$end->("failure", "Couldn't open input sample $_: $!");
-				$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-				exit 1;
+	while(keys %audios) {
+		foreach(keys %audios) {
+			my $payload = substr($audios{$_}->{data}, 0, PACKET_SIZE, "");
+			$audios{$_}->{socket}->mcast_send($audios{$_}->{socket}->{__FINNEGAN_RTP}->make_packet(SECONDS_PER_PACKET, $payload));
+			if(!length($audios{$_}->{data})) {
+				# Send a half-second of silence
+				$audios{$_}->{socket}->{__FINNEGAN_RTP}->make_packet(0.5, "");
+				delete $audios{$_};
 			}
-			$sdata = <SAMPLE>;
-			substr($sdata, 0, 32) = "";
-			$all_sdata .= $sdata;
-			print OUTSAMPLE $sdata;
-			close SAMPLE;
 		}
-
-		if($type eq "wake") { # Repeat it
-			substr($all_sdata, 0, 32) = "";
-			print OUTSAMPLE $all_sdata;
-		}
-		close OUTSAMPLE;
-		log_debug("Done with samples.");
-
+	}
+}
