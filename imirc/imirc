@@ -2646,7 +2646,7 @@ sub loadbuddies($$$) {
 	my($merge) = delete $sndata->{merge};
 	my $profile = "";
 
-	if($buff !~ /^Buddy {$/m) { #TOC-style
+	if($buff !~ /{/) { #TOC-style
 		my $group = "";
 		foreach $line(split(/[\r\n]+/, $buff)) {
 			$line =~ s/(.) //;
