@@ -83,7 +83,7 @@ $version = "0.80";
 		uspass => 1,
 		theirpass => 1,
 		nicklen => 9,
-		pass => "PASS $ourpass\r\n"
+		pass => "PASS :$ourpass\r\n"
 	},
 	rfc => {
 		nick => ":$us NICK _NICK_ 1\r\n:_NICK_ USER _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
@@ -91,7 +91,7 @@ $version = "0.80";
 		uspass => 1,
 		theirpass => 1,
 		nicklen => 9,
-		pass => "PASS $ourpass\r\n"
+		pass => "PASS :$ourpass\r\n"
 	}
 );
 
@@ -142,13 +142,13 @@ do { $upstream->print($ircservers{$servermode}{pass}) if $ourpass and $ircserver
 $upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $@\n";
 
 if($theirpass and $ircservers{$servermode}{theirpass}) {
-	while(($in !~ /PASS (.+)/)) {
+	while(($in !~ /PASS :?(.+)/)) {
 		chomp($in = $upstream->getline);
 		warn "$in\n" if $debug >= 2;
 	}
 	
 	$in =~ s/ :1//;
-	$in =~ /^PASS (.+)/;
+	$in =~ /^PASS :?(.+)/;
 	$pass = $1;
 	$pass =~ s/\s*//g;	#Remove spaces from crypted password
 	if($pass ne $theirpass and $pass ne crypt($theirpass, substr($pass, 0, 2))) { die("Upstream server gave the wrong password!\n"); }
