@@ -23,6 +23,7 @@ while($wake = mysql_fetch_assoc($wakes)) {
 
 	echo "</MenuItem>\n";
 }
+mysql_free_result($wakes);
 
 if(1 == 1) {
 //$PHONE_MODEL == "CP-7912G") {
