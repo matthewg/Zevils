@@ -47,7 +47,13 @@ unpacked the IMIRC tarball and should be called imirc-XX where XX is the IMIRC
 version.
 
 Obtain the necessary perl modules.  The easiest way to do this is to run the
-included getmodules script: ./getmodules
+included getmodules script: ./getmodules .  If you've never run the CPAN shell
+before, it will tell you to run perl -MCPAN -e shell and then do getmodules
+again.  The CPAN shell will prompt you for various options; you can usually
+take the defaults for most of them.  If you don't have a lot of diskspace
+in /home, or you are restricted by disk quotas, you might want to use some
+place in /tmp for the "CPAN build and cache directory" (for instance
+/tmp/username-cpan.)
 
 Open the imirc.conf file in a text editor.  Edit it to your satisfaction and
 then copy it to either /etc/imirc.conf or ~/.imirc .  You should make sure
