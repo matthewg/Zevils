@@ -616,10 +616,10 @@ sub mainloop() {
 						$connection->process_one($read, $write, $error);
 					};
 					if($@) {
-						my $screenname = $connection->session->screenname;
-						my $nick = $irc_connections->{$screenname};
+						my $screenname = $connection->session->screenname if $connection->session;
+						my $nick = $irc_connections->{$screenname} if $screenname;
 						irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
-						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}) if $aim_connections->{$nick};
 					}
 				} elsif($connection == $upstream) {
 					$do_irc = $read | ($error << 1);
