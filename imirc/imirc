@@ -2858,8 +2858,9 @@ sub base642num($) {
 }
 
 # Sanitize a screenname for IRC
-sub ircify($) {
+sub ircify($;$) {
 	my $screenname = shift;
+	my $chan = shift;
 
 	#Yes, I am aware that the RFC mandates a max of 9 characters.
 	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen});
@@ -2869,7 +2870,12 @@ sub ircify($) {
 	#But there's really no right thing to do in that case I suppose.
 	#That's why it deserves the adjective "pathological".
 	#
-	$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+
+	if($chan) {
+		$screenname =~ s/^#[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+	} else {
+		$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+	}
 	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 
 	return $screenname;
@@ -3027,7 +3033,7 @@ sub send_im($$$) {
 
 sub mkchan($$) {
 	my($prefix, $suffix) = @_;
-	return new Net::OSCAR::Screenname "#". ircify("$prefix-$suffix");
+	return new Net::OSCAR::Screenname ircify($prefix.$suffix, 1);
 }
 
 sub chatchan($) { confess "chatchan \"\"!" unless $_[0]; return mkchan($chatchan, shift); }
