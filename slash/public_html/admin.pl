@@ -7,9 +7,9 @@ my $self = $ENV{SCRIPT_FILENAME} || $0;
 push @INC, File::Basename::dirname($self);
 push @INC, File::Basename::dirname($self) . "/..";
 
-require Slash;
-require DBI;
+use DBI;
 require strict vars;
+require Slash;
 require htmlutils;
 
 sub main

@@ -10,6 +10,7 @@ push @INC, File::Basename::dirname($self) . "/..";
 use DBI;
 use strict;
 require Slash;
+no strict 'vars';
 
 sub main
 {
