@@ -145,9 +145,9 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 		if($date) {
 			$query = "SELECT wake_id, ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
 				"WHERE wake_id != $id AND ISNULL(date) AND (".
-				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
-			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
-			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+				"(cal_type='normal' AND FIND_IN_SET('$weekday_name',weekdays)>0)";
+			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND FIND_IN_SET('$weekday_name',weekdays)>0)";
+			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND FIND_IN_SET('$brandeis_weekday_name',weekdays)>0)";
 			$query .= ")";
 
 			$result = @mysql_query($query);
@@ -156,10 +156,10 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 				"WHERE wake_id != $id AND ISNULL(date) AND (";
 			if($cal_type == "Brandeis") {
 				$query .= "cal_type='normal' OR cal_type='holidays'";
-				$query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+				$query .= " OR (cal_type='Brandeis' AND FIND_IN_SET('$brandeis_weekday_name',weekdays)>0)";
 			} else {
 				$query .= "cal_type='Brandeis'";
-				$query .= " OR ((cal_type='normal' OR cal_type='holidays') AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+				$query .= " OR ((cal_type='normal' OR cal_type='holidays') AND FIND_IN_SET('$brandeis_weekday_name',weekdays)>0)";
 			}
 			$query .= ")";
 
@@ -268,22 +268,17 @@ function pin_ok($extension, $pin, $newpin = 0) {
 	$ok = 0;
 	$error = "";
 
-	if(!preg_match("/".$FinneganConfig->pin_regex."/", $pin)) {
-		if(!$newpin) {
-			echo $TEMPLATE["pin_invalid"];
-			$error = "pin_invalid";
-	} else {
+	if($pin && !preg_match("/".$FinneganConfig->pin_regex."/", $pin)) {
+		if($newpin) {
 			echo $TEMPLATE["pin_set_new_invalid"];
 			return 0;
+		} else {
+			echo $TEMPLATE["pin_invalid"];
+			$error = "pin_invalid";
 		}
 	} else {
 		if($newpin) {
-			if(!$pin) {
-				echo $TEMPLATE["pin_set_new_invalid"];
-				return 0;
-			} else {
-				return 1;
-			}
+			return 1;
 		}
 
 		$result = mysql_query(sprintf("SELECT pin FROM prefs WHERE extension='%s'", $extension));
@@ -291,7 +286,7 @@ function pin_ok($extension, $pin, $newpin = 0) {
 
 		$row = mysql_fetch_array($result, MYSQL_NUM);
 		if(!$row || !$row[0]) {
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
+			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600", 
 					getenv("REMOTE_ADDR")));
 			if(!$result) db_error();
 			$log_row = mysql_fetch_row($result);
@@ -310,15 +305,20 @@ function pin_ok($extension, $pin, $newpin = 0) {
 				}
 
 				echo $TEMPLATE["no_pin"];
-				echo "<p>(But since we don't actually make calls yet, I'll just tell you that the PIN is $pin.)</p>\n";
+				if($FinneganConfig->testmode) echo "<p>(But since we're in teseting mode, I'll just tell you that the PIN is $pin.)</p>\n";
 				log_ext($extension, "auth", "failure", "gen_pin");
 			}
 			$extension_ok = 0;
 			return 0;
 		} else {
+			if(!$pin) {
+				echo $TEMPLATE["pin_invalid"];
+				return 0;
+			}
+
 			$goodpin = $row[0];
 
-			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
+			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
 					$extension, getenv("REMOTE_ADDR")));
 			if(!$result) db_error();
 

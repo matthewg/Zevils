@@ -54,13 +54,7 @@ Main page (wake-up call list, index.php) items:
 		DELETE: As above
 		TIME: As above
 		MESSAGE: As above
-		DAYS: List of days of week, with active ones in span class 'weekday-on',
-			temporarily inactive ones in class 'weekday-off', and temporarily
-			active ones in class 'weekday-temp'.  For instance, for a wake-up
-			call which is normally active on Monday, Wednesday, and Thursday,
-			but this week the user has deactivated Wednesday and checked off
-			Tuesday instead, DAYS would be set to:
-				<span class="weekday-on">Mon</span>, <span class="weekday-temp">Tue</span>, <span class="weekday-off">Wed</span>, <span class="weekday-on">Thu</span>
+		DAYS: List of days of week
 		CAL: Type of calendar that the wake-up call uses: 'Regular'/'Brandeis'/'National Holidays'
 	wake_list_end: End of the wake-up call list
 

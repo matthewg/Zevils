@@ -113,7 +113,7 @@ if($extension_ok) {
 	}
 
 
-	$result = mysql_query("SELECT wake_id, time, message, date, std_weekdays, cur_weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
+	$result = mysql_query("SELECT wake_id, time, message, date, weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
 	if(!$result) db_error();
 
 	$count = mysql_num_rows($result);
@@ -156,28 +156,8 @@ if($extension_ok) {
 				$TEMPLATE["wake_list_item_once"]
 			);
 		} else {
-			$std_days = explode(",", $row["std_weekdays"]);
-			$cur_days = explode(",", $row["cur_weekdays"]);
-			$checkdays = array("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
-			$days = array();
-			$std_days_assoc = array();
-			$cur_days_assoc = array();
-			for($i = 0; $i < count($std_days); $i++) { $std_days_assoc[$std_days[$i]] = 1; }
-			for($i = 0; $i < count($cur_days); $i++) { $cur_days_assoc[$cur_days[$i]] = 1; }
-			for($i = 0; $i < count($checkdays); $i++) {
-				$day = $checkdays[$i];
-				$std = 0;
-				$cur = 0;
-				if(isset($std_days_assoc[$day])) $std = 1;
-				if(isset($cur_days_assoc[$day])) $cur = 1;
-
-				if($cur && $std)
-					$days[] = "<span class=\"weekday-on\">$day</span>";
-				else if($cur)
-					$days[] = "<span class=\"weekday-temp\">$day</span>";
-				else if($std)
-					$days[] = "<span class=\"weekday-off\">$day</span>";
-			}
+			$days = explode(",", $row["weekdays"]);
+			for($i = 0; $i < count($days); $i++) $days[$i] = ucfirst($days[$i]);
 			$daytext = implode(", ", $days);
 
 			if($row["cal_type"] == "normal")

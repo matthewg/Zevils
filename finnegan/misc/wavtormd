@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+foreach (@ARGV) {
+	my $wav = $_;
+	my $rmd = $wav;
+	$rmd =~ s!/wav/!/rmd/!;
+	$rmd =~ s!\.wav$!.rmd!;
+	print "Converting $wav to $rmd...\n";
+	unlink($rmd);
+	unlink("tmp/temp.wav");
+	unlink("tmp/temp.pvf");
+	system("mkdir -p `dirname $rmd`");
+	system("sox $wav -r 8000 -c 1 tmp/temp.wav resample");
+	system("wavtopvf tmp/temp.wav tmp/temp.pvf");
+	system("pvftormd US_Robotics 1 tmp/temp.pvf $rmd");
+}
+
+unlink("tmp/temp.wav");
+unlink("tmp/temp.pvf");

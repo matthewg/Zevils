@@ -287,7 +287,7 @@ END_PIN_SENT
 	"date_invalid" => errmsg("Please enter a valid date."),
 	"weekdays_invalid" => errmsg("Please select one or more days of the week."),
 	"cal_type_invalid" => errmsg("Please select a valid calendar type."),
-	"type_invalid" => errmsg("Please select a type of wake-up call.  If you've selected a recurring wake-up call, do not enter a date, and select which days of the week the wake-up call should be activate on.  If you've selected a one-time wake-up call, enter a date, and do not select days of the week."),
+	"type_invalid" => errmsg("Please select a type of wake-up call."),
 	"time_unavailable_onetime" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available."),
 	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__."),
 	"too_many_wakes" => errmsg("You have too many wake-up calls.  You may only have ten.  Try using recurring wake-up calls instead of setting one-time calls for every day, or delete some of your other wake-up calls.  If you need more wake-up calls, email <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>"),
@@ -382,7 +382,10 @@ Calendar Type: <select name="cal_type">
 </p><p>
 <input type="reset" />
 </p>
-<script type="text/javascript">hide("onetime"); hide("recur");</script>
+<script type="text/javascript">
+	if(!document.mkwake.type[0].checked) hide("onetime");
+	if(!document.mkwake.type[1].checked) hide("recur");
+	</script>
 END_MKWAKE_FORM
 ,
 

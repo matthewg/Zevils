@@ -90,21 +90,7 @@ if($extension_ok) {
 				echo $TEMPLATE["date_invalid"];
 			}
 			if(isset($_POST["date"])) $date = $_POST["date"];
-
-			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun");
-			for($i = 0; $i < sizeof($the_weekdays); $i++) {
-				if(isset($_POST[$the_weekdays[$i]]) && $_POST[$the_weekdays[$i]]) {
-					$error = 1;
-					echo $TEMPLATE["type_invalid"];
-					break;
-				}
-			}
 		} else if($type == "recur") {
-			if(isset($_POST["date"]) && $_POST["date"]) {
-				$error = 1;
-				echo $TEMPLATE["type_invalid"];
-			}
-
 			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun");
 			$weekdays_ct = 0;
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
@@ -172,16 +158,16 @@ if($extension_ok) {
 		if(!$error) {
 
 			if($type == "one-time") {
-				$cols = array("extension", "time", "message", "date");
-				$values = array("'$extension'", "'$sql_time'", $message, "'".date_to_sql($date, $sql_time)."'");
+				$cols = array("weekdays", "extension", "time", "message", "date");
+				$values = array("NULL", "'$extension'", "'$sql_time'", $message, "'".date_to_sql($date, $sql_time)."'");
 			} else {
 				$sql_weekdays = array();
 				while(list($day, $val) = each($weekdays)) {
 					if($val) $sql_weekdays[] = ucfirst($day);
 				}
 
-				$cols = array("extension", "time", "message", "std_weekdays", "cur_weekdays", "cal_type");
-				$values = array("'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".implode(",", $sql_weekdays)."'", "'".$_POST["cal_type"]."'");
+				$cols = array("date", "extension", "time", "message", "weekdays", "cal_type");
+				$values = array("NULL", "'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".$_POST["cal_type"]."'");
 			}
 
 			if(!$id) {
@@ -202,7 +188,7 @@ if($extension_ok) {
 				$set = "$cols[0] = $values[0]";
 				for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
 
-				if(!mysql_query("UPDATE wakes SET next_trigger=NULL, snooze_count=0, $set WHERE extension='$extension' AND wake_id=$id")) db_error();
+				if(!mysql_query("UPDATE wakes SET next_trigger=NULL, trigger_date=NULL, snooze_count=0, trigger_snooze=NULL, $set WHERE extension='$extension' AND wake_id=$id")) db_error();
 				$event = "edit";
 			}
 
@@ -257,7 +243,7 @@ if($extension_ok) {
 		} else {
 			$recur = "checked";
 
-			$the_weekdays = explode(",", $row["std_weekdays"]);
+			$the_weekdays = explode(",", $row["weekdays"]);
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
 				$weekdays[strtolower($the_weekdays[$i])] = "checked";
 			}

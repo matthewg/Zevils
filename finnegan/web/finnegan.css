@@ -31,12 +31,3 @@ td {
 .status {
 	font-weight: bold;
 }
-.weekday-off {
-	text-decoration: line-through
-}
-.weekday-on {
-	
-}
-.weekday-temp {
-	font-style: italic
-}
