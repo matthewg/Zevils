@@ -150,7 +150,7 @@ if(isset($_POST["submit"])) {
 	}
 
 	if(!$error) {
-		$date = date_to_sql($date, sql_time);
+		$date = date_to_sql($date, $sql_time);
 		$sql_weekdays = array();
 		while(list($day, $val) = each($weekdays)) {
 			if($val) $sql_weekdays[] = ucfirst($day);
