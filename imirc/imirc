@@ -54,6 +54,7 @@ sub irc_ctcp_unquote($);
 sub process_ctcp($$$);
 sub irc_ctcp($$$;$);
 sub loadbuddies($$);
+sub irc_dcc($$$$$);
 
 sub END { going_down; }
 
@@ -607,6 +608,76 @@ unless($reload) {
 						splice(@dccqueue, $i, 1);
 					}
 				}
+			} elsif($dcc->{direction} eq "SEND") {
+				if($dcc->{put} == -1) {
+					undef $rv;
+					$rv = $dcc->{ssocket}->accept;
+					if(defined $rv) {
+						$dcc->{socket} = $rv;
+						$dcc->{put} = 0;
+					} elsif($! and $! != EAGAIN) {
+						irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+						$dcc->{ssocket}->close;
+						splice(@dcc, $i, 1);
+						next DCC;
+					}
+				} else {
+					undef $rv;
+					$! = EAGAIN;
+					while($! == EAGAIN and !defined($rv)) {
+						if($dcc->{put} < $dcc->{size}) {
+							$buff = substr($dcc->{buff}, 0, 102, "");
+							$rv = $dcc->{socket}->syswrite($buff, length $buff); #A tenth of a kilobyte - should be okay even for slow connections
+							if (!defined($rv) && $! != EAGAIN) {
+								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+								$dcc->{socket}->close;
+								$dcc->{ssocket}->close;
+								splice(@dcc, $i, 1);
+								next DCC;
+							}
+							if(!defined($rv) && ($! == EAGAIN)) {
+								next DCC;
+							}
+							$dcc->{put} += $rv;
+							Toc::debug_print("DCC put $rv bytes ($dcc->{put} of $dcc->{size})", "DCC", 2);
+						}
+
+						if(($dcc->{put} % 2048) == 0 or $dcc->{put} == $dcc->{size}) {
+							Toc::debug_print("Waiting for ACK...", "DCC", 3);
+							undef $getrv;
+							$! = EAGAIN;
+							undef $rvbuff;
+							while($! == EAGAIN and !defined($getrv)) {
+								$buff = ' ' x 4;
+								$getrv = $dcc->{socket}->sysread($buff, 4);
+								if(!defined($getrv) && $! != EAGAIN) {
+									irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+									$dcc->{socket}->close;
+									$dcc->{ssocket}->close;
+									splice(@dcc, $i, 1);
+									next DCC;
+								}
+								if(!defined($getrv) && ($! == EAGAIN)) {
+									next DCC;
+								} elsif($getrv < 4) {
+									Toc::debug_print("ACK incomplete - got $rvbuff", "DCC", 3);
+									$rvbuff .= $buff;
+									undef $getrv;
+								}
+								$dcc->{got} = unpack("N", $rvbuff . $buff);
+								Toc::debug_print("ACK received - client got $dcc->{got} of $dcc->{size} (we put $dcc->{put})", "DCC", 3);
+							}
+						}
+
+						if($dcc->{got} == $dcc->{size}) {
+							Toc::debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+							$dcc->{socket}->close;
+							$dcc->{ssocket}->close;
+							irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed."));
+							splice(@dccqueue, $i, 1);
+						}
+					}
+				}
 			}
 		}
 
@@ -850,6 +921,7 @@ sub process_irc_message($) {
 				if($aim_connections{$nnick} and $aim_connections{$nnick}{screennames}{$param}) {
 					irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
 				} else {
+					irc_send(irc_privmsg($usnick, $nick, "Signing on to AOL Instant Messenger..."));
 					do_signon($param, $extra, $usnick, $nick);
 				}
 			}
@@ -1111,25 +1183,68 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist."));
 		} elsif ($cmd eq "savebuddies") {
 			my $oscar = 0;
-			my($socket);
+			my(%config, $config, $message, $group, $buddy, %groups, $filename);
 
 			unless($dccip) {
 				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file."));
 			} else {
 				$oscar = 1 if $param and lc($param) ne "toc";
+				%config = deref(get_config($aim_connections{$nnick}{aimnick}));
 
-				$socket = IO::Socket::INET->new(
-					LocalPort => 0,
-					Listen => 1,
-					Proto => 'tcp',
-					LocalAddr => $dccip,
-					Timeout => 5
-				);						
-				$flags = '';
-				fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
-				$flags |= O_NONBLOCK;
-				fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";
-				push @dccqueue, {socket => $socket, size => length get_config($aim_connections{$nnick}{aimnick}), what => "savebuddies", from => $usnick, to => $nnick, put => -1, direction => "SEND", buff => get_config($aim_connections{$nnick}{aimnick})};
+				if($oscar) {
+					$config =
+"Config {
+ version 1
+}
+User {
+ screenName $aim_connections{$nnick}{aimnick}
+}
+Buddy {
+ list {
+";
+					#"Borrowed" from conf2str
+					Toc::debug_print("TOC to OSCAR: config is " . Data::Dumper::Dumper(%config), "IRC", 1);
+					foreach $buddy(keys %{$config{Buddies}}) {
+						$group = $config{Buddies}{$buddy}{group};
+						Toc::debug_print("TOC to OSCAR: putting $buddy in $group", "IRC", 1);
+						push @{$groups{$group}}, $buddy;
+					}
+					foreach $group (sort keys %groups) {
+						next if $group eq "permit" or $group eq "deny" or $group eq "permtype" or $group eq "groups";
+						$config .= "  $group";
+						foreach $buddy(sort @{$groups{$group}}) {
+							$config .= " $buddy";
+						}
+						$config .= "\n";
+					}
+					$config .= " }\n}\nPrivacy {\n";
+					$config .= " allowList " . join(" ", keys %{$config{permit}}) . "\n";
+					$config .= " blockList " . join(" ", keys %{$config{deny}}) . "\n";
+					$config .= " pref ";
+					if($config{permtype} == 1) {
+						$config .= "AllowAll";
+					} elsif($config{permtype} == 2) {
+						$config .= "DenyAll";
+					} elsif($config{permtype} == 3) {
+						$config .= "AllowSome";
+					} else {
+						$config .= "DenySome";
+					}
+					$config .= "\n}\n";
+					$filename = $aim_connections{$nnick}{aimnick} . ".blt";
+				} else {
+					$config = conf2str(%config);
+					$filename = $aim_connections{$nnick}{aimnick} . ".txt";
+				}
+
+				$message = irc_dcc($usnick, $nnick, $config, "savebuddies", $filename);
+				if($message) {
+					irc_send($message);
+					irc_send(irc_ctcp($usnick, $nick, "savebuddies"));
+					irc_send(irc_privmsg($usnick, $nnick, "Please accept the DCC SEND from $usnick.  The file being sent is your buddylist."));
+				}
+
+
 			}
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
@@ -2118,4 +2233,43 @@ sub loadbuddies($$) {
 		}
 	}
 
+}
+
+# DCC send a file to someone - you must irc_send this!  Returns the empty string on error.
+sub irc_dcc($$$$$) {
+	my($from, $to, $what, $why, $filename, $msg, $flags, $socket) = @_;
+
+	if(!$dccip) {
+		irc_send(irc_privmsg($from, $to, "The administrator of this server has not configured an IP to use for DCC, so DCC SEND has been disabled."));
+		return "";
+	}
+
+	$socket = IO::Socket::INET->new(
+		LocalPort => 0,
+		Listen => 1,
+		Proto => 'tcp',
+		LocalAddr => $dccip,
+		Timeout => 5
+	);
+
+	unless($socket) {
+		irc_send(irc_privmsg($from, $to, "Couldn't create DCC socket: $@"));
+		return "";
+	} else {
+		$flags = '';
+		if(!fcntl($socket, F_GETFL, $flags)) {
+			irc_send(irc_privmsg($from, $to, "Couldn't get flags for DCC socket: $!"));
+			return "";
+		}
+		$flags |= O_NONBLOCK;
+		if(!fcntl($socket, F_SETFL, $flags)) {
+			irc_send(irc_privmsg($from, $to, "Couldn't set flags for DCC socket: $!"));
+			return "";
+		}
+
+		#We set {put} to -1 to indicate that the client hasn't connected yet.
+		push @dccqueue, {ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
+		Toc::debug_print("DCC SEND buff: $what", "DCC", 3);
+		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
+	}
 }
