@@ -167,7 +167,7 @@ function date_to_user($sql_date) {
 // ("Jan", 2) -> YYYY-01-02
 function date_to_sql($user_date, $sql_time) {
 	global $inv_months;
-	echo "check 1<br>\n"; 
+	echo "check 1: $user_date<br>\n"; 
 	if(!preg_match('/^(\d{1,2})\/(\d\d)$/', $user_date, $matches)) return "";
 	echo "check 2<br>\n";
 	if($matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) return "";
