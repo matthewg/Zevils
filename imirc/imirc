@@ -1600,7 +1600,7 @@ sub process_irc_message($) {
 				bounce_join($nick, chatchan($1));
 			}
 		} elsif ($oldnick and $recipient eq $oldnick) {
-			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $usnick will no longer work."));
+			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $oldnick will no longer work."));
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections->{$nick} and $oscar) {
 				send_im($oscar, $target, $msg);
