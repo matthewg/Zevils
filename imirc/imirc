@@ -53,6 +53,7 @@ sub irc_ctcp_quote($);
 sub irc_ctcp_unquote($);
 sub process_ctcp($$$);
 sub irc_ctcp($$$;$);
+sub loadbuddies($$);
 
 sub END { going_down; }
 
@@ -566,10 +567,42 @@ unless($reload) {
 		$_ = irc_recv(1); #Don't block
 		process_irc_message($_) if $_;
 
-		#if($upstream->error or $upstream->eof) {
-		#	print STDERR "IRC connection closed: " . $upstream->error . "\n";
-		#	exit 1;
-		#}
+		DCC: for($i = 0; $i <= $#dccqueue; $i++) {
+			$dcc = $dccqueue[$i];
+			if($dcc->{direction} eq "GET") {
+				undef $rv;
+				$! = EAGAIN;
+				while($! == EAGAIN and !defined($rv)) {
+					$buff = ' ' x 102;
+					$rv = $dcc->{socket}->sysread($buff, 102); #A tenth of a kilobyte - should be okay even for slow connections
+					if (!defined($rv) && $! != EAGAIN) {
+						irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!"));
+						$dcc->{socket}->close;
+						splice(@dcc, $i, 1);
+						next DCC;
+					}
+					if(!defined($rv) && ($! == EAGAIN)) {
+						next DCC;
+					}
+					$dcc->{buff} .= $buff;
+					$dcc->{got} += $rv;
+					Toc::debug_print("DCC got $rv bytes ($dcc->{got} of $dcc->{size})", "DCC", 2);
+
+					$dcc->{socket}->print(pack("N", $dcc->{got})) if(($dcc->{got} % 2048) == 0 or $dcc->{got} == $dcc->{size}); # Every 2048 bytes, write number of bytes received
+
+					if($dcc->{got} == $dcc->{size}) {
+						Toc::debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+						Toc::debug_print($dcc->{buff}, "DCC", 3);
+						$dcc->{socket}->close;
+						irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed."));
+						if($dcc->{what} eq "loadbuddies") {
+							loadbuddies($aim_connections{$dcc->{from}}{screennames}{$dcc->{screenname}}{socket}, $dcc->{buff});
+						}
+						splice(@dccqueue, $i, 1);
+					}
+				}
+			}
+		}
 
 		$currtime = time;
 
@@ -1651,9 +1684,9 @@ sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
 	foreach $xnick(keys %nicks) {
-		next if normalize($xnick) eq normalize($usnick);
 		delete $nicks{$xnick}{$nick};
-		irc_send(":$prefix$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
+		next if normalize $xnick eq normalize $usnick;
+		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
 
 	delete $aim_connections{$nick}{screennames}{Toc::_hnick($connection)};
@@ -1898,7 +1931,7 @@ sub irc_ctcp_unquote($) {
 sub process_ctcp($$$) {
 	my($from, $to, $message) = @_;
 	my ($delim, @ctcp, $ctcp, $cmd, $args) = (chr(001));
-	my($filename, $ipaddr, $port, $filesize);
+	my($filename, $ipaddr, $port, $filesize, $socket, $buff);
 
 	return $message unless $message =~ /$delim/;
 
@@ -1927,6 +1960,23 @@ sub process_ctcp($$$) {
 					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 4k."));
 					delete $dccget{$from};
 					next CTCP;
+				} else {
+					$socket = IO::Socket::INET->new(
+						PeerAddr => $ipaddr,
+						PeerPort => $port,
+						Timeout => 5
+					);
+					unless($socket) {
+						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $@"));
+						next CTCP;
+					}
+					$flags = '';
+					fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
+					$flags |= O_NONBLOCK;
+					fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";
+					push @dccqueue, {socket => $socket, size => $filesize, what => $dccget{$from}, from => $from, to => $to, got => 0, direction => "GET", buff => "", screenname => $aim_connections{$from}{aimnick}};
+					delete $dccget{$from};
+					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename."));
 				}
 			}
 		}
@@ -1943,3 +1993,9 @@ sub irc_ctcp($$$;$) {
 }
 
 #Someone's sending us a file: DCC SEND filename IPaddr port filesize
+
+sub loadbuddies($$) {
+	my($socket, $buff) = @_;
+
+	
+}
