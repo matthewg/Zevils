@@ -700,6 +700,9 @@ sub irc_privmsg($$$;$$$) {
 sub process_irc_message($) {
 	my($screenname, $nick, $sndata, $oscar);
 
+	my $us_or_old = "$usnick";
+	$us_or_old .= "|$oldnick" if $oldnick;
+
 	$_ = shift;
 
 	if(s/^:(\S+)(!\S+@\S+)?\s+//) {
@@ -888,7 +891,7 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_part($usnick, nickchan($screenname)));
 		}
-	} elsif(!/#imirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
+	} elsif(!/#imirc-debug/i and (/^(PRIVMSG|NOTICE) +(?:$us_or_old)(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra);
 
 		return if ignorenick($nick);
@@ -1642,7 +1645,7 @@ sub process_irc_message($) {
 		return unless $msg;
 
 		if($recipient eq "#imirc-debug" and $debug) {
-			$msg =~ s/^(aimserv)\S*\s+//;
+			$msg =~ s/^($usnick)\S*\s+//i;
 			if($msg eq "restart" and $1) {
 				phoenix;
 			} elsif($msg =~ /^newnick (.+)/ and $1) {
@@ -1676,7 +1679,7 @@ sub process_irc_message($) {
 			} elsif($msg =~ /#/) {
 				# Do nothing
 			} else {
-				irc_send(irc_privmsg($usnick, "#imirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
+				irc_send(irc_privmsg($usnick, "#imirc-debug", "Invalid debug command - /msg $usnick help debug for help)"));
 			}
 		} elsif ($recipient =~ /^$chatchan(\d+)$/) {
 			
@@ -1685,13 +1688,11 @@ sub process_irc_message($) {
 			} else {
 				bounce_join($nick, chatchan($1));
 			}
-		} elsif ($oldnick and $recipient eq $oldnick) {
-			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $oldnick will no longer work."));
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections->{$nick} and $oscar) {
 				send_im($oscar, $target, $msg, $notice);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via IMIRC to send messages to AIM users.  /msg AIMServ help for details."));
+				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via IMIRC to send messages to AIM users.  /msg $usnick help for details."));
 			}
 		}
 	} elsif(/^AWAY *(.*)/) {
@@ -2792,7 +2793,11 @@ sub process_ctcp($$$$$) {
 
 		debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
 		if($to ne $usnick and $to ne $oldnick) {
-			$aim_connections->{$from}->{oscar}->send_im($to, ($notice ? "<!-- NOTICE -->" : "") . "<!-- CTCP -->$ctcp") if exists($aim_connections->{$from});
+			if(exists($aim_connections->{$from})) {
+				$aim_connections->{$from}->{oscar}->send_im($to, ($notice ? "<!-- NOTICE -->" : "") . "<!-- CTCP -->$ctcp") if exists($aim_connections->{$from});
+			} else {
+				irc_send(irc_privmsg($usnick, $from, "You must be signed onto AOL Instant Messenger via IMIRC to send CTCPs to AIM users.  /msg $usnick help for details."));
+			}
 			next;
 		}
 
