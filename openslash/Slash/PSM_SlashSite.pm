@@ -13,7 +13,7 @@ use vars qw(@ISA $AUTOLOAD);
 #	sees that it should make an accessor method for us, it does so.  Pretty sweet.
 
 sub _autoload { #I don't like having to duplicate AUTOLOAD code, but I don't want AUTOLOAD to be inherited since I want packages to explicitly request this autoload behavior.
-	my $self = shift;
+	my($self) = shift;
 	my($rfields, $wfields, %rfields, %wfields) = @_;
 	%rfields = %$rfields; %wfields = %$wfields;
 
@@ -31,7 +31,7 @@ sub _autoload { #I don't like having to duplicate AUTOLOAD code, but I don't wan
 }
 
 sub AUTOLOAD {
-	my(%rfields, %wfields);
+	my($self, %rfields, %wfields) = shift;
 
 	return unless ref($self) eq "Slash::PSM::SlashSite" or $self eq "Slash::PSM::SlashSite"; #Don't allow this method to be inherited.
 	for my $attr (qw(PSMs)) { $rfields{$attr}++; }

@@ -6,7 +6,7 @@ use vars qw(@ISA %rfields %wfields $AUTOLOAD);
 @ISA = ('Slash::PSM');
 
 sub AUTOLOAD {
-	my(%rfields, %wfields);
+	my($self, %rfields, %wfields) = shift;
 
 	return unless ref($self) eq "Slash::PSM::SlashSite" or $self eq "Slash::PSM::SlashSite"; #Don't allow this method to be inherited.
 	for my $attr (qw()) { $rfields{$attr}++; }
