@@ -9,6 +9,7 @@ Rethink checkpointing?
 Real Soon Now/First Priority:
 	ChanServ/AIMServ conflict
 		MODE loop detection, README.ChanServ, services patches
+	Undernet P10 ircd support
 
 Probably/Second Priority:
 	#buddies-SCREENNAME (geniusj)
