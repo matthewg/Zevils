@@ -19,19 +19,19 @@ use constant LOG_WARNING => 1;
 use constant LOG_NOTICE => 2;
 use constant LOG_INFO => 3;
 use constant LOG_DEBUG => 4;
-sub log {
+sub log(@) {
 	return unless $config{loglevel} >= pop;
 	print LOG @_, "\n";
 }
 
 
-sub dispver {
+sub dispver() {
 	print "NNTB: Network News Transport for 'Blogs.\n";
 	print "Version: $version\n";
 	exit 0;
 }
 
-sub help {  # If called with -h or --help
+sub help() {  # If called with -h or --help
 	# Get absolute path to $0
 	my($dir, $file) = fileparse($0);
 	chdir $dir;
@@ -201,16 +201,14 @@ EOF
 	}
 }
 
+init();
+loadconf();
 
-$port ||= 119;  #default port
-
-$slashsite = lc ((getvars("sitename"))[0]);
-
-if ($inetd != 1) {  #We're not using inetd
+if (!$config{inetd}) {  #We're not using inetd
 	use Socket;
 	use POSIX;
 
-	#Code that removes need for &
+	if(!$config{debug}) {
 		$pid = fork;
 		exit if $pid;
 		die "Couldn't fork: $!" unless defined($pid);
@@ -221,12 +219,13 @@ if ($inetd != 1) {  #We're not using inetd
 			exit 1;
 		}
 		$SIG{INT} = $SIG{TERM} = $SIG{HUP} = \&signal_handler; #trap fatal sigs
+	}
 
 	#Code to restart on SIGHUP
-		sub phoenix { 
-			close CLIENT; close SERVER;	exec($0, @args);
-		}
-		$SIG{HUP} = \&phoenix;
+	sub phoenix { 
+		close CLIENT; close SERVER;	exec($0, @args);
+	}
+	$SIG{HUP} = \&phoenix;
 
 	#Without this code, we get lots of fresh victims for the ever-growing army of the undead (in other words, zombies)
 	sub REAPER {
@@ -236,67 +235,76 @@ if ($inetd != 1) {  #We're not using inetd
 	$SIG{CHLD} = \&REAPER;
 
 	#Code to handle incoming connections
-		socket(SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
+	socket(SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 
-		setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
+	setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
 
-		$my_addr = sockaddr_in($port, INADDR_ANY);
-		bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
+	$my_addr = sockaddr_in($port, INADDR_ANY);
+	bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
 
-		listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
+	listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
 
-		while(accept(CLIENT, SERVER)) {
-			next if $pid = fork; # parent
-			die "fork: $!" unless defined $pid;
-			# we are the world, we are the children
-			close SERVER;
+	while(accept(CLIENT, SERVER)) {
+		next if $pid = fork; # parent
+		die "fork: $!" unless defined $pid;
+		# we are the world, we are the children
+		close SERVER;
 
-			&dostuff; #Dostuff handles the client
+		got_client();
 
-			exit;
-		} continue { close CLIENT; }
+		exit;
+	} continue { close CLIENT; }
 
-		close SERVER;  #buh-bye
+	close SERVER;  #buh-bye
 } else { #inetd == 1
 	*CLIENT = *STDIN; # 'cuz that's what inetd does
-	&dostuff;
+	got_client();
 }
 
-sub dostuff { 	# The stuff starts here - this is called every time a client
-		# connects.  The filehandle used to communicate with the
-		# client is CLIENT.
+sub got_client() {
+	my($currmsg, $currgroup);
 
 	select CLIENT;
 	$| = 1; # Auto-flush the output.
-	print CLIENT "200 " . hostname() . " newsd server $version ready\n";
+	print "200 " . hostname() . " NNTB server $version ready\n";
 
-	debug("Got a client\n", 1);
+	log("Got a client\n", LOG_INFO);
 
-	local ($currmsg, $currgroup, $user, $param);
 	GETLINE: while(<CLIENT>) {
-		debug("Client said: $_", 1);
+		log("Client said: $_", LOG_DEBUG);
 		chomp; #Remove trailing garbadge (ie \r\n)
-		($text = $_) =~ /^(\S+)/; #first word
-		$_ = lc($1);
+		my $text = $_;
+		my @params = split;
+		my $command = lc(shift @params);
+		$_ = $command;
 		SWITCH: {
 			if (/^article$/ || /^body$/ || /^head$/ || /^stat$/) {
 				my ($msgnum, $msgid);
 
-				$text =~ /^(\S+)\s+(\S+)\s*$/; #Same as split /\s/
-				$param = $2; $param ||= $currmsg;
-				if ($param !~ /\<.+\>/ and !$currgroup) { #Client tried to use a message number while no group was selected
-					print CLIENT "412 Not in a newsgroup\n";
-					last SWITCH;
+				if ($params[0] and $params[0] !~ /\<.+\>/) {
+					if(!$currgroup) { #Client tried to use a message number while no group was selected
+						print "412 Not in a newsgroup\n";
+						last SWITCH;
+					} else {
+						$currmsg = $params[0];
+					}
 				}
-				if ($param !~ /\<.+\>/) { #It's a message number, so set the current article pointer
-					$currmsg = $param;
+
+				my($msgnum, $msgid) = parseidnum($params[0] || $currmsg);
+				log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
+
+				my($response, $resptext);
+				if($command eq "article") {
+					($response, $resptext) = (220, "head and body follow");
+				} elsif($command eq "head") {
+					($response, $resptext) = (221, "head follows");
+				} elsif($command eq "body") {
+					($response, $resptext) = (222, "body follows");
+				} elsif($command eq "stat") {
+					($response, $resptext) = (223, "request text seperately");
 				}
-				($msgnum, $msgid) = parseidnum($param);
-				debug("Msg-ID is $msgid, number is $msgnum\n", 1);
-				print "221 $msgnum $msgid article retrieved - head follows\n" if(/^head$/);
-				print "220 $msgnum $msgid article retrieved - head and body follow\n" if(/^article$/);
-				print "222 $msgnum $msgid article retrieved - body follows\n" if(/^body$/);
-				print "223 $msgnum $msgid article retrieved - request text seperately\n" if(/^stat$/);
+				print "$response $msgnum $msgid article retrieved - $resptext\n";
+
 				if ($msgid !~ /\<[^\@.]+\./) { #Story
 					getstory($_, parseid($msgid));
 					last SWITCH;
@@ -306,62 +314,56 @@ sub dostuff { 	# The stuff starts here - this is called every time a client
 				}
 				last SWITCH;
 			} elsif (/^group$/) {
-				unless ($text =~ /^(\S+)\s+(\S+)\s*$/) {
-					print CLIENT "501 Syntax error - group groupname\n";
+				unless (@params == 1) {
+					print "501 Syntax error - group groupname\n";
 					last SWITCH;
 				}
-				changegroup($2);
-				debug("Okay, current group is now $2\n", 1);
+				changegroup($params[0]);
+				log("Okay, current group is now $params[0]\n", LOG_DEBUG);
 				last SWITCH;
 			} elsif (/^help$/) {
-				print CLIENT "100 Legal commands\n";
-				print CLIENT "article\nhead\nbody\nstat\n";
-				print CLIENT "group\nhelp\nihave\nlast\nnext\n";
-				print CLIENT "list\nnewgroups\nnewnews\npost\nquit\n";
-				print CLIENT "slave\nmode\ndate\nlistgroup\nauthinfo\n";
-				print CLIENT ".\n"; last SWITCH;
-			} elsif (/^ihave$/) { #WHOOP! Danger Will Robinson! The RFC states that we must implement this.
-				print CLIENT "504 Command not implemented\n";
+				print "100 Legal commands\n";
+				print "article\nhead\nbody\nstat\n";
+				print "group\nhelp\nihave\nlast\nnext\n";
+				print "list\nnewgroups\nnewnews\npost\nquit\n";
+				print "slave\nmode\ndate\nlistgroup\nauthinfo\n";
+				print ".\n";
+				last SWITCH;
+			} elsif (/^ihave$/) { #This command is only for inter-server post transfers
+				print "435 article not wanted - do not send it\n";
 				last SWITCH;
 			} elsif (/^last$/ || /^next$/) {
-				movepointer($_); last SWITCH;
+				movepointer($command);
+				last SWITCH;
 			} elsif (/^list$/) {
-				if ($text =~ /overview\.fmt/i) {
-					print CLIENT "215 Order of fields in overview database.\n";
-					print CLIENT "Subject:\nFrom:\nDate:\nMessage-ID:\nReferences:\nBytes:\nLines:\nXref:full\n.\n";
-				} elsif ($text =~ /newsgroups/i) {
-					print CLIENT "215 Newsgroups follow\n";
+				if (lc($params[0]) eq "overview.fmt") {
+					print "215 Order of fields in overview database.\n";
+					print "Subject:\nFrom:\nDate:\nMessage-ID:\nReferences:\nBytes:\nLines:\nXref:full\n.\n";
+				} elsif (lc($params[0]) eq "newsgroups") {
+					print "215 Newsgroups follow\n";
 					my @groups = getgroups("00000000000000");
 					my $group;
 					foreach $group (@groups) {
 						$group =~ s/^([^ ]+).+/$1/;
-						print CLIENT "$group   A $slashsite group\n";
+						print "$group   A $slashsite group\n";
 					}
-					print CLIENT ".\n";
+					print ".\n";
 				} else {
-					print CLIENT "215 list of newsgroups follows\n";
+					print "215 list of newsgroups follows\n";
 					newgroups("00000000000000");
 				}
 				last SWITCH;
 			} elsif (/^newgroups$/) {
-				print CLIENT "231 list of new newsgroups follows\n";
-				$text =~ /^\S+\s+(..)(..)(..) (..)(..)(..)/;
-				$year = $1; $month = $2; $day = $3;
-				$hour = $4; $minute = $5; $second = $6;
-				($second, $minute, $hour, $day, $month, $year) = localtime(timegm($second, $minute, $hour, $day, $month, $year)) if($text =~ /GMT/i);
-				$time = sprintf("19%02d%02d%02d%02d%02d%02d", $year, $month, $day, $hour, $minute, $second);
-				newgroups($time); last SWITCH;
+				print "231 list of new newsgroups follows\n";
+				newgroups(params2time(@params));
+				last SWITCH;
 			} elsif (/^newnews$/) {
-				print CLIENT "230 list of new articles by message-id follows\n";
-				$text =~ /^\S+\s+(\S+)\s+(..)(..)(..) (..)(..)(..)/;
-				$year = $2; $month = $3; $day = $4;
-				$hour = $5; $minute = $6; $second = $7;
-				($second, $minute, $hour, $day, $month, $year) = localtime(timegm($second, $minute, $hour, $day, $month, $year)) if($text =~ /GMT/i);
-				$time = sprintf("%02d%02d%02d%02d%02d%02d", $year, $month, $day, $hour, $minute, $second);
-				getarticles($1, $time); last SWITCH;
+				print "230 list of new articles by message-id follows\n";
+				getarticles($1, params2time(@params));
+				last SWITCH;
 			} elsif (/^post$/) {
 				my (@message);
-				print CLIENT "340 send article to be posted. End with <CR-LF>.<CR-LF>\n";
+				print "340 send article to be posted. End with <CR-LF>.<CR-LF>\n";
 				GETHEAD: while (<CLIENT>) {
 					last GETHEAD if ($_ eq ".\r\n");
 					push @message, $_;
@@ -369,49 +371,47 @@ sub dostuff { 	# The stuff starts here - this is called every time a client
 				post(@message);
 				last SWITCH;
 			} elsif (/^quit$/) {
-				print CLIENT "205 closing connection - goodbye!\n";
+				print "205 closing connection - goodbye!\n";
 				last GETLINE;
 			} elsif (/^slave$/) {
-				print CLIENT "202 slave status noted\n"; last SWITCH;
+				print "202 slave status noted\n";
+				last SWITCH;
 			} elsif (/^mode$/) {
-				print CLIENT "200 OK\n"; last SWITCH;
+				print "200 OK\n";
+				last SWITCH;
 			} elsif (/^date$/) {
 				my @gmtime = gmtime(time); $gmtime[5] += 1900; $gmtime[4]++;
 				my @time = reverse @gmtime[0..5];
-				print CLIENT "111 " . sprintf("%4u%2u%2u%2u%2u%2u", @time) . "\n";
+				print "111 " . sprintf("%4u%2u%2u%2u%2u%2u", @time) . "\n";
 				last SWITCH;
 			} elsif (/^listgroup$/) {
-				my $group = (split(/\s/, $text))[1];
-				$group ||= $currgroup;
+				my $group = $parms[0] || $currgroup;
 				unless (isgroup($group)) {
-					print CLIENT "411 No such group $group\n";
+					print "411 No such group $group\n";
 					last SWITCH;
 				}
-				$currgroup = $group; #Didn't remember seeing this in the RFC, but tin needs it and INN does it.
-				print CLIENT "211 Article list follows\n";
+				changegroup($group, "Article list follows");
 				getarticles($group, "00000000000000");
 				last SWITCH;
 			} elsif (/^authinfo$/) {
-				$text =~ /\S+\s+(\S+)\s+(\S+)/;
-				if (lc($1) eq "pass" and !$user) {
-					print CLIENT "482 USER required\n";
-				} elsif (lc($1) eq "user") {
-					$user = $2;
-					print CLIENT "381 PASS required\n";
-				} elsif (lc($1) eq "pass") {
+				if (lc($parms[0]) eq "pass" and !$user) {
+					print "482 USER required\n";
+				} elsif (lc($parms[0]) eq "user") {
+					$user = $parms[1];
+					print "381 PASS required\n";
+				} elsif (lc($parms[0]) eq "pass") {
 					if ((sqlSelect("uid", "users", "nickname=" . $dbh->quote($user) ." and passwd=" . $dbh->quote($2)))[0]) {
-						debug("Client is now authenticated as $user\n", 1); 
-						print CLIENT "281 Ok\n";
+						log("Client is now authenticated as $user\n", LOG_INFO); 
+						print "281 Ok\n";
 					} else {
-						print CLIENT "503 Authentication error\n";
+						print "503 Authentication error\n";
 						last GETLINE;
 					}
 				}
 			} elsif (/^xover$/) {
-				$text =~ /\S+\s+(\S+)/;
-				xover($1);
+				xover($parms[0]);
 			} else {
-				print CLIENT "501 Command syntax error\n";
+				print "501 Command syntax error\n";
 			}
 			last SWITCH;
 		}
@@ -456,8 +456,8 @@ sub getgroups {
 sub newgroups {
 	my @list = getgroups($_[0]);
 	$list[-1] .= "\n" if $list[-1];
-	print CLIENT join("\n", @list);
-	print CLIENT ".\n";
+	print join("\n", @list);
+	print ".\n";
 }
 
 sub getarticles { #pattern, time
@@ -497,7 +497,7 @@ sub getarticles { #pattern, time
 			$t->execute;
 			while(($sid) = $t->fetchrow) {
 				$sid++;
-				print CLIENT "$sid\n";
+				print "$sid\n";
 			}
 		} else {
 			#Find the story
@@ -505,21 +505,21 @@ sub getarticles { #pattern, time
 			$t = $dbh->prepare("SELECT cid FROM comments WHERE sid='$sid' AND date > '$time' ORDER BY cid ASC");
 			$t->execute;
 			while(($cid) = $t->fetchrow) {
-				print CLIENT "$cid\n";
+				print "$cid\n";
 			}
 		}
 	}
-	print CLIENT ".\n";
+	print ".\n";
 }
 
 sub movepointer {
 	my ($section, $topic, $sid, $cid, $compchar, $xcid, $format);
 	(lc($_[0]) eq "next") ?	$compchar = "<" : $compchar = ">";
 	if(!$currgroup) {
-		print CLIENT "412 no newsgroup selected\n";
+		print "412 no newsgroup selected\n";
 		return;
 	} elsif (!$currmsg) {
-		print CLIENT "420 no current article has been selected\n";
+		print "420 no current article has been selected\n";
 		return;
 	}
 
@@ -529,34 +529,34 @@ sub movepointer {
 		$xcid = (parseid($xcid))[1];
 		($cid) = sqlSelect("cid", "stories", "sid='$sid' AND cid $compchar $xcid");
 		unless ($cid) {
-			print CLIENT "42";
-			(lc($_[0]) eq "next") ? print CLIENT "1 no next " : print CLIENT "2 no previous ";
-			print CLIENT "article in this group\n";
+			print "42";
+			(lc($_[0]) eq "next") ? print "1 no next " : print "2 no previous ";
+			print "article in this group\n";
 			return;
 		}
 		$sid =~ tr!/!!d;
 		$currmsg = $cid;
-		print CLIENT "233 $cid <" . ha($format) . "${sid}.$cid\@" . hostname() . "> article retrieved - request text seperately\n";
+		print "233 $cid <" . ha($format) . "${sid}.$cid\@" . hostname() . "> article retrieved - request text seperately\n";
 	} else {
 		$xcid = slashsid($currmsg + 1);
 		($sid, $cid) = sqlSelect("sid, snum", "stories", "section='$section' AND tid='$topic' AND sid $compchar '$xcid'");
 		unless ($sid) {
-			print CLIENT "42";
-			(lc($_[0]) eq "next") ? print CLIENT "1 no next " : print CLIENT "2 no previous ";
-			print CLIENT "article in this group\n";
+			print "42";
+			(lc($_[0]) eq "next") ? print "1 no next " : print "2 no previous ";
+			print "article in this group\n";
 			return;
 		}
 		$sid =~ tr!/!!d;
 		$currmsg = ++$cid;
-		print CLIENT "233 $currmsg <" . ha($format) . "$sid\@" . hostname() . "> article retrieved - request text seperately\n";
+		print "233 $currmsg <" . ha($format) . "$sid\@" . hostname() . "> article retrieved - request text seperately\n";
 	}
 }
 
-sub changegroup {
-	my $group = shift;
+sub changegroup($;$) {
+	my($group, $alttext) = @_;
 	my ($num, $first, $last, $section, $topic, $sid, $format);
 	unless (isgroup($group)) {
-		print CLIENT "411 No such news group\n";
+		print "411 No such news group\n";
 	} else {
 		($section, $topic, $first, $sid, $format) = parsegroup($group);
 		if(lc($sid) ne "0") {
@@ -578,7 +578,7 @@ sub changegroup {
 		}
 		$currmsg = $first;
 		$currgroup = $group;
-		print CLIENT "211 $num $first $last $group group selected\n";
+		print "211 ", ($alttext || "$num $first $last $group group selected"), "\n";
 	}
 }
 
@@ -656,7 +656,7 @@ sub getstory {
 	($nssid = $sid) =~ tr!/!!d;
 
 	unless (defined $snum) {
-		print CLIENT "430 no such article found\n";
+		print "430 no such article found\n";
 		return;
 	}
 
@@ -665,26 +665,26 @@ sub getstory {
 	debug(warn "Sending headers?\n", 1);
 
 	if(lc($command) ne "body") {
-		print CLIENT "Path: $slashsite!not-for-mail\n";
-		print CLIENT "Message-ID: <" . ha($format) . "$nssid\@" . hostname() . ">\n";
-		print CLIENT "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
-		print CLIENT "X-URL: " . (getvars("rootdir"))[0] . "/article.pl?sid=$sid\n";
-		print CLIENT "From: $aname ($aemail)\n";
-		print CLIENT "Newsgroups: $slashsite.$section.$topic.stories.$format\n";
-		print CLIENT "Subject: $title\n";
+		print "Path: $slashsite!not-for-mail\n";
+		print "Message-ID: <" . ha($format) . "$nssid\@" . hostname() . ">\n";
+		print "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
+		print "X-URL: " . (getvars("rootdir"))[0] . "/article.pl?sid=$sid\n";
+		print "From: $aname ($aemail)\n";
+		print "Newsgroups: $slashsite.$section.$topic.stories.$format\n";
+		print "Subject: $title\n";
 		($nstitle = $title) =~ tr/ ./_/;
-		print CLIENT "Followup-To: $slashsite.$section.$topic.$nstitle.$format\n";
+		print "Followup-To: $slashsite.$section.$topic.$nstitle.$format\n";
 		$date =~ /(....)(..)(..)(..)(..)(..)/;
 		my($second, $minute, $hour, $day, $month, $year);
 		$month = $2; $month = 1 if $month <= 0;
 		$year = $1; $year = 1900 if $year < 1900;
 		($second, $minute, $hour, $day, $month, $year) = gmtime(timelocal($6, $5, $4, $3, $month - 1, $year - 1900));
 		$year += 1900;
-		print CLIENT "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
-		print CLIENT "X-Dept: $dept\n";
+		print "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
+		print "X-Dept: $dept\n";
 	}
 	debug("Sending body?\n", 1);
-	print CLIENT "\n" if lc($command) eq "article";
+	print "\n" if lc($command) eq "article";
 	if (lc($command) ne "head") {
 		my $block = prepEvalBlock(getblock("nntpadvertisement"));
 		$block ||= "";
@@ -694,11 +694,11 @@ sub getstory {
 		if (lc($format) eq "ascii") {
 			treeprint(HTML::TreeBuilder->new->parse($body));
 		} else {
-			print CLIENT $body;
+			print $body;
 		}
 	}
 	debug("Done\n", 1);
-	print CLIENT ".\n";
+	print ".\n";
 }
 
 sub getcomment {
@@ -715,22 +715,22 @@ sub getcomment {
 		sqlSelect("pid, users.fakeemail, users.realname, section, tid, subject, title, comments.date, comments.points, homepage, nickname, comment, sig", "comments, stories, users", "stories.sid = comments.sid AND comments.uid = users.uid AND comments.cid='$cid' AND comments.sid='$sid'");
 
 	unless (defined $date) {
-		print CLIENT "430 no such article found\n";
+		print "430 no such article found\n";
 		return;
 	}
 
 	($nstitle = $title) =~ tr/ ./_/;
 	if(lc($command) ne "body") {
-		print CLIENT "Path: $slashsite!not-for-mail\n";
-		print CLIENT "Message-ID: <" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\n";
-		print CLIENT "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
-		print CLIENT "References: <" . ha($format) . "${nssid}.$pid\@" . hostname() . ">\n" if $pid;
+		print "Path: $slashsite!not-for-mail\n";
+		print "Message-ID: <" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\n";
+		print "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
+		print "References: <" . ha($format) . "${nssid}.$pid\@" . hostname() . ">\n" if $pid;
 		$url = (getvars("rootdir"))[0] . "/comments.pl?sid=$sid";
 		$url .= "&pid=$pid#$cid" if $pid;
-		print CLIENT "X-URL: $url\n";
-		print CLIENT "From: $name ($email)\n";
-		print CLIENT "Newsgroups: $slashsite.$section.$topic.$nstitle.$format\n";
-		print CLIENT "Subject: $subject\n";
+		print "X-URL: $url\n";
+		print "From: $name ($email)\n";
+		print "Newsgroups: $slashsite.$section.$topic.$nstitle.$format\n";
+		print "Subject: $subject\n";
 		$date =~ /(....)-(..)-(..) (..):(..):(..)/;
 		my($second, $minute, $hour, $day, $month, $year);
 		$month = $2; $month = 1 if $month <= 0;
@@ -740,12 +740,12 @@ sub getcomment {
 		$hour = "0$hour" if length($hour) < 2;
 		$minute = "0$minute" if length($minute) < 2;
 		$second = "0$second" if length($second) < 2;
-		print CLIENT "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
-		print CLIENT "X-Score: $score\n";
-		print CLIENT "X-Homepage: $homepage\n";
-		print CLIENT "X-Username: $username\n";
+		print "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
+		print "X-Score: $score\n";
+		print "X-Homepage: $homepage\n";
+		print "X-Username: $username\n";
 	}
-	print CLIENT "\n" if lc($command) eq "article";
+	print "\n" if lc($command) eq "article";
 	if (lc($command) ne "head") {
 		my $block = prepEvalBlock(getblock("nntpadvertisement"));
 		$block ||= "";
@@ -754,10 +754,10 @@ sub getcomment {
 		if (lc($format) eq "ascii") {
 			treeprint(HTML::TreeBuilder->new->parse($body));
 		} else {
-			print CLIENT $body;
+			print $body;
 		}
 	}
-	print CLIENT ".\n";
+	print ".\n";
 }
 
 sub post {
@@ -770,7 +770,7 @@ sub post {
 				if($uh) {
 					($$USER{uid}, $$USER{defaultpoints}, $$USER{aseclev}) = sqlSelect("uid, defaultpoints, seclev", "users", "nickname='$uh' and passwd='$ph'");
 					unless ($$USER{uid}) {
-						print CLIENT "442 Invalid login/password\n";
+						print "442 Invalid login/password\n";
 						return;
 					}
 				} elsif ($user) {
@@ -788,7 +788,7 @@ sub post {
 				} elsif ($head eq "newsgroups") {
 					($section, $topic, $title, $sid) = parsegroup($val);
 					unless ($sid) {
-						print CLIENT "443 Invalid group\n";
+						print "443 Invalid group\n";
 						return;
 					}
 					$$FORM{sid} = $sid;
@@ -806,9 +806,9 @@ sub post {
 		}
 	}
 	unless (submitComment($FORM, $USER)) {
-		print CLIENT "441 posting failed\n";
+		print "441 posting failed\n";
 	} else {
-		print CLIENT "240 article posted ok\n";
+		print "240 article posted ok\n";
 	}
 }
 
@@ -894,7 +894,7 @@ sub xover {
 	#msgnum-msgnum specifies range
 
 	unless ($currgroup) {
-		print CLIENT "412 No news group current selected\n";
+		print "412 No news group current selected\n";
 		return;
 	}
 
@@ -918,7 +918,7 @@ sub xover {
 	} else { $last = $first; }
 
 	$first-- if $sid eq "stories"; $last-- if $sid eq "stories";
-	print CLIENT "224 Overview information follows\n";
+	print "224 Overview information follows\n";
 
 	$dbh ||= sqlConnect();
 	if ($sid eq "stories") {
@@ -938,7 +938,7 @@ sub xover {
 			$year += 1900;
 			$date = "$day $months[$month] $year $hour:$minute:$second GMT";
 			$xref = hostname() . " $slashsite.$section.$topic.stories.$format:$snum";
-			print CLIENT "$snum\t$subject\t$from\t$date\t<" . ha($format) . "$nssid\@" . hostname() . ">\t\t" . int($introlen + $bodylen) . "\t$len\tXref:$xref\n";
+			print "$snum\t$subject\t$from\t$date\t<" . ha($format) . "$nssid\@" . hostname() . ">\t\t" . int($introlen + $bodylen) . "\t$len\tXref:$xref\n";
 		}
 	} else {
 		$t = $dbh->prepare("SELECT cid, pid, subject, users.fakeemail, users.realname, length(comment), comments.date FROM comments, users WHERE comments.uid = users.uid AND comments.sid='$sid' AND cid >= '$first' AND cid <= '$last' ORDER BY cid ASC");
@@ -959,11 +959,11 @@ sub xover {
 			$ref = "";
 			$ref = "<" . ha($format) . "${nssid}.$pid\@" . hostname() . ">" if $pid;
 			$xref = hostname() . " $slashsite.$section.$topic.$title.$format:$cid";
-			print CLIENT "$cid\t$subject\t$from\t$date\t<" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\t$ref\t$len\t" . int($len / 80) . "\tXref:$xref\n";
+			print "$cid\t$subject\t$from\t$date\t<" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\t$ref\t$len\t" . int($len / 80) . "\tXref:$xref\n";
 			$pid = 0;
 		}
 	}
-	print CLIENT ".\n";
+	print ".\n";
 }
 
 sub parseidnum { #Take either a msgnum or msgid, return (msgnum, msgid)
@@ -1041,10 +1041,26 @@ sub treeprint {
 		${$$elem{_content}}[0] .= "[$linkct]"; $linkct++; #Add the [#] to the link text
 		push @links, $link;
 	}
-	print CLIENT HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($html); #Print the text
-	print CLIENT "\n";
+	print HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($html); #Print the text
+	print "\n";
 	$linkct = 0;
 	foreach $link (@links) { #Print the link table
-		print CLIENT "[$linkct] $link\n"; $linkct++;
+		print "[$linkct] $link\n"; $linkct++;
 	}
+}
+
+sub params2time(@) {
+	my($date, $time, $gmt) = @_;
+
+	my($year, $month, $day, $hour, $minute, $second);
+	$year = substr($date, 0, 2);
+	$month = substr($date, 2, 2);
+	$day = substr($date, 4, 2);
+	$hour = substr($time, 0, 2);
+	$minute = substr($time, 2, 2);
+	$second = substr($time, 4, 2);
+
+	($second, $minute, $hour, $day, $month, $year) = localtime(timegm($second, $minute, $hour, $day, $month, $year)) if($gmt and $gmt eq "GMT");
+	$year += 1900;
+	return sprintf("%04d%02d%02d%02d%02d%02d", $year, $month, $day, $hour, $minute, $second);
 }
