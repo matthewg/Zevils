@@ -198,19 +198,23 @@ sub client_ip($) {
 
 =pod
 
-=item groupname GROUP
+=item groupname GROUPPARTS
 
 This method transforms a string into something suitable for use as an NNTP group name.
+C<GROUPPARTS> is a list of group parts.
 
 You C<MUST NOT> override this method.
 
 =cut
 
-sub groupname($$) {
-	my($self, $group) = @_;
-	my $input = $group;
-	$group =~ tr! .*?\\/,!_______!;
-	$group =~ s/^!/_/;
+sub groupname($@) {
+	my($self, @groupparts) = @_;
+	my $input = join(".", @groupparts);
+	foreach my $group(@groupparts) {
+		$group =~ tr! .*?\\/,!_______!;
+		$group =~ s/^!/_/;
+	}
+	$group = join(".", @groupparts);
 	$self->log("groupname: $input -> $group", LOG_NOTICE);
 	return $group;
 }

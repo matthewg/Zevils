@@ -50,7 +50,7 @@ sub new($;@) {
 	$self->{slash_user} = getCurrentUser();
 	$self->{slash_nntp} = getObject("Slash::NNTP") or croak "Couldn't get Slash::NNTP - is the NNTP plugin installed for $self->{slash_slashsite}?";
 
-	$self->{root} ||= $self->groupname("slash." . lc($self->{slash_db}->getVar("sitename", "value")));
+	$self->{root} ||= $self->groupname("slash", lc($self->{slash_db}->getVar("sitename", "value")));
 
 	$self->log("Created NNTB::Weblog::Slash: root=$self->{root}", LOG_NOTICE);
 
@@ -258,7 +258,7 @@ sub groups($;$) {
 		my $jusers = $self->{slash_db}->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid');
 		foreach my $juser(values %$jusers) {
 			# No getJournals...
-			my $journalgroup = $self->groupname("journals.$juser->{nickname}.$juser->{uid}");
+			my $journalgroup = $self->groupname("journals", "$juser->{nickname}_$juser->{uid}");
 			$ret{"$textroot.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
 			$ret{"$htmlroot.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
 		}
@@ -377,9 +377,9 @@ sub article($$$;@) {
 		$date = $story->{time};
 
 		if($type eq "head" or $type eq "article") {
-			my $sectiongroup = $self->groupname("$self->{root}.$format.stories.$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
+			my $sectiongroup = $self->groupname($self->{root}, $format, "stories", "$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
 			my $fpgroup = "";
-			$fpgroup = $self->groupname("$self->{root}.$format.stories") if $story->{nntp_posttime};
+			$fpgroup = $self->groupname($self->{root}, $format, "stories") if $story->{nntp_posttime};
 
 			$headers{subject} = $story->{title};
 			$headers{newsgroups} = $sectiongroup;
@@ -401,7 +401,7 @@ sub article($$$;@) {
 		if($type eq "head" or $type eq "article") {
 			my($section, $sid) = $self->{slash_db}->getDiscussion($comment->{sid}, ['section', 'sid']);
 			my $secid = $self->{slash_db}->getSection($section, 'id');
-			my $group = $self->groupname("$self->{root}.$format.stories.${section}_$secid.$sid");
+			my $group = $self->groupname($self->{root}, $format, "stories", "${section}_$secid.$sid");
 
 			$headers{subject} = $comment->{subject};
 			$headers{newsgroups} = $group;
@@ -430,7 +430,7 @@ sub article($$$;@) {
 		$date = $journal->{date};
 
 		if($type eq "head" or $type eq "article") {
-			my $group = $self->groupname("$self->{root}.$format.journals.".$self->{slash_db}->getUser($journal->{uid}, 'nickname')."_$journal->{uid}");
+			my $group = $self->groupname($self->{root}, $format, "journals", $self->{slash_db}->getUser($journal->{uid}, 'nickname')."_$journal->{uid}");
 
 			$headers{subject} = $journal->{description};
 			$headers{newsgroups} = "$group,$self->{root}.$format.journals";
