@@ -1632,13 +1632,14 @@ sub oscar_buddy_in($$$$) {
 		}
 
 		if(exists $buddat->{data}->{0x0200}) {
-			my($pounce) = delete $buddat->{data}->{0x0200};
+			my($pounce) = $buddat->{data}->{0x0200};
 			my $tmp = "";
 			if($buddat->{aol}) {
 				$tmp = "[automated pounce] ";
 			}
 			$tmp .= $pounce;
 			$oscar->send_im($buddy, $tmp, 1);
+			delete $buddat->{data}->{0x0200};
 			$oscar->commit_buddylist;
 			irc_send(irc_privmsg($usnick, $nick, "Pounce to $buddy has been sent.", "", "", $screenname));
 		}
