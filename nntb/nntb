@@ -447,11 +447,15 @@ sub got_client(*) {
 				if(!$blog or !$blog->is_group($group)) {
 					nntp_put("411 no such group");
 				} else {
-					$currgroup = $group;
 					my($first, $last, $num) = $blog->groupstats($group);
-					$currmsg = $first;
-					nntp_put("211 $num $first $last $group group selected");
-					do_log("Okay, current group is now $group\n", LOG_DEBUG);
+					if(!defined($first)) {
+						nntp_put($blog->{errstr});
+					} else {
+						$currgroup = $group;
+						$currmsg = $first;
+						nntp_put("211 $num $first $last $group group selected");
+						do_log("Okay, current group is now $group\n", LOG_DEBUG);
+					}
 				}
 				next;
 			} elsif (/^help$/) {
@@ -493,7 +497,7 @@ sub got_client(*) {
 					nntp_put("Xref:full");
 					nntp_put(".");
 				} elsif (lc($params[0]) eq "newsgroups") {
-					nntp_put("215 Newsgroups follow");
+					my $output = "215 Newsgroups follow";
 
 					if($params[1]) {
 						nntp_put("500 Command not implemented");
@@ -503,17 +507,26 @@ sub got_client(*) {
 					foreach my $root (sort keys %blogs) {
 						my $blog = $blogs{$root};
 						my %groups = $blog->groups();
+						if($output and %groups) { # $output iff we haven't had any success
+							nntp_put($output);
+							undef $output;
+						}
 
 						foreach my $group (sort keys %groups) {
 							nntp_put("$group   $groups{$group}");
 						}
 					}
-					nntp_put(".");
+
+					if($output) {
+						nntp_put($blog->{errstr});
+					} else {
+						nntp_put(".");
+					}
 				} elsif(!$params[0] or lc($params[0]) eq "active") {
 					if($params[1] and $params[1] =~ /[*?[]/) { # RFC 2980 - this is a wildmat
 						nntp_put("500 Command not implemented");
 					} else {
-						nntp_put("215 list of newsgroups follows");
+						my $output = "215 list of newsgroups follows";
 						my $pattern = $params[1];
 						foreach $blog ($pattern ? findblog($pattern) : map {$blogs{$_}} sort keys %blogs) {
 							my %groups;
@@ -528,32 +541,55 @@ sub got_client(*) {
 							}
 							foreach my $group(sort keys %groups) {
 								my($first, $last) = $blog->groupstats($group);
-								my $can_post = $blog->can_post($group) ? "y" : "n";
-								nntp_put("$group $first $last $can_post");
+
+								if(defined($first)) {
+									if($output) {
+										nntp_put($output);
+										undef $output;
+									}
+									my $can_post = $blog->can_post($group) ? "y" : "n";
+									nntp_put("$group $first $last $can_post");
+								}
 							}
 						}
+						if($output) {
+							nntp_put($blog->{errstr});
+						} else {
+							nntp_put(".");
+						}
 					}
-					nntp_put(".");
 				} else {
 					nntp_put("500 Command not implemented");
 				}
 			} elsif (/^newgroups$/) {
-				nntp_put("231 list of new newsgroups follows");
-
 				my $time = params2time(@params);
 				if(!$time) {
 					nntp_put("501 Invalid command usage");
 					last SWITCH;
 				}
 
+				my $output = "231 list of new newsgroups follows";
+
 				foreach my $root (keys %blogs) {
 					$blog = $blogs{$root};
 					my %groups = $blog->groups($time);
 					foreach my $group(sort keys %groups) {
 						my($first, $last) = $blog->groupstats($group);
-						my $can_post = $blog->can_post($group) ? "y" : "n";
-						nntp_put("$group $first $last $can_post");
+
+						if(defined($first)) {
+							if($output) {
+								nntp_put($output);
+								undef $output;
+							}
+							my $can_post = $blog->can_post($group) ? "y" : "n";
+							nntp_put("$group $first $last $can_post");
+						}
 					}
+				}
+
+				if($output) {
+					nntp_put($blog->{errstr});
+				} else {
 					nntp_put(".");
 				}
 			} elsif (/^newnews$/) {
@@ -567,16 +603,23 @@ sub got_client(*) {
 				my @ret;
 				foreach my $glob(@posglobs) {
 					unless($glob =~ /\*/) {
+						$blog = findblog($glob);
+						undef $blog->{errstr};
 						my %articles = findblog($glob)->articles($glob, $time);
 						push @ret, map {$articles{$_}} sort {$a <=> $b} keys %articles;
 					} else {
-						nntp_put("500 NEWNEWS with glob not yet implemented");
+						# Evil output management hack
+						$blog->{errstr} = "500 NEWNEWS with glob not yet implemented";
 					}
 				}
 
-				nntp_put("230 list of new articles by message-id follows");
-				nntp_put($_) foreach @ret;
-				nntp_put(".");
+				if($blog->{errstr}) {
+					nntp_put($blog->{errstr});
+				} else {
+					nntp_put("230 list of new articles by message-id follows");
+					nntp_put($_) foreach @ret;
+					nntp_put(".");
+				}
 			} elsif (/^post$/) {
 				my (@message);
 				nntp_put("340 send article to be posted. End with <CR-LF>.<CR-LF>");
@@ -698,14 +741,18 @@ sub got_client(*) {
 					last SWITCH;
 				}
 
-				$currgroup = $group;
 				my($first, $last, $num) = $blog->groupstats($group);
-				$currmsg = $first;
+				if(!defined($first)) {
+					nntp_put($blog->{errstr});
+				} else {
+					$currgroup = $group;
+					$currmsg = $first;
 
-				nntp_put("211 list of article numbers follows");
-				my %articles = $blog->articles($group);
-				nntp_put($_) foreach sort {$a <=> $b} keys %articles;
-				nntp_put(".");
+					nntp_put("211 list of article numbers follows");
+					my %articles = $blog->articles($group);
+					nntp_put($_) foreach sort {$a <=> $b} keys %articles;
+					nntp_put(".");
+				}
 			} elsif (/^authinfo$/) {
 				if (lc($params[0]) eq "pass" and !"user") {
 					nntp_put("482 USER required");
@@ -770,7 +817,13 @@ sub xover($$$;$$) {
 		} else {
 			$last = $first;
 		}
+
+		undef $blog->{errstr};
 		@nums = sort {$a <=> $b} $blog->msgnums($currgroup, $first, $last);
+		if($blog->{errstr}) {
+			nntp_put($blog->{errstr});
+			return;
+		}
 
 		@articles = map { $blog->num2id($currgroup, $_) } @nums;
 
@@ -778,11 +831,14 @@ sub xover($$$;$$) {
 		do_log("Numbers: ", join(", ", @nums), LOG_DEBUG);
 	}
 
-	nntp_put($response);
 	my @headers = $header ? ($header) : ();
 	foreach my $article (@articles) {
 		my($retval, undef, %headers) = $blog->article("head", $article, @headers);
 		if($retval) { # We assume all articles exist ;)
+			if($response) {
+				nntp_put($response);
+				undef $response;
+			}
 			$article = shift @nums if @nums;
 			my $headtext = "";
 			do_log("$article: ", join(", ", map { "$_: $headers{$_}" } keys %headers), LOG_DEBUG);
@@ -797,7 +853,12 @@ sub xover($$$;$$) {
 			nntp_put("$article$headtext");
 		}
 	}
-	nntp_put(".");
+
+	if($response) {
+		nntp_put($blog->{errstr});
+	} else {
+		nntp_put(".");
+	}
 }
 
 sub params2time(@) {

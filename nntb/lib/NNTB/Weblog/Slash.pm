@@ -869,6 +869,7 @@ sub groupstats($$) {
 
 sub prev_next($$$$$) {
 	my($self, $group, $msgnum, $comparator, $sqlgroup) = @_;
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 	my($id, $format, $type) = $self->parsegroup($group);
 
 	if($type eq "section") {
@@ -909,6 +910,7 @@ sub next($$$) { shift->prev_next(@_, ">", "MIN"); }
 
 sub msgnums($$$$) {
 	my($self, $group, $min, $max) = @_;
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 	my($id, $format, $type) = $self->parsegroup($group);
 	my $ret;
 

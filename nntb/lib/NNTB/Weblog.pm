@@ -249,7 +249,7 @@ sub fail($$) {
 	my($self, $reason) = @_;
 
 	$self->{errstr} = $reason;
-	return undef;
+	return;
 }
 
 =pod
