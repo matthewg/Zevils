@@ -1868,12 +1868,7 @@ sub oscar_chat_buddy_in($$$$) {
 	} keys %chats;
 
 	if(!$chatid) {
-		die "Couldn't find chat.  Dump of \%chats: ",
-		   Data::Dumper::Dumper(\%chats),
-		   "\n.  Dump of \$chat: ",
-		   Data::Dumper::Dumper($chat),
-		   "\n.  Dump of \$oscar: ",
-		   Data::Dumper::Dumper($oscar), "\n";
+		return oscar_error($oscar, undef, 0, "Couldn't find chat ", $chat->url, "/", $chat->name, ".  Please email matthewg\@zevils.com.");
 	}
 
 	irc_send(irc_newnick($prefix.$buddy));
