@@ -3,7 +3,7 @@
 #/** PHP can't see this...
 package finnegan;
 
-sub array { return [%_]; }
+sub array { return {@_}; }
 #*** PHP regains vision. */
 
 $NO_CLASS = array(
