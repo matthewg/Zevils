@@ -155,16 +155,16 @@ sub process_irc_message {
 				$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
 				foreach $buddy(keys %{$aim_connections{$nick}{groups}{Buddies}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_buddy $buddy"));
+					add_buddy($aim_connections{$nick}{socket}, $buddy);
 					$aim_connections{$nick}{groups}{Buddies}{$buddy}{online} = 0;
 				}
 				foreach $buddy(keys %{$aim_connections{$nick}{groups}{permit}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_permit $buddy"));
+					add_permit($aim_connections{$nick}{socket}, $buddy);
 				}
 				foreach $buddy(keys %{$aim_connections{$nick}{groups}{deny}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_deny $buddy"));
+					add_deny($aim_connections{$nick}{socket}, $buddy);
 				}
 				$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
 				$aimselect->add($aim_connections{$nick}{socket});
@@ -212,19 +212,19 @@ sub process_irc_message {
 		} elsif ($cmd eq "add_buddy") {
 			$param = lc($param);
 			$group = $extra || "Buddies";
-			$aim_connections{$nick}{groups}{Buddies}{$param}{group} = $group;
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_buddy $param"));
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
+			add_buddy($aim_connections{$nick}{socket}, $param, $group);
 		} elsif ($cmd eq "remove_buddy") {
 			$param = lc($param);
-			delete $aim_connections{$nick}{groups}{Buddies}{$param};
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_remove_buddy $param"));
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
+			remove_buddy($aim_connections{$nick}{socket}, $param, $group);
 			$upstream->print(irc_privmsg($usnick, $nick, "$param has departed"));
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			$param = lc($param);
-			$extra = "norm" if $extra ne "anon";
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_evil $param $extra"));
+			if($extra ne "anon") {
+				$extra = 0;
+			} else {
+				$extra = 1;
+			}
+			evil($aim_connections{$nick}{socket}, $param, $extra);
 		} elsif ($cmd eq "add_permit") {
 			$param = lc($param);
 			$aim_connections{$nick}{groups}{permit}{$param} = 1;
@@ -386,7 +386,7 @@ sub process_aim_message {
 	$cmd = $1; $val = $2;
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):(.*)/;
-		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . aim_strerror($1)));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . strerror($1)));
 	} elsif($cmd eq "CONFIG") {
 		($connection->{permtype}, $connection->{groups}) = str2conf($msg);
 	} elsif($cmd eq "IM_IN") {
