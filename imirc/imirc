@@ -3396,7 +3396,7 @@ sub process_dcc($$$$$) {
 				goto DCC_CLEANUP;
 			}
 		} else {
-			$dcc->{state} = DCC_STATE_GET_READY if $dcc->{received} % 2048 != 0;
+			$dcc->{state} = DCC_STATE_GET_READY;
 
 			if($dcc->{received} == $dcc->{size}) {
 				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
