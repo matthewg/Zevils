@@ -24,7 +24,7 @@ $pin_regex = '^[0-9]{1,4}$';
 
 # Phone settings
 $phonelines = array("usb/ttyACM0");
-$extension_regex = '^[69][0-9]{4}$';
+$extension_regex = '^[469][0-9]{4}$';
 $max_wake_duration = 120; # Maximum length of a wake-up call
 $max_forgot_pin_duration = 60; # Maximum length of a 'Forgot PIN' call
 $max_snooze_count = 3; # How many times can snooze be activated for a single instance of a wake-up call?
