@@ -1,19 +1,19 @@
-# Text::ABNF
+# Parse::ABNF
 #
 # Copyright (c) 2001 Matthew Sachs <matthewg@zevils.com>.  All rights reserved.
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 
-package Text::ABNF;
+package Parse::ABNF;
 
 =head1 NAME
 
-Text::ABNF v. 0.01 - Perl module for dealing with Augmented Backus-Naur Form (ABNF)
+Parse::ABNF v. 0.01 - Perl module for dealing with Augmented Backus-Naur Form (ABNF)
 
 =head1 SYNOPSIS
 
-    # First, we create a Text::ABNF object.
-    $word = Text::ABNF->new;
+    # First, we create a Parse::ABNF object.
+    $word = Parse::ABNF->new;
 
     # Then we add some rules.
     $word->add("LETTER=CHAR");
@@ -33,7 +33,7 @@ to the regular expressions that Perl is renowned for, which is often used
 for specifying format syntaxes in technical specifications.  Many
 Internet standards use ABNF to define various protocols.
 
-C<Text::ABNF> objects will, by default, contain the rules listed in Appendix A of C<RFC 2234>.
+C<Parse::ABNF> objects will, by default, contain the rules listed in Appendix A of C<RFC 2234>.
 These rules define some basic entities like C<ALPHA>, C<BIT>, C<CHAR>, and C<DIGIT>.
 
 For any of the methods which take a rule name and return some value, the object will croak
@@ -45,7 +45,7 @@ with the error C<Unknown ABNF rule: RULENAME>.
 
 =item new
 
-Creates a new C<Text::ABNF> object.  A C<Text::ABNF> object contains a complete grammar.  It
+Creates a new C<Parse::ABNF> object.  A C<Parse::ABNF> object contains a complete grammar.  It
 has an internally consistant set of rules which all reduce to what in ABNF parlance
 are known as "terminal values."  In other words, some rule foo might refer to some
 other rule bar, but you can follow all the different rules in a grammar and eventually
@@ -106,12 +106,6 @@ This is a wrapper around the I<regex> method.
 
 =back
 
-=head1 BUGS
-
-The I<text> method doesn't try to be at all intelligent about pluralizing things, so if
-you have a rule named C<fish>, and another rule C<school> which consists of one or more
-C<fish>, C<text("school")> will return C<consists of one or more fishs>.
-
 =head1 SEE ALSO
 
 RFC 2234
@@ -128,9 +122,11 @@ $VERSION = '0.01';
 use strict;
 use warnings;
 use vars qw($VERSION);
+use Lingua::EN::Inflect qw(PL);
+use Carp;
 
 sub new {
-	my $class = ref($_[0]) || $_[0] || "Text::ABNF";
+	my $class = ref($_[0]) || $_[0] || "Parse::ABNF";
 	@_ == 1 or croak "usage: new $class";
 	my $self = {};
 	bless $self, $class;
