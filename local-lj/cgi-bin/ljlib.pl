@@ -5792,8 +5792,8 @@ sub load_log_props2
         my $id = $_+0;
         $needprops{$id} = 1;
         $needrc{$id} = 1;
-        push @memkeys, [$userid, "logprop:$journalid:$id"];
-        push @memkeys, [$userid, "rp:$journalid:$id"];
+        push @memkeys, [$journalid, "logprop:$journalid:$id"];
+        push @memkeys, [$journalid, "rp:$journalid:$id"];
     }
     return unless %needprops || %needrc;
 
