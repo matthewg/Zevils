@@ -277,21 +277,33 @@ sub process_irc_message {
 				irc_send(irc_privmsg($usnick, $nick, $err));
 			}
 		} elsif ($cmd eq "buddylist") {
+			my(%groups, $buddy, $group);
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
-			for $buddy(keys %{$temp{Buddies}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})"));
+			foreach $buddy(sort keys %{$temp{Buddies}}) {
+				push @{$groups{$temp{Buddies}{$buddy}{group}}}, $buddy;
+			}
+			foreach $group(sort keys %groups) {
+				foreach $buddy(sort @{$groups{$group}}) {
+					irc_send(irc_privmsg($usnick, $nick, "$buddy ($group)"));
+				}
 			}
 		} elsif ($cmd eq "onbuddies") {
+			my(%groups, $buddy, $group);
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
-			for $buddy(keys %{$temp{Buddies}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})")) if $temp{Buddies}{$buddy}{online};
+			foreach $buddy(sort keys %{$temp{Buddies}}) {
+				push @{$groups{$temp{Buddies}{$buddy}{group}}}, $buddy if $temp{Buddies}{$buddy}{online};
+			}
+			foreach $group(sort keys %groups) {
+				foreach $buddy(sort @{$groups{$group}}) {
+					irc_send(irc_privmsg($usnick, $nick, "$buddy ($group)"));
+				}
 			}
 		} elsif ($cmd eq "permitlist") {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
-			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{permit}}))));
+			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{permit}}))));
 		} elsif ($cmd eq "denylist") {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
-			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{deny}}))));
+			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
 				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
 				delete $aim_connections{$aim_connections{$nick}{socket}->fileno};
