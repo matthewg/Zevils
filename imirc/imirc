@@ -976,6 +976,8 @@ sub process_irc_message($) {
 		} elsif($cmd eq "signon") {
 			unless($param and $extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: signon [--loglevel loglevel] screenname password"));
+			} elsif($irc_connections->{$param} and !$aim_connections->{$irc_connections->{$param}}->{screennames}->{$param}->{ison}) {
+				irc_send(irc_privmsg($usnick, $nick, "A signon attempt for that screenname is already in progress."));
 			} else {
 				if($aim_connections->{$nick}->{scrennames}->{$param}) {
 					irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
