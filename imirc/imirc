@@ -1040,7 +1040,7 @@ sub process_irc_message {
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
 				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
-				irc_send("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n", 1);
+				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
 			}
 		} elsif($cmd eq "webpage") {
 			irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick)));
