@@ -1,7 +1,5 @@
-Notify keys %aimconnections on die
 savebuddies/loadbuddies for buddylist backup
 Add support for Undernet P10 protocol
-Multi-screenname (you can be signed on as multiple S/N's at once) [IN PROGRESS]
 Optional minimal libfaim - for password changes and such?????
 file transfer -> DCC?
 Handle colors as well as bold, etc.?
