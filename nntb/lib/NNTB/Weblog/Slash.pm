@@ -18,8 +18,6 @@ use Slash::Utility;
 
 sub new($;@) {
 	my $type = shift;
-	@ISA = qw(NNTB::Weblog); # Why is this necessary??
-	print STDERR "ISA: @ISA\n";
 	my $self = $type->SUPER::new(@_);
 
 	my %params = @_;
@@ -579,7 +577,7 @@ sub post($$$) {
 		$subnetid =~ s/^(\d+\.\d+\.\d+)\.\d+$/$1.0/;
 		$subnetid = md5_hex($subnetid);
 
-		$self->do_log("Posting comment: SID=$sid, PID=$pid, CNUM=$nntp_cnum", LOG_NOTICE);
+		$self->do_log("Posting comment: SID=$sid, PID=$pid, CNUM=$cnum", LOG_NOTICE);
 
 		my $comment = {
 			sid => $sid,
@@ -750,7 +748,5 @@ sub groupstats($$) {
 
 	return ($first, $last, $num);
 }
-
-::do_log("Loaded NNTB::Weblog::Slash", LOG_NOTICE);
 
 1;
