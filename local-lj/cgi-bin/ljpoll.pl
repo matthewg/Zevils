@@ -575,7 +575,6 @@ sub show_poll
         
         foreach my $res (@res) {
             my ($user, $value) = ($res->{user}, $res->{value});
-            $user = "Anonymous" if $po->{'anonymous'};
             
             ## some question types need translation; type 'text' doesn't.
             if ($q->{'type'} eq "radio" || $q->{'type'} eq "drop") {
@@ -586,7 +585,7 @@ sub show_poll
             }
 
             LJ::Poll::clean_poll(\$value);
-            $ret .= "<p>" . LJ::ljuser($user) . " -- $value</p>\n";
+            $ret .= "<p>" . ($po->{'anonymous'} ? "<em>Anonymous</em>" : LJ::ljuser($user)) . " -- $value</p>\n";
         }
 
         # temporary
