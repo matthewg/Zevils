@@ -60,7 +60,7 @@ $version = "0.80";
 @args = @ARGV;
 
 
-$uid = 1;
+$uid = "100";
 
 %ircservers = (
 	dal2 => {
