@@ -137,6 +137,7 @@ function page_start() {
 		$pages[] = array("Forgot PIN", "login");
 	}
 	$pages[] = array("Legal Info", "legal");
+	$pages[] = array("Statistics", "statistics");
 	for($i = 0; $i < count($pages); $i++) {
 		list($name, $url) = $pages[$i];
 		if($url == $page) {

@@ -198,3 +198,9 @@ Documentation items (docs):
 
 Legal information (legal):
 	body
+
+Statistics:
+	body
+	group_start: TITLE
+	group_end: TITLE
+	stat: NAME, VALUE
