@@ -1,4 +1,5 @@
-Testing CVS-over-SSH...
+You know how it only sends one auto-away reply per time you're away per
+AOLnick?  Have it also be per $time (default is 5 minutes.)
 
 More admin stuff:
 	SIGHUP will have it rehash aimirc.conf
