@@ -1560,13 +1560,18 @@ Buddy {
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
 		} elsif ($recipient =~ /^#aimchat-(\d+)$/) {
-			$chats{$1}->{obj}->chat_send($msg);
+			
+			if($chats{$1} and $chats{$1}->{obj}) {
+				$chats{$1}->{obj}->chat_send($msg); 
+			} else {
+				bounce_join($nick, "#aimchat-$1");
+			}
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections->{$nnick}) {
 				if($irc_connections->{$target} and $shortcircuit) {
 					$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
 				} else {
-					$oscar->send_im($target, $msg);
+					$oscar->send_im($target, $msg) if $oscar;
 				}
 				$nicks->{$target}->{$screenname} = time if $nicks->{$target}->{$screenname} != -1;
 			} else {
@@ -2639,6 +2644,7 @@ sub loadbuddies($$) {
 
 	foreach my $group($oscar->groups) {
 		my @currbuddies = $oscar->buddies($group);
+		$buddies{$group} ||= [];
 		my @newbuddies = @{$buddies{$group}};
 		for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
 			splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
