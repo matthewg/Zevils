@@ -7,7 +7,7 @@ been included with this software.
 AOL Instant Messenger and AOL are a trademarks of America Online.
 
 Requirements:
-	perl 5.004 or better
+	perl 5.6.1 or better
 	A working IRC server with C/N lines for aimirc
 		Your IRC server might not work with aimirc.  Cyclone,
 		Dragonfire, Undernet IRCD, and TS irc servers such as Hybrid

@@ -4,6 +4,7 @@ sub BEGIN {
 	my $home = (getpwuid($>))[7];
 	push @INC, "$home/.cpan";
 
+	require v5.6.1;
 	require CPAN;
 	eval {
 		require CPAN::MyConfig;
@@ -18,12 +19,7 @@ sub BEGIN {
 	}		
 }
 
-use strict;
-if($[ > 5.005) {
-	require warnings;
-} else {
-	$^W = 1;
-}
+use warnings;
 use File::Basename;
 
 my $dirname = dirname($0);
