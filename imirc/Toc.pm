@@ -1,5 +1,22 @@
 package Toc;
 
+# Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
+#
+#   This program is free software; you can redistribute it and/or
+#   modify it under the terms of version 2 of the GNU General Public License
+#   as published by the Free Software Foundation.                 
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of 
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+# AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
+
 use Carp qw(cluck);
 use Data::Dumper;
 use IO::Socket;
@@ -8,7 +25,7 @@ use HTML::Parse;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '0.80';
+$VERSION = '0.90';
 
 =pod
 
@@ -221,7 +238,7 @@ sub signon($$;&) {
 	debug_print("$username is trying to sign on", "signon", 1);
 
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
-	$socket = IO::Socket::INET->new('toc.oscar.aol.com:9898') or do {
+	$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898', Timeout => 60) or do {
 		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
 		$err = "Couldn't create socket: $@";
 		return -1;
@@ -691,7 +708,11 @@ Returns the normalized string.
 
 =cut
 
-sub normalize($) { $_[0] =~ tr/ //d; return lc($_[0]); }
+sub normalize($) {
+	my$temp = shift;
+	$temp =~ tr/ //d;
+	return lc($temp);
+}
 
 =pod
 
