@@ -234,18 +234,6 @@ sub loadconf() {
 		exit 1;
 	}
 
-	if(defined $output) {
-		close STDOUT;
-		close STDERR;
-		open(STDOUT, ">>$output") or die "Couldn't open STDOUT: $!\n";
-		open(STDERR, ">>&STDOUT") or die "Couldn't open STDERR: $!\n";
-		select STDOUT;
-		$| = 1;
-		select STDERR;
-		$| = 1;
-		select STDOUT;
-	}
-
 	#Okay, try loading the config files
 
 	$foundconfig = 0;
@@ -410,6 +398,18 @@ sub loadconf() {
 
 	$usnick = new Net::OSCAR::Screenname $usnick;
 	$oldnick = new Net::OSCAR::Screenname $oldnick if $oldnick;
+
+	if(defined $output) {
+		close STDOUT;
+		close STDERR;
+		open(STDOUT, ">>$output") or die "Couldn't open STDOUT: $!\n";
+		open(STDERR, ">>&STDOUT") or die "Couldn't open STDERR: $!\n";
+		select STDOUT;
+		$| = 1;
+		select STDERR;
+		$| = 1;
+		select STDOUT;
+	}
 }
 
 sub mainloop() {
