@@ -173,19 +173,32 @@ while(list($name, $var) = each($prompts)) {
 }
 reset($prompts);
 
-$the_weekdays = array("Mon" => "Monday", "Tue" => "Tuesday", "Wed" => "Wednesday", "Thu" => "Thursday", "Fri" => "Friday", "Sat" => "Saturday", "Sun" => "Sunday");
-$_SESSION["weekdays"] = array();
-while(list($weekday, $val) = each($the_weekdays)) {
-	if(isset($_REQUEST["weekdays"]) && isset($_REQUEST["weekdays"][$weekday]))
-		$_SESSION["weekdays"][$weekday] = $_REQUEST["weekdays"][$weekday];
-	else if($id && isset($oldvalues["weekdays"][$weekday]))
-		$_SESSION["weekdays"][$weekday] = $oldvalues["weekdays"][$weekday];
-	else
-		$_SESSION["weekdays"][$weekday] = "";
+$weekdays_longnames = array("Mon" => "Monday", "Tue" => "Tuesday", "Wed" => "Wednesday", "Thu" => "Thursday", "Fri" => "Friday", "Sat" => "Saturday", "Sun" => "Sunday");
+$weekdays_list = array("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
 
-	if(!isset($_SESSION["weekdays"][$weekday])) $_SESSION["weekdays"][$weekday] = "";
+if(isset($_REQUEST["weekdays"])) {
+	$_SESSION["weekdays"] = array();
+	for($i = 0; $i < sizeof($weekdays_list); $i++) {
+		if($_REQUEST["weekdays"] & 2**$i) {
+			$_SESSION["weekdays"][$weekdays_list[$i]] = 1;
+		} else {
+			$_SESSION["weekdays"][$weekdays_list[$i]] = 0;
+		}
+	}
+} else if(!isset($_SESSION["weekdays"])) {
+	$_SESSION["weekdays"] = array();
+
+	if(isset($oldvalues) && isset($oldvalues["weekdays"])) {
+		while(list($day, $val) = each($oldvalues["weekdays"])) {
+			$_SESSION["weekdays"][$day] = $val;
+		}
+	}
+
+	for($i = 0; $i < sizeof($weekdays_list); $i++) {
+		$weekday = $weekdays_list[$i];
+		if(!isset($_SESSION["weekdays"][$weekday])) $_SESSION["weekdays"][$weekday] = 0;
+	}
 }
-reset($the_weekdays);
 
 if(!isset($prompt)) $prompt = "";
 if($prompt && $process && $_SESSION[$prompt]) {
@@ -302,24 +315,6 @@ if($prev)
 else
 	$prevurl = $FinneganCiscoConfig->url_base . "/service/index.php";
 
-/*
-while(list($name, $var) = each($prompts)) {
-	if($name != "weekdays") {
-		if($prompt != $name) $url .= "&amp;$name=".$_SESSION[$name];
-		if($prev) $prevurl .= "&amp;$name=".$_SESSION[$name];
-	} else {
-		reset($_SESSION["weekdays"]);
-		$urlx = "";
-		while(list($day, $val) = each($_SESSION["weekdays"])) {
-			$urlx .= "&amp;weekdays[$day]=$val";
-		}
-		if($prompt != $name) $url .= $urlx;
-		if($prev) $prevurl .= $urlx;
-	}
-}
-*/
-
-
 
 // Start building the output
 
@@ -391,29 +386,39 @@ if($prompt == "time") {
 </InputItem>
 
 <? } else if($prompt == "weekdays") {
-	$npurl = preg_replace("/process=1/", "process=0", $url);
+	$npurl = preg_replace("/do=1/", "do=0", $url);
 
-	while(list($weekday, $val) = each($the_weekdays)) {
+	$wd = 0;
+	for($i = 0; $i < sizeof($weekdays_list); $i++) {
+		if($_SESSION["weekdays"][$weekdays_list[$i]]) $wd |= 2**$i;
+	}
+
+	for($i = 0; $i < sizeof($weekdays_list); $i++) {
+		$weekday_short = $weekdays_list[$i];
+		$weekday_long = $weekdays_longnames[$weekday_short];
+
 		echo "<MenuItem>\n";
 
 		echo "<Name>";
-		if($_SESSION["weekdays"][$weekday])
+		if($_SESSION["weekdays"][$weekday_short])
 			echo "[X] ";
 		else
 			echo "[ ] ";
-		echo $val;
+		echo $weekday_long;
 		echo "</Name>\n";
 
 		echo "<URL>";
-		echo $npurl."&amp;weekdays[$weekday]=";
-		if($_SESSION["weekdays"][$weekday])
-			echo "0";
-		else
-			echo "1";
-		reset($_SESSION["weekdays"]);
-		while(list($day, $val) = each($_SESSION["weekdays"])) {
-			if($day != $weekday) echo "&amp;weekdays[$day]=$val";
+		echo $npurl."&amp;weekdays=";
+
+		$this_wd = $wd;
+		# Reverse state of current bit
+		if($_SESSION["weekdays"][$weekday_short]) {
+			$this_wd &= ~(2**$i);
+		} else {
+			$this_wd |= 2**~i;
 		}
+		echo $this_wd;
+
 		echo "</URL>\n";
 
 		echo "</MenuItem>\n";
@@ -423,11 +428,7 @@ if($prompt == "time") {
 <SoftKeyItem>
 <Name>Submit</Name>
 <URL><?
-	echo $url;
-	reset($_SESSION["weekdays"]);
-	while(list($day, $val) = each($_SESSION["weekdays"])) {
-		echo "&amp;weekdays[$day]=$val";
-	}	
+	echo "$url&amp;weekdays=$wd";
 ?></URL>
 <Position>2</Position>
 </SoftKeyItem>
