@@ -1564,7 +1564,6 @@ sub process_aim_message($$$) {
 				map { $pouncehash{$i++} = $_ } @{$connection->{screennames}{$screenname}{pounces}};
 				foreach $pouncenum(sort { $a <=> $b } keys %pouncehash) {
 					$pounce = $pouncehash{$pouncenum};
-					Toc::debug_print("$pounce->{who} eq $nnick?", "IRC", 1);
 					next unless normalize $pounce->{who} eq $nnick;
 					Toc::debug_print("Yep.", "IRC", 1);
 					my $class = $temp{Buddies}{$nnick}{class};
