@@ -70,7 +70,7 @@ void do_draw_fire_a() {
 	rect.x = (int) distance;
 	SDL_FillRect(screen, &rect, SDL_MapRGB(screen->format, 0, 255, 0));
 	
-	DrawParabola(screen, 0, 0, site_a.angle, site_a.velocity, 255, 0, 0);
+	DrawParabola(screen, 0, 0, deg2rad(site_a.angle), site_a.velocity, 255, 0, 0);
 
 	SDL_UnlockSurface(screen);
 	SDL_UpdateRect(screen, 0, 0, 0, 0);
@@ -134,7 +134,7 @@ void do_fire_b() {
 
 
 	SDL_LockSurface(screen);
-	DrawParabola(screen, distance, 0, site_b.angle, site_b.velocity, 0, 255, 0);
+	DrawParabola(screen, distance, 0, deg2rad(site_b.angle), site_b.velocity, 0, 255, 0);
 	SDL_UnlockSurface(screen);
 	SDL_UpdateRect(screen, 0, 0, 0, 0);
 
