@@ -185,6 +185,7 @@ function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
 				($cur_intervals[$j][1] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1])
 			) {
 				if(++$wake_intervals[$i][2] >= $phonelines) {
+					echo $wake_intervals[$i][2] . " >= $phonelines<br>\n";
 					return 1;
 				}
 			}
