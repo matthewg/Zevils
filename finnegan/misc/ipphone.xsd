@@ -67,7 +67,7 @@
 					</xsd:restriction>
 				</xsd:simpleType>
 			</xsd:element>
-			<xsd:element maxOccurs="16" minOccurs="0" name="SoftKey" type="CiscoIPPhoneSoftKeyType"/>
+			<xsd:element maxOccurs="16" minOccurs="0" name="SoftKeyItem" type="CiscoIPPhoneSoftKeyType"/>
 		</xsd:sequence>
 	</xsd:complexType>
 	<xsd:complexType name="CiscoIPPhoneInputItemType">

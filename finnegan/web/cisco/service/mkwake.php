@@ -16,7 +16,7 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 	if(!isset($_REQUEST["prompt"])) { //We only need to load from DB the first time - afterwards, everything's in the query string
 		$result = @mysql_query("SELECT * FROM wakes WHERE extension='$extension' AND wake_id=$id");
 		if(!$result) db_error();
-		if(!mysql_num_rows($result)) cisco_error("Invalid Alarm", "Please select a valid alarm.");
+		if(!mysql_num_rows($result)) cisco_message("Invalid Alarm", "Please select a valid alarm.");
 		$wake = mysql_fetch_assoc($result);
 
 		$time_array = time_to_user($wake["time"]);
@@ -350,26 +350,25 @@ if($prompt == "time" || $prompt == "date") {
 
 
 echo "<$seltype>\n<Title>$title</Title>\n";
+if($prompt == "time") echo "<Prompt>AM/PM will be on next screen</Prompt>"; //Stupid schema forces Prompt to be before URL
 if($seltype == "CiscoIPPhoneInput") echo "<URL>$url</URL>\n";
 
 if($prompt == "time") {
 
 ?>
 
-<Prompt>AM/PM will be on next screen</Prompt>
-
 <InputItem>
 <DisplayName>Hours</DisplayName>
 <QueryStringParam>hr</QueryStringParam>
-<? if($_SESSION["hr"]) echo "<DefaultValue>".$_SESSION["hr"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
+<DefaultValue><? if($_SESSION["hr"]) echo $_SESSION["hr"]; ?></DefaultValue>
 </InputItem>
 
 <InputItem>
 <DisplayName>Minutes</DisplayName>
 <QueryStringParam>min</QueryStringParam>
-<? if($_SESSION["min"]) echo "<DefaultValue>".$_SESSION["min"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
+<DefaultValue><? if($_SESSION["min"]) echo $_SESSION["min"]; ?></DefaultValue>
 </InputItem>
 
 <? } else if($prompt == "ampm") {
@@ -418,15 +417,15 @@ if($prompt == "time") {
 <InputItem>
 <DisplayName>Month</DisplayName>
 <QueryStringParam>mon</QueryStringParam>
-<? if($_SESSION["mon"]) echo "<DefaultValue>".$_SESSION["mon"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
+<DefaultValue><? if($_SESSION["mon"]) echo $_SESSION["mon"]; ?></DefaultValue>
 </InputItem>
 
 <InputItem>
 <DisplayName>Day</DisplayName>
 <QueryStringParam>day</QueryStringParam>
-<? if($_SESSION["day"]) echo "<DefaultValue>".$_SESSION["day"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
+<DefaultValue><? if($_SESSION["day"]) $_SESSION["day"]; ?></DefaultValue>
 </InputItem>
 
 <? } else if($prompt == "weekdays") {
@@ -471,9 +470,7 @@ if($prompt == "time") {
 
 <SoftKeyItem>
 <Name>Submit</Name>
-<URL><?
-	echo "$url&amp;weekdays=$wd";
-?></URL>
+<URL><? echo "$url&amp;weekdays=$wd"; ?></URL>
 <Position>2</Position>
 </SoftKeyItem>
 

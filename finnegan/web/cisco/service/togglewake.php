@@ -9,12 +9,12 @@ if($_REQUEST["id"]) {
 	if(!$wake) db_error();
 
 	if(!mysql_affected_rows()) {
-		cisco_error("Invalid Alarm", "Please select a valid alarm.");
+		cisco_message("Invalid Alarm", "Please select a valid alarm.");
 	} else {
 		cisco_message("Alarm Modified", "Alarm modified.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 	}
 } else {
-	cisco_error("Select Alarm", "Please select an alarm to modify.", $FinneganCiscoConfig->url_base."/service/wakes.php");
+	cisco_message("Select Alarm", "Please select an alarm to modify.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 }
 
 ?>
