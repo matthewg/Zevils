@@ -1,5 +1,5 @@
-This is aimirc, by Matthew Sachs <matthewg@zevils.com>
-(c) 2001 Matthew Sachs, all rights reserved.
+This is IMIRC, by Matthew Sachs <matthewg@zevils.com>
+(c)1999-2001 Matthew Sachs, all rights reserved.
 This software is licensed under Version 2 of the GNU Public License.
 A copy of the license is contained in the file COPYING, which should have
 been included with this software.
@@ -7,43 +7,46 @@ been included with this software.
 AOL Instant Messenger and AOL are a trademarks of America Online.
 
 Requirements:
-	perl 5.6.1 or better
-	A working IRC server with C/N lines for aimirc
-		Your IRC server might not work with aimirc.  Cyclone,
-		Dragonfire, Undernet IRCD, and TS irc servers such as Hybrid
-		are the only ones that are known to work.  It should also work
-		with anything that uses RFC-standard SERVER and USER/NICK
-		protocols.  However, if you email me or contact me on AOL
-		Instant Messenger or IRC,  I will try to help you get aimirc
-		working with your IRC server.
+	perl 5.004 or better (5.6.1 or better strongly recommended)
+	A working IRC server with C/N lines for IMIRC
+		Your IRC server might not work with IMIRC.  Cyclone,
+		Dragonfire, Undernet IRCD, TS irc servers such as Hybrid, Unreal,
+		and irc.org 2.10 and possibly 2.9 are the only ones that are known
+		to work.  It should also work with anything that uses RFC-standard
+		SERVER and USER/NICK protocols.  However, if you email me or contact
+		me on AOL Instant Messenger or IRC,  I will try to help you get
+		IMIRC working with your IRC server.
 
 		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
 
-	The HTML-Tree and HTML-Format modules from CPAN (HTML::Parse,
-	HTML::FormatText).  These are availabe from
-	http://www.perl.com/CPAN/modules/by-module/HTML/ .
+	The modules required are available from CPAN.  See
+	http://www.perl.com/CPAN/modules/, or do perl -MCPAN -e shell.  You
+	can also just use the getmodules script to grab them.
+
 
 Installation:
-	Untar the tarball.  This creates a directory called aimirc-XX where
-XX is the version number of aimirc that you downloaded.  Open the aimirc.conf
+	Untar the tarball.  This creates a directory called imirc-XX where
+XX is the version number of IMIRC that you downloaded.  Open the imirc.conf
 file in a text editor.  Edit it to your satisfaction and then copy it to either
-/etc/aimirc.conf or ~/.aimirc .  You should make sure that it is only readable
-by the user that aimirc will run as since it will contain your irc C/N
+/etc/imirc.conf or ~/.imirc .  You should make sure that it is only readable
+by the user that IMIRC will run as since it will contain your irc C/N
 passwords in plaintext.  This can probably be accomplished by chmod 600'ing it.
 
-	You need C/N lines for aimirc set up in your ircd.conf.  Mine look
+	You need C/N lines for IMIRC set up in your ircd.conf.  Mine look
 like this:
-	C:127.0.0.1:password:aimserv.your_irc_network.com::50
-	N:127.0.0.1:password:aimserv.your_irc_network.com::50
+	C:127.0.0.1:password:imserv.your_irc_network.com::50
+	N:127.0.0.1:password:imserv.your_irc_network.com::50
 
-	Now you should be able to run aimirc.
+	Now you should be able to run IMIRC.  If you want to make your IMIRC
+	available to the public, go to http://www.zevils.com/programs/imirc/
+	and add yourself to the networks list.
 
 Usage:
 	You need an AOL Instant Messenger account.
 	Let's say your AIM account is tocname and the password is tocpass.
-	To connect to AIM: /msg aimserv signon tocname tocpass
+	To connect to AIM: /msg IMServ signon tocname tocpass
 	To send an Instant Message to MattSachs: /msg AIM-MattSachs hi
-	To get help on additional commands: /msg aimserv help
+	To get help on additional commands: /msg IMServ help
 
 	To set yourself away on AIM, use the normal IRC /away command.  Anyone
 	contacting you while you are away will get an autoreply containing
@@ -53,27 +56,27 @@ Usage:
 	The syntax is U:servername:*:*
 
 IMPORTANT NOTE:
-	To see debugging information, join #aimirc-debug.  You must have $debug
+	To see debugging information, join #imirc-debug.  You must have $debug
 	set to 1 in the config file for this to work.
 
 	The key to this channel is the same as the value given in the config
-	file for $ourpass (that is, the password that aimirc sends to the
+	file for $ourpass (that is, the password that IMIRC sends to the
 	upstream IRC server.)  This isn't the greatest security in the world,
-	as anyone in #aimirc-debug can see the password of anyone signing onto
-	AIM through your aimserv, any IMs sent or received, etc.  You should
+	as anyone in #imirc-debug can see the password of anyone signing onto
+	AIM through your IMServ, any IMs sent or received, etc.  You should
 	almost definately set up ChanServ on that channel if you have one.
 
-	#aimirc-debug can also be used to send a few administrative commands,
-	such as restart, to aimirc.  It can also be used to execute arbitrary
-	perl code.  **MAKE SURE #aimirc-debug IS ADEQUATELY PROTECTED IF YOU
+	#imirc-debug can also be used to send a few administrative commands,
+	such as restart, to IMIRC.  It can also be used to execute arbitrary
+	perl code.  **MAKE SURE #imirc-debug IS ADEQUATELY PROTECTED IF YOU
 	ABSOLUTELY MUST TURN DEBUGGING ON!!!**
 
 For more info:
-	There's a mailing list and a CVS tree.
+	There's are mailing lists and a CVS tree.
 	See http://www.zevils.com/programs/ for details.
 
 Contacting the author:
 	E-Mail: matthewg@zevils.com
 	AIM: MattSachs
 
-aimirc: http://www.zevils.com/programs/aimirc/
+IMIRC: http://www.zevils.com/programs/imirc/
