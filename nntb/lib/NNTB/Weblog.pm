@@ -64,10 +64,13 @@ The first system is a globally-unique message ID.  Message IDs are enclosed in
 angle brackets and typically have an at sign in them.  Here's an example of a
 message ID:
 
-	<1234@5678.site.weblog>
+	<1234@5678.text.site.weblog>
 
 In the example above, 1234 might be the comment ID and 5678 might be the story
-ID.
+ID.  If you are following the recommendations and keeping separate groups for
+text and HTML articles, articles will need different message IDs for the two
+groups, since an article in the text group is not the seame as the article
+in the HTML group.
 
 The other way of identifying an article is its article number; article numbers
 are monotonically increasing integers that are unique only within a particular
@@ -344,8 +347,10 @@ This method should return the indicated article.  C<TYPE> will
 be one of "article", "head", or "body", indicating which portion of 
 the article to return.  If C<TYPE> is "head", C<HEADERS> may be a list of
 which headers to return; return only those headers if C<HEADERS> is present,
-otherwise return all headers.  The headers should be returned as a single
-string.
+otherwise return all headers.  The headers should be returned as a a hashref
+whose keys are the names of the headers and whose values are their values.
+If C<TYPE> is "article", return a list whose first value is the headers hashref
+and whose second value is the body text.
 
 Return undef if the article does not exist.
 
@@ -371,6 +376,10 @@ sub auth($$$) { return 0; }
 
 This method is called when a user attempts to post an article to one of your
 groups.  Return 1 to indicate success and 0 to indicate failure.
+
+C<HEAD> will be a hashref whose keys are the names of the headers and whose
+values are their values.  (List some of the more important headers.)
+Invalid groupnames will have already been removed from the C<Newsgroups> header.
 
 =cut
 
@@ -400,17 +409,14 @@ sub groupstats($$) { return undef; }
 
 =pod
 
-=item id2num GROUP MSGID
-
 =item num2id GROUP MSGNUM
 
-These methods should convert back and forth between a message ID and a message
-number in the given group.  If the message indicated does not exist, return undef.
+This method should convert a message number in a particular group to a message ID.
+If the message indicated does not exist, return undef.
 The validity of the group name will be verified before this method is called.
 
 =cut
 
-sub id2num($$$) { return undef; }
 sub num2id($$$) { return undef; }
 
 =pod

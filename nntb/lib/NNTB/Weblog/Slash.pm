@@ -51,6 +51,57 @@ sub new($;@) {
 
 sub root($) { return $self->{root}; }
 
+# Parses a group, returning:
+#	"html" or "text"
+#	type: "frontpage", "section", "story", or "journal"
+#	ID: For "section", section name.  For "story", story ID.  For "journal", nick.
+# In scalar context, returns only the type.
+sub parsegroup($$) {#
+	my($self, $group) = @_;
+
+	substr($group, 0, length($self->{root})) = ""; # Remove root
+	my(@groupparts) = split(/\./, $group);
+	my @ret;
+
+	push @ret, $groupparts[0]; # text/html
+	if(@groupparts == 2) { {text,html}.stories
+		return "frontpage" unless wantarray;
+		push @ret, "frontpage";
+	} elsif(lc($groupparts[1]) eq "stories") {
+		if(@groupparts == 3) { # {text,html}.stories.section
+			return "section" unless wantarray;
+			push @ret, "section";
+
+			$groupparts[2] =~ /^(.+)_(\d+)$/;
+			my($section, $id) = ($1, $2);
+
+			if($section =~ /_/) { # Section name possibly mangled
+				my $result = $self->sqlSelectAll("section", "sections", "id=$id");
+				$section = $result->[0]->[0];
+			}
+			push @ret, $section;
+		} else { # {text,html}.stories.section.story_id
+			return "story" unless wantarray;
+			push @ret, "story";
+			push @ret, $groupparts[3];
+		}
+	} elsif(lc($groupparts[1]) eq "journals") {
+		return "journal" unless wantarray;
+		push @ret, "journal";
+
+		$groupparts[2] =~ /^(.+)_(\d+)$/;
+		my($nick, $uid) = ($1, $2);
+
+		if($nick =~ /_/) { # Nickname possibly mangled
+			my $result = $self->sqlSelectAll("nickname", "users", "uid=$uid");
+			$nick = $result->[0]->[0];
+		}
+		push @ret, $nick;
+	}
+
+	return @ret;
+}
+
 sub auth_status_ok($) {
 	my($self) = @_;
 
@@ -79,9 +130,9 @@ sub groups($;$) {
 
 	# slash.slashsite.{text,html}
 	#                            .stories
-	#                                    .section
+	#                                    .section_sectid
 	#                                            .123
-	#                            .journals.uid
+	#                            .journals.nick_uid
 
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
 	$ret{"$self->{root}.text.stories"} = "$sitename front page stories in plain text";
@@ -95,9 +146,11 @@ sub groups($;$) {
 	);
 
 	foreach my $section (values %$sections) {
-		$group = $self->groupname($section->{section});
-		$ret{"$self->{root}.text.stories.$group"} = "$sitename $section->{title} stories in plain text";
-		$ret{"$self->{root}.html.stories.$group"} = "$sitename $section->{title} stories in HTML";
+		$group = $self->groupname("$section->{section}_$section->{id}");
+		my $textgroup = "$self->{root}.text.stories.$group";
+		my $htmlgroup = "$self->{root}.html.stories.$group";
+		$ret{$textgroup} = "$sitename $section->{title} stories in plain text";
+		$ret{$htmlgroup} = "$sitename $section->{title} stories in HTML";
 
 		my $stories = $self->sqlSelectAllHashref(
 			'id',
@@ -107,15 +160,17 @@ sub groups($;$) {
 		);
 
 		foreach my $story (values %$stories) {
-			$ret{"$self->{root}.text.stories.$group.$story->{id}"} = "$story->{title} ($story->{topic})";
-			$ret{"$self->{root}.html.stories.$group.$story->{id}"} = "$story->{title} ($story->{topic})";
+			$ret{"$textgroup.$story->{id}"} = "$story->{title} ($story->{topic})";
+			$ret{"$htmlgroup.$story->{id}"} = "$story->{title} ($story->{topic})";
 		}
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
-		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
+		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
 		foreach my $juser(values %$jusers) {
-			$ret{"$self->{root}.text.journals.$juser->{nickname}"} = "$sitename journals for $juser->{nickname}";
+			my $journalgroup = $self->groupname("journals.$juser->{nickname}.$juser->{uid}");
+			$ret{"$self->{root}.text.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
+			$ret{"$self->{root}.html.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
 		}
 	}
 }
@@ -124,7 +179,15 @@ sub articles($$;$) {
 	my($self, $group, $time) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
-	
+	my($format, $grouptype, $id) = $self->parsegroup($group);
+	if($grouptype eq "frontpage") {
+		my $stories = $self->sqlSelectAllHashref(
+			"nntp_snum
+		);
+	} elsif($grouptype eq "section") {
+	} elsif($grouptype eq "story") {
+	} elsif($grouptype eq "journal") {
+	}
 }
 
 sub article($$$;@) {
@@ -156,6 +219,13 @@ sub groupstats($$) {
 
 	return ($first, $last, $num);
 }
+
+sub form_msgid_story($$$) {
+	my($self, $format, $discussion_id) = @_;
+	return "<$discussion_id\@$format." . join(".", reverse split(/\./, $self->{root})) . ">";
+}
+
+sub form_msgid_comment
 
 sub id2num($$$) {
 	my($self, $group, $msgid) = @_;
