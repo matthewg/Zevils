@@ -592,6 +592,7 @@ unless($reload) {
 			foreach $chattimer(keys %chattimer) {
 				if(($currtime - $chattimer{$chattimer}) >= 60) {
 					irc_send(":$usnick PART #aimchat-$chattimer\r\n");
+					delete $chattimer{$chattimer};
 				}
 			}
 
