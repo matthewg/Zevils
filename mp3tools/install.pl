@@ -72,7 +72,7 @@ while(!$havemodules) {
 # install mp3play.cgi
 
 $conf = config_sh();
-$conf =~ /^installbin=(.*)$/m;
+$conf =~ /^installsitebin=(.*)$/m;
 $defbin = $1; $defbin =~ s/^'(.*)'/$1/;
 $conf =~ /^installman1dir=(.*)$/m;
 $defman = $1; $defman =~ s/^'(.*)'/$1/;
