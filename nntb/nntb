@@ -4,7 +4,7 @@
 
 use strict;
 use warnings;
-use vars qw($version @args %config);
+use vars qw($version @args %config %blogs $client_ip);
 use NNTB::Common;
 
 $version = "0.01";
@@ -198,6 +198,12 @@ EOF
 		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
+
+	foreach my $blog (@{$config{blogs}}) {
+		eval "require NNTB::Weblog::$blog->{type}";
+		die "Couldn't load NNTB::Weblog::$blog->{type}: $@\n" if $@;
+		my $blog_obj = $b
+	}
 }
 
 sub main() {
@@ -251,7 +257,6 @@ sub main() {
 			# we are the world, we are the children
 			close SERVER;
 
-			#$::client_ip;
 			got_client();
 
 			exit;
@@ -264,8 +269,16 @@ sub main() {
 	}
 }
 
+sub nntp_put(@) {
+	do_log("To NNTP  : ", @_);
+	print @_, "\r\n";
+}
+
 sub got_client() {
 	my($currmsg, $currgroup);
+
+	(undef, $client_ip) = sockaddr_in(getpeername(CLIENT));
+	$client_ip = inet_ntoa(gethotbyaddr($client_ip, AF_INET));
 
 	select CLIENT;
 	$| = 1; # Auto-flush the output.
@@ -274,8 +287,8 @@ sub got_client() {
 	do_log("Got a client\n", LOG_INFO);
 
 	GETLINE: while(<CLIENT>) {
-		do_log("Client said: $_", LOG_DEBUG);
-		chomp; #Remove trailing garbadge (ie \r\n)
+		s/[\r\n]{1,2}$/;
+		do_log("From NNTP: $_", LOG_DEBUG);
 		my $text = $_;
 		my @params = split;
 		my $command = lc(shift @params);
@@ -290,11 +303,11 @@ sub got_client() {
 						last SWITCH;
 					} else {
 						$currmsg = $params[0];
+						$msgid 
 					}
 				}
 
-				($msgnum, $msgid) = parseidnum($params[0] || $currmsg);
-				do_log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
+				#do_log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
 
 				my($response, $resptext);
 				if($command eq "article") {
