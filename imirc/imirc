@@ -51,8 +51,8 @@ sub END { &going_down; }
 
 sub BEGIN {
 	require File::Basename;
-	push @INC, File::Basename::dirname($0)."/lib";
-	push @INC, File::Basename::dirname($0);
+	unshift @INC, File::Basename::dirname($0)."/lib";
+	unshift @INC, File::Basename::dirname($0);
 
 	eval {
 		require HTML::FormatText;

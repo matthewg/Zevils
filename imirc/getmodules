@@ -56,7 +56,7 @@ $altinstall = 1 if $] < 5.006;
 
 $dirname = dirname($0);
 chomp($dirname = `pwd`) if $dirname eq ".";
-push @INC, $dirname;
+unshift @INC, $dirname;
 
 # We want the perls that are spawned for make test, etc. to know about this
 $ENV{PERL5OPT} .= " -I$dirname";
