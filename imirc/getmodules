@@ -54,7 +54,7 @@ my $dirname = dirname($0);
 chomp($dirname = `pwd`) if $dirname eq ".";
 push @INC, $dirname;
 
-my $makeargs = $CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
+my $makeargs = $CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp INSTALLSITEMAN1DIR=/tmp INSTALLSITEMAN3DIR=/tmp" if $> != 0;
 $CPAN::Config->{prerequisites_policy} = "follow";
 
 foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR HTML::Tagset)) {
