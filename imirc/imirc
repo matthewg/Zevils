@@ -373,7 +373,7 @@ if(-d $directory and -r $directory) {
 		opendir(DHANDLE, "$directory/buddylists");
 		while($buddylist = readdir DHANDLE) {
 			next if $buddylist =~ /\.\.?$/; #Skip . and ..
-			open(BUDDYLIST, "<$buddylist");
+			open(BUDDYLIST, "<$directory/buddylists/$buddylist");
 			$buddylists{basename $buddylist} = <BUDDYLIST>;
 			close BUDDYLIST;
 		}
@@ -383,7 +383,7 @@ if(-d $directory and -r $directory) {
 		opendir(DHANDLE, "$directory/profiles");
 		while($profile = readdir DHANDLE) {
 			next if $profile =~ /\.\.?$/; #Skip . and ..
-			open(PROFILE, "<$profile");
+			open(PROFILE, "<$directory/profiles/$profile");
 			$profiles{basename $profile} = <PROFILE>;
 			close BUDDYLIST;
 		}
@@ -393,7 +393,7 @@ if(-d $directory and -r $directory) {
 		opendir(DHANDLE, "$directory/profiles");
 		while($pounce = readdir DHANDLE) {
 			next if $pounce =~ /\.\.?$/; #Skip . and ..
-			open(POUNCE, "<$pounce");
+			open(POUNCE, "<$directory/pounces/$pounce");
 			$pounces = <POUNCE>;
 			close POUNCE;
 			foreach $_(split(/\n/, $pounces)) {
