@@ -120,7 +120,13 @@ END_LEGAL_START
 ,
 
 	"wake_list_start" => <<<END_WAKE_LIST_START
-<p>
+<p class="status">
+Hint: When Finnegan calls you to wake you up, hit a button
+on your phone's keypad (after picking up the phone) 
+to let it know that you're awake.  Otherwise, it will act
+as if you've hit a 'snooze button' and call you back in nine minutes.
+See <a href="docs.php#3">the Finnegan documentation</a> for details.
+</p><p>
 Your current wake-up calls are listed below.  To add a wake-up call,
 <a href="mkwake.php">click here</a>.  To edit a wake-up call, click
 the link marked 'Edit' in the row for that wake-up call.  To
@@ -422,7 +428,7 @@ if($FinneganConfig->testmode) {
 	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server';
 	//$TEMPLATE["get_extension"] .= '<p><input type="checkbox" name="force_auth_ok" value="1" />Force Authentication Success</p>';
 }
-if($FinngeanConfig->nocalls) {
+if($FinneganConfig->nocalls) {
 	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
 } else if($FinneganConfig->testmode) {
 	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">Phone calls will be made!</h1>';

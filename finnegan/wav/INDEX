@@ -10,9 +10,8 @@ messages/
 	6.wav: "Destruction of the planet will commence in approximately five minutes"
 wake/
 	timeis.wav: "The time is"
-	snooze.wav: "Press any button to snooze."
-	snooze-ok.wav: "Snooze activated."
-	snooze-no.wav: "Too many snoozes."
+	snooze.wav: "Press any button to confirm that you're awake."
+	thanks.wav: "Thank you.  Good morning."
 	edit.wav: "To disable this, visit the website"
 	hours/
 		1.wav

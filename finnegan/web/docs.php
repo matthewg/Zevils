@@ -9,11 +9,25 @@ and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.
 END_FAQITEM
 ),
 
+	array("Why does it keep calling me every 9 minutes?", <<<END_FAQITEM
+You have to press a button on your phone (one of the buttons you use to dial, not the
+volume or menu buttons) to confirm that you're awake.  Otherwise, the 'snooze button'
+feature will kick in.  It will only 'snooze' a maximum of three times.
+END_FAQITEM
+),
+
 	array("Does Finnegan have a 'snooze button' feature?", <<<END_FAQITEM
-Yes, press any button your phone's keypad during a wake-up call,
-and it will act as if you had pressed the snooze button on a regular
-alarm clock.  That is, you will be called again in 9 minutes.  You can
-only snooze up to 4 times on the same instance of a wake-up call.
+Yes - actually, it has a "'don't snooze' button".  You must press any button your phone's keypad during a wake-up call, or
+it will act as if you had pressed the snooze button on a regular
+alarm clock.  That is, you will be called again in 9 minutes.  A particular instance of a wake-up call
+will only go off up to 4 times.
+END_FAQITEM
+),
+
+	array("Why go to all this trouble when everyone has an alarm clock?", <<<END_FAQITEM
+You can't tell an alarm clock "Wake up up at 8AM on Mondays, Wednesdays, and Thursdays and 11:30 on Tuesdays
+and Fridays, and don't wake me up when don't have classes, and treat it like a Monday if we have a
+Brandeis Monday.
 END_FAQITEM
 ),
 
@@ -37,8 +51,8 @@ END_FAQITEM
 ),
 
 	array("Are there any plans to support off-campus phone numbers?", <<<END_FAQITEM
-Support for local off-campus numbers should be added in the near future.  Support for long-distance
-off-campus numbers is not currently planned, but email <a href="mailto:finnegan@brandeis.edu">finnegan@brandeis.edu</a>
+Support for local off-campus numbers is under consideration.  Support for long-distance
+off-campus numbers is not currently planned, but post to <a href="http://my.brandeis.edu/bboard/q-and-a?topic%5fid=592&topic=Finnegan%3a%20Wake%2dup%20Call%20System">the Finnegan bboard</a>
 if you're interested in seeing it added.
 END_FAQITEM
 ),
@@ -88,6 +102,7 @@ or email <a href="mailto:finnegan@brandeis.edu">finnegan@brandeis.edu</a> .
 END_FAQITEM
 ));
 
+require "finnegan-config.inc";
 require "template.inc";
 
 echo $TEMPLATE["page_start"];
