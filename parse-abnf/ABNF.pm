@@ -316,17 +316,22 @@ sub new($;@) {
 	return $self;
 }
 
-sub printparse($) {
-	my $parse = shift;
+sub printparse($$) {
+	my ($self, $parse) = @_;
 	my $inrule;
 
 	$tablevel = 0;
-	$parse = $parse->[0];
+	if(not ref($parse)) {
+		print "$parse\n";
+		return;
+	}
+	$parse = $parse->[0] if ref($parse) eq "ARRAY";
 	print ${*$parse}, ":\n";
-	print _printparse(@{*$parse}), "\n";
+	print $self->_printparse(@{*$parse}), "\n";
 }
 
 sub _printparse {
+	my $self = shift;
 	my @syms = @_;
 	my $sym;
 	my $retval = "";
@@ -337,9 +342,9 @@ sub _printparse {
 			my $name = ${*$sym} || "";
 			my @values = @{*$sym};
 
-			$retval .= "\t"x$tablevel. "$name = \n". _printparse(@values);
+			$retval .= "\t"x$tablevel. "$name = \n". $self->_printparse(@values);
 		} elsif(ref($sym) eq "ARRAY") {
-			$retval .= _printparse(@$sym);
+			$retval .= $self->_printparse(@$sym);
 		} else {
 			$retval .= "\t"x$tablevel. "$sym,\n";
 		}
@@ -359,22 +364,21 @@ sub add_ruleparse($$$;$) {
 	$rulename = ${*$intoks} if ref($intoks) eq "GLOB";
 	#print tabify("$rulename\n") if $rulename;
 	if($rulename eq "char-val") { #strip surrounding ""
-		shift @intoks;
-		pop @intoks;
+		chop $intoks[0];
+		substr($intoks[0], 0, 1, "");
 	} elsif($rulename eq "prose-val") {
-		shift @intoks;
-		pop @intoks;
 		croak "ABNF error: prose-vals (rule elements enclosed in <angle brackets>) are not supported: $intoks[0]";
 	}
 
 	foreach $intok(@intoks) {
+		#print tabify("Got $intok.\n");
 		if(ref($intok) eq "GLOB") {
-			#print "Got GLOB.\n";
+			#print tabify("Got GLOB.\n");
 			$tablevel++;
 			$self->add_ruleparse($rule, $intok, $rulename);
 			$tablevel--;
 		} elsif(ref($intok) eq "ARRAY") {
-			#print "Got ARRAY.\n";
+			#print tabify("Got ARRAY.\n");
 			$self->add_ruleparse($rule, $intok, $rulename);
 		} else {
 			if($rulename eq "rulename" or $rulename eq "group" or $rulename eq "option" or $rulename =~ /(char|bin|dec|hex)-val/) {
@@ -446,8 +450,25 @@ sub add_ruleparse($$$;$) {
 						$tmprule->{minreps} = $minreps;
 						$tmprule->{maxreps} = $maxreps;
 						$tmprule->{mode} = $rule->{mode};
-						warn "\nType: ".Data::Dumper::Dumper($rule->{type})."\n";
-
+						$rule->{type} ||= OP_TYPE_OPS;
+						if($rule->{type} != OP_TYPE_OPS) {
+							$rule->{value} = [
+								{
+									type => $rule->{type},
+									mode => $rule->{mode},
+									value => $rule->{value}
+								},
+								$tmprule
+							];
+							
+							$rule->{type} = OP_TYPE_OPS;
+						} elsif($rule->{value} and scalar(@{$rule->{value}})) {
+							push @{$rule->{value}}, $tmprule;
+						} else {
+							$tmprule = $rule;
+							$rule->{minreps} = $minreps;
+							$rule->{maxreps} = $maxreps;
+						}
 					}
 
 					if(exists($tmprule->{type}) and $tmprule->{type} != $type) { 
@@ -485,10 +506,14 @@ sub add_ruleparse($$$;$) {
 							$right = oct "0b$right" if $right;
 						}
 
-						if($conjunction eq "-") {
-							push @{$tmprule->{value}}, map {chr} ($left..$right);
-						} elsif($conjunction eq ".") {
-							push @{$tmprule->{value}}, chr($left), chr($right);
+						if($conjunction) {
+							$tmprule->{mode} = OP_MODE_ALTERNATOR; #Is this always correct?  I think concatenated foo-vals always get their own op, no?
+
+							if($conjunction eq "-") {
+								push @{$tmprule->{value}}, map {chr} ($left..$right);
+							} elsif($conjunction eq ".") {
+								push @{$tmprule->{value}}, chr($left), chr($right);
+							}
 						} else {
 							push @{$tmprule->{value}}, chr($left);
 						}
@@ -515,37 +540,21 @@ sub add($@) {
 	my ($self, @rules) = @_;
 	my $rule;
 
+
 	# strip comments, whitespace / newline between rules
 	$rule = join("\n", @rules);
-	$rule =~ s/;[ \t\x21-\x7E]*$//g; # strip comments
+	$rule =~ s/;[ \t\x21-\x7E]*$//mg; # strip comments
 	$rule =~ s/[\r\n]{1,2}[ \t]+/ /g; # join continued lines
 	while($rule =~ /[\r\n]{2,}/) { $rule =~ s/[\r\n]{2,}/\n/; } # remove extraneous newlines
 	$rule =~ s/[\r\n](?![^\r\n])//g; # remove trailing newlines
+	$rule =~ s/^[\r\n]+//; # remove leading newlines
 	$rule =~ s/[ \t]$//g; # remove trailing whitespace from lines
 	$rule .= "\n"; # but we need a terminal newline
 
-	#print "$rule\n======\n";
 	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements element repeat group option alternation char-val num-val bin-val dec-val hex-val prose-val));
-	#warn Data::Dumper::Dumper($parse), "\n======\n";
+	#$self->printparse($parse);
 	my $inrule;
 
-#	rulename => {
-#		type => OP_TYPE_OPS,
-#		mode => OP_MODE_AGGREGATOR,
-#		value => ["ALPHA", 
-#			{
-#				type => OP_TYPE_OPS,
-#				mode => OP_MODE_ALTERNATOR,
-#				minreps => 0,
-#				maxreps => -1,
-#				value => ["ALPHA", "DIGIT", {type => OP_TYPE_NUMVAL, value => ["-"]}]
-#			}
-#		]
-#	},
-
-	print STDERR printparse($parse);
-	#$tablevel = 0;
-	#print printparse(@$parse), "\n";
 	foreach $inrule(@$parse) {
 		my $rulename = ${*$inrule}[0]; #rulename is now the glob for rulename
 		$rulename = ${*$rulename}[0]; #This gets the actul rule name.
@@ -557,20 +566,8 @@ sub add($@) {
 		$self->{nextalt} = 1 if $defined eq "=/";
 		my $elements = ${*$inrule}[2];
 		$tablevel = 0;
-		#print "alternation\n";
 		$self->add_ruleparse($rule, $elements, "alternation");
-		#print "\n";
-		
-		#print "$rulename $defined\n";
-		#$tablevel = 0;
-		#print Data::Dumper->Dump([\@elements], ["*$rulename"]), "\n";
-		#print printparse(@elements), "\n";
 	}
-	#print "================\n";
-	foreach $inrule(keys %$self) {
-		delete $self->{$inrule} if $self->{$inrule}->{core};
-	}
-	#print Data::Dumper::Dumper($self), "\n";
 }
 
 sub delete($@) {
@@ -699,7 +696,7 @@ sub _matches($$$;$$$@) {
 
 	}
 	$tablevel++;
-	warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
+	#warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -710,7 +707,7 @@ sub _matches($$$;$$$@) {
 	$tokname = "" unless exists $matchrules{$tokname};
 
 	unless(ref($rule)) { # $rule may be a hashref to an op
-		$rule = $self->{lc($rule)} or croak "Unknown ABNF rule: $rule";
+		$rule = $self->{lc($rule)} or croak "Unknown ABNF rule: $litrule";
 	}
 
 	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata, $repplay, $playback, @my_playback, @opmatches);
@@ -816,9 +813,18 @@ sub _matches($$$;$$$@) {
 				if(defined($didmatch) and exists($matchrules{$tokname})) {
 					if($litrule eq $tokname) {
 						${*$retval} = $tokname;
-						if(ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @{*$retval}) {
+
+						# Here we take pains to collapse multiple anonymous scalar matches.
+						# For instance, if we have a rule that matches *CHAR, we want to return the match as a single scalar and not as an array of separate one-character matches.
+						# Unless, of course, CHAR is in @matchrules.
+
+						if(not ref($didmatch) or (ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @{*$retval})) { #retval and didmatch are all simple values
 							${*$retval}[0] = "" unless defined ${*$retval}[0]; #Make sure the array exists before writing to [-1]
-							${*$retval}[-1] .= join("", @$didmatch);
+							if(ref($didmatch) eq "ARRAY") {
+								${*$retval}[-1] .= join("", @$didmatch);
+							} else {
+								${*$retval}[-1] .= $didmatch;
+							}
 						} else {
 							push @{*$retval}, $didmatch; #(ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
 						}
@@ -861,7 +867,7 @@ sub _matches($$$;$$$@) {
 		}
 	}
 
-	warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
+	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
 	$tablevel--;
 
 	if(not defined $didmatch) {

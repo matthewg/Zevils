@@ -10,7 +10,16 @@ my @rules = <STDIN>;
 my $rule = shift;
 my $data = shift;
 my $obj = Parse::ABNF->new(@rules);
-warn Data::Dumper::Dumper($obj), "\n============\n";
+
+#Print a version of obj without the core rules
+my $printobj = {};
+my $key;
+%$printobj = %$obj;
+foreach $key(keys %$printobj) {
+	delete $printobj->{$key} if $printobj->{$key}->{core};
+}
+warn Data::Dumper->new([$printobj])->Terse(1)->Dump(), "\n============\n";
+
 my $parse = $obj->matches($rule, $data, "*");
 die "No match!\n" unless $parse;
-printparse $parse;
+$obj->printparse($parse);

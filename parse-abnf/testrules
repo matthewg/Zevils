@@ -1,0 +1,9 @@
+; These rules are useful for testing the rule parser.
+quick = "quick" *WSP
+brown = "brown" *WSP
+fox = "fox" *WSP
+jumped = "jumped" *WSP
+foo = bar baz
+bar = "alt1"
+bar =/ "alt2"
+baz = ["the"] *WSP quick 1*2(brown fox) / jumped "over" *WSP %x3C.3E %d48-50 %b100000
