@@ -495,21 +495,24 @@ sub message($$$;$) {
 
 =pod
 
-=item add_buddy(HANDLE, NICK[, GROUP])
+=item add_buddy(HANDLE, NICK[, GROUP[, NO_SET_CONFIG]])
 
 Add NICK to the buddy list.  This automatically does a set_config so that the change is saved.
 The optional parameter GROUP specifies which group to place the buddy in.  Returns the result of set_config.
 
+If the NO_SET_CONFIG parameter is present, the user's configuration will not be resent to the Toc server.
+This is very useful for when you've just gotten a config from Toc, such as upon signon.
+
 =cut
 
-sub add_buddy($$;$) {
-	my($handle, $nick, $group) = @_;
+sub add_buddy($$;$$) {
+	my($handle, $nick, $group, $noconfig) = @_;
 	$group ||= "Buddies";
 	debug_print(_hnick($handle) . " is adding $nick to buddylist", "buddies", 1);
 	sflap_do($handle, "toc_add_buddy $nick");
 	$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
 	$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
-	set_config($handle, $config{_hnick($handle)});	
+	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 =pod
