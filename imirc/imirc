@@ -894,7 +894,7 @@ sub process_irc_message {
 				if($1 eq "irc") {
 					irc_send("$2\r\n");
 				} elsif($aim_connections{$1}) {
-					sflap_put($aim_connections{normalize($1}){socket}, sflap_encode($2, 0, 1));
+					sflap_put($aim_connections{normalize($1)}{socket}, sflap_encode($2, 0, 1));
 				} else {
 					$success = 0;
 					AIMNICK: foreach $nick(keys %aim_connections) {
