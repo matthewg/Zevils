@@ -283,8 +283,11 @@ sub html2txt($$) {
 		$$text = "[$linkcount]{$$text}";
 		$linkcount++;
 
+		#print "Okay, got link\n";
+
 		while($elem and $elem->tag ne "p") { $elem = $elem->parent; }
 		if(!$elem or !$elem->parent) { # No enclosing <p> - put it at the end
+			#print "No enclosing p - adding to footlinks\n";
 			push @footlinks, $link;
 			next;
 		}
@@ -293,7 +296,9 @@ sub html2txt($$) {
 		# If it is the first link of the paragraph, insert a new para next to it.
 		# Append the link to $elem's sibling.
 
-		$elem->postinsert(['p']) unless $elem->{__WEBLOG_putpara};
+		#print "Alright, found paragraph\n";
+
+		$elem->postinsert(HTML::Element->new_from_lol(['p', ['blockquote']])) unless $elem->{__WEBLOG_putpara};
 		$elem->{__WEBLOG_putpara} = 1;
 
 		# Find the paragraph we want to put our link into.
@@ -302,21 +307,34 @@ sub html2txt($$) {
 			shift @elem_siblings;
 		}
 
+		#print "Find para redux\n";
+
 		if(!@elem_siblings) { # Couldn't find it
 			push @footlinks, $link;
+			#print "Added to footlinks\n";
 			next;
 		}
 
-		$elem_siblings[0]->push_content([$link], ['br']);
+		shift @elem_siblings;
+		$elem = $elem_siblings[0]->find_by_tag_name("blockquote");
+
+		#print "push_content($link)\n";
+		$elem->push_content($link, ['br']);
 	}
 
 	# Sometimes, for whatever reason, we can't add a link where we want to.
 	# We stick these guys at the end.
-	$tree->push_content(
-		['p', 
-			map {[$_, 'br']} @footlinks
-		]
-	);
+	if(@footlinks) {
+		my $body = $tree->find_by_tag_name("body");
+		$body->push_content(['br']);
+		$body->push_content(
+			['p',
+				map {("$_", ['br']);} @footlinks
+			]
+		);
+	}
+
+	#print $tree->dump();
 
 	return HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($tree);
 }

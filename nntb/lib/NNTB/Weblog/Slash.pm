@@ -126,6 +126,7 @@ sub num2id($$$) {
 
 	my $msgid = $self->form_msgid($idid, $format, $idtype);
 	$self->log("num2id: $group.$msgnum -> $msgid", LOG_NOTICE);
+	return $msgid;
 }
 
 # Parses a group, returning:
@@ -136,8 +137,9 @@ sub num2id($$$) {
 sub parsegroup($$) {#
 	my($self, $group) = @_;
 
-	substr($group, 0, length($self->{root})) = ""; # Remove root
+	substr($group, 0, length($self->{root}) + 1) = ""; # Remove root (and trailing .)
 	my(@groupparts) = split(/\./, $group);
+	$self->log("groupparts: ", join(", ", map { "<$_>" } @groupparts), LOG_DEBUG);
 	my @ret;
 
 	$ret[1] = $groupparts[0]; # text/html
@@ -239,7 +241,7 @@ sub groups($;$) {
 		'sid',
 		'sid, tid, section, title',
 		'stories',
-		"UNIX_TIMESTAMP(nntp_section_posttime) > $time"
+		"NOT ISNULL(discussion) AND UNIX_TIMESTAMP(nntp_section_posttime) > $time"
 	);
 
 
@@ -379,9 +381,9 @@ sub article($$$;@) {
 		$date = $story->{time};
 
 		if($type eq "head" or $type eq "article") {
-			my $sectiongroup = $self->groupname($self->{root}, $format, "stories", "$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
+			my $sectiongroup = "$self->{root}." . $self->groupname($format, "stories", "$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
 			my $fpgroup = "";
-			$fpgroup = $self->groupname($self->{root}, $format, "stories") if $story->{nntp_posttime};
+			$fpgroup = "$self->{root}." . $self->groupname($format, "stories") if $story->{nntp_posttime};
 
 			$headers{subject} = $story->{title};
 			$headers{newsgroups} = $sectiongroup;
@@ -392,7 +394,7 @@ sub article($$$;@) {
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/article.pl?sid=$story->{sid}";
 			$headers{"x-slash-topic"} = $self->{slash_db}->getTopic($story->{tid}, 'name');
 			$headers{"x-slash-dept"} = $story->{dept};
-			$headers{"x-slash-can-post"} = $story->{discussion} ? 1 : 0;
+			$headers{"x-slash-can-post"} = $self->can_post("$sectiongroup.$story->{sid}");
 		}
 	} elsif($msgtype eq "comment") {
 		my $comment = $self->{slash_db}->getComment($id) or return undef;
@@ -403,7 +405,7 @@ sub article($$$;@) {
 		if($type eq "head" or $type eq "article") {
 			my($section, $sid) = $self->{slash_db}->getDiscussion($comment->{sid}, ['section', 'sid']);
 			my $secid = $self->{slash_db}->getSection($section, 'id');
-			my $group = $self->groupname($self->{root}, $format, "stories", "${section}_$secid.$sid");
+			my $group = "$self->{root}." . $self->groupname($format, "stories", "${section}_$secid.$sid");
 
 			$headers{subject} = $comment->{subject};
 			$headers{newsgroups} = $group;
@@ -432,7 +434,7 @@ sub article($$$;@) {
 		$date = $journal->{date};
 
 		if($type eq "head" or $type eq "article") {
-			my $group = $self->groupname($self->{root}, $format, "journals", $self->{slash_db}->getUser($journal->{uid}, 'nickname')."_$journal->{uid}");
+			my $group = "$self->{root}." . $self->groupname($format, "journals", $self->{slash_db}->getUser($journal->{uid}, 'nickname')."_$journal->{uid}");
 
 			$headers{subject} = $journal->{description};
 			$headers{newsgroups} = "$group,$self->{root}.$format.journals";
@@ -446,12 +448,16 @@ sub article($$$;@) {
 
 	if($type eq "head" or $type eq "article") {
 		if(!@headers or $get_headers{from}) {
-			my @uinfo = $self->{slash_db}->getUser($uid, ['realname', 'fakeemail']);
-			$headers{from} = "$uinfo[0] <$uinfo[0]>";
+			my $uinfo = $self->{slash_db}->getUser($uid);
+			my $email = $uinfo->{fakeemail} || $uinfo->{realemail};
+			my $name = $uinfo->{realname};
+			$headers{from} = $name ?
+				"$name <$email>" :
+				$email;
 		}
 		$headers{"x-slash-user"} = $self->{slash_db}->getUser($uid, 'nickname') . " ($uid)" if !@headers or $get_headers{"x-slash-user"};
 
-		$headers{date} = timeCalc($date, "%d %b %Y %H:%M:%s $self->{slash_user}->{off_set}");
+		$headers{date} = timeCalc($date, "%d %b %Y %H:%M:%S ". $self->{slash_user}->{off_set}/60/60);
 	}
 
 	$self->consume_subscription() unless $type eq "head";
@@ -644,39 +650,51 @@ sub is_group($$) {
 	my($self, $group) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
+	$self->log("is_group($group)", LOG_DEBUG);
+
 	$group = lc($group);
-	my $root = substr($group, 0, length($self->{root}), "");
-	return 0 unless $root eq lc($self->{root});
+	my $root = substr($group, 0, length($self->{root}) + 1, "");
+	return 0 unless $root eq lc($self->{root}) . ".";
+
+	$self->log("Down to $group", LOG_DEBUG);
 
 	return 0 unless $group;
 	my @groupparts = split(/\./, $group);
 
 	my $format = shift @groupparts or return 0;
+	$self->log("format $format", LOG_DEBUG);
 	return 0 unless $format eq "text" or $format eq "html";
 
 	my $type = shift @groupparts or return 0;
+	$self->log("type $type", LOG_DEBUG);
 
 	if($type eq "stories") {
 		my $section = shift @groupparts or return 1;
 		$section =~ s/_(\d+)$// or return 0;
 		my $sectid = $1;
+		$self->log("section $section, ID $sectid", LOG_DEBUG);
 		return 0 unless $section;
 
 		my($section_data) = grep { $_->{id} == $sectid } $self->{slash_db}->getSections();
+
 		return 0 unless $section_data;
 		return 0 unless lc($self->groupname($section_data->{section})) eq $section;
 
 		my $sid = shift @groupparts or return 1;
+		$self->log("SID $sid", LOG_DEBUG);
 		return 0 unless my $story = $self->{slash_db}->getStory($sid);
 		return 0 unless $story->{section} eq $section;
+		$self->log("Ok!", LOG_DEBUG);
 		return 1;
 	} elsif($type eq "journals") {
 		my $nick = shift @groupparts or return 1;
 		$nick =~ s/_(\d+)$// or return 0;
 		my $uid = $1;
+		$self->log("nick $nick, UID $uid", LOG_DEBUG);
 		return 0 unless $nick;
 
 		return 0 unless lc($self->groupname($self->{slash_db}->getUser($uid, 'nickname'))) eq $nick;
+		$self->log("Ok!", LOG_DEBUG);
 		return 1;
 	} else {
 		return 0;
@@ -704,27 +722,32 @@ sub groupstats($$) {
 	my($self, $group) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
-	my($first, $last, $num) = (undef, undef, undef);
+	$self->log("groupstats($group)", LOG_DEBUG);
+
+	my($first, $last, $num) = (undef, undef, 0);
 	my($id, $format, $type) = $self->parsegroup($group);
+
+	$self->log("(id, type): ($id, $type)", LOG_DEBUG);
 
 	if($type eq "frontpage") {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_snum), MAX(nntp_snum), COUNT(nntp_snum)",
-						"stories");
+						"stories",
+						"NOT ISNULL(nntp_snum)");
 	} elsif($type eq "journals") {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(id), MAX(id), COUNT(id)",
 						"journals");
 	} elsif($type eq "section") {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
-						"MIN(nntp_section_snum), MAX(nntp_section_snum), COUNT(nntp_section_num)",
+						"MIN(nntp_section_snum), MAX(nntp_section_snum), COUNT(nntp_section_snum)",
 						"stories",
-						"section=".$self->{slash_db}->sqlQuote($id));
+						"NOT ISNULL(nntp_section_snum) AND section=".$self->{slash_db}->sqlQuote($id));
 	} elsif($type eq "story") {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_cnum), MAX(nntp_cnum), COUNT(nntp_cnum)",
 						"comments",
-						"sid=".$self->{slash_db}->getStory($id, 'discussion'));
+						"NOT ISNULL(nntp_cnum) AND sid=".$self->{slash_db}->getStory($id, 'discussion'));
 	} elsif($type eq "journal") {
 		my $journals = $self->{slash_db}->sqlSelectAllHashref(
 						"discussion",
@@ -739,8 +762,7 @@ sub groupstats($$) {
 				my($dfirst, $dlast, $dnum) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_cnum), MAX(nntp_cnum), COUNT(nntp_cnum)",
 						"comments",
-
-						"comments.sid=".$self->{slash_db}->getStory($id, 'discussion'));
+						"NOT ISNULL(nntp_cnum) AND comments.sid=$journal->{discussion}");
 				$first = $dfirst if !defined($first) or $dfirst < $first;
 				$last = $dlast if !defined($last) or $dlast > $last;
 				$num += $dnum;
@@ -748,6 +770,9 @@ sub groupstats($$) {
 		}
 	}
 
+	($first, $last, $num) = (1, 0, 0) if !defined($first) || !defined($last);
+
+	$self->log("Returning ($first, $last, $num)", LOG_DEBUG);
 	return ($first, $last, $num);
 }
 
