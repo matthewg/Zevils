@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 $license = <<EOF
 Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
@@ -392,6 +392,7 @@ sub mainloop() {
 		$aimircdebug = 0;
 
 		irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $!\n";
+		$nicks->{$usnick}->{$usnick} = -1;
 		irc_send(irc_mode($usnick, $usnick, "-i"));
 		irc_send(irc_mode($usnick, $usnick, "+oa"));
 
@@ -491,9 +492,11 @@ sub mainloop() {
 					$sndata = $connection->{screennames}->{$screenname};
 					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
 					if($sndata->{ison}) {
-						my $buddy = (keys %{$sndata->{away_queue}})[0];
-						$sndata->{oscar}->get_away($buddy);
-						delete $sndata->{away_queue}->{$buddy};
+						if(haskeys($sndata->{away_queue})) {
+							my $buddy = (keys %{$sndata->{away_queue}})[0];
+							$sndata->{oscar}->get_away($buddy);
+							delete $sndata->{away_queue}->{$buddy};
+						}
 					} else {
 						next if ($currtime - $sndata->{signontime}) <= 10;
 						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
