@@ -1,6 +1,3 @@
-toc_set_config
-disconnect notification
-
 file transfer -> DCC
 Handle colors as well as bold, etc.?
 Allow passwords to be sent via DCC.
