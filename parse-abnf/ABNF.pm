@@ -118,14 +118,14 @@ This method can be used to simply test data against a rule, or it can parse data
 
 If C<DATA> doesn't match C<RULE>, returns undef.
 
-If C<DATA> I<does> match C<RULE> and the optional parameter C<MATCHRULES> is not present, C<DATA> is returned.
+If C<DATA> I<does> match C<RULE> and the optional parameter C<MATCHRULES> is not present, a true value is returned.
 
 C<MATCHRULES>, if present, should be a list of rule names whose values you are interested in.  For instance, if
 you have a rule C<preference = name *WSP "=" *WSP value>, calling this method with C<RULE> set to C<"preference"> and
 C<MATCHRULES> set to C<("name", "value")> will cause the return value to be, if C<DATA> matches the C<preference>
-rule, a hash whose keys are C<("name", "value")> and whose values are whichever bits of C<DATA> matched those rules.
+rule, a hashref whose keys are C<("name", "value")> and whose values are whichever bits of C<DATA> matched those rules.
 So, assuming that the C<name> and C<value> rules were set appropriately, if C<DATA> was C<"logfile = /var/log/foo.log">,
-the return value would be C<< (name => "logfile", value => "/var/log/foo.log") >>.
+the return value would be C<< {name => ["logfile"], value => ["/var/log/foo.log"]} >>.
 
 However, it can get more complicated than that.  Consider the following ruleset:
 
@@ -137,26 +137,54 @@ If the C<matches> method were called on an object with that ruleset with C<RULE>
 C<DATA> set to C<"\tHello, world!  Wanna augment my BNF?\n">, and C<MATCHRULES> set to C<("sentence", "word")>,
 the return value would be:
 
-    ( sentence =>
+    { sentence =>
         [
             [
-                { word => "Hello," },
+                { word => ["Hello,"] },
                 " ",
-                { word => "world" },
+                { word => ["world"] },
                 "!  "
             ],
             [
-                { word => "Wanna" },
+                { word => ["Wanna"] },
                 " ",
-                { word => "augment" },
+                { word => ["augment"] },
                 " ",
-                { word => "my" },
+                { word => ["my"] },
                 " ",
-                { word => "BNF" },
+                { word => ["BNF"] },
                 "?"
             ]
         ]
-    )
+    }
+
+Had C<"paragraph"> also been in C<MATCHRULES>, the only difference would be that the above would be
+the in a listref along with a tab and a newline.  If this doesn't make sense to you, should should
+try experimenting.
+
+That's the "structured parse form".  There's another form that you might find more useful -
+see C<explode_matches> below.
+
+=item explode_matches
+
+This can either take the same arguments as C<matches>, or it can take the return value from
+a call to C<matches> where C<MATCHRULES> was given.  It returns the same information as
+the parse tree returned by C<matches> when you give it C<MATCHRULES> but in a different form.
+The return value is a hashref whose keys are all rules in C<MATCHRULES> which were matched by
+the data and whose values are listrefs containing the data matched by the rules.  For instance,
+if the final example given for a return value for C<matches> was exploded, it would become:
+
+    {
+        sentence => ["Hello, world!  Wanna augment my BNF?"],
+        word => [
+            "Hello,",
+            "world",
+            "Wanna",
+            "augment",
+            "my",
+            "BNF"
+        ]
+    }
 
 =back
 
@@ -182,10 +210,14 @@ use Carp;
 # Well, if you're reading the source code, you probably want to know something about the internals of this beast.
 # First, a warning to the educated: I have no formal knowledge of parsing, so my terminology probably differs from yours.
 # What we do is we parse the ABNF that the user gives us and turn it into an "op tree".  This op tree is a sequence
-# of operands: "ops", "char-val", or "num-val".  Each operand has a value, mode (OP_MODE_ALTERNATOR or OP_MODE_AGGREGATOR - 
-# see below) as well as an optional token name, minimum repeat count, and maximum repeat count.  Char-val and num-val are
-# terminal operands and are the leafiest parts of the tree.  The value of char-val is a string which is matched case-
-# insensitively.  The value of a num-val is a string which is matched as an exact byte-sequence.
+# of operands: ops, numeric values, or character values.  Note that the terms "numeric" and "character" values are deceiving.
+# They are both byte sequence which must be matched.  The only difference is that character values are matched as case-insensitive
+# strings while numeric values are matched exactly.  Each operand has a value and mode as well as an optional minimum repeat count
+# and maximum repeat count.  Char-val and num-val are terminal operands and are the leafiest parts of the tree.
+# The value of char-val is a string which is matched case-insensitively.  The value of a num-val is a string which is matched as
+# an exact byte-sequence.
+#
+# Oh, the let's back up a bit.  An op tree is a hashref whose keys are the names of operands and whose values are those operands.
 #
 # Operands can have a number of traits.
 #
@@ -216,102 +248,55 @@ use Carp;
 # Once you have the parse tree, the rest is pretty self-explanatory.  I mean it's not easy, but there's no special
 # trick.  You just go through the parse tree...
 
+use constant OP_TYPE_OPS => 1;
+use constant OP_TYPE_NUMVAL => 2;
+use constant OP_TYPE_CHARVAL => 3;
+
 use constant OP_MODE_SINGLETON => 0;
 use constant OP_MODE_ALTERNATOR => 1;
 use constant OP_MODE_AGGREGATOR => 2;
 
 use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
-	{
-		tokname => "ALPHA",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [map {chr} (0x41..0x5A, 0x61..0x7A)] # A-Z / a-z
-	},{
-		tokname => "BIT",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [qw(chr(0) chr(1))]
-	},{
-		tokname => "CHAR",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [map {chr} (0x01..0x7F)] # any 7-bit US-ASCII character, excluding NUL
-	},{
-		tokname => "CR",
-		type => "num-val",
-		value => [chr(0x0D)] # carriage return
-	},{
-		tokname => "CRLF",
-		type => "ops",
-		mode => OP_MODE_AGGREGATOR,
-		value => [qw(CR LF)] # Internet standard newline
-	},{
-		tokname => "CTL",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [map {chr} (0x00..0x1F, 0x7F)] # controls
-	},{
-		tokname => "DIGIT",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [map {chr} (0x30..0x39)] # 0-9
-	},{
-		tokname => "DQUOTE",
-		type => "num-val",
-		value => [chr(0x22)] # " (Double Quote)
-	},{
-		tokname => "HEXDIG",
-		type => "ops",
+	ALPHA => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x41..0x5A, 0x61..0x7A)] }, 	# A-Z / a-z
+	BIT => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [qw(chr(0) chr(1))] },
+	CHAR => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x01..0x7F)] }, 			# any 7-bit US-ASCII character, excluding NUL
+	CR => { type => OP_TYPE_NUMVAL, value => [chr(0x0D)] }, 								# carriage return
+	CRLF => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(CR LF)] }, 					# Internet standard newline
+	CTL => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x00..0x1F, 0x7F)] }, 		# controls
+	DIGIT => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x30..0x39)] }, 			# 0-9
+	DQUOTE => { type => OP_TYPE_NUMVAL, value => [chr(0x22)] }, 								# " (Double Quote)
+	HEXDIG => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [
 			"DIGIT",
 			{
-				type => "char-val",
+				type => OP_TYPE_CHARVAL,
 				mode => OP_MODE_ALTERNATOR,
 				value => [qw(A B C D E F)]
 			}
 		]
-	},{
-		tokname => "HTAB",
-		type => "num-val",
-		value => [chr(0x09)] # horizontal tab
-	},{
-		tokname => "LF",
-		type => "num-val",
-		value => [chr(\x0A)] # linefeed
-	},{
-		tokname => "LWSP",
-		type => "ops",
+	},
+	HTAB => { type => OP_TYPE_NUMVAL, value => [chr(0x09)] }, 								# horizontal tab
+	LF => { type => OP_TYPE_NUMVAL, value => [chr(\x0A)] }, 								# linefeed
+	LWSP => { # linear white space (past newline)
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		minreps => 0,
 		maxreps => -1,
 		value => [
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_ALTERNATOR,
 				value => [qw(WSP CRLF)]
 			},
 			"WSP"
-		] # linear white space (past newline)
-	},{
-		tokname => "OCTET",
-		type => "num-val",
-		value => [map {chr} (0x00..0xFF)] # 8 bits of data
-	},{
-		tokname => "SP",
-		type => "num-val",
-		value => [chr(0x20)] # space
-	},{
-		tokname => "VCHAR",
-		type => "num-val",
-		mode => OP_MODE_ALTERNATOR,
-		value => [map {chr} (0x21..0x7E)] # visible (printing) characters
-	},{
-		tokname => "WSP",
-		type => "ops",
-		mode => OP_MODE_ALTERNATOR,
-		value => [qw(SP HTAB)] # white space
-	}
+		]
+	},
+	OCTET => { type => OP_TYPE_NUMVAL, value => [map {chr} (0x00..0xFF)] }, 						# 8 bits of data
+	SP => { type => OP_TYPE_NUMVAL, value => [chr(0x20)] }, 								# space
+	VCHAR => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x21..0x7E)] }, 			# visible (printing) characters
+	WSP => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(SP HTAB)] } 					# white space
 );
 
 
@@ -359,9 +344,98 @@ sub rules($;$) {
 
 }
 
+# $rule is a hashref, not a rule name.  This doesn't work on OP_TYPE_OPS.
+sub _doesmatch($$$) {
+	my($self, $rule, $data) = @_;
+
+	if($rule->{type} == OP_TYPE_NUMVAL) {
+		return 1 if $data eq join("", @{$rule->{value}});
+	} elsif($rule->{type} == OP_TYPE_CHARVAL) {
+		return 1 if lc($data) eq lc(join("", @{$rule->{value}}));
+	} else {
+		croak "Invalid ABNF operand type: ".$rule->{type};
+	}
+
+	return 0;
+}
+
 sub matches($$$;@) {
 	my($self, $rule, $data, @matchrules) = @_;
 
+	# We convert @matchrules into a hash for our own convenience
+	my ($matchrule, %matchrules);
+	foreach $matchrule(@matchrules) {
+		$matchrules{$matchrule} = 1;
+	}
+
+	my $tokname;
+	unless(ref($rule)) { # $rule may be a hashref to an op
+		$tokname = $rule;
+		$rule = $self->{$rule} or croak "Unknown ABNF rule: $rule";
+	}
+
+	my ($rep, $maxreps, $minreps, $mode, @matchdata, $matchdatum, $didmatch, $retval);
+
+	# What, I go to the trouble of writing a parser for you and now you want me to comment it?
+	# Especially the really complex critical methods?  Fine, I guess you don't care if your little
+	# old coder who was writing ABNF parsers for you when you were a baby curls up and dies from
+	# stress.  All you think about is yourself.  But that's okay, nobody cares about little old me,
+	# I mean you're a big-shot programmer who is obviously very busy since he doesn't have time to
+	# call his little old module writer, or god forbid write a letter...
+	#
+	# Bloody ingrate.
+	#
+	# @data is an array because it lets us backtrack.  That is, if we have nested groups of alternatives
+	# and an inner alternative doesn't match, we can bounce back to one of the other outer alternatives.
+	# In other words, if you have (foo ((bar / baz) buzz) / quux), we match foo and then we'll try to match bar.
+	# Bar doesn't match so we try baz.  That matches so it's on to buzz.  But buzz doesn't match, so we want to
+	# backtrack to the state of $data right after we matched foo before we try quux.
+	#
+	# Each operand has @matchdata.  We go through those in a loop, the terminating condidition of which varies
+	# depending on if the current op is an aggregator or an alternator.  The current @matchdata is $matchdatum.
+	# Really, I just did it that way because I wanted an excuse to use datum.  It makes me sound smart.
+	
+
+	$maxreps = exists($rule->{maxreps}) ? $rule->{maxreps} : 1;
+	$minreps = exists($rule->{minreps}) ? $rule->{minreps} : 1;
+	@matchdata = @{$rule->{data}};
+	$mode = exists($rule->{mode}) ? OP_MODE_AGGREGATOR : OP_MODE_ALTERNATOR; #singleton is effectively the same as either one
+
+	REP: for($rep = 0; $rep >= $minreps and ($maxreps == -1 or $rep < $maxreps); $rep++) {
+		$didmatch = 1;
+		MATCHDATUM: foreach $matchdatum(@matchdata) {
+			if($rule->{type} != OP_TYPE_OPS) {
+				$didmatch = $self->_doesmatch($rule, $data);
+				if($didmatch and exists($matchrules{$tokname})) {
+					push @$retval, $data;
+				}
+			} else {
+				$didmatch = $self->matches($rule, $data, @matchrules);
+				if($didmatch and exists($matchrules{$tokname})) {
+					if(ref($rule)) {
+						push @$retval, $didmatch;
+					} else {
+						push @{$retval->{$rule}}, $didmatch;
+					}
+				}
+			}
+
+			# We have a couple of terminal conditions for matching this op...
+			last MATCHDATUM if $mode == OP_MODE_ALTERNATOR and $didmatch;
+			last MATCHDATUM if $mode == OP_MODE_AGGREGATOR and not $didmatch;
+		}
+
+		if(!$didmatch) {
+			if($rep+1 >= $minreps) {
+				$didmatch = 1;
+				last REP;
+			} else {
+				return 0;
+			}
+		}
+	}
+
+	return @matchrules ? $retval : 1;
 }
 
 
@@ -371,22 +445,21 @@ sub _parse_rules($$) {
 }
 
 # We use this as a bootstrap for grokking ABNF syntax.
-use constant ABNF_PARSETREE => (
+use constant ABNF_PARSETREE => {
 	CORE_RULES,
-	{
-		tokname => "rulelist",
+	rulelist => {
 		minreps => 1,
 		maxreps => -1,
-		type => "ops",
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [
 			"rule", 
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_AGGREGATOR,
 				value => [
 					{
-						type => "ops",
+						type => OP_TYPE_OPS,
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(c-wsp)]
@@ -394,124 +467,114 @@ use constant ABNF_PARSETREE => (
 				]
 			}
 		]
-	},{
-		tokname => "rule",
-		type => "ops",
-		mode => OP_MODE_AGGREGATOR,
-		value => [qw(rulename defined-as elements c-nl)]
-	},{
-		tokname => "rulename",
-		type => "ops",
+	},
+	rule => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(rulename defined-as elements c-nl)] },
+	rulename => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => ["ALPHA", 
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_ALTERNATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => ["ALPHA", "DIGIT", {type => "num-val", value => ["-"]}]
+				value => ["ALPHA", "DIGIT", {type => OP_TYPE_NUMVAL, value => ["-"]}]
 			}
 		]
-	},{
-		tokname => "defined-as",
-		type => "ops",
+	},
+	'defined-as' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => ["maybe-some-c-wsp", {type => "num-val", value => ["="]}, {type => "num-val", minreps => 0, maxreps => 1, value => ["/"]}, "maybe-some-c-wsp"]
-	},{
-		tokname => "elements",
-		type => "ops",
+		value => ["maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => ["="]}, {type => OP_TYPE_NUMVAL, minreps => 0, maxreps => 1, value => ["/"]}, "maybe-some-c-wsp"]
+	},
+	elements => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(alternation maybe-some-c-wsp)] },
+	'c-wsp' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
-		value => [qw(alternation maybe-some-c-wsp)]
-	},{
-		tokname => "c-wsp",
-		type => "ops",
-		mode => OP_MODE_ALTERNATOR,
-		value => ["WSP", {type => "ops", mode => OP_MODE_ALTERNATOR, value => [qw(c-nl WSP)]}]
-	},{
-		tokname => "maybe-some-c-wsp",
-		type => "ops",
+		value => ["WSP",
+			{type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(c-nl WSP)]}
+		]
+	},
+	'maybe-some-c-wsp' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		minreps => 0,
 		maxreps => -1,
 		value => [qw(c-wsp)]
-	},{
-		tokname => "c-nl",
-		type => "ops",
-		mode => OP_MODE_ALTERNATOR,
-		value => [qw(comment CRLF)]
-	},{
-		tokname => "comment",
-		type => "ops",
+	},
+	'c-nl' => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(comment CRLF)] },
+	comment => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "num-val", value => [";"]},
+			{type => OP_TYPE_NUMVAL, value => [";"]},
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_ALTERNATOR,
 				minreps => 0,
 				maxreps => -1,
 				value => [qw(WSP VCHAR)]
 			},"CRLF"
 		]
-	},{
-		tokname => "alternation",
-		type => "ops",
+	},
+	alternation => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => ["concatenation",
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => ["maybe-some-c-wsp", {type => "num-val", value => ["/"]}, "maybe-some-c-wsp", "concatenation"]
+				value => ["maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => ["/"]}, "maybe-some-c-wsp", "concatenation"]
 			}
 		]
-	},{
-		tokname => "concatenation",
-		type => "ops",
+	},
+	concatenation => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => ["repetition",
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
 				value => [qw(maybe-some-c-wsp repetition)]
 			}
 		]
-	},{
-		tokname => "repetition",
-		type => "ops",
+	},
+	repetition => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => [
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				minreps => 0,
 				maxreps => 1,
 				value => [qw(repeat)]
 			}, "element"
 		]
-	},{
-		tokname => "repeat",
-		type => "ops",
+	},
+	repeat => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [
 			{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				minreps => 1,
 				maxreps => -1,
 				value => [qw(DIGIT)]
 			},{
-				type => "ops",
+				type => OP_TYPE_OPS,
 				mode => OP_MODE_AGGREGATOR,
 				value => [
 					{
-						type => "ops",
+						type => OP_TYPE_OPS,
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(DIGIT)]
-					},{type => "num-val", value => ['*']},{
-						type => "ops",
+					},{type => OP_TYPE_NUMVAL, value => ['*']},{
+						type => OP_TYPE_OPS,
 						minreps => 0,
 						maxreps => -1,
 						value => [qw(DIGIT)]
@@ -519,55 +582,55 @@ use constant ABNF_PARSETREE => (
 				]
 			}
 		]
-	},{
-		tokname => "element",
-		type => "ops",
+	},
+	element => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [qw(rulename group option char-val num-val prose-val)]
-	},{
-		tokname => "group",
-		type => "ops",
+	},
+	group => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => "num-val", value => ['(']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "num-val", value => [')']}]
-	},{
-		tokname => "option",
-		type => "ops",
+		value => [{type => OP_TYPE_NUMVAL, value => ['(']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [')']}]
+	},
+	option => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => "terminal", value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "num-val", value => [']']}]
-	},{
-		tokname => "char-val",
-		type => "ops",
+		value => [{type => "terminal", value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [']']}]
+	},
+	'char-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => ["DQUOTE", {type => "num-val", minreps => 0, maxreps => -1, value => [map {chr} (0x20,0x21,0x23..0x7E)]}, "DQUOTE"]
-	},{
-		tokname => "num-val",
-		type => "ops",
+		value => ["DQUOTE", {type => OP_TYPE_NUMVAL, minreps => 0, maxreps => -1, value => [map {chr} (0x20,0x21,0x23..0x7E)]}, "DQUOTE"]
+	},
+	'num-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => "num-val", value => ["%"]}, {type => "ops", mode => OP_MODE_ALTERNATOR, value => [qw(bin-val dec-val hex-val)]}]
-	},{
-		tokname => "bin-val",
-		type => "ops",
+		value => [{type => OP_TYPE_NUMVAL, value => ["%"]}, {type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(bin-val dec-val hex-val)]}]
+	},
+	'bin-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "num-val", value => ["b"]},
-			{type => "ops", minreps => 1, maxreps => -1, value => [qw(BIT)]},
-			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
+			{type => OP_TYPE_NUMVAL, value => ["b"]},
+			{type => OP_TYPE_OPS, minreps => 1, maxreps => -1, value => [qw(BIT)]},
+			{type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "num-val", value => ['.']}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ['.']}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(BIT)]
 					}]
 				},{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
-					value => [{type => "num-val", value => ["-"]}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ["-"]}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(BIT)]
@@ -575,30 +638,30 @@ use constant ABNF_PARSETREE => (
 				}
 			]}
 		]
-	},{
-		tokname => "dec-val",
-		type => "ops",
+	},
+	'dec-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "num-val", value => ["d"]},
-			{type => "ops", minreps => 1, maxreps => -1, value => [qw(DIGIT)]},
-			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
+			{type => OP_TYPE_NUMVAL, value => ["d"]},
+			{type => OP_TYPE_OPS, minreps => 1, maxreps => -1, value => [qw(DIGIT)]},
+			{type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "num-val", value => ['.']}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ['.']}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(DIGIT)]
 					}]
 				},{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
-					value => [{type => "num-val", value => ["-"]}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ["-"]}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(DIGIT)]
@@ -606,30 +669,30 @@ use constant ABNF_PARSETREE => (
 				}
 			]}
 		]
-	},{
-		tokname => "hex-val",
-		type => "ops",
+	},
+	'hex-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		value => [
-			{type => "num-val", value => ["x"]},
-			{type => "ops", minreps => 1, maxreps => -1, value => [qw(HEXDIG)]},
-			{type => "ops", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
+			{type => OP_TYPE_NUMVAL, value => ["x"]},
+			{type => OP_TYPE_OPS, minreps => 1, maxreps => -1, value => [qw(HEXDIG)]},
+			{type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => 1, value => [
 				{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
 					minreps => 1,
 					maxreps => -1,
-					value => [{type => "num-val", value => ['.']}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ['.']}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(HEXDIG)]
 					}]
 				},{
-					type => "ops",
+					type => OP_TYPE_OPS,
 					mode => OP_MODE_AGGREGATOR,
-					value => [{type => "num-val", value => ["-"]}, {
-						type => "ops",
+					value => [{type => OP_TYPE_NUMVAL, value => ["-"]}, {
+						type => OP_TYPE_OPS,
 						minreps => 1,
 						maxreps => -1,
 						value => [qw(HEXDIG)]
@@ -637,13 +700,13 @@ use constant ABNF_PARSETREE => (
 				}
 			]}
 		]
-	},{
-		tokname => "prose-val",
-		type => "ops",
+	},
+	'prose-val' => {
+		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => "num-val", value => ["<"]}, {type => "num-val", mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => -1, value => [map {chr} (0x20..0x3D, 0x3F..0x7E)]}, {type => "num-val", value => [">"]}]
+		value => [{type => OP_TYPE_NUMVAL, value => ["<"]}, {type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, minreps => 0, maxreps => -1, value => [map {chr} (0x20..0x3D, 0x3F..0x7E)]}, {type => OP_TYPE_NUMVAL, value => [">"]}]
 	}
-);
+};
 
 sub BEGIN {
 	$ABNF = { ABNF_PARSETREE };
