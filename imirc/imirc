@@ -1104,6 +1104,7 @@ sub process_irc_message($$) {
 					$line .= " {$buddat->{comment}}" if $buddat->{comment};
 					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
 					$line .= " [online]" if $buddat->{online};
+					$line .= " [icon]" if $buddat->{icon_md5sum};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
@@ -1126,6 +1127,7 @@ sub process_irc_message($$) {
 					next unless $buddat->{online};
 					$line .= " {$buddat->{comment}}" if $buddat->{comment};
 					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
+					$line .= " [icon]" if $buddat->{icon_md5sum};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
@@ -2429,7 +2431,7 @@ sub oscar_new_buddy_icon($$$) {
 	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	##XXX do something else here?
-	oscar_log($oscar, 1, "$budsn has a new buddy icon.");
+	#oscar_log($oscar, 1, "$budsn has a new buddy icon.");
 }
 
 sub oscar_buddy_icon_uploaded($) {
