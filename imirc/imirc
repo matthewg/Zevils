@@ -266,7 +266,7 @@ sub loadconf() {
 			} else {
 				if($confversion == 1.5) {
 					print STDERR "Do you have a channel where people can ask for help with IMIRC?\n";
-					print STDERR "If so, set \$localhelp to that channel (e.g. '\$localhelp = \"#imirc\"') in your IMIRC configuration file.\n";
+					print STDERR "If so, set \$localhelp to that channel (e.g. '\$localhelp = \"#imirc\";') in your IMIRC configuration file.\n";
 					print STDERR "In either case, change \$confversion to 1.6 in your config file to suppress this message.\n";
 					print STDERR "(Sleeping for 10 seconds to give you a chance to read this...)\n";
 					sleep 10;
