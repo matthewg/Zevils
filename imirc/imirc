@@ -543,10 +543,10 @@ sub process_irc_message {
 			} elsif($msg =~ /^rehash/) {
 				rehash;
 			} elsif($msg =~ /^showlevels/) {
-				foreach $level(keys %debug) { irc_send(irc_privmsg("$level: $debug{$level}")); }
+				foreach $level(keys %debug) { irc_send(irc_privmsg("#aimirc-debug", "$level: $debug{$level}")); }
 			} elsif($msg =~ /^raw (\S+) (.+)/ and $1 and $2) {
 				if($1 eq "irc") {
-					irc_send($2);
+					irc_send("$2\r\n");
 				} elsif($aim_connections{$1}) {
 					sflap_put($aim_connections{$1}{socket}, sflap_encode($2, 0, 1));
 				} else {
@@ -562,7 +562,7 @@ sub process_irc_message {
 				}
 			} elsif($msg =~ /^eval (.+)/ and $1) {
 				undef $@;
-				eval { exec $@; };
+				eval { exec $1; };
 				$@ =~ tr/\r//d;
 				foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
 			} else {
@@ -714,7 +714,7 @@ sub html2txt {
 		${$$elem{_content}}[0] .= " {$link}";
 	}
 	$parsetree->traverse(\&tsub);
-	return split(/\n/, HTML::FormatText->new(leftmargin => 0, rightmargin => 4096)->format($parsetree));
+	return split(/\n/, HTML::FormatText->new(leftmargin => 0, rightmargin => 4096)->format($parsetree)) or $msg;
 }
 
 sub tsub {
