@@ -396,7 +396,7 @@ sub loadconf() {
 			theirpass => 1,
 			nicklen => 30,
 			pass => "PASS $ourpass :TS\r\n",
-			opermodes => "+mop",
+			opermodes => "+mopS",
 		},
 	);
 
