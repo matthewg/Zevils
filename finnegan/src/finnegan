@@ -230,7 +230,7 @@ while(1) {
 				$waketime += 60*60*24 if $currsecs > $wakesecs; # Not today - tomorrow
 				@waketime = localtime($waketime);
 			}
-			log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
+			log_debug("Setting trigger_time on " . $row->{wake_id} . " to ", join(" ", @waketime));
 
 			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", @waketime), $row->{wake_id})) {
 				db_error("Couldn't update trigger_time", $update_nexttime);
