@@ -239,7 +239,7 @@ sub loaddat($) {
 		if($saveprofiles and -r "$directory/profiles/$screenname") {
 			open(PROFILE, "<$directory/profiles/$screenname");
 			$profiles{$screenname} = <PROFILE>;
-			close BUDDYLIST;
+			close PROFILE;
 		}
 
 		if($savepounces and -r "$directory/pounces/$screenname") {
@@ -462,8 +462,8 @@ sub loadconf() {
 }
 
 sub mainloop() {
-	my(@aims, $aim, $connection, $screenname, $msg, $multinick, $i, $rv, $buff, $getrv, $rvbuff, $currtime, $nick, $sndata);
-	my($rin, $win, $ein);
+	my($connection, $screenname, $msg, $multinick, $i, $rv, $buff, $getrv, $rvbuff, $currtime, $nick, $sndata);
+	my($rin, $win, $ein, $nfound, @fds, $fileno);
 	$rin = $win = $ein = '';
 
 	unless($reload) {
@@ -482,29 +482,45 @@ sub mainloop() {
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
-			@aims = keys %aim_connections;
-			foreach $aim(@aims) {
-				$connection = $aim_connections{$aim};
-				foreach $screenname(keys %{$connection->{screennames}}) {
-					next unless $screenname; #Why is this needed?
-					$multinick = " for screenname $screenname" if $screenname ne $connection->{aimnick} and not $connection->{screennames}{$screenname}{inchan};
-					do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
+			foreach $nick(keys %aim_connections) {
+				foreach $screenname(keys %{$aim_connections{$nick}{screennames}}) {
+					if(!$aim_connections{$nick}{screennames}{$screenname}{socket}) {
+						delete $aim_connections{$nick}{screennames}{$screenname};
+						next;
+					} 
+					$fileno = $aim_connections{$nick}{screennames}{$screenname}{socket}->fileno;
+					vec($rin, $fileno, 1) = 1;
+					$fds[$fileno] = {nick => $nick, screenname => $screenname};
+				}
+			}
+
+			vec($rin, $upstream->fileno, 1) = 1;
+			$fds[$upstream->fileno] = {nick => $usnick};
+
+			$ein = $rin;
+			$nfound = select($rin, undef, $ein, 0.01);
+			for($fileno = 0; $fileno <= $#fds; $fileno++) {
+				next unless vec($ein, $fileno, 1) or vec($rin, $fileno, 1);
+				$nick = $fds[$fileno]->{nick};
+
+				if($nick eq $usnick) {
+					$_ = irc_recv(1); #Don't block
+					process_irc_message($_) if $_;
+				} else {
+					$screenname = $fds[$fileno]->{screenname};
+					$connection = $aim_connections{$nick};
+
 					$msg = sflap_get($connection->{screennames}{$screenname}{socket});
 					if($msg eq "-1" and $! != EAGAIN) {
 						$multinick = "";
 						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick} or $connection->{screennames}{$screenname}{inchan};
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
-						do_signoff($connection->{nick}, $connection->{screennames}{$screenname}{socket});
+						irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
+						do_signoff($nick, $connection->{screennames}{$screenname}{socket});
 					} elsif($msg ne "-1") {
 						process_aim_message($connection, $msg, $screenname);
-					}
+					}				
 				}
 			}
-
-			#Sleep for .01 seconds to give the CPU time to relax
-			select(undef, undef, undef, .01);
-			$_ = irc_recv(1); #Don't block
-			process_irc_message($_) if $_;
 
 			DCC: for($i = 0; $i <= $#dccqueue; $i++) {
 				$dcc = $dccqueue[$i];
