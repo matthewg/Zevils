@@ -1,2 +1,4 @@
 *.pdf
 *.zip
+stdout.txt
+stderr.txt
