@@ -339,7 +339,7 @@ sub chat_invite($$$@) {
 	my($msg);
 
 	debug_print(_hnick($handle) . " is inviting " . join(" ", @buddies) . " into chat $chat. Reason: $text.", "chat", 2);
-	$msg = quote("toc_chat_invite $chat ") . "\"" . quote(txt2html($text)) . "\"" . quote(" ") . quote(join(" ", @buddies));
+	$msg = quote("toc_chat_invite $chat ") . "\"" . quote($text) . "\"" . quote(" ") . quote(join(" ", @buddies));
 	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
