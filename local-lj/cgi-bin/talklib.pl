@@ -1243,14 +1243,14 @@ sub format_text_mail {
         $text .= "$who replied to your $LJ::SITENAMESHORT comment in which you said:";
     }
     $text .= "\n\n";
-    $text .= indent(LJ::html2txt($parent->{body}), ">") . "\n\n";
+    $text .= indent(html2txt($parent->{body}), ">") . "\n\n";
     $text .= (LJ::u_equals($targetu, $comment->{u}) ? 'Your' : 'Their') . " reply was:\n\n";
     if ($comment->{subject}) {
         $text .= Text::Wrap::wrap("  Subject: ",
                                   "           ",
                                   $comment->{subject}) . "\n\n";
     }
-    $text .= indent(LJ::html2txt($comment->{body}));
+    $text .= indent(html2txt($comment->{body}));
     $text .= "\n\n";
 
     my $can_unscreen = $comment->{state} eq 'S' && 
