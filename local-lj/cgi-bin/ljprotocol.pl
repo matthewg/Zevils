@@ -1268,18 +1268,19 @@ sub _get_events_comments
     my $journalid = $req->{'journalid'};
     my $jitem;
 
+    if ($type eq "comments") {
+        $journalid =~ tr/0-9//dc;
+        return fail($err,203,"Invalid journalid") unless $journalid;
+#        $jitem = LJ::Talk::get_journal_item($u, $journalid);
+        fail($err,203,"Nonexistant journalid") unless $jitem;
+        return undef unless LJ::can_view($dbr, $u, $jitem);
+    }
+
     my $uowner = $flags->{'u_owner'} || $u;
 
     ### shared-journal support
     my $posterid = $u->{'userid'};
     my $ownerid = $flags->{'ownerid'};
-
-    if ($type eq "comments") {
-        $journalid =~ tr/0-9//dc;
-        return fail($err,203,"Invalid journalid") unless $journalid;
-        $jitem = LJ::Talk::get_journal_item($uowner, $journalid);
-        fail($err,203,"Nonexistant journalid") unless $jitem;
-    }
 
     my $sth;
 
@@ -1538,7 +1539,6 @@ sub _get_events_comments
             delete $props{$id}->{'replycount'};
 
             # delete posterip for security reasons
-            next if $props{$id}->{state} eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
             if ($type eq "comments" && 
                  ($u->{'user'} ne $jitem->{entryu} &&
                   LJ::check_rel($jitem->{journalu}, $u, 'A'))) {
