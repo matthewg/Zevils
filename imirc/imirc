@@ -1692,7 +1692,7 @@ sub oscar_buddy_in($$$$) {
 
 	irc_send(irc_newnick($prefix . $buddy));
 	my $inick = ircify($prefix.$buddy);
-	unless($nicks->{$buddy}->{$screenname} == -1) {
+	unless($nicks->{$buddy}->{$screenname} and $nicks->{$buddy}->{$screenname} == -1) {
 		$nicks->{$buddy}->{$screenname} = -1;
 		manglewarn($nick, $inick);
 		if($sndata->{inchan}) {
@@ -1809,7 +1809,7 @@ sub oscar_im_in($$$$) {
 		$oscar->send_im($from, $tmp, 1);
 		$sndata->{away_buddyies}->{$from} = time;
 	}
-	$nicks->{$from}->{$screenname} = time if $nicks->{$from}->{$screenname} != -1;
+	$nicks->{$from}->{$screenname} = time if $nicks->{$from}->{$screenname} and $nicks->{$from}->{$screenname} != -1;
 }
 
 sub oscar_chat_im_in($$$$) {
@@ -1889,7 +1889,7 @@ sub oscar_buddy_info($$$) {
 
 	if($buddat->{awaymsg}) {
 		$away->{$buddy} = $buddat->{awaymsg};
-		irc_send(":".ircify($prefix.$buddy)." AWAY :$buddat->{awaymsg}\r\n");
+		irc_send(":".ircify($prefix.$buddy)." AWAY :".html2txt($buddat->{awaymsg})."\r\n");
 	} else {
 		local $^W = 0;
 		my $msg = "Buddy Info for $buddat->{screenname}\r\n";
