@@ -2488,7 +2488,9 @@ sub html2txt($) {
 	}
 
 	my $ret = HTML::FormatText->new(leftmargin => 0, rightmargin => 76)->format($tree);
-	warn "Returning: $ret\n";
+	open(DEBUG, ">>/tmp/talklib.dbg");
+	print DEBUG "Transform:\n$html\nTo: $ret\n";
+	close DEBUG;
 	return $ret;
 }
 
