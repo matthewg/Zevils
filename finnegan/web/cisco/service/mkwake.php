@@ -53,11 +53,8 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 }
 
 // Grab variables from query string
-$playmsg = isset($_REQUEST["playmsg"]) ? $_REQUEST["playmsg"] : "";
 $prompt = isset($_REQUEST["p"]) ? $_REQUEST["p"] : 0;
 $process = isset($_REQUEST["do"]) ? $_REQUEST["do"] : 0;
-
-if($playmsg) redirect("Play:".$FinneganCiscoConfig->tftp_prefix."finmsg-$message");
 
 $title = "";
 
@@ -397,7 +394,7 @@ if($prompt == "time") {
 			"$url&amp;message=".$FinneganConfig->messages[$i]["id"]
 		);
 	}
-	echo "<SoftKeyItem>\n<Name>Preview</Name>\n<URL>QueryStringParam:playmsg=1</URL>\n<Position>2</Position></SoftKeyItem>\n";
+	echo "<SoftKeyItem>\n<Name>Preview</Name>\n<URL>".$FinneganCiscoConfig->url_base."/messages/".$FinneganConfig->messages[$i]["id"].".au</URL>\n<Position>2</Position></SoftKeyItem>\n";
 
 } else if($prompt == "type") {
 
