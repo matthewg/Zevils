@@ -842,7 +842,7 @@ sub process_irc_message($) {
 						my $params = {loglevel => $loglevel};
 						my $cmdline = "$param $extra";
 						$cmdline =~ s/-+(loglevel|l|d)\s+\d+\s+//;
-						my($screenname, $password) = split(/\s+/, $cmdline);
+						my($screenname, $password) = split(/\s+/, $cmdline, 2);
 						do_signon($screenname, $password, $nick, $params);
 					}
 				}
