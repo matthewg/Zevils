@@ -10,6 +10,8 @@
 use strict;
 package LJ::Talk;
 
+use HTML::TreeBuilder;
+
 sub get_subjecticons
 {
     my %subjecticon;
@@ -959,7 +961,12 @@ sub format_text_mail {
                                   "           ",
                                   $comment->{subject}) . "\n\n";
     }
-    $text .= indent($comment->{body});
+
+    my $entrytext = $comment->{body};
+    LJ::CleanHTML::clean_event(\$entrytext, { 'preformatted' => $comment->{opt_preformatted},
+                              'cuturl' => LJ::item_link($comment->{u}{user}, $dtalkid, $comment->{anum}), });
+    
+    $text .= indent(html2txt($entrytext));
     $text .= "\n\n";
 
     if ($comment->{state} eq 'S') {
@@ -1428,6 +1435,37 @@ sub enter_comment {
     # update the comment alter property
     LJ::Talk::update_commentalter($journalu, $itemid);   
     return $jtalkid;
+}
+
+sub can_post_talk {
+    my ($u
+
+    # test accounts may only comment on other test accounts.
+    if ((grep { $form->{'userpost'} eq $_ } @LJ::TESTACCTS) && 
+        !(grep { $journalu->{'user'} eq $_ } @LJ::TESTACCTS))
+    {
+        $bmlerr->("$SC.error.testacct");
+    }
+
+     if ($form->{'usertype'} eq "user") {
+        if ($form->{'userpost'}) {
+
+            # parse inline login opts
+            if ($form->{'userpost'} =~ s/[!<]{1,2}$//) {
+                $exptype = 'long' if index($&, "!") >= 0;
+                $ipfixed = LJ::get_remote_ip() if index($&, "<") >= 0;
+            }
+
+            $up = LJ::load_user($form->{'userpost'});
+            if ($up) {
+                ### see if the user is banned from posting here
+                if (LJ::is_banned($up, $journalu)) {
+                    $bmlerr->("$SC.error.banned");
+                }
+
+                if ($up->{'journaltype'} ne "P") {
+                    $bmlerr->("$SC.error.postshared");
+                }
 }
 
 # XXX these strings should be in talk, but moving them means we have
@@ -1969,6 +2007,82 @@ sub check_rate {
     }
 
     return 1;
+}
+
+sub html2txt($) {
+	my($html) = @_;
+
+	my $tree = HTML::TreeBuilder->new_from_content($html);
+	my $linkcount = 0;
+	my @footlinks;
+
+	# Change this:
+	#	Some text, including <a href="url">a link</a>.
+	# To this:
+	#	Some text, including [0]{a link}.
+	#
+	#	[0] url
+
+	foreach my $node (@{$tree->extract_links("a")}) {
+		my($link, $elem) = @$node;
+
+		$link = "[$linkcount] $link";
+		my($text) = $elem->content_refs_list();
+		$$text = "[$linkcount]{$$text}";
+		$linkcount++;
+
+		#print "Okay, got link\n";
+
+		while($elem and $elem->tag ne "p") { $elem = $elem->parent; }
+		if(!$elem or !$elem->parent) { # No enclosing <p> - put it at the end
+			#print "No enclosing p - adding to footlinks\n";
+			push @footlinks, $link;
+			next;
+		}
+
+		# $elem is now the paragraph that had the link.
+		# If it is the first link of the paragraph, insert a new para next to it.
+		# Append the link to $elem's sibling.
+
+		#print "Alright, found paragraph\n";
+
+		$elem->postinsert(HTML::Element->new_from_lol(['p', ['blockquote']])) unless $elem->{__WEBLOG_putpara};
+		$elem->{__WEBLOG_putpara} = 1;
+
+		# Find the paragraph we want to put our link into.
+		my @elem_siblings = $elem->parent->content_list;
+		while(@elem_siblings and $elem_siblings[0] != $elem) {
+			shift @elem_siblings;
+		}
+
+		#print "Find para redux\n";
+
+		if(!@elem_siblings) { # Couldn't find it
+			push @footlinks, $link;
+			#print "Added to footlinks\n";
+			next;
+		}
+
+		shift @elem_siblings;
+		$elem = $elem_siblings[0]->find_by_tag_name("blockquote");
+
+		#print "push_content($link)\n";
+		$elem->push_content($link, ['br']);
+	}
+
+	# Sometimes, for whatever reason, we can't add a link where we want to.
+	# We stick these guys at the end.
+	if(@footlinks) {
+		my $body = $tree->find_by_tag_name("body");
+		$body->push_content(['br']);
+		$body->push_content(
+			['p', ['blockquote', 
+				map {("$_", ['br']);} @footlinks
+			]]
+		);
+	}
+
+	return HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($tree);
 }
 
 1;

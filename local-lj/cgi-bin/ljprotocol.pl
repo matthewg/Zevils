@@ -130,6 +130,7 @@ sub do_request
     if ($method eq "checkfriends")     { return checkfriends(@args);     }
     if ($method eq "getdaycounts")     { return getdaycounts(@args);     }
     if ($method eq "postevent")        { return postevent(@args);        }
+    if ($method eq "postcomment")      { return postcomment(@args);      }
     if ($method eq "editevent")        { return editevent(@args);        }
     if ($method eq "syncitems")        { return syncitems(@args);        }
     if ($method eq "getevents")        { return getevents(@args);        }
@@ -354,8 +355,12 @@ sub checkfriends
         $mask = $req->{'mask'};
     }
 
-    my $memkey = [$u->{'userid'},"checkfriends:$u->{userid}:$mask"];
+    my $checkcomments = $req->{'checkcomments'};
+
+    my $memkey = [$u->{'userid'},"checkfriends:$u->{userid}:$mask:$checkcomments"];
     my $update = LJ::MemCache::get($memkey);
+    my $comments_update;
+    my @commented_journals;
     unless ($update) {
         if (@LJ::MEMCACHE_SERVERS) {
             my $fr = LJ::get_friends($u, $mask);
@@ -365,6 +370,11 @@ sub checkfriends
                 $max = $tu->{$_} if $tu->{$_} > $max;
             }
             $update = LJ::mysql_time($max) if $max;
+
+            #if ($checkcomments) {
+            #    my %props;
+            #    LJ::load_log_props2($u->{'userid'}, 
+            #}
         } else {
             my $dbr = LJ::get_db_reader();
             unless ($dbr) {
@@ -546,9 +556,13 @@ sub common_event_validation
     return 1;
 }
 
-sub postevent
+sub postevent { _post_event_comment("event", @_); }
+sub postcomment { _post_event_comment("comment", @_); }
+
+sub _post_event_comment
 {
-    my ($req, $err, $flags) = @_;
+    my ($type, $req, $err, $flags) = @_;
+    return fail($err,500) unless $type eq "events" or $type eq "comments";
     return undef unless authenticate($req, $err, $flags);
     return undef unless check_altusage($req, $err, $flags);
 
@@ -557,16 +571,27 @@ sub postevent
     my $uowner = $flags->{'u_owner'} || $u;
     my $clusterid = $uowner->{'clusterid'};
 
+    my $journalid = $req->{'eventid'};
+    my $jitem;
+
     my $dbh = LJ::get_db_writer();
     my $dbcm = LJ::get_cluster_master($uowner);
 
     return fail($err,306) unless $dbh && $dbcm;
     return fail($err,200) unless $req->{'event'} =~ /\S/;
 
+    if ($type eq "comment") {
+        $journalid =~ tr/0-9//dc;
+        return fail($err,203,"Invalid eventid") unless $journalid;
+        $jitem = LJ::Talk::get_journal_item($uowner, $journalid);
+        fail($err,203,"Nonexistant journalid") unless $jitem;
+    }
+
     ### make sure community, shared, or news journals don't post
     ### note: shared and news journals are deprecated.  every shared journal
     ##        should one day be a community journal, of some form.
-    return fail($err,150) if ($u->{'journaltype'} eq "C" ||
+    return fail($err,150) if $type eq "event" &&
+                             ($u->{'journaltype'} eq "C" ||
                               $u->{'journaltype'} eq "S" ||
                               $u->{'journaltype'} eq "N");
 
@@ -1276,7 +1301,7 @@ sub _get_events_comments
 
     if ($type eq "comments") {
         $journalid =~ tr/0-9//dc;
-        return fail($err,203,"Invalid journalid") unless $journalid;
+        return fail($err,203,"Invalid eventid") unless $journalid;
         $jitem = LJ::Talk::get_journal_item($uowner, $journalid);
         fail($err,203,"Nonexistant journalid") unless $jitem;
     }
@@ -2390,6 +2415,9 @@ sub do_request
     if ($req->{'mode'} eq "postevent") {
         return postevent($req, $res, $flags);
     }
+    if ($req->{'mode'} eq "postcomment") {
+        return postcomment($req, $res, $flags);
+    }
     if ($req->{'mode'} eq "editevent") {
         return editevent($req, $res, $flags);
     }
@@ -2770,15 +2798,19 @@ sub flatten_props
 }
 
 ## flat wrapper
-sub postevent
+sub postevent { _post_event_comment("event", @_); }
+sub postcomment { _post_event_comment("comment", @_); }
+
+sub _post_event_comment
 {
-    my ($req, $res, $flags) = @_;
+    my ($type, $req, $res, $flags) = @_;
+    my $idname = $type eq "event" ? "itemid" : "talkid";
 
     my $err = 0;
     my $rq = upgrade_request($req);
     flatten_props($req, $rq);
 
-    my $rs = LJ::Protocol::do_request("postevent", $rq, \$err, $flags);
+    my $rs = LJ::Protocol::do_request("post$type", $rq, \$err, $flags);
     unless ($rs) {
         $res->{'success'} = "FAIL";
         $res->{'errmsg'} = LJ::Protocol::error_message($err);
@@ -2787,8 +2819,8 @@ sub postevent
 
     $res->{'message'} = $rs->{'message'} if $rs->{'message'};
     $res->{'success'} = "OK";
-    $res->{'itemid'} = $rs->{'itemid'};
-    $res->{'anum'} = $rs->{'anum'} if defined $rs->{'anum'};
+    $res->{$idname} = $rs->{$idname};
+    $res->{'anum'} = $rs->{'anum'} if defined $rs->{'anum'} ;
     return 1;
 }
 
