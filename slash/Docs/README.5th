@@ -1,0 +1,22 @@
+Jeez, this is getting rediculous... why can't we call 'em RELNOTES like
+everyone else?  Oh well; no wife, no horse, no mustache.
+
+This README belongs to 0.3.8.  This is the first Y2K-compliant public release
+of Slash.  You also no longer need that extra symlink to Slash.pm in
+public_html, thanks to the nifty FindBin module.  A very special thanks for
+this version goes out to the slash-help mailing list, especially Rusty.
+
+Anyway, hopefully this will be the last release of the old Slash code.
+There are a lot of alternatives out there:
+	Rob's semi-mythical any-day-now 0.4
+	OpenSlash
+	PHPSlash
+	Squishdot
+	Scoop
+
+I'm not going to summarize them all here, since such information will quickly
+become outdated and OpenSlash is my pet project so I'm biased anyway,
+
+Well, enjoy.  And may your frogs ever be crunchy!
+
+		--Matthew Sachs <matthewg@zevils.com>, Jan 24 2000
