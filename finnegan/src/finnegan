@@ -272,10 +272,12 @@ while(1) {
 	}
 
 	my @rows;
-	push @rows, $_ foreach $get_wakes->fetchrow_hashref;
+	push @rows, $_ while($_ = $get_wakes->fetchrow_hashref);
 	$get_wakes->finish;
+	log_debug("Got " . scalar(@rows) . " wakes");
 
 	foreach my $row (@rows) {
+		log_debug("Checking wake...");
 		next unless $row;
 
 		last unless can_make_call();
@@ -371,7 +373,7 @@ while(1) {
 			}
 
 			my @pin_rows;
-			push @pin_rows, $_ foreach $get_forgotpins->fetchrow_hashref;
+			push @pin_rows, $_ while($_ = $get_forgotpins->fetchrow_hashref);
 			$get_forgotpins->finish;
 
 			foreach $row (@pin_rows) {
