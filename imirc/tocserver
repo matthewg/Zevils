@@ -6,13 +6,17 @@ use IO::Socket;
 use IO::Select;
 use GDBM_File;
 use Fcntl qw(:flock);
-use POSIX qw(:errno_h);
+use POSIX;
 
 use vars qw(%toc $dir $client);
 
 my($sock, $pid, $screenname);
 
-$sock = IO::Socket::INET->new(ListenPort => 5000);
+$pid = fork;
+exit if $pid;
+POSIX::setsid();
+
+$sock = IO::Socket::INET->new(LocalPort => 5000, Listen => 5);
 $dir = (getpwent())[7];
 
 sub dbtie() {
