@@ -143,7 +143,7 @@ if($extension_ok) {
 
 			if($type == "one-time") {
 				$cols = array("extension", "time", "message", "date");
-				$values = array("'$extension'", "'$time'", $message, "'".date_to_sql($date)."'");
+				$values = array("'$extension'", "'$time'", $message, "'".date_to_sql($date, $time)."'");
 			} else {
 				$sql_weekdays = array();
 				while(list($day, $val) = each($weekdays)) {
