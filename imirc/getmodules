@@ -57,21 +57,20 @@ push @INC, $dirname;
 my $makeargs = $CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
 $CPAN::Config->{prerequisites_policy} = "follow";
 
-foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR)) {
+foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR HTML::Tagset)) {
 	my $obj = CPAN::Shell->expand('Module', $mod);
 	next if $obj->inst_version() and $mod ne "Net::OSCAR";
 	print "Installing $mod...\n";
-	if(!$altinstall) {
-		$obj->install or warn "Problems installing $mod - try $0 altinstall?\n";
-	} else {
+	$obj->install or $altinstall or die "Problems installing $mod - try $0 altinstall\n";
+	if($altinstall) {
 		my $dir = $CPAN::Config->{build_dir} . "/" . basename($obj->{CPAN_FILE});
 		$dir =~ s/\.tar\.gz//;
 		chdir($dir) or die "Couldn't chdir to $dir: $!\n";
 		chmod(0755, ".");
 		system("make distclean");
-		system("perl Makefile.PL $makeargs");
-		system("make");
-		system("make install");
+		system("perl Makefile.PL $makeargs") or die "Problems running Makefile.PL for $mod\n";
+		system("make") or die "Problems running make for $mod\n";
+		system("make install") or die "Problems running make install for $mod\n";
 	}
 }
 
