@@ -534,7 +534,7 @@ if($prompt == "time") {
 <QueryStringParam>max_snooze_count</QueryStringParam>
 <InputFlags>N</InputFlags>
 <DefaultValue><?
-	if(isset($_SESSION["max_snooze_count"]))
+	if($_SESSION["max_snooze_count"])
 		echo $_SESSION["max_snooze_count"];
 	else
 		echo $FinneganConfig->max_snooze_count;
