@@ -15,6 +15,14 @@ $Toc::SERVER = 1;
 
 my($sock, $pid, $screenname);
 
+my $log = shift;
+if($log) {
+	close STDOUT;
+	close STDERR;
+	open(STDOUT, ">$log");
+	open(STDERR, ">&STDOUT");
+}
+
 $pid = fork;
 exit unless $pid == 0;
 POSIX::setsid();
@@ -178,7 +186,12 @@ while(my $toc = $sock->accept) {
 		next unless select($rin, $win, $ein, 0.01);
 		$oscar->process_connections(\$rin, \$win, \$ein);
 		next unless vec($rin, $toc->fileno, 1);
-		($command, @params) = toc_split(sflap_get($toc, 1));
+		$message = sflap_get($toc, 1);
+		if(!$message) {
+			$oscar->signoff;
+			last;
+		}
+		($command, @params) = toc_split($message);
 		next unless $command;
 		process_toc_command($toc, $oscar, $command, @params);
 	}
