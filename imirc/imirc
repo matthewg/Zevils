@@ -2735,30 +2735,34 @@ sub loadbuddies($$$) {
 	}
 
 	if(!$merge) {
+		my @rmbuddies = ();
 		foreach my $group($oscar->groups) {
 			my @currbuddies = $oscar->buddies($group);
 			$buddies{$group} ||= [];
 			my @newbuddies = @{$buddies{$group}};
-			for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
-				splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+			@rmbuddies = ();
+			foreach my $buddy(@currbuddies) {
+				push @rmbuddies, $buddy unless grep {$_ eq $buddy} @newbuddies;
 			}
 			#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Removing ".join(",",@currbuddies)." from $group.", "", "", $oscar->screenname));
-			$oscar->remove_buddy($group, @currbuddies);
+			$oscar->remove_buddy($group, @rmbuddies);
 		}
 
 		my @currbuddies = $oscar->get_permitlist;
 		my @newbuddies = @permit;
-		for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
-			splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+		@rmbuddies = ();
+		foreach my $buddy(@currbuddies) {
+			push @rmbuddies, $buddy unless grep {$_ eq $buddy} @newbuddies;
 		}
-		$oscar->remove_permit(@currbuddies);
+		$oscar->remove_permit(@rmbuddies);
 
 		@currbuddies = $oscar->get_denylist;
 		@newbuddies = @deny;
-		for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
-			splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
+		@rmbuddies = ();
+		foreach my $buddy(@currbuddies) {
+			push @rmbuddies, $buddy unless grep {$_ eq $buddy} @newbuddies;
 		}
-		$oscar->remove_deny(@currbuddies);
+		$oscar->remove_deny(@rmbuddies);
 	}
 
 	$oscar->set_info(decode_base64($profile)) if $profile;
