@@ -388,10 +388,11 @@ sub mainloop() {
 
 			vec($rin, $upstream->fileno, 1) = 1;
 			foreach my $dcc(@dccqueue) {
-				if($dcc->{direction} eq "GET") {
+				if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
 					vec($rin, $dcc->{socket}->fileno, 1) = 1;
 				} else {
-					vec($win, $dcc->{socket}->fileno, 1) = 1;
+					vec($win, $dcc->{socket}->fileno, 1) = 1 if $dcc->{put} != -1;
+					vec($win, $dcc->{ssocket}->fileno, 1) = 1 if $dcc->{put} == -1;
 				}
 			}
 
@@ -423,10 +424,15 @@ sub mainloop() {
 
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
+				my $dcc = $dccqueue[$i];
 				if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
 					next unless vec($rin, $dcc->{socket}->fileno, 1);
 				} else {
-					next unless vec($win, $dcc->{socket}->fileno, 1);
+					if($dcc->{put} == -1) {
+						next unless vec($win, $dcc->{ssocket}->fileno, 1);
+					} else {
+						next unless vec($win, $dcc->{socket}->fileno, 1);
+					}
 				}
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
