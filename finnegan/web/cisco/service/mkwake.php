@@ -390,7 +390,7 @@ if($prompt == "time") {
 	if($_SESSION["message"]) echo "<MenuItem>\n<Name>Current Value (".($_SESSION["message"] == -1 ? 2 : $_SESSION["message"]+2).")</Name>\n<URL>$url&amp;message=".$_SESSION["message"]."</URL>\n</MenuItem>\n";
 	echo "<MenuItem>\n<Name>Random Message</Name>\n<URL>$url&amp;message=-1</URL>\n</MenuItem>\n";
 	for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
-		$messagetext = substr($FinneganConfig->messages[$i]["message"], 0, 62);
+		$messagetext = substr($FinneganConfig->messages[$i]["message"], 0, 62); //There's an undocumented limit on the length of MenuItem Names.
 		if(strlen($FinneganConfig->messages[$i]["message"]) > 62) $messagetext .= chr(133); //ellipsis
 
 		printf("<MenuItem>\n<Name>%s</Name>\n<URL>%s</URL>\n</MenuItem>\n",
