@@ -4,7 +4,6 @@ $cisco = 1;
 require "../../include/finnegan.inc";
 
 ?>
-
 <CiscoIPPhoneMenu>
 <Title>Wake-up Calls</Title>
 <Prompt>Select an option</Prompt>
