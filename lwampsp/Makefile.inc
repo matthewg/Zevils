@@ -26,7 +26,7 @@ lwalib:
 %.o: %.c
 	$(COMPILE)
 
-%.a:
+%.a: $(OBJS)
 	$(MKLIB)
 
 $(APP): $(OBJS) ../lwalib/lwalib.a
