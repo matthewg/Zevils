@@ -502,12 +502,15 @@ sub message($$$;$) {
 
 	debug_print(_hnick($handle) . " is sending an IM to $target: $text", "IM", 2);
 	$text = quote(txt2html($text));
+	debug_print("Translated to HTML and TOC-quoted: $text", "IM", 3);
 	while($text) {
 		$temp = substr($text, 0, 1000, "");
 		$msg = quote("toc_send_im $target ") . "\"$temp\"";
 		$msg .= " auto" if $auto;
+		debug_print("Okay, now let's sflap_put(sflap_encode($msg))", "IM", 3);
 		sflap_put($handle, sflap_encode($msg, 0, 1));
 	}
+	debug_print("Done.", "IM", 3);
 }
 
 =pod
