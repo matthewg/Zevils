@@ -1,0 +1,147 @@
+#LyX 1.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 220
+\textclass article
+\begin_preamble
+\usepackage{fullpage}
+\end_preamble
+\language english
+\inputencoding auto
+\fontscheme default
+\graphics default
+\paperfontsize 12
+\spacing single 
+\papersize letterpaper
+\paperpackage a4
+\use_geometry 1
+\use_amsmath 0
+\use_natbib 0
+\use_numerical_citations 0
+\paperorientation portrait
+\leftmargin 0.5in
+\topmargin 0.5in
+\rightmargin 0.5in
+\bottommargin 0.5in
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation skip
+\defskip 0in
+\quotes_language english
+\quotes_times 2
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+
+\layout Title
+
+Antimissile Formulas
+\layout Section
+
+Let 
+\begin_inset Formula $t_{min}$
+\end_inset 
+
+ = value in 
+\begin_inset Quotes eld
+\end_inset 
+
+Delay
+\begin_inset Quotes erd
+\end_inset 
+
+ box, 
+\begin_inset Formula $(x_{i},y_{i})$
+\end_inset 
+
+ = point to intercept at
+\layout Section
+
+Find way for a to hit b:
+\layout Subsection
+
+Pick a random angle between 5 and 85.
+\layout Subsection
+
+Find velocity: 
+\begin_inset Formula $x_{b}=V\cos \theta \frac{2V\sin \theta }{g}$
+\end_inset 
+
+, and thus 
+\begin_inset Formula $V=\sqrt{\frac{gx_{b}}{2\sin \theta \cos \theta }}$
+\end_inset 
+
+
+\layout Section
+
+Trajectory of a:
+\layout Subsection
+
+Polar -> Rectangular: 
+\begin_inset Formula $V_{a_{y}}=V_{a}\sin \theta _{a}$
+\end_inset 
+
+, 
+\begin_inset Formula $V_{a_{x}}=V_{a}\cos \theta _{a}$
+\end_inset 
+
+
+\layout Subsection
+
+Parametric form: 
+\begin_inset Formula $y_{a}=V_{a_{y}}t_{a}-\frac{1}{2}gt_{a}^{2}$
+\end_inset 
+
+, 
+\begin_inset Formula $x_{a}=V_{a_{x}}t_{a}$
+\end_inset 
+
+
+\layout Subsection
+
+Cartesian form: 
+\begin_inset Formula $y_{a}=V_{a_{y}}\frac{x_{a}}{V_{a_{x}}}-\frac{1}{2}g\frac{x_{a}}{V_{a_{x}}}^{2}$
+\end_inset 
+
+
+\layout Section
+
+Trajectory of b:
+\layout Subsection
+
+Time of intercept (where t=0 is when b fires): 
+\begin_inset Formula $t_{i}=\frac{x_{i}}{V_{a_{x}}}-t_{min}$
+\end_inset 
+
+
+\layout Subsection
+
+Parametric form: 
+\begin_inset Formula $y_{i}=V_{b}t_{i}\sin \theta _{b}-\frac{1}{2}gt_{i}^{2}$
+\end_inset 
+
+, 
+\begin_inset Formula $x_{i}=V_{b}t_{i}\cos \theta _{b}+x_{b}$
+\end_inset 
+
+
+\layout Subsection
+
+Solve for velocity: 
+\begin_inset Formula $V_{b}=\frac{x_{i}-x_{b}}{\cos \theta _{b}t_{i}}$
+\end_inset 
+
+
+\layout Subsection
+
+Plug that back in to parametric form: 
+\begin_inset Formula $y_{i}=\frac{(x_{b}-x_{i})t_{i}\sin \theta _{b}}{t_{i}\cos \theta _{b}}-\frac{gt_{i}^{2}}{2}=(x_{b}-x_{i})\tan \theta _{b}-\frac{gt_{i}^{2}}{2}$
+\end_inset 
+
+
+\layout Subsection
+
+Solve for angle: 
+\begin_inset Formula $\tan \theta _{b}=\frac{y+\frac{gt^{2}}{2}}{x_{b}-x_{i}}$
+\end_inset 
+
+
+\the_end

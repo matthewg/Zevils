@@ -1,0 +1,27 @@
+To run antimissile:
+	Unzip all files to the same directory
+	Run glsetup.exe, follow its instructions - you may need to reboot
+	Run antimissile.exe
+
+antimissile: Missile defense simulation
+by Matthew Sachs, Daniel Ameli, and Bruce Einsohn
+Created for Lawrence Woodmere Academy's BC Calculus class, 2002
+
+        Researchers at MIT's Defense Lab have just completed a prototype
+        ICBA (Intercontinental Ballistic Artillery) system.  Al Qaeda has
+        broken into the lab and stolen the plans.  They've had time to
+        bring a single ICBA battery online, and they are about to test it
+        against Boston.  You must use the prototype ICBA in Boston to
+        bring down their projectile.  However, due to environmental
+        regulations, you must bring the projectile down not only over
+        the Atlantic ocean, but over a precise spot in the Atlantic.
+        
+        1. Set the distance between Afghanistan and Boston.
+        2. Set how long after A has fired it takes B to fire.
+        3. Click "Fire A" to compute a random trajectory for A to hit B.
+                The trajectory will be drawn on the screen as a red parabola.
+        4. Click a spot on the trajectory where B must intersect the missile.
+        5. Click "Go!" to see it in action!
+
+        See http://www.zevils.com/~matthewg/glsrc/lwa/antimissile/antimissile.pdf
+        for mathematical formulas used.
