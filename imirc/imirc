@@ -3102,6 +3102,15 @@ sub update_usercount() {
 sub rm_nick_user($$) {
 	my($nick, $user) = (noprefix(shift), shift);
 	delete $nicks->{$nick}->{$user};
+
+	my $ircname = $irc_connections->{$user};
+
+	irc_send(irc_part(ircify($prefix.$nick), nickchan($user))) if
+		$ircname and
+		exists($aim_connections->{$ircname}) and
+		exists($aim_connections->{$ircname}->{screennames}->{$user}) and
+		$aim_connections->{$ircname}->{screennames}->{$user}->{inchan};
+
 	if(!haskeys($nicks->{$nick})) {
 		delete $nicks->{$nick};
 		irc_send(irc_quit(ircify($prefix.$nick), "No more users (reaped)"));
