@@ -292,14 +292,14 @@ sub update_stories($) {
 	autoflush SEM 1;
 
 	my $stories = $self->{slash_db}->sqlSelectAllHashref(
-		'sid', 'sid',
+		'sid', 'sid, UNIX_TIMESTAMP(time) AS time',
 		'stories',
 		'ISNULL(nntp_snum) AND displaystatus > -1'
 	);
 
 	my $snum = $self->{slash_db}->sqlSelect('MAX(nntp_snum)', 'stories');
 
-	foreach my $story (values %$stories) {
+	foreach my $story (sort { $a->{time} <=> $b->{time} } values %$stories) {
 		$self->{slash_db}->sqlUpdate(
 			'stories',
 			{
@@ -775,7 +775,7 @@ sub groupstats($$) {
 
 	#$self->log("groupstats($group)", LOG_DEBUG);
 
-	my($first, $last, $num) = (undef, undef, 0);
+	my($first, $last, $num) = (1, 0, 0);
 	my($id, $format, $type) = $self->parsegroup($group);
 
 	#$self->log("(id, type): ($id, $type)", LOG_DEBUG);
@@ -812,8 +812,6 @@ sub groupstats($$) {
 						"comments",
 						"sid=$journal->{discussion}");
 	}
-
-	($first, $last, $num) = (1, 0, 0) if !defined($first) || !defined($last);
 
 	#$self->log("Returning ($first, $last, $num)", LOG_DEBUG);
 	return ($first, $last, $num);
