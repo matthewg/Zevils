@@ -200,7 +200,7 @@ sub consume_subscription($) {
 
 	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
 	$self->log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
-	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_bought => $self->{slash_user}->{hits_bought} + 1});
+	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_bought => ++$self->{slash_user}->{hits_bought}});
 }
 
 sub description($$) {
