@@ -55,6 +55,8 @@ sub process_ctcp($$$);
 sub irc_ctcp($$$;$);
 sub loadbuddies($$);
 sub irc_dcc($$$$$);
+sub safename($);
+sub checkpoint();
 
 sub END { going_down; }
 
@@ -88,144 +90,6 @@ sub BEGIN {
 		print STDERR "        package.\n";
 		die "\n";
 	}
-
-	package HTML::FormatAIMIRC;
-
-		@ISA = qw(HTML::FormatText);
-
-		#Since we want to be able to trap all tags, we define a custom AUTOLOAD and format
-		sub AUTOLOAD {
-			my $sub = $AUTOLOAD;
-			my $elem = shift;
-			my $attr;
-			my $output;
-
-			$sub =~ s/^.+::(.+)_(start|end)$/$1/ or return 0;
-
-			if($2 eq "end") {
-				if($elem->{_original_html} =~ m!/$sub!) {
-					#Ooh, now this is a fun hack.
-					#It's not smart enough to know whether to make unknown tags containers.
-					#So, if someone grins at you: <g> you'll still get a g_end call.
-					#Which normally would do produce <g></g>
-					#
-					#But what about those times when you really want the closing tags?
-					#Well we store the original HTML in the FormatAIMIRC object and use that to check.
-	
-					push @{$elem->{output}}, "</$sub>";
-				}
-			} else {
-				#Get all attributes (<tag attr=val attr2=val2>)
-				foreach $attr(keys %{$_[0]}) {
-					next if $attr =~ /^_/;
-					$output .= " $attr=$_[0]->{$attr}";
-				}
-				push @{$elem->{output}}, "<$sub$output>";
-			}
-			return $elem;
-		}
-
-		sub format {
-			my($self, $html) = @_;
-			$self->begin();
-			$html->traverse(sub {
-				my($node, $start, $depth) = @_;
-				if (ref $node) {
-					my $tag = $node->tag;
-					my $func = $tag . '_' . ($start ? "start" : "end");
-					return $self->$func($node);
-				} else {  
-					$self->textflow($node);
-				}
-				1;
-			});
-			$self->end();
-			join('', @{$self->{output}});
-		}
-
-		sub hr_start {
-			my $self = shift;
-			$self->vspace(1);
-			$self->out("=" x 30);
-			$self->vspace(1);
-		}
-
-		sub img_start {
-			my($self, $elem) = @_;
-
-			$self->out("[IMAGE " . ($elem->attr('alt') || $elem->attr('src')) . "]");
-		}
-
-		#We can't get at the HREF inside of sub out, so set it here.
-		sub a_start {
-			my ($self, $elem) = @_;
-		
-			$self->{anchor}++;
-			push @{$self->{output}}, " " x $self->{hspace} . "{";
-			$self->{hspace} = 0;
-			1;
-		}
-		
-		sub a_end {
-			my($self, $elem) = @_;
-
-			$self->{anchor}--;
-			push @{$self->{output}}, "} {" . $elem->attr('href') . "}";
-		}
-
-		#Mostly ripped straight from HTML::FormatText, with a few critical additions.
-		sub out {
-			my($self, $text) = @_;
-			my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
-			
-			if ($text =~ /^\s*$/) { 
-				$self->{hspace} = 1;
-				return;
-			}
-			
-			#open(TMP, ">>/tmp/aimirc.html.txt");
-			#print TMP "out $text:\n" . Data::Dumper::Dumper($self);
-			#close TMP;
-
-			#Translate HTML formatting to IRC formatting
-			$text = "$bold$text$bold" if $self->{bold};
-			$text = "$italic$text$italic" if $self->{italic};
-			$text = "$underline$text$underline" if $self->{underline};
-			#$text = "{$text" if $self->{anchstart} and $self->{anchor};
-			#$text = "$text} {$self->{href}}" if $self->{anchstart} and not $self->{anchor}; #So we can see link addresses...
-			
-			if (defined $self->{vspace}) {
-				if ($self->{out}) {
-					$self->nl while $self->{vspace}-- >= 0;
-				}
-				$self->goto_lm;
-				$self->{vspace} = undef;
-				$self->{hspace} = 0;
-			}
-			
-			if ($self->{hspace}) {
-				if ($self->{curpos} + length($text) > $self->{rm}) {
-					# word will not fit on line; do a line break
-					$self->nl;
-					$self->goto_lm;
-				} else {
-					# word fits on line; use a space
-					$self->collect(' ');
-					++$self->{curpos};
-				}
-				$self->{hspace} = 0;
-			}
-			
-			$self->collect($text);
-			my $pos = $self->{curpos} += length $text;
-			$self->{maxpos} = $pos if $self->{maxpos} < $pos;
-		
-			$self->{'out'}++;
-		}
-	
-		1;
-
-	package main;
 }
 
 use FindBin;
@@ -239,6 +103,7 @@ use Getopt::Long;
 use LWP::Simple;
 use File::Basename;
 use ScandanavianCase qw(lc uc);
+use FormatAIMIRC;
 
 $Carp::Verbose = 1;
 
@@ -275,11 +140,11 @@ $sendidle = 1;
 $tocserver = 'toc.oscar.aol.com';
 $tocport = 80;
 $dcc = 1;
-$savebuddies = 1;
-$saveprofiles = 1;
-$savepounces = 1;
+$savebuddies = 2;
+$saveprofiles = 2;
+$savepounces = 2;
 $checkpoint = 60;
-#$directory = "$home/.aimirc
+$directory = "$home/.aimirc.dat";
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
 
@@ -497,6 +362,53 @@ $SIG{CHLD} = \&REAPER;
 
 $| = 1;
 
+#Who needs subroutines when you've got copy and paste?
+#Incidentally, this is what I mean by that "code cleanup" item in TODO
+#But would a trillion tiny functions be any cleaner?
+#Oh well - who reads this anyway?
+
+if(-d $directory and -r $directory) {
+	local $/ = undef;
+	if($savebuddies > 1 and -d "$directory/buddylists" and -r "$directory/buddylists") {
+		foreach $buddylist(glob("$directory/buddylists/*")) {
+			next if $buddylist =~ /\.\.?$/; #Skip . and ..
+			open(BUDDYLIST, "<$buddylist");
+			$buddylists{basename $buddylist} = <BUDDYLIST>;
+			close BUDDYLIST;
+		}
+	}
+	if($saveprofiles > 1 and -d "$directory/profiles" and -r "$directory/profiles") {
+		foreach $profile(glob("$directory/profiles/*")) {
+			next if $profile =~ /\.\.?$/; #Skip . and ..
+			open(PROFILE, "<$profile");
+			$profiles{basename $profile} = <PROFILE>;
+			close BUDDYLIST;
+		}
+	}
+	if($savepounces > 1 and -d "$directory/pounces" and -r "$directory/pounces") {
+		foreach $pounce(glob("$directory/pounces/*")) {
+			next if $pounce =~ /\.\.?$/; #Skip . and ..
+			open(POUNCE, "<$pounce");
+			$pounces = <POUNCE>;
+			close POUNCE;
+			foreach $_(split(/\n/, $pounces)) {
+				($who, $what) = split;
+				push @{$pounces{basename $pounce}}, {who => $who, what => $what};
+			}
+		}
+	}
+
+} else {
+	if($savebuddies > 1 or $saveprofiles > 1 or $savepounces > 1) {
+		mkdir($directory, 0700) or do {
+			print STDERR "Warning - could not create $directory: $!\n";
+			print STDERR "Fix it or we can't save buddies, profiles, or pounces to disk.\n";
+			print STDERR "(Sleeping for 5 seconds to make sure you read this...)\n";
+			sleep 5;
+		};
+	}
+}
+
 unless($reload) {
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
 
@@ -510,7 +422,7 @@ unless($reload) {
 
 	$in = "...";
 
-	$lasttime = time;
+	$lasttime = $checktime = time;
 	$keepalive = 0;
 
 	if($theirpass and $ircservers{$servermode}{theirpass}) {
@@ -907,6 +819,7 @@ sub process_irc_message($) {
 			irc_send(":$usnick PART #aimchat-$1\r\n");
 			foreach $who(keys %{$chats{$1}}) {
 				delete $chats{$1}{$who};
+				delete $nicks{normalize($who)}{"chat-$1"};
 				irc_send(":$prefix$who PART #aimchat-$1\r\n");
 			}
 			delete $chattopics{$1};
@@ -919,7 +832,7 @@ sub process_irc_message($) {
 
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) ?(\S*)( ?.*)/ or $cmd = $msg;
-		$cmd = $1 unless $cmd; $param = $2 if $2; $extra = substr($3, 1) || "" if $3;
+		$cmd = $1 unless $cmd; $param = $2 if $2 or $2 eq "0"; $extra = substr($3, 1) || "" if $3;
 		$cmd ||= $msg; #For cmds w/o param
 		#warn "Cmd: $cmd\nParam: $param: Extra: $extra\n\n";
 		$nick = lc($nick);
@@ -1113,15 +1026,15 @@ sub process_irc_message($) {
 				$param = lc($param);
 				get_info($aim_connections{$nnick}{socket}, $param);
 			}
-		} elsif ($cmd eq "set_info") {
+		} elsif ($cmd eq "set_info" or $cmd eq "set_profile") {
 			my $text;
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: set_info info"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd info"));
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				set_info($aim_connections{$nnick}{socket}, $text);
-				$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{info} = $text;
-				irc_send(irc_privmsg($usnick, $nick, "Your buddy info has been updated."));
+				$profiles{safename($aim_connections{$nnick}{aimnick})} = $text if $saveprofiles > 0;
+				irc_send(irc_privmsg($usnick, $nick, "Your profile has been updated."));
 			}
 		} elsif ($cmd eq "get_dir") {
 			unless($param) {
@@ -1265,6 +1178,32 @@ Buddy {
 
 
 			}
+		} elsif ($cmd eq "add_pounce") {
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce screenname text"));
+			} else {
+				push @{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}, {who => $param, what => $extra};
+				irc_send(irc_privmsg($usnick, $nick, "Pounce added."));
+				push @{$pounces{safename $aim_connections{$nnick}{aimnick}}}, {who => $param, what => $extra} if $savepounces > 0;
+			}
+		} elsif ($cmd eq "remove_pounce") {
+			unless(defined $param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number"));
+			} else {
+				unless(splice(@{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}, $param, 1)) {
+					splice(@{$pounces{safename $aim_connections{$nnick}{aimnick}}}, $param, 1) if $savepounces > 0;
+					irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces."));
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, "Pounce deleted."));
+				}
+			}
+		} elsif ($cmd eq "list_pounces") {
+			$i = 0;
+			foreach $pounce(@{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}) {
+				irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}"));
+				$i++;
+			}
+			irc_send(irc_privmsg($usnick, $nick, "You have no pounces.")) if $i == 0;
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
@@ -1313,7 +1252,7 @@ Buddy {
 				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
 				irc_send("$foo :get_info screenname - Get info for screenname.\r\n", 1);
-				irc_send("$foo :set_info new_info - Set your info.\r\n", 1);
+				irc_send("$foo :set_profile new profile - Set your profile.  You can use some HTML formating.\r\n", 1);
 				irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
 				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
 				irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
@@ -1346,6 +1285,15 @@ Buddy {
 				irc_send("$foo :\tsignoffall - sign off all screennames\r\n", 1);
 			#} elsif($param eq "introduction") {
 			#	irc_send("$foo :
+			} elsif($param eq "pounce") {
+				irc_send("$foo :A pounce will automatically send an IM to a buddy when that buddy comes online.\r\n", 1);
+				irc_send("$foo :Your pounces will be saved when you sign off but cannot trigger unless you are signed on.\r\n", 1);
+				irc_send("$foo :When you sign on, you will be reminded if you have any untriggered pounces.\r\n", 1);
+				irc_send("$foo :Each pounce is deleted after it is triggered, so it only will happen once.\r\n", 1);
+				irc_send("$foo :Pounce commands:\r\n", 1);
+				irc_send("$foo :\tadd_pounce screenname text - Pounce on screenname with a message of text.\r\n", 1);
+				irc_send("$foo :\tremove_pounce number - Remove pounce number.  You can find the number for the pounce you wish to remove by doing a list_pounces.\r\n", 1);
+				irc_send("$foo :\tlist_pounces - List your remaining pounces.\r\n", 1);
 			} else {
 				irc_send("$foo :aimirc $version, (c)1999-2000 Matthew Sachs.\r\n", 1);
 				irc_send("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n", 1);
@@ -1357,6 +1305,7 @@ Buddy {
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
+				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
 				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
@@ -1482,7 +1431,8 @@ Buddy {
 			}
 		}
 	} elsif(/^QUIT/) {
-		do_signoff_all($nnick, 1);
+		delete $irc_away{$nnick};
+		do_signoff_all($nnick, 1) if $aim_connections{$nnick};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
 	}
@@ -1491,7 +1441,7 @@ Buddy {
 # Process an incoming TOC message
 sub process_aim_message($$$) {
 	my ($connection, $msg, $screenname) = @_;
-	my($cmd, $val, $inick, $ar);
+	my($cmd, $val, $inick, $ar, $pounce);
 	my($nnick) = normalize($connection->{nick});
 
 	my($multinick, $socket) = ("", $connection->{screennames}{$screenname}{socket});
@@ -1511,7 +1461,19 @@ sub process_aim_message($$$) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info."));
 		}
 	} elsif($cmd eq "CONFIG") {
-		update_config($socket, $msg);
+		if(!$msg) {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
+			if($buddylists{safename $screenname}) {
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+				update_config($socket, $buddylists{safename $screenname});
+			} elsif($dcc) {
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+			}
+		} else {
+			$buddylists{safename $screenname} = $msg;
+			update_config($socket, $msg);
+		}
 	} elsif($cmd eq "IM_IN") {
 		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
@@ -1570,6 +1532,24 @@ sub process_aim_message($$$) {
 			unless($temp{Buddies}{$nnick}{online}) {
 				truncwarn($connection->{nick}, $inick);
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
+				$i = -1;
+				foreach $pounce(@{$connection->{screennames}{$screenname}{pounces}}) {
+					$i++;
+					Toc::debug_print("$pounce->{who} eq $nnick?", "IRC", 1);
+					next unless normalize $pounce->{who} eq $nnick;
+					Toc::debug_print("Yep.", "IRC", 1);
+					my $class = $temp{Buddies}{$nnick}{class};
+					my $tmp;
+					if(substr($class, 0, 1) eq "A") {
+						$tmp = "[automated pounce] " . $pounce->{what};
+					} else {
+						$tmp = $pounce->{what};
+					}
+					Toc::debug_print("Sending $tmp.", "IRC", 1);
+					message($socket, $nnick, $tmp, 1);
+					splice(@{$connection->{screennames}{$screenname}{pounces}}, $i, 1);
+					splice(@{$pounces{$screenname}}, $i, 1) if $savepounces > 0;
+				}
 			}
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 1);
 			$nicks{noprefix $nnick}{$connection->{nick}} = -1;
@@ -1840,7 +1820,7 @@ EOF
 
 # Sign on to AIM
 sub do_signon($$$$) {
-	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags, $nnick) = @_;
+	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags, $nnick, %config) = @_;
 
 	$nparam = normalize($tparam);
 	$nnick = normalize($tnick);
@@ -1850,6 +1830,7 @@ sub do_signon($$$$) {
 	} else {
 		@ret = signon $nparam, $textra, \&socksub;
 	}
+	%config = deref(get_config($nparam));
 	if($ret[0] == 0) {
 		$aim_connections{$nnick}{nick} = $nnick;
 		$aim_connections{$nnick}{screennames}{$nparam}{socket} = $ret[1];
@@ -1870,11 +1851,30 @@ sub do_signon($$$$) {
 		}
 		$nicks{$nparam}{$nnick} = -1;
 
+		if(not $config{gotconf}) {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
+			if($buddylists{safename $screenname}) {
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+				update_config($socket, $buddylists{safename $screenname});
+			} elsif($dcc) {
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+			}
+		} else {
+			$buddylists{safename $screenname} = conf2str(%config);
+		}
 		if($irc_away{$nnick}) {
-			$aim_connections{$nnick}{screennames}{$nparam}{away} = $irc_away{$nnick};
+			$aim_connections{$nnick}{away} = $irc_away{$nnick};
 			set_away($aim_connections{$nnick}{screennames}{$nparam}{socket}, $irc_away{$nnick});
 		}
-
+		if($pounces{safename $nparam}) {
+			$aim_connections{$nnick}{screennames}{$nparam}{pounces} = $pounces{safename $nnick};
+			irc_send(irc_privmsg($usnick, $nnick, "You have " . scalar @{$pounces{safename $nnick}} . " pounces.")) if scalar @{$pounces{safename $nnick}};
+		}
+		if($profiles{safename $nparam}) {
+			set_info($aim_connections{$nnick}{screennames}{$nparam}{socket}, $profiles{safename $nnick});
+			irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set."));
+		}
 	} else {
 		irc_send(irc_privmsg($tusnick, $nnick, $err));
 	}
@@ -1882,7 +1882,13 @@ sub do_signon($$$$) {
 
 # Signoff a particular screenname
 sub do_signoff($$;$) {
-	my ($nick, $connection, $already_off, $xnick) = @_;
+	my ($nick, $connection, $already_off, $xnick, $nparam, %config) = @_;
+
+	$nparam = safename Toc::_hnick($connection);
+	if($nparam and $savebuddies > 0) {
+		%config = deref(get_config($aim_connections{Toc::_hnick($connection)}));
+		$buddylists{$nparam} = conf2str(%config);
+	}
 
 	delete $irc_connections{Toc::_hnick($connection)};
 	foreach $xnick(keys %nicks) {
@@ -2077,6 +2083,10 @@ sub timestuff() {
 	} else {
 		$keepalive = 1;
 	}
+
+	if($currtime - $checktime >= $checkpoint*60 and $checkpoint > 0) {
+		checkpoint;
+	}
 }
 
 # Signoff all screennames for a particular IRCnick
@@ -2094,6 +2104,8 @@ sub do_signoff_all($;$) {
 sub going_down() {
 	my ($user, @users) = (undef, keys %aim_connections);
 
+	checkpoint unless $did_checkpoint;
+	$did_checkpoint = 1;
 	foreach $user(@users) {
 		next if $aim_connections{$user}{notified}++;
 		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
@@ -2308,5 +2320,48 @@ sub irc_dcc($$$$$) {
 		push @dccqueue, {ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
 		Toc::debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
+	}
+}
+
+# Make a screenname safe to be used in a filename.
+# This is probably not needed, but just because you're paranoid it doesn't
+# meant they're not out to get you.
+sub safename($) {
+	my($dangerous_name) = shift;
+	$dangerous_name =~ tr!<>|/\0!!d;
+	return $dangerous_name;
+}
+
+sub checkpoint() {
+	if(-d $directory and -w $directory) {
+		if($savebuddies > 1) {
+			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
+			foreach $screenname(keys %buddylists) {
+				open(BUDDYLIST, ">$directory/buddylists/$screenname");
+				print BUDDYLIST $buddylists{$screenname};
+				close BUDDYLIST;
+			}
+		}
+		if($saveprofiles > 1) {
+			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
+			foreach $screenname(keys %profiles) {
+				open(PROFILE, ">$directory/profiles/$screenname");
+				print PROFILE $profiles{$screenname};
+				close PROFILE;
+			}
+		}
+		if($savepounces > 1) {
+			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
+			foreach $screenname(keys %pounces) {
+				open(POUNCES, ">$directory/pounces/$screenname");
+				foreach $pounce(@{$pounces{$screenname}}) {
+					print POUNCES "$pounce->{who} $pounce->{what}\n";
+				}
+				close POUNCES;
+			}
+		}
+	} else {
+		print STDERR "Warning!  $directory is unwritable - not checkpointing.\n";
+		Toc::debug_print("Warning!  $directory is unwritable - not checkpointing.", "errors", 1);
 	}
 }
