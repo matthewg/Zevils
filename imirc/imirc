@@ -1719,8 +1719,8 @@ sub process_irc_message($) {
 			splice(@dccqueue, $i, 1);
 		}
 		do_signoff_all($nick) if $aim_connections->{$nick};
-	} elsif(/^PING/) {
-		irc_send(irc_pong());
+	} elsif(/^PING\s+:?(\S+)/) {
+		irc_send(irc_pong($1));
 	} elsif(/^248 +$usnick +U +(\S+)/) { # STATS U reply
 		push @uhosts, $1;
 	}
@@ -2413,8 +2413,9 @@ sub irc_topic($$$) {
 }
 
 # Reply to a PING
-sub irc_pong() {
-	return "PONG $us\r\n";
+sub irc_pong($) {
+	my $server = shift;
+	return "PONG $us $server\r\n";
 }
 
 # Leave IRC
