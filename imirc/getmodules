@@ -3,6 +3,19 @@
 sub BEGIN {
 	my $home = (getpwuid($>))[7];
 	push @INC, "$home/.cpan";
+
+	require CPAN;
+	eval {
+		require CPAN::MyConfig;
+	};
+	if($@) {
+		print STDERR "We couldn't load CPAN::MyConfig:\n";
+		print STDERR "$@\n";
+		print STDERR "Run perl -MCPAN -e shell and try again.\n";
+		print STDERR "You should be able to take the defaults for most options.\n";
+		print STDERR "See perldoc CPAN for more information.\n";
+		exit 1;
+	}		
 }
 
 use strict;
@@ -11,18 +24,16 @@ if($[ > 5.005) {
 } else {
 	$^W = 1;
 }
-use CPAN;
-use CPAN::MyConfig;
 use File::Basename;
 
 my $dirname = dirname($0);
 chomp($dirname = `pwd`) if $dirname eq ".";
 push @INC, $dirname;
 
-$CPAN::Config->{makepl_arg} = "LIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
+$CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
 $CPAN::Config->{prerequisites_policy} = "follow";
 
-foreach my $mod (qw(HTML::FormatText HTML::Parse Net::OSCAR)) {
+foreach my $mod (qw(HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR)) {
 	my $obj = CPAN::Shell->expand('Module', $mod);
 	next if $obj->inst_version() and $mod ne "Net::OSCAR";
 	print "Installing $mod...\n";
