@@ -855,14 +855,14 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				$group = $extra || "Buddies";
-				add_buddy($aim_connections{$nnick}{socket}, \[split(/,/, $param)], $group);
+				add_buddy($aim_connections{$nnick}{socket}, [split(/,/, $param)], $group);
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname"));
 			} else {
 				$param = lc($param);
-				remove_buddy($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				remove_buddy($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 				# irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
@@ -882,28 +882,28 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname"));
 			} else {
 				$param = lc($param);
-				add_permit($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				add_permit($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname"));
 			} else {
 				$param = lc($param);
-				add_deny($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				add_deny($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname"));
 			} else {
 				$param = lc($param);
-				remove_deny($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				remove_deny($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname"));
 			} else {
 				$param = lc($param);
-				remove_permit($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				remove_permit($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
