@@ -139,16 +139,17 @@ $SIG{CHLD} = \&REAPER;
 
 $| = 1;
 
-$upstream = IO::Socket::INET->new("$them:$themport");
-do { $upstream->print($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $@\n";
-$upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $@\n";
+$upstream = IO::Socket::INET->new("$them:$themport") or die "Couldn't connect to IRC server $them:$themport ($!)\n";
+do { $upstream->print($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
+$upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $!\n";
 
 if($theirpass and $ircservers{$servermode}{theirpass}) {
 	while(($in !~ /PASS :?(.+)/)) {
-		chomp($in = $upstream->getline);
-		Toc::debug_print($in, "irc_connect", 1);
+		$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
+		chomp $in;
+		Toc::debug_print($in, "irc_connect", 1) if $in;
 	}
-	
+
 	$in =~ s/ :1//;
 	$in =~ /^PASS :?(.+)/;
 	$pass = $1;
@@ -158,14 +159,15 @@ if($theirpass and $ircservers{$servermode}{theirpass}) {
 
 if($servermode eq "dal2") {
 	while($in !~ /EBURST/) {
-		chomp($in = $upstream->getline);
-		Toc::debug_print($in, "irc_connect", 1);
+		$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
+		chomp $in;
+		Toc::debug_print($in, "irc_connect", 1) if $in;
 	}
 }
 
 $aimircdebug = 0;
 
-irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $@\n";
+irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $!\n";
 irc_send(":$usnick MODE $usnick -i\r\n");
 irc_send(":$us MODE $usnick +o\r\n");
 
@@ -225,7 +227,6 @@ sub irc_subparms($;$$) {
 	$input =~ s/_NICK_/$nick/g;
 	$uid++;
 	$input =~ s/_UID_/$uid/g;
-	warn "$input\n" if $debug >= 2;
 	return $input;
 }
 
@@ -753,6 +754,7 @@ sub Toc::debug_print($$$) {
 			$upstream->print(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n");
 		}
 	} else {
+		chomp $text;
 		print STDERR "$text\n";
 	}
 }
