@@ -83,7 +83,7 @@ sub install_module($) {
 	my $dist = $CPAN::META->instance('CPAN::Distribution',$obj->cpan_file);
 	$dist->make;
 
-	foreach my $prereq(($] < 5.006) ? ($dist->needs_prereq) : (keys %{$dist->prereq_pm})) {
+	foreach my $prereq(($] < 5.006001) ? ($dist->needs_prereq) : (keys %{$dist->prereq_pm})) {
 		my $prereq_obj = CPAN::Shell->expand('Module', $prereq);
 		install_module($prereq) unless $prereq_obj->inst_version;
 	}
