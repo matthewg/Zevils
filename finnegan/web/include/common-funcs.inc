@@ -55,7 +55,7 @@ function set_pin($extension, $pin) {
 function get_wakes() {
 	global $extension;
 
-	$result = mysql_query("SELECT wake_id, time, message, date, weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
+	$result = mysql_query("SELECT wake_id, time, message, date, weekdays, cal_type, disabled FROM wakes WHERE extension='$extension' ORDER BY time");
 	if(!$result) db_error();
 	return $result;
 }

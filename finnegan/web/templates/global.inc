@@ -68,9 +68,9 @@ __PAGE_SCRIPT__
   <!-- <img src="img/tagline.png" alt="Finnegan Wake-up Call Service" width="287" height="20" style="padding-top: 8px" /> -->
   </div>
   <div id="main">
-  <div id="navigation">
+  <div><ul id="navigation">
 	__NAV_MENU__
-  </div>
+  </ul></div>
   <h3>__PAGE_TITLE__</h3>
 END
 ,

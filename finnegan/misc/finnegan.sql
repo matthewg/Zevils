@@ -12,6 +12,7 @@ CREATE TABLE wakes (
 	date DATE NULL,
 	weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cal_type SET('normal', 'holidays', 'Brandeis') NULL,
+	disabled BIT NOT NULL DEFAULT 0,
 	next_trigger_time DATETIME NULL,
 	this_trigger_time DATETIME NULL,
 	this_unreachable_count INT NOT NULL DEFAULT 0,

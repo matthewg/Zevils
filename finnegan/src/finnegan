@@ -79,7 +79,7 @@ $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; 
 our($call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid);
 sub prepare_statements() {
 	$get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
-	$get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger LIMIT ".(scalar(keys %phonelines_total)*2));
+	$get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE disabled = 0 AND next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger LIMIT ".(scalar(keys %phonelines_total)*2));
 	$get_forgotpins = $dbh->prepare("SELECT * FROM prefs WHERE forgot_pin=1");
 	$update_forgotpin = $dbh->prepare("UPDATE prefs SET forgot_pin=0 WHERE extension=?");
 	$delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
@@ -554,6 +554,10 @@ sub make_call($$) {
 								}
 							}
 						}
+						exit 1;
+					} elsif($status == 5) { # Alternate signal interruption
+						$end->("failure", "VM shell interrupted");
+						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 						exit 1;
 					} else {
 						$end->("failure", "unknown exit code $status");

@@ -23,16 +23,37 @@ if(isset($_POST["op"])) {
 	}
 }
 
+while(list($name, $val) = each($_POST)) {
+	if(preg_match("/^wake-(en|dis)able-([0-9]+)\$/", $name, $matches)) {
+		if($matches[1] == "en")
+			$newval = 0;
+		else
+			$newval = 1;
+		if(!mysql_query("UPDATE wakes SET disabled=$newval WHERE extension='$extension' AND wake_id=$matches[2]")) db_error();
+	}
+}
+reset($_POST);
+
 $result = get_wakes();
 
 $count = mysql_num_rows($result);
 echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wakes"]["list_start"]);
 while($count && ($row = mysql_fetch_assoc($result))) {
+	$button = "";
 	$delete = "";
-	$delete_class = "";
+	$class = "";
+
+	if($row["disabled"]) {
+		$button = preg_replace("/__ID__/", $row["wake_id"], $TEMPLATE["wakes"]["list_item_enable_button"]);
+		$class = "wake-disabled";
+	} else {
+		$button = preg_replace("/__ID__/", $row["wake_id"], $TEMPLATE["wakes"]["list_item_disable_button"]);
+		$class = "wake-enabled";
+	}
+
 	if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls" && isset($_POST["id"][$row["wake_id"]])) {
 		$delete = "checked";
-		$delete_class = 'class="wake-deleted"';
+		$class = "wake-deleted";
 	}
 
 	$time_array = time_to_user($row["time"]);
@@ -50,18 +71,20 @@ while($count && ($row = mysql_fetch_assoc($result))) {
 		}
 
 		echo preg_replace(
-			array("/__DELETE_CLASS__/",
+			array("/__CLASS__/",
 			      "/__ID__/",
 			      "/__DELETE__/",
 			      "/__TIME__/",
 			      "/__MESSAGE__/",
-			      "/__DATE__/"),
-			array($delete_class,
+			      "/__DATE__/",
+			      "/__BUTTON__/"),
+			array($class,
 			      $row["wake_id"],
 			      $delete,
 			      $time,
 			      $row["message"],
-			      $date),
+			      $date,
+			      $button),
 			$TEMPLATE["wakes"]["list_item_once"]
 		);
 	} else {
@@ -77,24 +100,25 @@ while($count && ($row = mysql_fetch_assoc($result))) {
 			$cal = "Brandeis";
 
 		echo preg_replace(
-			array("/__DELETE_CLASS__/",
+			array("/__CLASS__/",
 			      "/__ID__/",
 			      "/__DELETE__/",
 			      "/__TIME__/",
 			      "/__MESSAGE__/",
 			      "/__DAYS__/",
-			      "/__CAL__/"),
-			array($delete_class,
+			      "/__CAL__/",
+			      "/__BUTTON__/"),
+			array($class,
 			      $row["wake_id"],
 			      $delete,
 			      $time,
 			      $row["message"],
 			      $daytext,
-			      $cal),
+			      $cal,
+			      $button),
 			$TEMPLATE["wakes"]["list_item_recur"]
 		);
 	}
-	if($delete) echo "</span>";
 }
 echo $TEMPLATE["wakes"]["list_end"];
 if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls") echo $TEMPLATE["wakes"]["delete_confirm"];

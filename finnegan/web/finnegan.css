@@ -67,6 +67,11 @@ caption {
 td {
 	padding: 2px
 }
+.wake-disabled {
+	background-color: #999999;
+	font-style: italic;
+	color: #FFFFFF;
+}
 .wake-deleted {
 	background-color: #FF0000;
 }

@@ -78,24 +78,35 @@ Wake-up call list (wakes) items:
   submit a POST request to index.php as per the method for creating wake-up calls
   below, but use op='edit' instead of op='create', and give an 'id' parameter containing
   the wake-up call ID.  To delete wake-up calls, use a POST request with op="Delete marked wake-up calls"
-  and set the parameter named 'id[__ID__]' for each wake to delete.
+  and set the parameter named 'id[__ID__]' for each wake to delete.  
 
 	list_start: Start of a user's wake-up call list
 		COUNT: Number of wake-up calls that the user has.
-	list_item_once: A one-shot wake-up call in the wake-up call list
-		DELETE_CLASS: If this wake-up call was flagged for deletion, 'class="wake-deleted"'.  Otherwise, blank.
+	list_item_enable_button: For disabled wake-up calls, an "Enable" button
+		ID: Unique identifier for this wake-up call
+
+		Should POST to wakes.php with a parameter named "wake-enable-__ID__" set to non-zero
+	list_item_disable_button: For enabled wake-up calls, a "Disable" button.
+		ID: Unique identifier for this wake-up call
+
+		Should POST to wakes.php with a parameter named "wake-disable-__ID__" set to non-zero
+	list_item_once: A one-shot wake-up call in the wake-up call list.
+		CLASS: wake-enabled, wake-disabled, or wake-deleted
 		ID: Unique identifier for this wake-up call
 		DELETE: If 'checked', this wake-up call was flagged for deletion.  Otherwise, blank.
 		TIME: Time that the wake-up call is set for
 		MESSAGE: Number of the wake-up message that the call is using
 		DATE: Date that the wake-up call is set for
-	list_item_recur: A recurring wake-up call in the wake-up call list
+		BUTTON: Enable/disable button (c.f. 'list_item_enable_button', 'list_item_disable_button')
+	list_item_recur: A recurring wake-up call in the wake-up call list.
+		CLASS: wake-enabled, wake-disabled, or wake-deleted
 		ID: As above
 		DELETE: As above
 		TIME: As above
 		MESSAGE: As above
 		DAYS: List of days of week
 		CAL: Type of calendar that the wake-up call uses: 'Regular'/'Brandeis'/'National Holidays'
+		BUTTON: Enable/disable button (c.f. 'list_item_enable_button', 'list_item_disable_button')
 	list_end: End of the wake-up call list
 
 	delete_confirm: "Confirm Deletion" button.
