@@ -231,6 +231,7 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#You can try something else, but I don't think the
 			#default method works.
 $time = 60*5; #Five minutes.
+$verbose_signon = 0;
 $ssl = 1;
 @default_conffiles = qw(/etc/aimirc.conf $home/.aimirc);
 $fork = 1;
@@ -298,6 +299,7 @@ $errors = &GetOptions(
 	"verbose|v" => \$verbose,
 	"debug:i" => \$debug,
 	"debuglevel=s\%" => \%debuglevel,
+	"verbose_signon:i" => \$verbose_signon
 );
 
 if(!$errors) {
@@ -584,7 +586,7 @@ sub process_irc_message {
 						irc_send(irc_privmsg($usnick, $nick, "Couldn't fork: $!"));
 						Toc::debug_print("Couldn't fork: $!", "critical_errors", 1);
 					} elsif($pid == 0) {
-						got_signon(@temp);
+						do_signon(@temp);
 						if($aim_connections{$tnick}{socket}) {
 							while(1 == 1) {
 								if($aim_connections{$tnick}{socket}->error) {
@@ -600,7 +602,7 @@ sub process_irc_message {
 						$aim_connections{$nick}{pid} = $pid;
 					}
 				} else {
-					got_signon(@temp);
+					do_signon(@temp);
 				}
 			}
 		} elsif ($cmd eq "buddylist") {
@@ -917,6 +919,7 @@ sub process_irc_message {
 		delete $aim_connections{$nnick};
 		$filenos[$aim_connections{$newnick}{socket}->fileno] = $newnick if $aim_connections{$newnick}{socket};
 	} elsif(/^:(\S+) QUIT/) {
+		$nnick = normalize($1);
 		do_signoff($nnick, $aim_connections{$nnick}{socket});
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
@@ -1189,13 +1192,17 @@ EOF
 }
 
 
-sub got_signon {
+sub do_signon {
 	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret) = @_;
 
 	$nparam = normalize($tparam);
 
 	# lock $aim_connections{$tnick};
-	@ret = signon $nparam, $textra, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
+	if($verbose_signon) {
+		@ret = signon $nparam, $textra, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
+	} else {
+		@ret = signon $nparam, $textra;
+	}
 	if($ret[0] == 0) {
 		{
 			$aim_connections{$tnick}{nick} = $tnick;
