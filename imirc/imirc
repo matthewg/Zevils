@@ -1653,7 +1653,7 @@ sub do_signoff($$;$) {
 	foreach $xnick(keys %nicks) {
 		next if normalize($xnick) eq normalize($usnick);
 		delete $nicks{$xnick}{$nick};
-		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
+		irc_send(":$prefix$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
 
 	delete $aim_connections{$nick}{screennames}{Toc::_hnick($connection)};
