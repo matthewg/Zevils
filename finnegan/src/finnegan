@@ -557,6 +557,7 @@ sub make_call($$) {
 						exit 1;
 					} else {
 						$end->("failure", "unknown exit code $status");
+						log_error("unknown wake exit code");
 						if($type eq "wake") {
 							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 						}
