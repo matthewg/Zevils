@@ -36,14 +36,14 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 		server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 		uspass => 1,
 		theirpass => 1,
-		nicklen => 30,
+		nicklen => 30
 	},
 	dragonfire => {
 		nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
 		server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 		uspass => 1,
 		theirpass => 1,
-		nicklen => 10,
+		nicklen => 10
 	},
 	ircu => {
 		nick => ":$us NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger services\r\n",
@@ -57,7 +57,7 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 		server => "SERVER $us 1 :AOL Instant Messenger serices\r\n",
 		uspass => 1,
 		theirpass => 1,
-		nicklen => 9,
+		nicklen => 9
 	}
 );
 
@@ -191,6 +191,7 @@ sub irc_subparms($;$$) {
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
 	return $input;
+}
 
 sub irc_privmsg {
 	my($from, $to, $msg) = @_;
@@ -206,6 +207,7 @@ sub irc_newnick {
 }
 
 sub process_irc_message {
+	my $nick;
 	if(/:([^ ]+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
 		$nick = $1; $msg = $2;
 		$cmd = undef; $extra = undef; $param = undef;
@@ -500,6 +502,7 @@ sub process_aim_message {
 	} elsif($cmd eq "CONFIG") {
 		update_config($connection->{socket}, $msg);
 	} elsif($cmd eq "IM_IN") {
+		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
 		($inick = $1) =~ tr/ //d;
 		Toc::debug_print("$prefix$inick is sending an IM to $connection->{nick}: $3", "IM", 2);
@@ -552,6 +555,7 @@ sub process_aim_message {
 		Toc::debug_print("$connection->{nick} has joined chat $2 (ID $1)", "chat", 2);
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "You have joined chat $2.  Chat id is $1."));
 	} elsif($cmd eq "CHAT_IN") {
+		my $nick;
 		$val =~ /([^:]+):([^:]+):(.+):(.*)/;
 		Toc::debug_print("$2 said to $connection->{nick} in chat $1: $lines[0]", "chat", 2);
 		$msg = ":$usnick PRIVMSG $connection->{nick} :$2 ";
@@ -600,7 +604,7 @@ sub html2txt {
 
 sub tsub {
 	my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
-	my($node, $startflag, $xnode) = @_;
+	my($node, $startflag, $xnode, $nick) = @_;
 	return 1 unless $startflag;
 	foreach $xnode(@{$node->{_content}}) {
 		if(ref $xnode) {
