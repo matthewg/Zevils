@@ -206,8 +206,10 @@ You C<MUST NOT> override this method.
 
 sub groupname($$) {
 	my($self, $group) = @_;
+	my $input = $group;
 	$group =~ tr! .*?\\/,!_______!;
 	$group =~ s/^!/_/;
+	$self->log("groupname: $input -> $group", LOG_NOTICE);
 	return $group;
 }
 
