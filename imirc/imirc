@@ -256,7 +256,7 @@ sub process_irc_message {
 				$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
 				foreach $buddy(keys %{$temp{Buddies}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_buddy($aim_connections{$nick}{socket}, $buddy);
+					add_buddy($aim_connections{$nick}{socket}, $buddy, $temp{Buddies}{$buddy}{group}, 1);
 				}
 				foreach $buddy(keys %{$temp{permit}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
