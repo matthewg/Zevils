@@ -25,6 +25,8 @@ sub load_settings {
 	$settings =~ s/#__PHPONLY_START__.*?#__PHPONLY_END__//gs;
 	eval $settings;
 	die "Couldn't load settings: $@\n" if $@;
+
+	die "Invalid wake_method -- should be tftp/unicast/multicast\n" unless $Finnegan::Config::Cisco::wake_method =~ /^(tftp|unicast|multicast)$/;
 }
 $SIG{HUP} = \&load_settings;
 
@@ -98,7 +100,7 @@ sub initialize_wake($;$) {
 		} else {
 			$row->{time} =~ /(\d+):(\d+)/;
 			my @currtime = localtime(time());
-			my @waketime;
+			my @waketime = (0, $2, $1);
 			@waketime[3, 4, 5] = @currtime[3, 4, 5];
 
 			my $currsecs = $currtime[2]*60+$currtime[1];
@@ -146,7 +148,7 @@ sub post_to_phone($@) {
 
 		my $error = "";
 
-		my $response_items = $parsetree->[0];
+		my $response_items = $parsetree;
 		shift @$response_items;
 		while(@$response_items) {
 			my($tag, $value) = splice(@$response_items, 0, 2);
@@ -401,13 +403,6 @@ sub activate_wake($) {
 		$unreachable_wake = $dbh2->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL, this_unreachable_count=this_unreachable_count+1 WHERE wake_id=?");
 		$snooze_wake = $dbh2->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL WHERE wake_id=?");
 
-
-		my @samples = ();
-		my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
-		$hour =~ s/^0//;
-		$minute =~ s/^0//;
-		$ampm = lc($ampm);
-
 		my $message;
 		if($row->{message} == -1) { # Random message
 			my @messages = map { $_->{id} } @$Finnegan::Config::messages;
@@ -416,54 +411,21 @@ sub activate_wake($) {
 			$message = $row->{message};
 		}
 
-		@samples = (
-			"../g711-mulaw/messages/$message.ul",
-			"../g711-mulaw/wake/timeis.ul",
-			"../g711-mulaw/wake/hours/$hour.ul"
-		);
-
-		if($minute > 0) {
-			if($minute > 0 and $minute < 20) {
-				push @samples, "../g711-mulaw/wake/ten-minutes/0.ul" if $minute < 10;
-				push @samples, "../g711-mulaw/wake/one-minutes/$minute.ul";
-			} else {
-				$minute =~ /(.)(.)/;
-				push @samples, "../g711-mulaw/wake/ten-minutes/".($1*10).".ul";
-				push @samples, "../g711-mulaw/wake/one-minutes/$2.ul" if $2;
-			}
-		}
-
-		push @samples, "../g711-mulaw/wake/$ampm.ul";
-
-		push @samples, "../g711-mulaw/wake/edit.ul";
-
-		if(!open(OUTSAMPLE, ">", $Finnegan::Config::Cisco::tftp_dir . "/fin-" . $row->{wake_id} . ".ul")) {
-			log_wake_end("failure", "Couldn't open output sample fin-".$row->{wake_id}.".ul: $!", $log_id);
-			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-			exit 1;
-		}
-
-		local $/ = undef;
-
-		log_debug("Reading samples...");
-		foreach(@samples) {
-			log_debug("Reading sample $_");
-			if(!open(SAMPLE, $_)) {
-				log_wake_end("failure", "Couldn't open input sample $_: $!", $log_id);
-				$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-				exit 1;
-			}
-			print OUTSAMPLE <SAMPLE>;
-			close SAMPLE;
-		}
-
-		close OUTSAMPLE;
-		log_debug("Done with samples.");
-
+		make_samples($message) if($Finnegan::Config::Cisco::wake_method eq "tftp");
+			
 
 		if($Finnegan::Config::nocalls) {
-			log_debug("Output sample is in fin-".$row->{wake_id}.".ul");
+			log_debug("All done.");
 		} else {
+			my $uri;
+			if($Finnegan::Config::Cisco::wake_method eq "tftp") {
+				$uri = "Play:${Finnegan::Config::Cisco::tftp_prefix}fin-".$row->{wake_id}.".ul";
+			} elsif($Finnegan::Config::Cisco::wake_method eq "unicast") {
+				$uri = "RTPRx:".$Finnegan::Config::Cisco::rtp_ip.":".$Finnegan::Config::Cisco::rtp_port_base;
+			} else {
+				$uri = "RTPMRx:".$Finnegan::Config::Cisco::rtp_ip.":".($Finnegan::Config::Cisco::rtp_port_base+2*$message);
+			}
+
 			my $error = post_to_phone($row->{extension},
 				"Play:${Finnegan::Config::Cisco::tftp_prefix}fin-".$row->{wake_id}.".ul",
 				$Finnegan::Config::Cisco::url_base . "/wake/dowake.php?id=" . $row->{wake_id} . "&amp;date=". ($row->{date} ? "1" : "0")
@@ -473,8 +435,71 @@ sub activate_wake($) {
 				log_wake_end("failure", "Unreachable: $error", $log_id);
 				$unreachable_wake->execute($row->{wake_id});
 			}
+
+			if($Finnegan::Config::Cisco::wake_method eq "unicast") {
+				my $pid = fork();
+				log_wake_end("failure", "Couldn't fork: $!", $log_id) unless defined($pid);
+				if($pid == 0) {
+					exec("./finnegan-cisco-rtp", "-u", "-m", $message, "-d", "127.0.0.1:".$Finnegan::Config::Cisco::rtp_port_base)
+						or die "Couldn't exec finnegan-cisco-rtp: $!\n";
+				}
+			}
 		}
 
 		exit 0;
 	}
+}
+
+
+sub make_samples($) {
+	my $message = shift;
+
+	my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
+	$hour =~ s/^0//;
+	$minute =~ s/^0//;
+	$ampm = lc($ampm);
+
+	my @samples = (
+		"../g711-mulaw/messages/$message.ul",
+		"../g711-mulaw/wake/timeis.ul",
+		"../g711-mulaw/wake/hours/$hour.ul"
+	);
+
+	if($minute > 0) {
+		if($minute > 0 and $minute < 20) {
+			push @samples, "../g711-mulaw/wake/ten-minutes/0.ul" if $minute < 10;
+			push @samples, "../g711-mulaw/wake/one-minutes/$minute.ul";
+		} else {
+			$minute =~ /(.)(.)/;
+			push @samples, "../g711-mulaw/wake/ten-minutes/".($1*10).".ul";
+			push @samples, "../g711-mulaw/wake/one-minutes/$2.ul" if $2;
+		}
+	}
+
+	push @samples, "../g711-mulaw/wake/$ampm.ul";
+
+	push @samples, "../g711-mulaw/wake/edit.ul";
+
+	if(!open(OUTSAMPLE, ">", $Finnegan::Config::Cisco::tftp_dir . "/fin-" . $row->{wake_id} . ".ul")) {
+		log_wake_end("failure", "Couldn't open output sample fin-".$row->{wake_id}.".ul: $!", $log_id);
+		$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+		exit 1;
+	}
+
+	local $/ = undef;
+
+	log_debug("Reading samples...");
+	foreach(@samples) {
+		log_debug("Reading sample $_");
+		if(!open(SAMPLE, $_)) {
+			log_wake_end("failure", "Couldn't open input sample $_: $!", $log_id);
+			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+			exit 1;
+		}
+		print OUTSAMPLE <SAMPLE>;
+		close SAMPLE;
+	}
+
+	close OUTSAMPLE;
+	log_debug("Done with samples.");
 }
