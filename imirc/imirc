@@ -486,6 +486,7 @@ sub mainloop() {
 					do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
 					$msg = sflap_get($connection->{screennames}{$screenname}{socket});
 					if($msg eq "-1" and $! != EAGAIN) {
+						$multinick = "";
 						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 						irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
 						do_signoff($connection->{nick}, $connection->{screennames}{$screenname}{socket});
@@ -2200,6 +2201,7 @@ sub timestuff($) {
 			$connection = $aim_connections{$cname};
 			foreach $screenname(keys %{$connection->{screennames}}) {
 				next unless $screenname;
+				$multinick = "";
 				$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 				$sndata = $connection->{screennames}{$screenname};
 				if($sndata->{socket}) {
