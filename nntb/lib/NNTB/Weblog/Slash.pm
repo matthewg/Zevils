@@ -78,6 +78,7 @@ sub parsegroup($$) {
 	my($id, $format, $type);
 
 	$group = lc($group);
+	#$self->log("parsegroup $group", LOG_DEBUG);
 
 	substr($group, 0, length($self->{root}) + 1) = ""; # Remove root (and trailing .)
 	my(@groupparts) = split(/\./, $group);
@@ -90,16 +91,19 @@ sub parsegroup($$) {
 		$type = "section";
 		$id = "";
 
-		if($id = shift @groupparts) { # .section
+		if(@groupparts) { # .section
+			$id = shift @groupparts;
 			$id =~ /^(.+)_(\d+)$/;
 			$id = $2; # Now ID is section number
 
 			# Section name was possibly mangled
-			($id) = grep { $_->{id} == $id } values %{$self->{slash_db}->getSections()};
+			my ($sectname) = map { $_->{section} } grep { $_->{id} == $id } values %{$self->{slash_db}->getSections()};
+			$id = $sectname;
 
 			# Now ID is section name again
 
-			if($id = shift @groupparts) { # .SID
+			if(@groupparts) { # .SID
+				$id = shift @groupparts;
 				$type = "story";
 			}
 		}
@@ -107,16 +111,19 @@ sub parsegroup($$) {
 		$type = "journals";
 		$id = "";
 
-		if($id = shift @groupparts) { # .nick_uid
+		if(@groupparts) { # .nick_uid
+			$id = shift @groupparts;
 			$id =~ /^(.+)_(\d+)$/;
 			$id = $2; # Now ID is UID
 
-			if($id = shift @groupparts) { # .JID
+			if(@groupparts) { # .JID
+				$id = shift @groupparts;
 				$type = "journal";
 			}
 		}
 	}
 
+	#$self->log("parsegroup returning ($id, $format, $type)", LOG_DEBUG);
 	return ($id, $format, $type);
 }
 
@@ -326,7 +333,11 @@ sub articles($$;$) {
 
 		my $where = "NOT ISNULL(nntp_ctime)";
 		$where .= " AND UNIX_TIMESTAMP(nntp_ctime) > $time" if $time;
-		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+		if($id) {
+			$where .= " AND section=".$self->{slash_db}->sqlQuote($id);
+		} else {
+			$where .= " AND displaystatus = 0";
+		}
 
 		$self->update_stories();
 
@@ -788,7 +799,11 @@ sub groupstats($$) {
 		$self->update_stories();
 
 		my $where = "NOT ISNULL(nntp_snum)";
-		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+		if($id) {
+			$where .= " AND section=".$self->{slash_db}->sqlQuote($id);
+		} else {
+			$where .= " AND displaystatus = 0";
+		}
 
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_snum), MAX(nntp_snum), COUNT(nntp_snum)",
@@ -864,22 +879,33 @@ sub next($$$) { shift->prev_next(@_, ">", "MIN"); }
 sub msgnums($$$$) {
 	my($self, $group, $min, $max) = @_;
 	my($id, $format, $type) = $self->parsegroup($group);
+	my $ret;
+
+	$self->log("msgnums($group, $min, $max)", LOG_DEBUG);
 
 	if($type eq "section") {
 		my $where = "nntp_snum >= $min AND nntp_snum <= $max";
-		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+		if($id) {
+			$where .= " AND section=".$self->{slash_db}->sqlQuote($id);
+		} else {
+			$where .= " AND displaystatus = 0";
+		}
 
-		return $self->{slash_db}->sqlSelect('nntp_snum', 'stories', $where);
+		$self->log("msgnums where: $where", LOG_DEBUG);
+		$ret = $self->{slash_db}->sqlSelectAll('nntp_snum', 'stories', $where);
 	} elsif($type eq "story") {
-		return $self->{slash_db}->sqlSelect('cid', 'comments', "discussion = $id AND cid >= $min AND cid <= $max");
+		$ret = $self->{slash_db}->sqlSelectAll('cid', 'comments', "sid = $id AND cid >= $min AND cid <= $max");
 	} elsif($type eq "journals") {
 		my $where = "id >= $min AND id <= $max";
 		$where .= " AND uid=$id" if $id;
 
-		return $self->{slash_db}->sqlSelect('id', 'journals', $where);
+		$ret = $self->{slash_db}->sqlSelectAll('id', 'journals', $where);
 	} elsif($type eq "journal") {
-		return $self->{slash_db}->sqlSelect('cid', 'comments, journals', "comments.sid = journals.discussion AND cid >= $min AND cid <= $max");
+		$ret = $self->{slash_db}->sqlSelectAll('cid', 'comments, journals', "journals.id=$id AND comments.sid = journals.discussion AND cid >= $min AND cid <= $max");
 	}
+
+	$self->log("Returning: ", join(", ", sort map {@$_} @$ret), LOG_DEBUG);
+	return sort map { @$_ } @$ret;
 }
 
 1;

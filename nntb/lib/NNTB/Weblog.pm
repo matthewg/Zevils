@@ -215,7 +215,7 @@ sub groupname($@) {
 		$group =~ s/^!/_/;
 	}
 	my $group = join(".", @groupparts);
-	$self->log("groupname: $input -> $group", LOG_NOTICE);
+	#$self->log("groupname: $input -> $group", LOG_NOTICE);
 	return $group;
 }
 

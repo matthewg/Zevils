@@ -345,10 +345,10 @@ sub nntp_put(@) {
 sub findblog($) {
 	my $group = lc(shift);
 
-	do_log("findblog($group):", LOG_DEBUG);
+	#do_log("findblog($group):", LOG_DEBUG);
 	my($blog) = grep {
 		my $pos = index($group, lc($_->root));
-		do_log("\tindex($group, ", $_->root, ") == $pos", LOG_DEBUG);
+		#do_log("\tindex($group, ", $_->root, ") == $pos", LOG_DEBUG);
 		$pos == 0; # It is at the beginning of the string
 	} values %blogs;
 	return $blog;
