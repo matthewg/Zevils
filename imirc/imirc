@@ -25,7 +25,7 @@ EOF
 
 sub going_down();
 sub do_signoff_all($;$);
-sub reap();
+sub timestuff();
 sub switchnick($$);
 sub irc_newnick($);
 sub noprefix($);
@@ -685,7 +685,7 @@ unless($reload) {
 
 		#Do this loop about once every 100 seconds
 		if((($currtime % 100) == 0) and ($currtime - $lasttime) >= 100) { #Cleanup nicks
-			reap;
+			timestuff;
 		}
 	}
 }
@@ -1102,6 +1102,7 @@ sub process_irc_message($) {
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				set_info($aim_connections{$nnick}{socket}, $text);
+				$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{info} = $text;
 				irc_send(irc_privmsg($usnick, $nick, "Your buddy info has been updated."));
 			}
 		} elsif ($cmd eq "get_dir") {
@@ -1877,13 +1878,11 @@ sub socksub {
 			PeerAddr => $tocserver,
 			PeerPort => $tocport,
 			SSL_verify_mode => 0x00,
-			Timeout => 60,
 		);
 	} else {
 		IO::Socket::INET->new(
 			PeerAddr => $tocserver,
 			PeerPort => $tocport,
-			Timeout => 60,
 		);
 	}
 }
@@ -1972,8 +1971,8 @@ sub switchnick($$) {
 	return 0;
 }
 
-# Clean up nicknames, send keepalives/idle, etc.
-sub reap() {
+# Clean up nicknames, send keepalives/idle, checkpoint, etc.
+sub timestuff() {
 	$lasttime = $currtime;
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %nicks) {
