@@ -1661,6 +1661,8 @@ sub process_irc_message($) {
 	} elsif(/^(PRIVMSG|NOTICE) +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$screenname = $aim_connections->{$nick}->{aimnick};
 
+		return if ignorenick($nick);
+
 		my $notice = ($1 eq "NOTICE") ? 1 : 0;
 		my $target = noprefix($longnicks->{$2}); my $msg = $4;
 		my $recipient = $2;
