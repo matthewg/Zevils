@@ -44,6 +44,7 @@ sub BEGIN {
 		require MIME::Base64;
 		require Net::OSCAR;
 		Net::OSCAR->import(qw(:standard :loglevels normalize));
+		import MIME::Base64;
 	};
 
 	$@ .= "We require Net::OSCAR 0.08 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.08;
@@ -411,7 +412,7 @@ sub mainloop() {
 			#}
 
 			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
-			alarm 5;
+			alarm 10;
 
 			debug_print("Processing OSCARs...", "irc", 2);
 
