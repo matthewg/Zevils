@@ -1,5 +1,7 @@
 <?
 
+$faq_anchor = crc32("What are the advanced options for alarms?");
+
 $TEMPLATE["mkwake"] = array(
 	"title" => "Create/Edit Alarm",
 	"start" => "",
@@ -161,7 +163,7 @@ Calendar Type: <select name="cal_type">
 <option value="normal" __CALTYPE_NORMAL__>Normal</option>
 </select>
 </p></div><p>
-6. Advanced Options (<a href="docs.php#<?echo crc32("What are the advanced options for alarms?")?>">What are these?</a>)
+6. Advanced Options (<a href="docs.php#$faq_anchor">What are these?</a>)
 Maximum snooze count: <input type="text" name="max_snooze_count" size="2" maxlength="1" value="__MAXSNOOZE__" />
 </p><p>
 <input type="submit" name="submit" value="Submit" /><br />
