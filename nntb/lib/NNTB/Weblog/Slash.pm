@@ -90,13 +90,20 @@ sub num2id($$$) {
 		$idid = $self->{slash_db}->sqlSelect("cid", "comments",
 			"sid=".$self->{slash_db}->sqlQuote($id).
 			" AND nntp_cnum=$msgnum") or return undef;
-	} elsif($type eq "journal") {
+	} elsif($type eq "journal" or $type eq "journals") {
 		$idtype = "journal";
-		$idid = $self->{slash_db}->sqlSelect("id", "journals",
-			"uid=".$self->{slash_db}->sqlQuote(
-				$self->{slash_db}->getUserUID($id)
-			).
-			" AND nntp_cnum=$msgnum");
+
+		if($type eq "journal") {
+			$idid = $self->{slash_db}->sqlSelect("id", "journals",
+				"uid=".$self->{slash_db}->sqlQuote(
+					$self->{slash_db}->getUserUID($id)
+				).
+				" AND nntp_cnum=$msgnum");
+		} else {
+			my $journal_obj = getObject("Slash::Journal");
+			return undef unless $journal_obj->get($idid);
+		}
+
 		if(!$idid) {
 			$idtype = "comment";
 			$idid = $self->{slash_db}->sqlSelect("cid",
@@ -116,7 +123,7 @@ sub num2id($$$) {
 # Parses a group, returning:
 #	ID: For "section", section name.  For "story", story ID.  For "journal", nick.
 #	"html" or "text"
-#	type: "frontpage", "section", "story", or "journal"
+#	type: "frontpage", "section", "story", "journal", or "journals"
 # In scalar context, returns only the type.
 sub parsegroup($$) {#
 	my($self, $group) = @_;
@@ -147,8 +154,9 @@ sub parsegroup($$) {#
 			$ret[0] = $groupparts[3];
 		}
 	} elsif(lc($groupparts[1]) eq "journals") {
-		return "journal" unless wantarray;
-		$ret[2] = "journal";
+		return ($groupparts[2] ? "journal" : "journals") unless wantarray;
+		$ret[2] = $groupparts[2] ? "journal" : "journals";
+		return @ret unless $groupparts[2];
 
 		$groupparts[2] =~ /^(.+)_(\d+)$/;
 		my($nick, $uid) = ($1, $2);
@@ -168,7 +176,7 @@ sub auth_status_ok($) {
 	my $auth_requirements = $self->{slash_db}->getVar("nntp_force_auth", "value");
 	return 1 unless $auth_requirements;
 	return 0 if $self->{slash_user}->{uid} == $self->{slash_constants}->{anonymous_coward_uid};
-	return 1 unless $auth_requirements > 1 and $self->{slash_db}->getDescriptions("plugins")->{Journal};
+	return 1 unless $auth_requirements > 1 and $self->{slash_db}->getDescriptions("plugins")->{Subscribe};
 	return 0 unless $self->{slash_user}->{hits_bought} > $self->{slash_user}->{hits_paidfor};
 	return 1;
 }
@@ -176,6 +184,7 @@ sub auth_status_ok($) {
 sub consume_subscription($) {
 	my($self) = @_;
 
+	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
 	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
 }
 
@@ -192,7 +201,8 @@ sub groups($;$) {
 	#                            .stories
 	#                                    .section_sectid
 	#                                            .123
-	#                            .journals.nick_uid
+	#                            .journals
+	#                                     .nick_uid
 
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
 	my $textroot = "$self->{root}.text";
@@ -233,6 +243,9 @@ sub groups($;$) {
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
+		$ret{"$textroot.journals"} = "All $sitename journals";
+		$ret{"$htmlroot.journals"} = "All $sitename journals";
+
 		my $jusers = $self->{slash_db}->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid');
 		foreach my $juser(values %$jusers) {
 			# No getJournals...
@@ -266,6 +279,20 @@ sub articles($$;$) {
 
 		foreach my $story (values %$stories) {
 			$ret{$story->{"nntp_${sect}snum"}} = $self->form_msgid($story->{id}, $format, "story");
+		}
+	} elsif($grouptype eq "journals") {
+		my $where = "";
+		$where = "UNIX_TIMESTAMP(date) > $time" if $time;
+
+		my $journals = $self->{slash_db}->sqlSelectAllHashref(
+			"id",
+			"id",
+			"journals",
+			$where
+		);
+
+		foreach my $journal (values %$journals) {
+			$ret{$journal->{id}} = $self->form_msgid($journal->{id}, $format, "journal");
 		}
 	} elsif($grouptype eq "story" or $grouptype eq "journal") {
 		my $from = "comments";
@@ -397,8 +424,9 @@ sub article($$$;@) {
 			my $group = $self->groupname("$self->{root}.$format.journals.".$self->{slash_db}->getUser($journal->{uid}, 'nickname')."_$journal->{uid}");
 
 			$headers{subject} = $journal->{description};
-			$headers{newsgroups} = $group;
+			$headers{newsgroups} = "$group,$self->{root}.$format.journals";
 			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $group:$journal->{nntp_cnum}";
+			$headers{"followup-to"} = $group;
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/journal.pl?op=display&uid=$journal->{uid}&id=$journal->{id}";
 			$headers{"x-slash-topic"} = $self->{slash_db}->getTopic($journal->{tid}, 'name');
 			$headers{"x-slash-can-post"} = $journal->{discussion} ? 1 : 0;
@@ -453,6 +481,10 @@ sub post($$$) {
 		$head->{"x-slash-post-anonymous"} or
 		$head->{"x-slash-post-anonymously"};
 
+	return fail("500 Anonymous posting not allowed")
+		if $uid == $self->{slash_constants}->{anonymous_coward_uid} and
+		not $self->{slash_db}->getVar("allow_anonymous", "value");
+
 	my $score = 1;
 	$score = 0 if
 		$uid == $self->{slash_constants}->{anonymous_coward_uid} or
@@ -466,31 +498,48 @@ sub post($$$) {
 			);
 
 	my($type, $id);
-	($id, undef, $type) = $self->parse_group($head->{newsgroups});
+	($id, undef, $type) = $self->parsegroup($head->{newsgroups});
 	my $sid;
 
 	my $posttype = "comment";
 	my $cnum;
+	my $pid = 0;
 
 	if($type eq "journal") {
 		if(!$head->{references}) {
 			return fail("500 Can't make top-level post in someone else's journal") unless $id == $self->{slash_user}->{uid};
 			$posttype = "journal";
 		} else {
-			my $pid;
+			my $type;
 			($pid, undef, $type) = $self->parse_msgid($head->{references});
+
 			if($type eq "journal") {
-				$journal_obj = getObject("Slash::Journal") or return fail("500 Couldn't get Slash::Journal");
+				my $journal_obj = getObject("Slash::Journal") or return fail("500 Couldn't get Slash::Journal");
 				my $journal = $journal_obj->get($pid) or return fail("500 Couldn't find journal");
 				$sid = $self->{slash_db}->getDiscussion($journal->{discussion}, 'sid');
+				return fail("500 Comments are not allowed on that journal") unless $sid;
+
+				$pid = 0;
 			} else { # comment
-				$sid = $self->{slash_db}->getComment($pid, 'sid');
+				my $parent = $self->{slash_db}->getComment($pid)
+					or return fail("500 That comment could not be located");
 			}
 		}
 		$cnum = $self->{slash_nntp}->next_num("journal_cnum", $id);
-	} else { # comment
-		$sid = $id;
-		$cnum = $self->{slash_nntp}->next_num("cnum", $sid);
+	} elsif($type eq "story") { # comment
+		$cnum = $self->{slash_nntp}->next_num("cnum", $id);
+
+		($pid, undef, $type) = $self->parse_msgid($head->{references});
+		if($type eq "story") {
+			return fail("500 Comment posting has been disabled for that story")
+				unless $self->{slash_db}->getStory($pid, "commentstatus") == 0
+			$sid = $self->{slash_db}->getStory($pid, "discussion");
+			$pid = 0;
+		} else {
+			$sid = $self->{slash_db}->getComment($pid, "sid");
+		}
+	} else { # Attempt to post to frontpage, section, or journals group
+		return fail("500 Can't post to that group");
 	}
 
 	my $subject = $head->{subject} || "";
@@ -504,9 +553,7 @@ sub post($$$) {
 	$body = stripByMode($body, $mode, 0);
 
 	unless($posttype eq "journal") {
-		my $pid;
-		($pid, undef, $type) = $self->parse_msgid($head->{references});
-		$pid = 0 unless $type eq "comment";
+		(undef, undef, $type) = $self->parse_msgid($head->{references});
 
 		# Yay for having to C+P code from sub createAccessLog!
 		my $ipid = md5_hex($self->client_ip);
@@ -600,7 +647,7 @@ sub is_group($$) {
 		return 0 unless $story->{section} eq $section;
 		return 1;
 	} elsif($type eq "journals") {
-		my $nick = shift @groupparts or return 0;
+		my $nick = shift @groupparts or return 1;
 		$nick =~ s/_(\d+)$// or return 0;
 		my $uid = $1;
 		return 0 unless $nick;
@@ -622,10 +669,10 @@ sub can_post($$) {
 
 	my($id, $format, $type) = $self->parsegroup($group);
 
-	return 0 if $type eq "frontpage" or $type eq "section";
+	return 0 if $type eq "frontpage" or $type eq "section" or $type eq "journals";
 	return 1 if $type eq "journal";
 	my $story = $self->{slash_db}->getStory($id);
-	return 0 unless $story->{discussion};
+	return 0 unless $story->{commentstatus} == 0;
 	return 1;
 }
 
@@ -640,6 +687,10 @@ sub groupstats($$) {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_snum), MAX(nntp_snum), COUNT(nntp_snum)",
 						"stories");
+	} elsif($type eq "journals") {
+		($first, $last, $num) = $self->{slash_db}->sqlSelect(
+						"MIN(id), MAX(id), COUNT(id)",
+						"journals");
 	} elsif($type eq "section") {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(nntp_section_snum), MAX(nntp_section_snum), COUNT(nntp_section_num)",
