@@ -15,6 +15,8 @@ use NNTB::Weblog;
 use Slash;
 use Slash::Constants qw(:strip);
 use Slash::Utility;
+use Slash::Utility::Data;
+use Digest::MD5 qw(md5_hex);
 
 sub new($;@) {
 	my $type = shift;
@@ -196,7 +198,7 @@ sub consume_subscription($) {
 	my($self) = @_;
 
 	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
-	$self->do_log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
+	$self->log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
 	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
 }
 
@@ -204,7 +206,7 @@ sub groups($;$) {
 	my($self, $time) = @_;
 	my %ret = ();
 
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	$time ||= 0;
 	$time =~ tr/0-9//dc;
@@ -272,7 +274,7 @@ sub groups($;$) {
 
 sub articles($$;$) {
 	my($self, $group, $time) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	my %ret;
 	my($id, $format, $grouptype) = $self->parsegroup($group);
@@ -359,7 +361,7 @@ sub articles($$;$) {
 
 sub article($$$;@) {
 	my($self, $type, $msgid, @headers) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	my(%headers, $body);
 	my %get_headers = map { $_ => 1 } @headers;
@@ -369,8 +371,6 @@ sub article($$$;@) {
 		$headers{path} = "$self->{slash_slashsite}!not-for-mail";
 		$headers{"message-id"} = $msgid;
 		$headers{"content-type"} = "text/html; charset=us-ascii" if $format eq "html";
-
-		delete $get_headers{qw(path message-id content-type)};
 	}
 
 	my($uid, $date);
@@ -440,13 +440,14 @@ sub article($$$;@) {
 			}
 
 			# If it's a journal, the top-level post is the journal article
-			my $journal = $self->{slash_db}->sqlSelect("discussion", "journals", "discussion = $comment->{sid}");
-			unshift @references, $self->form_msgid($journal, $format, "journal") if $journal;
+			if($jid) {
+				unshift @references, $self->form_msgid($jid, $format, "journal");
+			}
 
 			$headers{references} = join(" ", @references) if @references;
 		}
 	} elsif($msgtype eq "journal") {
-		my $journal_obj = getObject("Slash::Journal") or return fail("500 Couldn't get Slash::Journal");
+		my $journal_obj = getObject("Slash::Journal") or return $self->fail("500 Couldn't get Slash::Journal");
 		my $journal = $journal_obj->get($id) or return undef;
 		$body = $journal->{article};
 		$uid = $journal->{uid};
@@ -466,14 +467,12 @@ sub article($$$;@) {
 	}
 
 	if($type eq "head" or $type eq "article") {
-		if(!@headers or $get_headers{from}) {
-			my $uinfo = $self->{slash_db}->getUser($uid);
-			my $email = $uinfo->{fakeemail} || $uinfo->{realemail};
-			my $name = $uinfo->{realname};
-			$headers{from} = $name ?
-				"$name <$email>" :
-				$email;
-		}
+		my $uinfo = $self->{slash_db}->getUser($uid);
+		my $email = $uinfo->{fakeemail} || $uinfo->{realemail};
+		my $name = $uinfo->{realname};
+		$headers{from} = $name ?
+			"$name <$email>" :
+			$email;
 		$headers{"x-slash-user"} = $self->{slash_db}->getUser($uid, 'nickname') . " ($uid)" if !@headers or $get_headers{"x-slash-user"};
 
 		$headers{date} = timeCalc($date, "%d %b %Y %H:%M:%S ". $self->{slash_user}->{off_set}/60/60);
@@ -481,18 +480,12 @@ sub article($$$;@) {
 
 	$self->consume_subscription() unless $type eq "head";
 
-	if($type ne "head" or $get_headers{lines} or $get_headers{bytes}) {
+	if($type ne "head" or !@headers or $get_headers{lines} or $get_headers{bytes}) {
 		$body = $self->html2txt($body) if $format eq "text";
 		$self->log("Body: $body", LOG_DEBUG);
 		my @lines = split(/\n/, $body);
 		$headers{lines} = scalar @lines;
 		$headers{bytes} = length($body);
-	}
-
-	if(@headers) {
-		foreach my $header (keys %headers) {
-			delete $headers{$header} unless $get_headers{$header};
-		}
 	}
 
 	return 1, $body, %headers;
@@ -501,21 +494,21 @@ sub article($$$;@) {
 sub auth($$$) {
 	my($self, $user, $pass) = @_;
 
-	$self->do_log("Authenticating $user...", LOG_NOTICE);
+	$self->log("Authenticating $user...", LOG_NOTICE);
 	my($uid) = $self->{slash_db}->getUserAuthenticate($self->{slash_db}->getUserUID($user), $pass);
 	return 0 unless $uid;
 	$self->{slash_user} = $self->{slash_db}->getUser($uid);
-	$self->do_log("User authenticated!", LOG_NOTICE);
+	$self->log("User authenticated!", LOG_NOTICE);
 	return 1;
 }
 
 sub post($$$) {
 	my($self, $head, $body) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	my $journal_obj;
 
-	$self->do_log("Posting an article...", LOG_NOTICE);
+	$self->log("Posting an article...", LOG_NOTICE);
 
 	my $uid = $self->{slash_user}->{uid};
 	$uid = $self->{slash_constants}->{anonymous_coward_uid} if
@@ -525,7 +518,7 @@ sub post($$$) {
 		$head->{"x-slash-post-anonymous"} or
 		$head->{"x-slash-post-anonymously"};
 
-	return fail("500 Anonymous posting not allowed")
+	return $self->fail("500 Anonymous posting not allowed")
 		if $uid == $self->{slash_constants}->{anonymous_coward_uid} and
 		not $self->{slash_db}->getVar("allow_anonymous", "value");
 
@@ -551,31 +544,33 @@ sub post($$$) {
 
 	if($type eq "journal") {
 		if(!$head->{references}) {
-			return fail("500 Can't make top-level post in someone else's journal") unless $id == $self->{slash_user}->{uid};
+			return $self->fail("500 Can't make top-level post in someone else's journal") unless $id eq $self->{slash_user}->{nickname};
 			$posttype = "journal";
 		} else {
 			my $type;
 			($pid, undef, $type) = $self->parse_msgid($head->{references});
 
 			if($type eq "journal") {
-				my $journal_obj = getObject("Slash::Journal") or return fail("500 Couldn't get Slash::Journal");
-				my $journal = $journal_obj->get($pid) or return fail("500 Couldn't find journal");
+				$journal_obj = getObject("Slash::Journal") or return $self->fail("500 Couldn't get Slash::Journal");
+				my $journal = $journal_obj->get($pid) or return $self->fail("500 Couldn't find journal");
 				$sid = $self->{slash_db}->getDiscussion($journal->{discussion}, 'sid');
-				return fail("500 Comments are not allowed on that journal") unless $sid;
+				return $self->fail("500 Comments are not allowed on that journal") unless $sid;
 
 				$pid = 0;
 			} else { # comment
 				my $parent = $self->{slash_db}->getComment($pid)
-					or return fail("500 That comment could not be located");
+					or return $self->fail("500 That comment could not be located");
+				$sid = $parent->{sid};
 			}
 		}
-		$cnum = $self->{slash_nntp}->next_num("journal_cnum", $id);
+
+		$cnum = $self->{slash_nntp}->next_num("journal_cnum", $self->{slash_db}->getUserUID($id));
 	} elsif($type eq "story") { # comment
 		$cnum = $self->{slash_nntp}->next_num("cnum", $id);
 
 		($pid, undef, $type) = $self->parse_msgid($head->{references});
 		if($type eq "story") {
-			return fail("500 Comment posting has been disabled for that story")
+			return $self->fail("500 Comment posting has been disabled for that story")
 				unless $self->{slash_db}->getStory($pid, "commentstatus") == 0;
 			$sid = $self->{slash_db}->getStory($pid, "discussion");
 			$pid = 0;
@@ -583,7 +578,7 @@ sub post($$$) {
 			$sid = $self->{slash_db}->getComment($pid, "sid");
 		}
 	} else { # Attempt to post to frontpage, section, or journals group
-		return fail("500 Can't post to that group");
+		return $self->fail("500 Can't post to that group");
 	}
 
 	my $subject = $head->{subject} || "";
@@ -594,7 +589,7 @@ sub post($$$) {
 	} else {
 		$mode = PLAINTEXT;
 	}
-	$body = stripByMode($body, $mode, 0);
+	$body = Slash::Utility::Data::stripByMode($body, $mode, 0);
 
 	unless($posttype eq "journal") {
 		(undef, undef, $type) = $self->parse_msgid($head->{references});
@@ -605,12 +600,11 @@ sub post($$$) {
 		$subnetid =~ s/^(\d+\.\d+\.\d+)\.\d+$/$1.0/;
 		$subnetid = md5_hex($subnetid);
 
-		$self->do_log("Posting comment: SID=$sid, PID=$pid, CNUM=$cnum", LOG_NOTICE);
+		$self->log("Posting comment: SID=$sid, PID=$pid, CNUM=$cnum", LOG_NOTICE);
 
 		my $comment = {
 			sid => $sid,
 			pid => $pid,
-			date => 'NOW()',
 			ipid => $ipid,
 			subnetid => $subnetid,
 			subject => $subject,
@@ -620,21 +614,23 @@ sub post($$$) {
 			nntp_posttime => 'NOW()',
 			comment => $body,
 		};
-		$self->{slash_db}->createComment($comment) or return fail("500 Couldn't post comment");
+		$self->{slash_db}->createComment($comment) or return $self->fail("500 Couldn't post comment");
 	} else {
 		$ENV{SLASH_USER} = $self->{slash_user}->{uid};
 		my $topic = $head->{"x-slash-topic"} || "journal";
-		my($tid) = grep { $_->{name} eq $topic } $self->{slash_db}->getTopics();
-		$tid ||= grep { $_->{name} eq "journal" } $self->{slash_db}->getTopics();
+		my($tid) = map { $_->{tid} } grep { $_->{name} eq $topic } values %{$self->{slash_db}->getTopics()};
+		$tid ||= map { $_->{tid} } grep { $_->{name} eq "journal" } values %{$self->{slash_db}->getTopics()};
 
-		$self->do_log("Posting journal", LOG_NOTICE);
+		$self->log("Posting journal", LOG_NOTICE);
 
+		$journal_obj = getObject("Slash::Journal") or return $self->fail("500 Couldn't get Slash::Journal");
+		$self->log("Posting journal: ($subject, body, 2, $tid)", LOG_NOTICE);
 		my $jid = $journal_obj->create(
 			$subject,
 			$body,
 			2, # posttype?
 			$tid
-		) or return fail("500 Couldn't post journal");
+		) or return $self->fail("500 Couldn't post journal");
 
 		my $journal_comments = 0;
 		if($self->{slash_constants}->{journal_comments}) {
@@ -651,7 +647,7 @@ sub post($$$) {
 			
 
 		if($journal_comments) {
-			$self->do_log("Creating journal discussion: JID=$jid", LOG_NOTICE);
+			$self->log("Creating journal discussion: JID=$jid", LOG_NOTICE);
 
 			my $did = $self->{slash_db}->createDiscussion({
 				title => $subject,
@@ -664,11 +660,12 @@ sub post($$$) {
 	}
 
 	$self->consume_subscription();
+	return 1;
 }
 
 sub is_group($$) {
 	my($self, $group) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	$self->log("is_group($group)", LOG_DEBUG);
 
@@ -723,7 +720,7 @@ sub is_group($$) {
 
 sub can_post($$) {
 	my($self, $group) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	return 0 if $self->{slash_user}->{uid} == 
 			$self->{slash_constants}->{anonymous_coward_uid} and
@@ -740,7 +737,7 @@ sub can_post($$) {
 
 sub groupstats($$) { 
 	my($self, $group) = @_;
-	$self->auth_status_ok() or return fail("480 Authorization Required");
+	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
 	$self->log("groupstats($group)", LOG_DEBUG);
 

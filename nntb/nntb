@@ -210,6 +210,9 @@ EOF
 		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
+
+	open(LOG, ">>$config{logfile}") or die "Couldn't open $config{logfile} for writing: $!\n";
+	autoflush LOG 1;
 }
 
 sub loadblogs() {
@@ -567,8 +570,9 @@ sub got_client(*) {
 				my %headers;
 				my $body;
 
-				GETHEAD: while (<$client>) {
+				GETHEAD: while(defined($_ = $client->getline())) {
 					s/[\r\n]{1,2}$//;
+					do_log("From NNTP: $_", LOG_DEBUG);
 					last GETHEAD if $_ eq "";
 
 					if(/^\s/) { # Continue previous header
@@ -579,17 +583,30 @@ sub got_client(*) {
 							$headers{lastheader} .= $_;
 						}
 					} else { # New header
-						/^([^:])*:\s*(.*)$/ or $error = "500 Malformed header";
+						/^([^:]*):\s*(.*)$/ or $error = "500 Malformed header";
 						$headers{lc($1)} = $2;
 						$lastheader = $1;
 					}
 				}
 
-				GETBODY: while (<$client>) {
+				do_log("End of headers", LOG_DEBUG);
+				do_log("Headers:", LOG_DEBUG);
+				do_log("\t$_: $headers{$_}", LOG_DEBUG) foreach(keys %headers);
+				do_log("Getting body...", LOG_DEBUG);
+
+				GETBODY: while(defined($_ = $client->getline())) {
 					s/[\r\n]{1,2}$/\n/;
+
+					my $line = $_;
+					$line =~ s/\n$//;
+					do_log("From NNTP: $line", LOG_DEBUG);
+
 					last GETBODY if $_ eq ".\n";
 					$body .= $_;
 				}
+
+				do_log("End of body", LOG_DEBUG);
+				do_log("Body: $body", LOG_DEBUG);
 
 				if($error) {
 					nntp_put($error);
@@ -686,6 +703,8 @@ sub xover($$$;$$) {
 	my @nums;
 	my $blog;
 
+	do_log("xover($response, $currgroup, $articles, $header, $pattern)", LOG_DEBUG);
+
 	if($articles =~ /^</) { # Message-ID
 		$blog = findblog($articles);
 		if(!$blog) {
@@ -710,24 +729,28 @@ sub xover($$$;$$) {
 		@nums = ($first..$last);
 
 		@articles = map { $blog->num2id($currgroup, $_) } @nums;
+
+		do_log("Articles: ", join(", ", @articles), LOG_DEBUG);
+		do_log("Numbers: ", join(", ", @nums), LOG_DEBUG);
 	}
 
 	nntp_put($response);
+	my @headers = $header ? ($header) : ();
 	foreach my $article (@articles) {
-		my($retval, undef, %headers) = $blog->article("head", $article, $header);
+		my($retval, undef, %headers) = $blog->article("head", $article, @headers);
 		if($retval) { # We assume all articles exist ;)
 			$article = shift @nums if @nums;
 			my $headtext = "";
+			do_log("$article: ", join(", ", map { "$_: $headers{$_}" } keys %headers), LOG_DEBUG);
 			if($header) {
-				$headtext = $headers{$header};
+				$headtext = " $headers{$header}";
 			} else {
-				$headtext .= $headers{subject};
 				foreach $header (qw(subject from date message-id references bytes lines xref)) {
 					$headtext .= "\t$headers{$header}";
 				}
 			}
 
-			nntp_put("$article $headtext");
+			nntp_put("$article$headtext");
 		}
 	}
 	nntp_put(".");
