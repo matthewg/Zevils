@@ -35,6 +35,11 @@ like this:
 	C:127.0.0.1:password:imserv.your_irc_network.com::50
 	N:127.0.0.1:password:imserv.your_irc_network.com::50
 
+	You also need Q: lines for $usnick, $oldnick, and $prefix*:
+	Q:*:Reserved for IMIRC:IMServ
+	Q:*:Reserved for IMIRC:AIMServ
+	Q:*:Reserved for IMIRC:AIM-*
+
 	Now you should be able to run IMIRC.  If you want to make your IMIRC
 	available to the public, go to
 	http://www.zevils.com/programs/imirc/imstat/ and add yourself to the
@@ -44,15 +49,29 @@ like this:
 	see the file README.ircu - it applies to many other IRC servers,
 	not just ircu.
 
-	Another issue is services.  If you have something like a system
-	announcement bot that sends out a PRIVMSG to any user connecting
-	to the server, IMIRC will get caught in an infinite loop with it;
-	it will complain that your announcer sent it in invalid command.
-	If the announcer sends a PRIVMSG in response to this, the result is
-	an infinite loop.  See the $ignoreuhosts and @ignorehosts options
-	in the IMIRC configuration file for ways to combat this.  To see
-	if you are having this problem, start up IMIRC with the
-	parameters --debug 2 --fork 0 --debuglevel irc=99
+	Another issue is services.  Read README.services if you are using
+	services or any other sort of system bots!
+
+Troubleshooting:
+	If you get a permission denied error while trying to run imirc or
+	getmodules, try the following command: chmod +x imirc getmodules
+
+	If you get an error about a bad interpreter while trying to run
+	getmodules or imirc, your perl may not be installed in /usr/bin/perl.
+	Find out where your perl binary is located; try commands like
+	'which perl', 'type -path perl', 'whereis perl', and
+	'locate perl | grep bin'.  Then, change the first line of getmodules
+	and imirc from #!/usr/bin/perl to #!/path/to/your/perl
+
+	If you get an error like 'mkdir /root/.cpan: Permission denied at
+	CPAN.pm' while running getmodules, find where your system-wide
+	CPAN configuration file is by looking at the line immediately above
+	that error; it should contain something like
+	'/usr/lib/perl5/CPAN/Config.pm OK'.  Then run the following commands:
+		mkdir ~/.cpan/CPAN
+		cat /path/to/CPAN.pm | sed s%/root/.cpan%$HOME/.cpan% > \
+			~/.cpan/CPAN/MyConfig.pm
+	Then run getmodules again.
 
 Usage:
 	You need an AOL Instant Messenger account.
