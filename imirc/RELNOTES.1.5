@@ -1,0 +1,14 @@
+Starting with release 1.5, the software formerly known as AIMIRC or aimirc is now
+called IMIRC.  The default values of some parameters which directly affect users
+have changed.  The IMIRC IRC user is now called IMServ instead of AIMServ by
+default.
+
+The $oldname configuration parameter can be used to transition users
+from an old name, such as AIMServ (which is the default value of $oldname) to the
+new name.
+
+Also, instead of #aimirc-screenname, we now use #aimchan-screenname.
+This is because in the future we will support other protocols, and they will have
+separate namespaces (such as #icqchan-screenname.)
+
+The main program script is imirc, not aimirc.
