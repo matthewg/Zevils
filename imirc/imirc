@@ -1890,7 +1890,7 @@ sub process_aim_message($$$) {
 			foreach $who(@who) {
 				next if normalize($who) eq $screenname;
 				delete $chats{$1}{$who};
-				irc_send(irc_part(ircify($screenname), "#aimchat-$1"));
+				irc_send(irc_part("$prefix$who", "#aimchat-$1"));
 				delete $nicks{normalize($who)}{"chat-$1"};
 			}
 		}
@@ -2172,6 +2172,7 @@ sub do_signoff($$;$) {
 	delete $irc_connections{$screenname} if $screenname;
 	foreach $xnick(keys %nicks) {
 		next if normalize $xnick eq normalize $usnick or not $screenname;
+		next unless exists $nicks{$xnick}{$screenname};
 		delete $nicks{$xnick}{$screenname}; 
 		irc_send(irc_quit("$prefix$xnick", "I signed off of AIM (do_signoff)")) unless haskeys($nicks{$xnick});
 	}
