@@ -121,7 +121,7 @@ Date: <input type="text" name="date" id="date" size="6" maxlength="5" value="__D
 </div><div id="recur"><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
 would you like this wake-up call to call you on?<br />
-Standard Active Weekdays: <br />
+Weekdays: <br />
 <input type="checkbox" name="mon" value="1" __MON__ /> Monday<br />
 <input type="checkbox" name="tue" value="1" __TUE__ /> Tuesday<br />
 <input type="checkbox" name="wed" value="1" __WED__ /> Wednesday<br />

@@ -84,7 +84,7 @@ if(isset($_POST["submit"])) {
 				$weekdays_ct++;
 			}
 		}
-		if(!$weekdays_ct) {
+		if(!$weekdays_ct && !$id) {
 			$error = 1;
 			echo $TEMPLATE["mkwake"]["weekdays_invalid"];
 		}
@@ -141,43 +141,13 @@ if(isset($_POST["submit"])) {
 	}
 
 	if(!$error) {
-		if($type == "one-time") {
-			$cols = array("weekdays", "extension", "time", "message", "date");
-			$values = array("NULL", "'$extension'", "'$sql_time'", $message, "'".date_to_sql($date, $sql_time)."'");
-		} else {
-			$sql_weekdays = array();
-			while(list($day, $val) = each($weekdays)) {
-				if($val) $sql_weekdays[] = ucfirst($day);
-			}
-
-			$cols = array("date", "extension", "time", "message", "weekdays", "cal_type");
-			$values = array("NULL", "'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".$_POST["cal_type"]."'");
+		$date = date_to_sql($date, sql_time);
+		$sql_weekdays = array();
+		while(list($day, $val) = each($weekdays)) {
+			if($val) $sql_weekdays[] = ucfirst($day);
 		}
 
-		if(!$id) {
-			printf("INSERT INTO wakes (%s) VALUES (%s)",
-				implode(", ", $cols),
-				implode(", ", $values));
-
-			if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
-				implode(", ", $cols),
-				implode(", ", $values)
-			))) db_error();
-
-			if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
-			$row = mysql_fetch_row($result);
-			$id = $row[0];
-			$event = "create";
-		} else {
-			$set = "$cols[0] = $values[0]";
-			for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
-
-			if(!mysql_query("UPDATE wakes SET next_trigger=NULL, trigger_date=NULL, snooze_count=0, trigger_snooze=NULL, $set WHERE extension='$extension' AND wake_id=$id")) db_error();
-			$event = "edit";
-		}
-
-		log_wake($id, $extension, $event, "success");
-
+		set_wake($id, $sql_time, $message, $type, $date, $sql_weekdays, $_POST["cal_type"]);
 		redirect("wakes.php");
 	}
 } else if($id) {
