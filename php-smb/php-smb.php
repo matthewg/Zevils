@@ -48,7 +48,9 @@ function do_dir($smb, $dir) {
 		if(substr($dir, strlen($dir) - 1, 1) != "\\") $dir .= "\\";
 		$pathinfo = cifs_pathinfo($smb, "$dir" . $files[$i]);
 		if($smb["error"]) continue;
-		if(isset($inodes["" . $pathinfo["inode_high"]])) {
+
+		//SMB gives 0 for inode_high when it isn't giving us a useful ino
+		if($pathinfo["inode_high"] != 0 && isset($inodes["" . $pathinfo["inode_high"]])) {
 			if(isset($inodes["" . $pathinfo["inode_high"]]["" . $pathinfo["inode_low"]])) {
 				continue;
 			} else {
