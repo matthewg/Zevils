@@ -113,7 +113,7 @@ $theirpass = "bar";
 $servermode = "dal2";
 $time = 60*5; #Five minutes
 $user_loglevel = OSCAR_DBG_WARN;
-@default_conffiles = ("/etc/imirc.conf", "/etc/aimirc.conf", "$home/.imirc", "$home/.aimirc");
+@default_conffiles = ("/etc/aimirc.conf", "/etc/imirc.conf", "$home/.aimirc", "$home/.imirc");
 $fork = 1;
 $verbose = 0;
 $sendidle = 1;
@@ -223,9 +223,14 @@ sub loadconf() {
 		$conffile =~ s/~/$home/;
 		if(-r $conffile) {
 			print STDERR "Reading config file $conffile\n" if $verbose;
+			$confversion = 0;
 			do $conffile;
 			die $@ if $@;
-			$foundconfig = 1;
+			if($confversion < 1.5) {
+				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n;
+				next;
+			}
+			$foundconfig = 1;			
 		} else {
 			print STDERR "Couldn't read config file $conffile\n" if $verbose;
 		}
