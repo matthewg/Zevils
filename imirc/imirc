@@ -227,9 +227,7 @@ sub loadconf() {
 		if(-r $conffile) {
 			print STDERR "Reading config file $conffile\n" if $verbose;
 			$confversion = 0;
-			print "usnick: $usnick\n";
 			do $conffile;
-			print "usnick: $usnick\n";
 			die $@ if $@;
 			if($confversion < 1.5) {
 				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
@@ -260,43 +258,65 @@ sub loadconf() {
 		exit 1;
 	}
 
-	exit;
-
 	#Now process additional command-line options
 
 	Getopt::Long::Configure("no_pass_through");
 
-	$errors = &GetOptions(
-		"us=s" => \$us,
-		"them=s" => \$them,
-		"themport=i" => \$themport,
-		"ourpass=s" => \$ourpass,
-		"theirpass=s" => \$theirpass,
-		"servermode=s" => \$servermode,
-		"prefix=s" => \$prefix,
-		"usnick=s" => \$usnick,
-		"time=i" => \$time,
-		"fork:i" => \$fork,
-		"verbose|v" => \$verbose,
-		"debug:i" => \$debug,
-		"debuglevel=s\%" => \%debuglevel,
-		"user_loglevel:i" => \$user_loglevel,
-		"sendidle:i" => \$sendidle,
-		"oscarserver=s" => \$oscarserver,
-		"oscarport=i" => \$oscarport,
-		"dccip=s" => \$dccip,
-		"dcc:i" => \$dcc,
-		"shortcircuit:i" => \$shortcircuit,
-		"numeric=s" => \$numeric,
-		"chatchan=s" => \$chatchan,
-		"nickchan=s" => \$nickchan,
-		"oldnick=s" => \$oldnick,
+	my %cfghash;
+
+	$errors = &GetOptions(\%cfghash,
+		"us=s",
+		"them=s",
+		"themport=i",
+		"ourpass=s",
+		"theirpass=s",
+		"servermode=s",
+		"prefix=s",
+		"usnick=s",
+		"time=i",
+		"fork:i",
+		"verbose|v",
+		"debug:i",
+		"debuglevel=s\%",
+		"user_loglevel:i",
+		"sendidle:i",
+		"oscarserver=s",
+		"oscarport=i",
+		"dccip=s",
+		"dcc:i",
+		"shortcircuit:i",
+		"numeric=s",
+		"chatchan=s",
+		"nickchan=s",
+		"oldnick=s",
 	);
 
 	if(!$errors) {
 		print STDERR "Try $0 --help if you need help.\n";
 		exit 1;
 	}
+
+	# If we don't do this, all the options not set on the command line
+	# will be set to undef.
+	#
+	foreach my $option(qw(
+		us them themport ourpass theirpass servermode
+		prefix usnick time fork verbose debug debuglevel
+		user_loglevel sendidle oscarserver oscarport dccip
+		dcc shortcircuit numeric chatchan nickchan oldnick
+	)) {
+		no strict 'refs';
+		next unless defined($cfghash{$option});
+		if($option eq "debuglevel") {
+			foreach my $key(keys %{$cfghash{debuglevel}}) {
+				$debuglevel{$key} = $cfghash{debuglevel}{$key};
+			}
+		} else {
+			${"$option"} = $cfghash{$option};
+		}
+	}
+
+
 
 	%temp = %ircservers; #Preserve custom ircservers
 
