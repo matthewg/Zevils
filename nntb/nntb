@@ -459,7 +459,7 @@ sub got_client(*) {
 				nntp_put($_) foreach
 					qw(article head body stat group help ihave last),
 					qw(next list newgroups newnews post quit slave),
-					qw(mode date listgroup authinfo xhdr xover xpat xrover);
+					qw(mode date listgroup authinfo xhdr xover xpat xrover xmode);
 				next;
 			} elsif (/^ihave$/) { #This command is only for inter-server post transfers
 				nntp_put("435 article not wanted - do not send it");
@@ -509,14 +509,13 @@ sub got_client(*) {
 					}
 					nntp_put(".");
 				} elsif(!$params[0] or lc($params[0]) eq "active") {
-					nntp_put("215 list of newsgroups follows");
-
 					if($params[1]) { # RFC 2980 - this is a wildmat
 						nntp_put("500 Command not implemented");
 					} else {
+						nntp_put("215 list of newsgroups follows");
 						foreach $blog (values %blogs) {
 							my %groups = $blog->groups();
-							foreach my $group(keys %groups) {
+							foreach my $group(sort keys %groups) {
 								my($first, $last) = $blog->groupstats($group);
 								my $can_post = $blog->can_post($group) ? "y" : "n";
 								nntp_put("$group $first $last $can_post");
@@ -538,7 +537,7 @@ sub got_client(*) {
 
 				foreach $blog (values %blogs) {
 					my %groups = $blog->groups($time);
-					foreach my $group(keys %groups) {
+					foreach my $group(sort keys %groups) {
 						my($first, $last) = $blog->groupstats($group);
 						my $can_post = $blog->can_post($group) ? "y" : "n";
 						nntp_put("$group $first $last $can_post");
@@ -670,7 +669,7 @@ sub got_client(*) {
 				last GETLINE;
 			} elsif (/^slave$/) {
 				nntp_put("202 slave status noted");
-			} elsif (/^mode$/) {
+			} elsif (/^mode$/ or /^xmode$/) {
 				nntp_put("200 OK");
 			} elsif (/^date$/) {
 				my @gmtime = gmtime(time); $gmtime[5] += 1900; $gmtime[4]++;
