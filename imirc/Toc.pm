@@ -230,6 +230,7 @@ sub signon($$;&) {
 	my($username, $password, $status) = @_;
 	my($socket, $msg, $config, $buddy);
 
+	$username = normalize($username);
 	unless($username and $password) {
 		$err = "You must provide a username and password!";
 		return -1;
