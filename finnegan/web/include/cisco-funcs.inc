@@ -80,7 +80,7 @@ function format_wake($wake) {
 		else if($wake["cal_type"] == "Brandeis")
 			$cal = "Brandeis";
 
-		return "x$time; $daytext; $cal<";
+		return "x$time; $daytext; $cal";
         }
 }
 

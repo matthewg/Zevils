@@ -34,7 +34,7 @@ if($PHONE_MODEL == "CP-7912G") {
 <Position>1</Position>
 </SoftKeyItem>
 
-<? } else { <?
+<? } else { ?>
 
 <SoftKeyItem>
 <Name>Edit</Name>
