@@ -1,0 +1,7 @@
+To install:
+	ln -s /usr/src/nntb/Slash/NNTP /usr/local/slash/plugins/NNTP
+	cd /usr/local/slash/plugins/NNTP
+	perl Makefile.PL
+	make
+	make install
+	/usr/local/slash/bin/install-plugins -u slash
