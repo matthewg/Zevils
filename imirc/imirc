@@ -3136,9 +3136,9 @@ sub send_im($$$) {
 	$nicks->{$target}->{$screenname} = time unless $nicks->{$target}->{$screenname} == -1;
 	debug_print("$screenname -> $target: $msg", "im", 2);
 	if($irc_connections->{$target} and $shortcircuit) {
-		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
+		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, txt2html($msg));
 	} else {
-		$oscar->send_im($target, $msg) if $oscar;
+		$oscar->send_im($target, txt2html($msg)) if $oscar;
 	}
 	$nicks->{$target}->{$screenname} = time if $nicks->{$target}->{$screenname} != -1;
 }
@@ -3316,4 +3316,40 @@ sub globmatch($$) {
 
 	return 1 if $string =~ /$glob/i;
 	return 0;
+}
+
+# Convert IRC formatting codes to HTML
+sub txt2html($) {
+	my($msg) = shift;
+	my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
+	my($inbold, $initalic, $inunderline) = (0, 0, 0);
+
+	$msg =~ s!($bold|$italic|$underline)!
+		if($1 eq $bold) {
+			if($inbold) {
+				$inbold = 0;
+				"</b>";
+			} else {
+				$inbold = 1;
+				"<b>";
+			}
+		} elsif($1 eq $italic) {
+			if($initalic) {
+				$initalic = 0;
+				"</i>";
+			} else {
+				$initalic = 1;
+				"<i>";
+			}
+		} else { #underlined
+			if($inunderline) {
+				$inunderline = 0;
+				"</u>";
+			} else {
+				$inunderline = 1;
+				"<u>";
+			}
+		}
+	!ge;
+	return $msg;
 }
