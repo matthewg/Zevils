@@ -1,70 +1,172 @@
 #!/usr/bin/perl
 
-# Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
-#
-#   This program is free software; you can redistribute it and/or
-#   modify it under the terms of version 2 of the GNU General Public License
-#   as published by the Free Software Foundation.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-#
-# AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
+$license = <<EOF
+Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of version 2 of the GNU General Public License
+   as published by the Free Software Foundation.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+   The GNU General Public License is included with the aimirc distribution
+   under the filename COPYING.
+
+ AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
+EOF
+;
 
 sub BEGIN {
-	require File::Basename;
-	push @INC, File::Basename::dirname($0);
+	require FindBin;
+	use lib $FindBin::Bin;
+
+	undef $@;
+	eval {
+		require HTML::FormatText;
+		require HTML::Parse;
+	};
+
+	if($@) {
+		print STDERR "Couldn't require HTML::FormatText and/or HTML::Parse.  Here's why:\n";
+		print STDERR "$@\n";
+		print STDERR "\n\n";
+		print STDERR "And here's what that probably means...\n\n";
+		print STDERR "You do not have the HTML::FormatText and HTML::Parse modules installed.\n";
+		print STDERR "There are at least three possible ways to install these modules:\n";
+		print STDERR "1) [preferred] Get them as a package from your OS vendor or Linux distributor.\n";
+		print STDERR "        In Debian, you can install the libhtml-tree-perl package.\n";
+		print STDERR "        Note that Debian no longer provides a package for HTML::FormatText,\n";
+		print STDERR "        you will need to get it manually.   I'm not sure about other\n";
+		print STDERR "        operating systems or distributions.\n";
+		print STDERR "2) Use the CPAN module to install it.  Run perl -MCPAN -e shell and \n";
+		print STDERR "        type install HTML::Tree when you get to the CPAN prompt, and\n";
+		print STDERR "        then install HTML::FormatText .\n";
+		print STDERR "3) Download the source from CPAN and install it.  The source is located\n";
+		print STDERR "        at http://www.perl.com/CPAN/modules/by-module/HTML/ in a file\n";
+		print STDERR "        called HTML-Tree-VERSION.tar.gz where VERSION is the latest version\n";
+		print STDERR "        of HTML-Tree.  You will also need the HTML-Format-VERSION.tar.gz\n";
+		print STDERR "        package.\n";
+		die "\n";
+	}
+
+	package HTML::FormatAIMIRC;
+	
+		@ISA = qw(HTML::FormatText);
+		
+		sub hr_start {
+			my $self = shift;
+			$self->vspace(1);
+			$self->out("=" x 30);
+			$self->vspace(1);
+		}
+
+		#We can't get at the HREF inside of sub out, so set it here.
+		sub a_start {
+			my ($self, $elem) = @_;
+		
+			$self->{anchor}++;
+			push @{$self->{output}}, " " x $self->{hspace} . "{";
+			$self->{hspace} = 0;
+			1;
+		}
+		
+		sub a_end {
+			my($self, $elem) = @_;
+
+			$self->{anchor}--;
+			push @{$self->{output}}, "} {" . $elem->attr('href') . "}";
+		}
+
+		#Mostly ripped straight from HTML::FormatText, with a few critical additions.
+		sub out {
+			my($self, $text) = @_;
+			my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
+			
+			if ($text =~ /^\s*$/) { 
+				$self->{hspace} = 1;
+				return;
+			}
+			
+			#open(TMP, ">>/tmp/aimirc.html.txt");
+			#print TMP "out $text:\n" . Data::Dumper::Dumper($self);
+			#close TMP;
+
+			#Translate HTML formatting to IRC formatting
+			$text = "$bold$text$bold" if $self->{bold};
+			$text = "$italic$text$italic" if $self->{italic};
+			$text = "$underline$text$underline" if $self->{underline};
+			#$text = "{$text" if $self->{anchstart} and $self->{anchor};
+			#$text = "$text} {$self->{href}}" if $self->{anchstart} and not $self->{anchor}; #So we can see link addresses...
+			
+			if (defined $self->{vspace}) {
+				if ($self->{out}) {
+					$self->nl while $self->{vspace}-- >= 0;
+				}
+				$self->goto_lm;
+				$self->{vspace} = undef;
+				$self->{hspace} = 0;
+			}
+			
+			if ($self->{hspace}) {
+				if ($self->{curpos} + length($text) > $self->{rm}) {
+					# word will not fit on line; do a line break
+					$self->nl;
+					$self->goto_lm;
+				} else {
+					# word fits on line; use a space
+					$self->collect(' ');
+					++$self->{curpos};
+				}
+				$self->{hspace} = 0;
+			}
+			
+			$self->collect($text);
+			my $pos = $self->{curpos} += length $text;
+			$self->{maxpos} = $pos if $self->{maxpos} < $pos;
+		
+			$self->{'out'}++;
+		}
+	
+		1;
+
+	package main;
 }
 
-#use Thread qw(async);
+use FindBin;
+use lib $FindBin::Bin;
+
 use IO::Handle;
 use IO::Socket;
 use IO::Select;
 use POSIX;
 use Carp;
+use Getopt::Long;
+use LWP::Simple;
 $Carp::Verbose = 1;
 
-undef $@;
-eval {
-	require HTML::FormatText;
-	require HTML::Parse;
-};
-
-if($@) {
-	print STDERR "You do not have the HTML::FormatText and HTML::Parse modules installed.\n";
-	print STDERR "There are at least three possible ways to install these modules:\n";
-	print STDERR "1) [preferred] Get them as a package from your OS vendor or Linux distributor.\n";
-	print STDERR "        In Debian, you can install the libhtml-tree-perl package.\n";
-	print STDERR "        Note that Debian no longer provides a package for HTML::FormatText,\n";
-	print STDERR "        you will need to get it manually.   I'm not sure about other\n";
-	print STDERR "        operating systems or distributions.\n";
-	print STDERR "2) Use the CPAN module to install it.  Run perl -MCPAN -e shell and \n";
-	print STDERR "        type install HTML::Tree when you get to the CPAN prompt, and\n";
-	print STDERR "        then install HTML::FormatText .\n";
-	print STDERR "3) Download the source from CPAN and install it.  The source is located\n";
-	print STDERR "        at http://www.perl.com/CPAN/modules/by-module/HTML/ in a file\n";
-	print STDERR "        called HTML-Tree-VERSION.tar.gz where VERSION is the latest version\n";
-	print STDERR "        of HTML-Tree.  You will also need the HTML-Format-VERSION.tar.gz\n";
-	print STDERR "        package.\n";
-	die "\n";
-}
+eval { require Data::Dumper; };
 
 use Toc qw(:all);
 
 $SIG{__DIE__}  = sub { croak $_[0] };
 
 $home = (getpwuid($>))[7];
+$version = $VERSION = "0.90";
+
+@args = @ARGV;
+
 
 #Defaults
 $prefix = "AIM-";
 $usnick = "AIMServ";
-$us = "aimserv.matthewg.port.net"; #IRC server name to claim to be
+$us = "aimserv.your.irc.net"; #IRC server name to claim to be
 $them = "127.0.0.1"; #Hostname of IRC server to connect to
 $themport = 6667;
 $ourpass = "foo";
@@ -73,20 +175,81 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#You can try something else, but I don't think the
 			#default method works.
 $time = 60*5; #Five minutes.
+$ssl = 1;
+@default_conffiles = qw(/etc/aimirc.conf $home/.aimirc);
+$fork = 1;
+$connectmode = 0;
+$verbose = 0;
+*debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
+
+Getopt::Long::Configure("no_ignore_case");
+Getopt::Long::Configure("pass_through");
+
+$errors = &GetOptions(
+	"version|V" => \&dispver,
+	"license" => \&license,
+	"config|C=s\@" => \@conffiles,
+	"help|h" => \&help,
+);
+
+@conffiles = @default_conffiles unless $conffiles[0];
+
+if(!$errors) {
+	print STDERR "Try $0 --help if you need help.\n";
+	exit 1;
+}
 
 $foundconfig = 0;
-if(-r "/etc/aimirc.conf") {
-	undef $@;
-	do "/etc/aimirc.conf";
-	die $@ if $@;
-	$foundconfig = 1;
+foreach $conffile(@conffiles) {
+	$conffile =~ s/~/$home/;
+	if(-r $conffile) {
+		print STDERR "Reading config file $conffile\n" if $verbose;
+		undef $@;
+		do $conffile;
+		die $@ if $@;
+		$foundconfig = 1;
+	} else {
+		print STDERR "Couldn't read config file $conffile\n" if $verbose;
+	}
 }
-if(-r "$home/.aimirc") {
-	undef $@;
-	do "$home/.aimirc";
-	die $@ if $@;
-	$foundconfig = 1;
+
+unless($foundconfig) {
+	print STDERR "We couldn't find a config file.\n";
+	print STDERR "You must edit aimirc.conf and copy it to either /etc/aimirc.conf or\n";
+	print STDERR "   $home/.aimirc.  If you have already done this, make sure the aimirc\n";
+	print STDERR "   user has permission to read it.\n";
+	print STDERR "Or, perhaps you specified a config file with the --config (-C) option.\n";
+	print STDERR "If you want to specify everything on the command-line and not use a config\n";
+	print STDERR "   file (why?) then just give it a blank config file to make it happy.\n";
+	exit 1;
 }
+
+Getopt::Long::Configure("no_pass_through");
+
+$errors = &GetOptions(
+	"us=s" => \$us,
+	"them=s" => \$them,
+	"themport=i" => \$themport,
+	"ourpass=s" => \$ourpass,
+	"theirpass=s" => \$theirpass,
+	"servermode=s" => \$servermode,
+	"connectmode=i" => \$connectmode,
+	"prefix=s" => \$prefix,
+	"usnick=s" => \$usnick,
+	"time=i" => \$time,
+	"ssl:i" => \$ssl,
+	"fork=i" => \$fork,
+	"verbose|v" => \$verbose,
+	"debug:i" => \$debug,
+	"debuglevel=s\%" => \%debuglevel,
+);
+
+if(!$errors) {
+	print STDERR "Try $0 --help if you need help.\n";
+	exit 1;
+}
+
+%temp = %ircservers; #Preserve custom ircservers
 
 %ircservers = (
 	dal2 => {
@@ -95,7 +258,8 @@ if(-r "$home/.aimirc") {
 		uspass => 1,
 		theirpass => 1,
 		nicklen => 30,
-		pass => "PASS $ourpass :1\r\n"
+		pass => "PASS $ourpass :1\r\n",
+		EBURST => 1,
 	},
 	dragonfire => {
 		nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
@@ -120,43 +284,49 @@ if(-r "$home/.aimirc") {
 		theirpass => 1,
 		nicklen => 9,
 		pass => "PASS :$ourpass\r\n"
-	}
+	},
+	ts => {
+		nick => "NICK _NICK_ 1 _TIME_ +i _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+		server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 1 1 0 :_TIME_\r\n",
+		uspass => 1,
+		theirpass => 1,
+		nicklen => 9,
+		pass => "PASS $ourpass TS\r\n",
+	},
 );
 
-$foundconfig = 0;
-if(-r "/etc/aimirc.conf") {
+foreach $server(keys %temp) { #Preserve custom ircservers
+	$ircservers{$server} = $temp{$server};
+}
+
+$connectmode_fork = 0;
+
+if($connectmode == 0 or $connectmode == 2) {
+	print STDERR "Testing fork mode support (IPC::Shareable)...\n" if $verbose;
 	undef $@;
-	do "/etc/aimirc.conf";
-	die $@ if $@;
-	$foundconfig = 1;
+	eval { require IPC::Shareable; }
+	if($@) {
+		print STDERR "Can't use fork mode: $@\n" if $verbose;
+	} else {
+		print STDERR "Using fork mode\n";
+		$connectmode_fork = 1;
+	}
+} else {
+	print STDERR "Not forking.\n" if $verbose;
 }
-if(-r "$home/.aimirc") {
-	undef $@;
-	do "$home/.aimirc";
-	die $@ if $@;
-	$foundconfig = 1;
-}
-
-unless($foundconfig) {
-	print STDERR "You must edit aimirc.conf and copy it to either /etc/aimirc.conf or $home/.aimirc\n";
-	print STDERR "If you have already done this, make sure the aimirc user has permission to read it.\n";
-	exit 1;
-}
-$version = $VERSION = "0.90";
-
-@args = @ARGV;
-
 
 $uid = "100";
 
 
 unless($reload) {
-	#We don't need no stinking ampersands!
-	$pid = fork;
-	exit if $pid;
-	die "Couldn't fork: $!" unless defined($pid);
+	if($fork) {
+		#We don't need no stinking ampersands!
+		$pid = fork;
+		exit if $pid;
+		die "Couldn't fork: $!" unless defined($pid);
 
-	POSIX::setsid() or die "Can't start a new session: $!";
+		POSIX::setsid() or die "Can't start a new session: $!";
+	}
 	sub kill_handler {
 		$upstream->close;
 		foreach $connections(keys %$aim_connections) {
@@ -167,6 +337,7 @@ unless($reload) {
 }
 
 $SIG{INT} = $SIG{TERM} = \&kill_handler;
+$SIG{CHLD} = 'IGNORE';
 
 #Restart on SIGHUP
 sub phoenix {
@@ -195,28 +366,40 @@ $| = 1;
 
 unless($reload) {
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
-	do { $upstream->print($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
-	$upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $!\n";
+	do { irc_send($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
+	irc_send(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $!\n";
+
+	$in = "...";
 
 	if($theirpass and $ircservers{$servermode}{theirpass}) {
-		while(($in !~ /PASS :?(.+)/)) {
+		while($in and ($in !~ /PASS :?(.+)/)) {
 			$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
 			chomp $in;
 			Toc::debug_print($in, "irc_connect", 1) if $in;
+			if($in =~ /^ERROR :(.+)/) {
+				print STDERR "IRC connection error: $1\n";
+				exit 1;
+			}
 		}
 
-		$in =~ s/ :1//;
-		$in =~ /^PASS :?(.+)/;
+		Toc::debug_print($in, "irc_connect", 1) if $in;
+		$in =~ s/ :1// if $in;
+		$in =~ s/ :TS// if $in;
+		$in =~ /^PASS :?(.+)/ if $in;
 		$pass = $1;
-		$pass =~ s/\s*//g;	#Remove spaces from crypted password
-		if($pass ne $theirpass and $pass ne crypt($theirpass, substr($pass, 0, 2))) { die("Upstream server gave the wrong password!\n"); }
+		$pass =~ s/\s*//g if $pass;	#Remove spaces from crypted password
+		if($pass and $theirpass and ($pass ne $theirpass and $pass ne crypt($theirpass, substr($pass, 0, 2)))) { die("Upstream server gave the wrong password!\n"); }
 	}
 
-	if($servermode eq "dal2") {
-		while($in !~ /EBURST/) {
+	if($ircservers{$servermode}{EBURST}) {
+		while($in and ($in !~ /EBURST/)) {
 			$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
 			chomp $in;
 			Toc::debug_print($in, "irc_connect", 1) if $in;
+			if($in =~ /^ERROR :(.+)/) {
+				print STDERR "IRC connection error: $1\n";
+				exit 1;
+			}
 		}
 	}
 
@@ -233,7 +416,7 @@ unless($reload) {
 	irc_send(":$usnick JOIN #aimirc-debug\r\n");
 	irc_send(":$us MODE #aimirc-debug +nk $ourpass\r\n");
 	$aimircdebug = 1;
-
+	$longnicks{'#aimirc-debug'} = '#aimirc-debug';
 
 	while(1 == 1) {
 		exit(255) unless $upstream;
@@ -245,30 +428,34 @@ unless($reload) {
 		@aims = $aimselect->has_error(.01);
 		foreach $aim(@aims) {
 			$connection = $aim_connections{$filenos[$aim->fileno]};
-			$fileno = $aim->fileno;
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "You have been signed off of AIM.")) if $connection;
-			delete $aim_connections{$filenos[$fileno]};
-			delete $aim_connections{$connection->{nick}} if $connection and $connection->{nick};
-			$aimselect->remove($connection);
-			signoff($connection);
+			do_signoff($connection->{nick}, $connection);
 		}
 
-		if($ircselect->can_read(.01)) {
+		@upstream = $ircselect->can_read(.01);
+		if($upstream[0]) {
 			$_ = $upstream->getline;
-			chomp; chop;
+			chomp; s/[\r\n]$//;
 			Toc::debug_print("From IRC: $_", "irc", 2);
 			process_irc_message($_);
 		}
+
+		@upstream = $ircselect->has_error(.01);
+		if($upstream[0]) {
+			print STDERR "IRC connection closed.\n";
+			exit 1;
+		}
+
 		if((time % 100) == 0) { #Cleanup nicks
 			ANICK: foreach $anick(keys %nicks) {
+				next if $anick = $usnick;
 				$kill = 1;
-				foreach $bnick(keys %{$nicks{normalize($anick)}}) {
+				foreach $bnick(keys %{$nicks{$anick}}) {
 					next ANICK if $kill == 0;
 					$kill = 0 if $nicks{normalize($anick)}{$bnick} == -1;
 					$kill = 0 if (time - $nicks{normalize($anick)}{$bnick}) < 3600;
 				}
 				if($kill == 1) {
-					delete $nicks{normalize($anick)};
+					delete $nicks{$anick};
 					irc_send(":$prefix$anick QUIT :$prefix$anick\r\n");
 				}
 			}
@@ -288,31 +475,43 @@ sub irc_subparms($;$$) {
 }
 
 sub irc_privmsg {
-	my($from, $to, $msg, $line, $ret) = @_;
-	foreach $line(split(/\n/, $msg)) {
-		$ret .= ":$from PRIVMSG $to :$line\r\n";
+	my($from, $to, $msg, $prefix, $line, $ret) = @_;
+
+	if($from ne $usnick and not $nicks{$from}) {
+		irc_send(irc_newnick($from));
+		$nicks{$from} = 1;
+	}
+
+	foreach $line(split(/[\r\n]+/, $msg)) {
+		$ret .= ":$from PRIVMSG $to :$prefix$line\r\n";
 	}
 	return $ret or $msg;
 }
 
 sub irc_newnick {
-	my($nick, $user, $string) = shift;
+	my($nick, $user, $string, $shortnick) = shift;
 	($user = $nick) =~ s/^$prefix//;
-	$nick = substr($nick, 0, $ircservers{$servermode}{nicklen}) if length $nick > $ircservers{$servermode}{nicklen};
-	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $nick);
-	$string .= ":$nick MODE $nick +i\r\n";
+	$nicks{$nick} = 1;
+	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
+	$longnicks{$shortnick} = $nick;
+	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
+	$string .= ":$nick MODE $shortnick +i\r\n";
 	return $string;
 }
 
 sub process_irc_message {
 	my $nick;
-	if(/:([^ ]+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
+	if(/^ERROR :(.+)/) {
+		print STDERR "IRC server error: $1\n";
+		exit 1;
+	} elsif(/:([^ ]+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
 		$nick = $1; $msg = $2;
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
 		$cmd = $1 unless $cmd; $param = $2 if $2; $extra = substr($3, 1) || "" if $3;
 		$cmd ||= $msg; #For cmds w/o param
 		#warn "Cmd: $cmd\nParam: $param: Extra: $extra\n\n";
+		$nick = lc($nick);
 		unless($aim_connections{$nick} or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
@@ -320,27 +519,30 @@ sub process_irc_message {
 			if($aim_connections{$nick} and $aim_connections{$nick}{aimnick}) {
 				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger as $aim_connections{$nick}{aimnick} - please sign off first if you wish to sign on under a different screename, or use a different IRC connection."));
 			} else {
-				$param = normalize($param);
-				@ret = signon $param, $extra, sub {
-				irc_send(irc_privmsg($usnick, $nick, $_[0]))
-				};
-				if($ret[0] == 0) {
-					$aim_connections{$nick}{nick} = $nick;
-					$aim_connections{$nick}{aimnick} = $param;
-					$aim_connections{$nick}{socket} = $ret[1];
-					$aim_connections{$nick}{permtype} = $ret[2]->{permtype};
-					%temp = %{$ret[2]};
-					$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
-	
-					$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
-					$aimselect->add($aim_connections{$nick}{socket});
-					irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger."));
-					unless($nicks{normalize($param)}) {
-						irc_send(irc_newnick($prefix . normalize($param)));
-						$nicks{normalize($param)}{$nick} = -1;
+				local @temp = ($param, $extra, $usnick, $nick);
+				if($connectmode_fork) {
+					my $pid = fork;
+					if (not defined $pid) {
+						irc_send(irc_privmsg($usnick, $nick, "Couldn't fork: $!"));
+						Toc::debug_print("Couldn't fork: $!", "critical_errors", 1);
+					} elsif($pid == 0) {
+						got_signon(@temp);
+						if($aim_connections{$tnick}{socket}) {
+							while(1 == 1) {
+								if($aim_connections{$tnick}{socket}->error) {
+									do_signoff($tnick, $aim_connections{$tnick}{socket});
+									exit;
+								}
+								process_aim_message($aim_connections{$tnick}{socket});
+							}
+						} else {
+							exit;
+						}
+					} else {
+						$aim_connections{$nick}{pid} = $pid;
 					}
 				} else {
-					irc_send(irc_privmsg($usnick, $nick, $err));
+					got_signon(@temp);
 				}
 			}
 		} elsif ($cmd eq "buddylist") {
@@ -372,16 +574,7 @@ sub process_irc_message {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
-				if($aim_connections{$nick}) {
-					irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
-					if($aim_connections{$nick}{socket}) {
-						delete $aim_connections{$aim_connections{$nick}{socket}->fileno};
-						$aimselect->remove($aim_connections{$nick}{socket});
-						signoff($aim_connections{$nick}{socket});
-					}
-					delete $aim_connections{$nick};
-					irc_send(irc_privmsg($usnick, $nick, "Bye!"));
-				}
+			do_signoff($nick, $aim_connections{$nick}{socket}) if $aim_connections{$nick};
 		} elsif ($cmd eq "buddyinfo") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname")) unless $param;
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
@@ -519,14 +712,6 @@ sub process_irc_message {
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
-		} elsif ($cmd eq "bold") {
-			$aim_connections{$nick}{bold} = $param;
-		} elsif ($cmd eq "italic") {
-			$aim_connections{$nick}{italic} = $param;
-		} elsif ($cmd eq "underlined") {
-			$aim_connections{$nick}{underlined} = $param;
-		} elsif ($cmd eq "color") {
-			$aim_connections{$nick}{color} = $param;
 		} elsif ($cmd eq "add") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname")) unless $param;
 			$param =~ tr/ //d; $inick = lc($param);
@@ -571,9 +756,6 @@ sub process_irc_message {
 				$upstream->print("$foo :get_dir nick - Get directory info for nick.\r\n");
 				$upstream->print("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n");
 				$upstream->print("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n");
-				$upstream->print("$foo :bold 0/1 - When set to 1 (the default), HTML bold tags will be translated to their IRC formatting equivalent.\r\n");
-				$upstream->print("$foo :italic 0/1 - When set to 1 (the default), HTML italic tags will be translated to their IRC formatting equivalent.\r\n");
-				$upstream->print("$foo :underlined 0/1 - When set to 1 (the default), HTML underlined tags will be translated to their IRC formatting equivalent.\r\n");
 			} elsif($param eq "debug") {
 				if($debug) {
 					$upstream->print("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n");
@@ -603,7 +785,8 @@ sub process_irc_message {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
 	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
-		$nick = $1; $target = normalize(aimnick($2)); $msg = $3;
+		$nick = $1; $target = normalize(aimnick($longnicks{$2})); $msg = $3;
+
 		if($2 eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
 			if($msg eq "restart" and $1) {
@@ -643,14 +826,14 @@ sub process_irc_message {
 			} elsif($msg =~ /^eval (.+)/ and $1) {
 				undef $@;
 				eval $1;
-				$@ =~ tr/\r//d;
-				foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
+				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 			} else {
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
 		} else {
+			$target = normalize($target);
 			message($aim_connections{$nick}{socket}, $target, $msg);
-			$nicks{substr($target, 4)}{$nick} = time if $nicks{substr($target, 4)}{$nick} != -1;
+			$nicks{$target}{$nick} = time if $nicks{$target}{$nick}!= -1;
 		}
 	} elsif(/^:(\S+) AWAY(.*)/) {
 		$nick = $1;
@@ -699,12 +882,15 @@ sub process_aim_message {
 		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
 		$inick = normalize($1);
-		Toc::debug_print("$prefix$inick is sending an IM to $connection->{nick}: $3", "IM", 2);
+		my $autoflag = $2;
+		my $message = $3;
+
+
 		unless($nicks{normalize($inick)}) {
 			irc_send(irc_newnick($prefix . $inick));
 		}
-		($2 eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
-		@lines = html2txt($3, $nick);
+		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
+		@lines = html2txt($message, $nick);
 		irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, $ar . $lines[0]));
 		shift @lines;
 		foreach $line(@lines) {
@@ -786,39 +972,23 @@ sub process_aim_message {
 		delete $connection->{chats}{$val};
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL wants you to go to the URL http://toc-d01.blue.aol.com:5190/$1"));
+		my $html = get("http://toc-d01.blue.aol.com/$1");
+		$html =~ s/<I>Legend:.*//m;
+		Toc::debug_print($html, "html", 2);
+		irc_send(irc_privmsg($usnick, $connection->{nick}, html2txt($html, $connection->{nick})));
 	}
 }
 
 sub html2txt {
 	my ($msg, $nick, $parsetree, @lines) = @_;
-	$parsetree = HTML::TreeBuilder->new->parse($msg);
 	my($linkct, $link, $elem, $node) = 0;
-	foreach $node (@{$parsetree->extract_links("a")}) { #For every <A HREF
-		($link, $elem) = @$node;
-		while(ref(${$$elem{_content}}[0])) {
-			${$$elem{_content}}[0] = ${$$elem{_content}}[0]->{_content}[0];
-		}
-		${$$elem{_content}}[0] .= " {$link}";
-	}
-	$parsetree->traverse(\&tsub);
-	@lines = split(/\n/, HTML::FormatText->new(leftmargin => 0, rightmargin => 4096)->format($parsetree));
-	$lines[0] ? (return @lines) : (return ($msg));
-}
 
-sub tsub {
-	my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
-	my($node, $startflag, $xnode, $nick) = @_;
-	return 1 unless $startflag;
-	foreach $xnode(@{$node->{_content}}) {
-		if(ref $xnode) {
-			$xnode->traverse(\&tsub);
-		} else {
-			$xnode = "$bold$xnode$bold" if $node->{_tag} eq "b" and $aim_connections{$nick}{bold} == 1;
-			$xnode = "$italic$xnode$italic" if $node->{_tag} eq "i" and $aim_connections{$nick}{italic} == 1;
-			$xnode = "$underline$xnode$underline" if $node->{_tag} eq "u" and $aim_connections{$nick}{underlined} == 1;
-		}
-	}
+	$parsetree = HTML::TreeBuilder->new->parse($msg);
+	$parsetree->eof;
+
+	$msg = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096)->format($parsetree);
+	$parsetree->delete;
+	return $msg;
 }
 
 sub aimnick {
@@ -838,7 +1008,7 @@ sub Toc::debug_print($$$) {
 
 	if($aimircdebug and $debug < 2) {
 		@lines = split(/[\r\n]+/, $text);
-	
+
 		foreach $line(@lines) {
 			$upstream->print(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n");
 		}
@@ -849,6 +1019,7 @@ sub Toc::debug_print($$$) {
 }
 
 sub irc_send {
+	lock $upstream;
 	Toc::debug_print("To IRC  : $_[0]", "irc", 2);
 	$upstream->print($_[0]);
 }
@@ -864,7 +1035,7 @@ sub rehash {
 		undef $@;
 		do "/etc/aimirc.conf";
 		$@ =~ tr/\r//d;
-		foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 		if($@) {
 			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload /etc/aimirc.conf - there were errors."));
 		} else {
@@ -876,7 +1047,7 @@ sub rehash {
 	if(-r "$home/.aimirc") {
 		undef $@;
 		do "$home/.aimirc" if -r "$home/.aimirc";
-		foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
+		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 		if($@) {
 			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload $home/.aimirc - there were errors."));
 		} else {
@@ -894,10 +1065,108 @@ sub reload {
 	undef $@;
 	local $SIG{__DIE__} = sub { $@ = shift; };
 	do $0;
-	foreach $line(split(/\n/, $@)) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "EVAL: $line")); }
+	irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 	if($@) {
 		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload $0 - there were errors."));
 	} else {
 		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reload complete!"));
 	}
+}
+
+sub dispver {
+	print "aimirc: IRC <-> AOL Instant Messenger gateway.\n";
+	print "AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.\n";
+	print "Version: $VERSION\n";
+	print "Use $0 --help for command-line options.\n";
+	print "Use $0 --license to see the license (GPL v2)\n";
+	exit 0;
+}
+
+sub license { print $license; exit 0; }
+
+sub help {
+	print <<EOF
+aimirc - IRC <-> AOL Instant Messenger gateway
+AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
+Version $VERSION
+
+Usage: $0 [--version] [--license] [--help] [--config conffile] [--config conffile] ...
+
+You can use either the short or long forms with one or two dashes in
+whatever combination you want.  However, you can't combine options as in
+$0 -VC.
+
+	--version, -V:			Display version information and exit
+
+	--license:			Display license information and exit
+
+	--help, -h:			Print this message and exit
+
+	--config, -C:			Specify configuration files to use.
+					This option overrides the default
+					configuration file locations.
+					You may specify this option multiple
+					times to use multiple configuration
+					files.
+
+This is also an option for every directive in the configuration file.
+The options have the same names as the directives, but prefix them with
+two dashes (--) instead of the Perl variable type identifies (\$\@\%).
+
+See the included README file for more information.
+EOF
+;
+	exit 0;
+}
+
+
+sub got_signon {
+	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret) = @_;
+
+	$nparam = normalize($tparam);
+
+	# lock $aim_connections{$tnick};
+	@ret = signon $nparam, $textra, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
+	if($ret[0] == 0) {
+		{
+			$aim_connections{$tnick}{nick} = $tnick;
+			$aim_connections{$tnick}{aimnick} = $nparam;
+			$aim_connections{$tnick}{socket} = $ret[1];
+			$aim_connections{$tnick}{permtype} = $ret[2]->{permtype};
+		}
+		%temp = %{$ret[2]};
+
+		{
+			lock @filenos;
+			$filenos[$aim_connections{$tnick}{socket}->fileno] = $tnick;
+		}
+		{
+			lock $aimselect;
+			$aimselect->add($aim_connections{$tnick}{socket});
+		}
+
+		irc_send(irc_privmsg($tusnick, $tnick, "You are now connected to AOL Instant Messenger."));
+		{
+			lock $nicks{$nparam};
+			unless($nicks{$nparam}) {
+				irc_send(irc_newnick($tprefix . $tparam));
+				$nicks{$nparam}{$tnick} = -1;
+			}
+		}
+	} else {
+		lock $err;
+		irc_send(irc_privmsg($tusnick, $tnick, $err));
+	}
+}
+
+sub do_signoff {
+	my ($nick, $connection) = @_;
+
+	if(UNIVERSAL::isa($connection, "IO::Socket::INET")) {
+		delete $aim_connections{$connection->fileno};
+		$aimselect->remove($connection) if UNIVERSAL::isa($aimselect, "IO::Select");
+		signoff($connection);
+	}
+	delete $aim_connections{$nick};
+	irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger."));
 }

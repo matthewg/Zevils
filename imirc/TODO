@@ -1,15 +1,15 @@
-I should rewrite the code, it's starting to get ugly again.
+Admin:
+	#aimirc-admin -- seperate from #aimirc-debug
+	Allow admins to be authenticated by any one of the following methods:
+		being in #aimirc-admin (+k)
+			let pass be set independantly of $uspass
+		being an IRC operator (all-global, all-local, and/or
+		  local-on-upstream
+		sending /msg aimserv admin ($adminpass || $uspass)
 
-More thoughts on crypto and such:
-	When we send a message to someone for the first time after signing on,
-	put a special HTML comment in that IM.  <!-- aimirc [capabilities] -->
-	[capabilities] is whatever capabilities we have (new versions get more,
-	and you can turn them off in aimirc.conf)  One such capability is
-	crypto.  To enable crypto support, you'd probably have to generate a
-	keypair.  If two people on the same aimirc server are talking to the
-	same person on another aimirc server, we can arrange for that person
-	to only need to send their public key once.  I'll need to look into
-	the different crypto modules available for Perl.
+Better behavior as an IRC server (read the RFC ;))
+
+Multi-screenname (you can be signed on as multiple S/N's at once) ???
 
 Collaboration:
 	There's an access list, see?  You can add AIM screennames,
@@ -47,29 +47,8 @@ main loop.
 
 Multithread (or fork even) support.
 
-Support for TS protocol
-
 Optional minimal libfaim - for password changes and such?????
 
-file transfer -> DCC
+file transfer -> DCC?
 Handle colors as well as bold, etc.?
-Allow passwords to be sent via DCC.
-Crypto support (SSH?) for talking to another aimirc client?
-	Well, for talking to any client really, but I don't think that the
-	standard clients will be including this anytime soon ;)
-
-	Encrypt the contents of any IM's to selected clients or chats to
-	selected chatrooms.
-
-	This still wouldn't encrypt the client->IRC server connection, but
-	that's what SSH forwarding is for.
-
-	Maybe better/easier than SSH would be exchanging a OTP with the
-	client.  The OTP would be encrypted using the target's PGP/GPG
-	public key.  Is this secure?
-
-	Are there any crypto Perl modules?
-
-	I'm in the US.  Shall I just give the crypto export restrictions the
-	civil disobedience they deserve?  Or maybe someone outside the US
-	would be willing to maintain a set of crypto patches.
+Allow passwords to be sent via DCC?

@@ -493,14 +493,18 @@ Send an IM to NICK.  If AUTO, the message is an automated reply.
 
 sub message($$$;$) {
 	my($handle, $target, $text, $auto) = @_;
-	my($msg);
+	my($msg, $temp);
 
 	$auto ||= 0;
 
 	debug_print(_hnick($handle) . " is sending an IM to $target: $text", "IM", 2);
-	$msg = quote("toc_send_im $target ") . "\"" . quote(txt2html($text)) . "\"";
-	$msg .= " auto" if $auto;
-	sflap_put($handle, sflap_encode($msg, 0, 1));
+	$text = quote(txt2html($text));
+	while($text) {
+		$temp = substr($text, 0, 1000, "");
+		$msg = quote("toc_send_im $target ") . "\"$temp\"";
+		$msg .= " auto" if $auto;
+		sflap_put($handle, sflap_encode($msg, 0, 1));
+	}
 }
 
 =pod
@@ -1034,7 +1038,7 @@ sub txt2html($) {
 	my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
 	my($inbold, $initalic, $inunderline) = (0, 0, 0);
 
-	$msg = "<FONT COLOR=\"#000000\">$msg</FONT>";
+	#$msg = "<FONT COLOR=\"#000000\">$msg</FONT>";
 	while($msg =~ /($bold|$italic|$underline)/g) {
 		if($1 eq $bold) {
 			if($inbold) {
