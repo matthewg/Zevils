@@ -519,7 +519,7 @@ and message number will be verified before this method is called.
 =cut
 
 sub next($$$) { return undef; }
-sun prev($$$) { return undef; }
+sub prev($$$) { return undef; }
 
 =pod
 

@@ -358,7 +358,7 @@ sub articles($$;$) {
 	} elsif($grouptype eq "story" or $grouptype eq "journal") {
 		my $from = "comments";
 
-		my $where = "1 = 1"
+		my $where = "1 = 1";
 		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
 
 		if($grouptype eq "story") {
@@ -794,7 +794,7 @@ sub groupstats($$) {
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(cid), MAX(cid), COUNT(cid)",
 						"comments",
-						"sid=$id";
+						"sid=$id");
 	} elsif($type eq "journals") {
 		my $where = "";
 		$where = "uid = $id" if $id;
