@@ -60,7 +60,7 @@ function date_to_user($sql_date) {
 	if(!preg_match('/^\d\d\d\d-(\d\d)-(\d\d)$/', $sql_date, $matches)) return "";
 	$month = 0+$matches[1];
 	$day = $matches[2];
-	return array($months[$month], $day);
+	return array($months[$month-1], $day);
 }
 
 // ("Jan", 2) -> 1984-01-02
