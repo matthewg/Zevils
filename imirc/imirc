@@ -2099,6 +2099,7 @@ sub oscar_buddy_info($$$) {
 	my($oscar, $buddy, $buddat) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
+
 	if($buddat->{awaymsg}) {
 		irc_send(irc_newnick($prefix.$buddy));
 		$away->{$buddy} = $buddat->{awaymsg};
@@ -2111,7 +2112,11 @@ sub oscar_buddy_info($$$) {
 			$awaymsg = "This away message is too long for the IRC server to handle.  Use the get_away command to see it." if length($awaymsg) > 500;
 			irc_send(irc_away(aimnick($buddy, $screenname), $awaymsg));
 		}
+	} elsif($sndata->{away_requested}->{$buddy}) {
+		irc_send(irc_privmsg($usnick, $nick, "$buddy is not away or has no away message set.", "", "", $screenname));
+		delete $sndata->{away_requested}->{$buddy};
 	} else {
+
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
