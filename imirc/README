@@ -75,8 +75,8 @@ Troubleshooting:
 
 Usage:
 	You need an AOL Instant Messenger account.
-	Let's say your AIM account is tocname and the password is tocpass.
-	To connect to AIM: /msg IMServ signon tocname tocpass
+	Let's say your AIM account is SomeDude and the password is SomePass.
+	To connect to AIM: /msg IMServ signon SomeDude SomePass
 	To send an Instant Message to MattSachs: /msg AIM-MattSachs hi
 	To get help on additional commands: /msg IMServ help
 
