@@ -68,9 +68,9 @@ foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse
 		chdir($dir) or die "Couldn't chdir to $dir: $!\n";
 		chmod(0755, ".");
 		system("make distclean");
-		system("perl Makefile.PL $makeargs") >> 8 or die "Problem running Makefile.PL for $mod\n";
-		system("make") >> 8 or die "Problem running make for $mod\n";
-		system("make install") >> 8 or die "Problem running make install for $mod\n";
+		system("perl Makefile.PL $makeargs") >> 8 and die "Problem running Makefile.PL for $mod\n";
+		system("make") >> 8 and die "Problem running make for $mod\n";
+		system("make install") >> 8 and die "Problem running make install for $mod\n";
 	}
 }
 
