@@ -1,10 +1,10 @@
 This is aimirc, by Matthew Sachs <matthewg@zevils.com>
-(c) 1999 Matthew Sachs, all rights reserved.
+(c) 2000 Matthew Sachs, all rights reserved.
 This software is licensed under Version 2 of the GNU Public License.
 A copy of the license is contained in the file COPYING, which should have
 been included with this software.
 
-AOL Instant Messenger is a trademark of America Online.
+AOL Instant Messenger and AOL are a trademarks of America Online.
 
 Requirements:
 	perl 5.004 or better
@@ -18,7 +18,8 @@ Requirements:
 
 		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
 
-	The HTML-Tree modules from CPAN (HTML::Parse, HTML::FormatText).
+	The HTML-Tree and HTML-Format modules from CPAN (HTML::Parse, HTML::FormatText).
+	These are availabe from http://www.perl.com/CPAN/modules/by-module/HTML/ .
 
 Installation:
 	Untar the tarball.  This creates a directory called aimirc-XX where
