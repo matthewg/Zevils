@@ -168,13 +168,21 @@ if($extension_ok) {
 					implode(", ", $cols),
 					implode(", ", $values)
 				))) db_error();
+
+				if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
+				$row = mysql_fetch_row($result);
+				$id = $row[0];
+				$event = "create";
 			} else {
 				$set = "$cols[0] = $values[0]";
 				for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
 
 				#echo "UPDATE wakes SET $set WHERE extension='$extension' AND wake_id=$id";
 				if(!mysql_query("UPDATE wakes SET $set WHERE extension='$extension' AND wake_id=$id")) db_error();
+				$event = "edit";
 			}
+
+			log_wake($id, $extension, $event, "success");
 
 			ob_clean();
 			header("Status: 303 See Other");

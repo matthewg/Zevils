@@ -6,6 +6,28 @@ function db_error() {
 	do_end();
 }
 
+function log_ext($extension, $event, $result, $data = "") {
+	if(!$data)
+		$data = "NULL";
+	else
+		$data = "'$data'";
+
+	if(!mysql_query(sprintf(
+	   "INSERT INTO log_ext (extension, event, result, data, time, ip) VALUES ('%s', '%s', '%s', %s, NOW(), '%s')",
+	                          $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
+}
+
+function log_wake($wake_id, $extension, $event, $result, $data = "") {
+	if(!$data)
+		$data = "NULL";
+	else
+		$data = "'$data'";
+
+	if(!mysql_query(sprintf(
+	   "INSERT INTO log_wake (wake_id, extension, event, result, data, start_time, end_time, ip) VALUES ('%s', '%s', '%s', '%s', %s, NOW(), NOW(), '%s')",
+	                          $wake_id, $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
+}
+
 function extension_ok($extension) {
 	global $TEMPLATE;
 	if(!preg_match('/^[69][0-9]{4}$/', $extension)) {
@@ -51,21 +73,38 @@ function pin_ok($extension, $pin, $newpin = 0) {
 		} else {
 			$goodpin = $row[0];
 
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE extension='%s' AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
-					$extension));
-			if(!$result) db_error();
-			$row = mysql_fetch_array($result, MYSQL_NUM);
-			$badpin_count = $row[0];
-			if($pin && $badpin_count >= 3) {
-				echo $TEMPLATE["pin_bruteforce"];
-				$error = "pin_bruteforce";
-			}
+			if($pin) {
+				$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
+						$extension, getenv("REMOTE_ADDR")));
+				if(!$result) db_error();
 
-			if(!$error && $pin != $goodpin) {
-				echo $TEMPLATE["pin_error"];
-				$error = "pin_error";
-				if($pin && $badpin_count == 2) echo $TEMPLATE["pin_bruteforce_warn"];
-			} else if(!$error) {
+				$count = 0;
+				$lockout = 0;
+				while($row = mysql_fetch_array($result, MYSQL_NUM)) {
+					if($row[0] >= 3) {
+						$count++;
+						if($row[1] == $extension && $row[2] == getenv("REMOTE_ADDR")) {
+							$lockout = 2;
+							break;
+						}
+					} else if($row[0] == 2) {
+						$lockout = 1;
+					}
+				}
+
+				if($count > 1) $lockout = 2;
+
+				if($lockout == 2) {
+					echo $TEMPLATE["pin_bruteforce"];
+					$error = "pin_bruteforce";
+				} else if($pin != $goodpin) {
+					if($lockout) echo $TEMPLATE["pin_bruteforce_warn"];
+					echo $TEMPLATE["pin_error"];
+					$error = "pin_error";
+				} else {
+					$ok = 1;
+				}
+			} else {
 				$ok = 1;
 			}
 		}

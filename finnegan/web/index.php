@@ -21,9 +21,9 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	setcookie("finnegan-pin", "", time()-3600);
 	setcookie("finnegan-savepin", "", time()-3600);
 
-	if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
-		$extension, "delcookie", "success", getenv("REMOTE_ADDR")))) db_error();
+	log_ext($extension, "delcookie", "success");
 	$extension = "";
+	$extension_ok = 0;
 }
 
 echo $TEMPLATE["page_start"];
@@ -75,13 +75,7 @@ if($extension_ok) {
 				echo $TEMPLATE["pin_set_ok"];
 			}
 
-			if(!$error) {
-				if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
-					$extension, "setpin", "success", getenv("REMOTE_ADDR")))) db_error();
-			} else {
-				if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, data, ip) VALUES ('%s', '%s', '%s', NOW(), '%s', '%s')",
-					$extension, "setpin", "failure", $error, getenv("REMOTE_ADDR")))) db_error();
-			}
+			log_ext($extension, "setpin", $error ? "failure" : "success", $error);
 		} else if($op == "Confirm Deletion" && isset($_POST["id"])) {
 			while(list($id, $value) = each($_POST["id"])) {
 				if(!preg_match('/^[0-9]+$/', $id)) unset($_POST["id"]);
@@ -91,8 +85,7 @@ if($extension_ok) {
 			if(!mysql_query(sprintf("DELETE FROM wakes WHERE extension='%s' AND wake_id IN (%s)", $extension, $keys))) db_error();
 
 			while(list($id, $value) = each($_POST["id"])) {
-				if(!mysql_query(sprintf("INSERT INTO log_wake (wake_id, extension, event, result, start_time, end_time, ip) VALUES ('%s', '%s', '%s', '%s', NOW(), NOW(), '%s')",
-					$id, $extension, "delete", "success", getenv("REMOTE_ADDR")))) db_error();
+				log_wake($id, $extension, "delete", "success");
 			}
 		}
 	}
