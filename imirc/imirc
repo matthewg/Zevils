@@ -2946,7 +2946,7 @@ sub bounce_join($$) {
 
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
-	irc_send(irc_mode($usnick, $chan, "+isntb *!*@*"));
+	irc_send(irc_mode($usnick, $chan, "+isnt"));
 	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for IMIRC usage."));
 	$chantimer{$chan} = time;
 }
