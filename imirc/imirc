@@ -792,8 +792,7 @@ sub irc_privmsg($$$;$$$) {
 	$maxlen = 450 - length($from) - length($to);
 	foreach $line(split(/[\r\n]+/, $msg)) {
 		$text = "$prefix$line";
-		while($text) {
-
+		while($text ne "") {
 			#IRC has a max cmd len of 512.
 			#Split up messages which would exceed this length
 			#Try to split up on word boundaries.
@@ -808,7 +807,7 @@ sub irc_privmsg($$$;$$$) {
 			$ret .= ":$from " . ($notice ? "NOTICE" : "PRIVMSG") . " $to :$temp\r\n";
 		}
 	}
-	return $ret or $msg;
+	return $ret ne "" ? $ret : $msg;
 }
 
 # Process an incoming IRC message
