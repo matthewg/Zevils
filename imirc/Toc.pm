@@ -341,8 +341,8 @@ sub signon($$&;&) {
 	debug_print("$username is trying to sign on", "signon", 1);
 
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
+	$SIG{ALRM} = sub { $err = "timeout\n"; die "timeout\n"; };
 	eval {
-		local $SIG{ALRM} = sub { $alarm = 1; die "alarm\n" };
 		alarm 5;
 
 		if(ref $socksub eq "CODE") {
@@ -351,6 +351,7 @@ sub signon($$&;&) {
 			$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898');
 		}
 
+		die "timeout\n" if $err eq "timeout\n";
 		unless($socket) {
 			$err = "Couldn't create socket: $@";
 			debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
@@ -374,6 +375,7 @@ sub signon($$&;&) {
 			return -1;
 		};
 
+		die "timeout\n" if $err eq "timeout\n";
 		debug_print("$username is now in SFLAP mode", "signon", 2);
 
 		$flags = 0;
@@ -391,18 +393,12 @@ sub signon($$&;&) {
 			return -1;
 		};
 
-		alarm 0;
 	};
 
+	$err = "Connection timed out." if $@ =~ /timeout/;
+	alarm 0;
 	return -1 if $err;
-	if($@) {
-		alarm 0;
-		#croak unless $@ eq "alarm\n";
-		if($alarm) {
-			$err = "connect timed out";
-			return -1;
-		}
-	}
+	croak($@) if $@;
 
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
 	$msg = sflap_get($socket, 1);

@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $checkpoint $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chattimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $did_checkpoint);
+use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $checkpoint $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chattimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $did_checkpoint $numeric);
 
 sub loadconf();
 sub loaddat();
@@ -408,7 +408,16 @@ sub loadconf() {
 			theirpass => 1,
 			nicklen => 30,
 			pass => "PASS :$ourpass\r\n",
-		}
+		},
+		p10 => {
+			nick => "$numeric N _NICK_ 1 _TIME_ _USERNAME_ _HOST_ +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via aimirc\r\n",
+			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\n$numeric EB\r\n$numeric EA\r\n",
+			uspass => 1,
+			theirpass => 1,
+			nicklen => 9,
+			pass => "PASS :$ourpass\r\n",
+		},
+			
 	);
 
 	foreach $server(keys %temp) { #Preserve custom ircservers
@@ -473,6 +482,7 @@ sub mainloop() {
 				$connection = $aim_connections{$aim};
 				foreach $screenname(keys %{$connection->{screennames}}) {
 					next unless $screenname; #Why is this needed?
+					$multinick = " for screenname $screenname" if $screenname ne $connection->{aimnick};
 					do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
 					$msg = sflap_get($connection->{screennames}{$screenname}{socket});
 					if($msg eq "-1" and $! != EAGAIN) {
@@ -899,6 +909,7 @@ sub process_irc_message($) {
 		$cmd ||= $msg; #For cmds w/o param
 		#warn "Cmd: $cmd\nParam: $param: Extra: $extra\n\n";
 		$nick = lc($nick);
+		$param ||= "";
 
 		if($aim_connections{$nnick}) {
 			$connection = $aim_connections{$nnick};
@@ -1854,7 +1865,8 @@ sub irc_send($;$) {
 # Dereference a hashref
 sub deref($) {
 	my $href = shift;
-	return %$href;
+	return %$href if ref $href eq "HASH";
+	return ();
 }
 
 # Reload the configuration file
@@ -2161,7 +2173,7 @@ sub timestuff($) {
 				Toc::debug_print("\t\t\tpermenantly.", "nicks", 3);
 			} elsif (($currtime - $nicks{$anick}{$bnick}) < 3600) {
 				$kill = 0;
-				Toc::debug_print("\t\t\tsince " . $currtime - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
+				Toc::debug_print("\t\t\tsince " . ($currtime - $nicks{$anick}{$bnick}) . " seconds ago.", "nicks", 3);
 			}
 		}
 		if($kill == 1) {
