@@ -5,8 +5,7 @@ require "../../include/finnegan.inc";
 
 // Destroy any session that might exist in case we have one sitting around.
 // This can happen if the user bails out while in mkwake.php
-unlink("/tmp/sess_$extension");
-
+@unlink("/tmp/sess_$extension");
 
 ?>
 <CiscoIPPhoneMenu>
