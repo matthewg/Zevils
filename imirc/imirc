@@ -87,7 +87,7 @@ sub BEGIN {
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 1.00 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 1.00;
+	$@ .= "We require Net::OSCAR 1.10 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 1.10;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -1166,7 +1166,7 @@ sub process_irc_message($$) {
 					my $msg = "Buddy Info for $buddyconf->{screenname}\r\n";
 					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
 					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
-					$msg .= "Idle Time: \t".(sprintf "%.1f", $buddyconf->{idle}/60)." minutes\r\n";
+					$msg .= "Idle Time: \t".(sprintf "%.1f", (time() - $buddyconf->{idle_since})/60)." minutes\r\n";
 					$msg .= "Status: \t$buddyconf->{extended_status}\r\n" if $buddyconf->{extended_status};
 					$msg .= "Alias: \t$buddyconf->{alias}\r\n" if $buddyconf->{alias};
 					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
@@ -2310,7 +2310,7 @@ sub oscar_buddy_info($$$) {
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
-		$msg .= "Idle Time: \t".(sprintf "%.1f", $buddat->{idle}/60)." minutes\r\n";
+		$msg .= "Idle Time: \t".(sprintf "%.1f", (time() - $buddat->{idle_since})/60)." minutes\r\n";
 		$msg .= "Status: \t$buddat->{extended_status}\r\n" if $buddat->{extended_status};
 		$msg .= "Alias: \t$buddat->{alias}\r\n" if $buddat->{alias};
 		$msg .= "Comment: \t$buddat->{comment}\r\n" if $buddat->{comment};
