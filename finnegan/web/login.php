@@ -6,7 +6,7 @@ page_start();
 
 if($auth_ok) {
 	redirect("wakes.php");
-} else if($pin && $auth_error != "no_extension") {
+} else if($auth_error != "no_extension") {
 	if(isset($TEMPLATE["login"][$auth_error])) {
 		echo $TEMPLATE["login"][$auth_error];
 	} else {

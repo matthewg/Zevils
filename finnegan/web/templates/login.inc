@@ -12,6 +12,16 @@ $TEMPLATE["login"] = array(
 	"pin_invalid" => errmsg("The PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
 	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, please click the \"Forgot PIN\" button, and the system will call you with your PIN."),
 	"pin_bruteforce" => errmsg("You have entered too many incorrect PINs and are temporarily locked out of the system. Please wait an hour, and then click the 'Forgot PIN' button below."),
+	"too_many_newpins" => errmsg("You have been generating too many PINs and have been temporarily locked out of the system.  Please wait an hour."),
+
+	"no_pin" => <<<END
+<p class="status">
+A PIN has been generated for you.  The system will be calling you with your PIN shortly.
+It shouldn't take more than a few minutes.  If, after 15 minutes, the system
+has not called you, please contact <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a> for assistance.
+</p>
+END
+,
 
 	"pin_sent" => <<<END
 <p class="status">
