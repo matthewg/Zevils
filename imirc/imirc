@@ -222,7 +222,7 @@ sub loaddat() {
 			opendir(DHANDLE, "$directory/buddylists");
 			while($buddylist = readdir DHANDLE) {
 				next if $buddylist =~ /\.\.?$/; #Skip . and ..
-				open(BUDDYLIST, "<$directory/buddylists/$buddylist");
+				open(BUDDYLIST, "<$directory/buddylists/$buddylist") or next;
 				$buddylists{basename $buddylist} = <BUDDYLIST>;
 				close BUDDYLIST;
 			}
@@ -232,7 +232,7 @@ sub loaddat() {
 			opendir(DHANDLE, "$directory/profiles");
 			while($profile = readdir DHANDLE) {
 				next if $profile =~ /\.\.?$/; #Skip . and ..
-				open(PROFILE, "<$directory/profiles/$profile");
+				open(PROFILE, "<$directory/profiles/$profile") or next;
 				$profiles{basename $profile} = <PROFILE>;
 				close BUDDYLIST;
 			}
@@ -242,7 +242,7 @@ sub loaddat() {
 			opendir(DHANDLE, "$directory/profiles");
 			while($pounce = readdir DHANDLE) {
 				next if $pounce =~ /\.\.?$/; #Skip . and ..
-				open(POUNCE, "<$directory/pounces/$pounce");
+				open(POUNCE, "<$directory/pounces/$pounce") or next;
 				$pounces = <POUNCE>;
 				close POUNCE;
 				next unless $pounces;
@@ -1077,7 +1077,7 @@ sub process_irc_message($) {
 				$foo ne "norm" ? $foo = 1 : $foo = 0;
 				chat_evil($connection->{socket}, $param, $1, $foo);
 			}
-		} elsif ($cmd eq "info" or $cmd eq "get_info") {
+		} elsif ($cmd eq "info" or $cmd eq "get_info" or $cmd eq "get_profile") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname"));
 			} else {
@@ -1315,7 +1315,7 @@ Buddy {
 				irc_send("$foo :Example: /invite AIM-SomeDude #aimchat-1234\r\n", 1);
 				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
-				irc_send("$foo :get_info screenname - Get info for screenname.\r\n", 1);
+				irc_send("$foo :get_profile screenname - Get profile for screenname.\r\n", 1);
 				irc_send("$foo :set_profile new profile - Set your profile.  You can use some HTML formating.\r\n", 1);
 				irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
 				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
@@ -2093,7 +2093,7 @@ sub irc_recv(;$) {
 			}
 			unless($buff =~ /\n$/) {
 				$idx = rindex($buff, "\n") + 1;
-				$incbuff = substr($buff, $idx, length $buff - $idx + 1, "");
+				$incbuff = substr($buff, $idx, length($buff) - $idx + 1, "");
 			}
 			push @getbuff, split(/[\r\n]+/, $buff);
 			#print STDERR "Getbuff is " . join("\n", @getbuff);
@@ -2460,7 +2460,7 @@ sub checkpoint() {
 		if($savebuddies > 1) {
 			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
 			foreach $screenname(keys %buddylists) {
-				open(BUDDYLIST, ">$directory/buddylists/$screenname");
+				open(BUDDYLIST, ">$directory/buddylists/$screenname") or next;
 				print BUDDYLIST $buddylists{$screenname};
 				close BUDDYLIST;
 			}
@@ -2468,7 +2468,7 @@ sub checkpoint() {
 		if($saveprofiles > 1) {
 			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
 			foreach $screenname(keys %profiles) {
-				open(PROFILE, ">$directory/profiles/$screenname");
+				open(PROFILE, ">$directory/profiles/$screenname") or next;
 				print PROFILE $profiles{$screenname};
 				close PROFILE;
 			}
@@ -2476,7 +2476,7 @@ sub checkpoint() {
 		if($savepounces > 1) {
 			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
 			foreach $screenname(keys %pounces) {
-				open(POUNCES, ">$directory/pounces/$screenname");
+				open(POUNCES, ">$directory/pounces/$screenname") or next;
 				foreach $pounce(@{$pounces{$screenname}}) {
 					print POUNCES "$pounce->{who} $pounce->{what}\n";
 				}
