@@ -1,3 +1,7 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html>
+<head><title>PHP-SMB Demo</title></head>
+<body>
 <?
 
 require_once "wins.php";
@@ -6,7 +10,7 @@ require_once "cifs.php";
 if($_REQUEST["host"]) {
 	$inodes = array();
 	$host = $_REQUEST["host"];
-	$smb = cifs_connect("minusone", $host, "129.64.99.110");
+	$smb = cifs_connect(getenv("SERVER_NAME"), $host, $_REQUEST["wins"]);
 	if($smb["error"]) {
 		echo "Error: " . $smb["error"] . "<br>\n";
 	} else {
@@ -35,7 +39,8 @@ if($_REQUEST["host"]) {
 	}
 	@fclose($smb["sock"]);
 } else {
-	$host = "minusone";
+	$wins = "";
+	$host = "";
 }
 
 function do_dir($smb, $dir) {
@@ -75,6 +80,8 @@ function do_dir($smb, $dir) {
 ?>
 
 <form method="post" action="php-smb.php">
-<input type="text" name="host" value="<?echo urlencode($host)?>"><input type="submit" name="submit">
+Wins Server: <input type="text" name="wins" value="<?echo urlencode($wins)?>"><br />
+Host to Browse: <input type="text" name="host" value="<?echo urlencode($host)?>"><input type="submit" name="submit">
 </form>
 
+</body></html>
