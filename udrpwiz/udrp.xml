@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE knowledgebase SYSTEM "sie-1.0.dtd">
+<knowledgebase>
+<goal>
+	<attribute>transfer</attribute>
+	<text>This domain can be transferred</text>
+</goal>
+<rules>
+	<!-- The three conditions at the heart of the UDRP -->
+	<rule>
+		<name>the UDRP core rules have been satisfied</name>
+		<conditions>
+			<condition>
+				<attribute>infringes-mark</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>no-legitimate-interest</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>transfer</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+
+
+	<!-- What if the guy doesn't respond? -->
+	<rule>
+		<name>the Respondent didn't respond to the UDRP complaint, indicating a lack of legitimate interest in the domain</name>
+		<conditions>
+			<condition>
+				<attribute>response</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action> <!-- Lack of response implies lack of legitimate interest: Pavillion Agency, Inc. v. Greenhouse Agency Ltd., D2000-1221 -->
+				<attribute>no-legitimate-interest</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+
+
+	<!-- Criteria for bad faith -->
+	<rule>
+		<name>the Respondent is acting in bad faith via squatting</name>
+		<conditions>
+			<condition>
+				<attribute>squatter</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is acting in bad faith via typo squatting</name>
+		<conditions>
+			<condition>
+				<attribute>typosquatter</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is acting in bad faith via disruption</name>
+		<conditions>
+			<condition>
+				<attribute>disruptor</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is acting in bad faith via hording</name>
+		<conditions>
+			<condition>
+				<attribute>camper</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>habitual-camper</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is acting in bad faith by causing confusion</name>
+		<conditions>
+			<condition>
+				<attribute>confuser</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>source-confuser</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>commercial-confuser</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>bad-faith</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+
+
+	<!-- Criteria for legitimate interest -->
+	<rule>
+		<name>the Respondent is making noncommercial use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe-noncommercial</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is making fair use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe-noncommercial</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-maybe-fairuse</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is not making fair use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe-noncommercial</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-maybe-fairuse</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is not making fair use of the domain because he/she is diverting</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-divert</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is not making fair use of the domain because he/she is tarnishing</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-tarnish</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is making fair use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-divert</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair-tarnish</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is certainly not making fair use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-fair</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent was making a bona fide offering of goods or services</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial-active</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent was preparing to make a bona fide offering of goods or services</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial-active</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-commercial-prepare</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent has no commercial interest in the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial-prepare</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-commercial-active</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<!--
+			Offering of products which compete with Complainant's
+			goods doesn't count as bona fide: Computerized Sec. Sys., Inc. d/b/a
+			SAFLOK v. Hu, FA 15731 (Nat. Arb. Forum June 23, 2003)
+		-->
+		<name>the Respondent is using the domain in commercial competition with the Complainant</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-commercial-compete</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial-nocompete</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is not making commercial use of the domain</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial-nocompete</attribute>
+				<value>no</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent is not a commercial competitor with the Complainant</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-commercial-compete</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>legitimate-commercial-nocompete</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+	<rule>
+		<name>the Respondent has no legitimate interest in the domain</name>
+		<conditions>
+			<condition> <!-- If they've responded, we don't need to check any of this -->
+				<attribute>response</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-commercial-nocompete</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-known-as</attribute>
+				<value>no</value>
+			</condition>
+			<condition>
+				<attribute>legitimate-fair</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>no-legitimate-interest</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+
+
+	<!-- Criteria for mark infrigement -->
+	<rule>
+		<name>the Respondent is infringing on the Complainant's mark</name>
+		<conditions>
+			<condition>
+				<attribute>registered-mark</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>confusingly-similar</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions>
+			<action>
+				<attribute>infringes-mark</attribute>
+				<value>yes</value>
+			</action>
+		</actions>
+	</rule>
+
+
+	<!-- UDRP-DB mappings: http://udrp.lii.info/udrp/advsearch.html -->
+	<rule>
+		<name>udrp-db:NoInterest=True</name>
+		<conditions>
+			<condition>
+				<attribute>no-legitimate-interest</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-0</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:PastBonaFide=True</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial-active</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-2</attribute><value>True</value></action></actions>
+	</rule>	
+	<rule>
+		<name>udrp-db:FutureBonaFide=True</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-commercial-prepare</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-3</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:KnownBy=True</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-known-as</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-4</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:NonCommercialUse=True</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe-noncommercial</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-5</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:FairUse=True</name>
+		<conditions>
+			<condition>
+				<attribute>legitimate-fair-maybe-fairuse</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-6</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:NoMark=True</name>
+		<conditions>
+			<condition>
+				<attribute>registered-mark</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-a</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:RegMarks=True</name>
+		<conditions>
+			<condition>
+				<attribute>registered-mark</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-7</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:ConfusingSimilar=True</name>
+		<conditions>
+			<condition>
+				<attribute>confusingly-similar</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-8</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:ConfusingSimilar=false</name>
+		<conditions>
+			<condition>
+				<attribute>confusingly-similar</attribute>
+				<value>no</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-9</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:BFSell=True</name>
+		<conditions>
+			<condition>
+				<attribute>squatter</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-10</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:BFPreventUse=True</name>
+		<conditions>
+			<condition>
+				<attribute>camper</attribute>
+				<value>yes</value>
+			</condition>
+			<condition>
+				<attribute>habitual-camper</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-11</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:BFDisrupt=True</name>
+		<conditions>
+			<condition>
+				<attribute>disruptor</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-12</attribute><value>True</value></action></actions>
+	</rule>
+	<rule>
+		<name>udrp-db:BFConfusion=True</name>
+		<conditions>
+			<condition>
+				<attribute>confuser</attribute>
+				<value>yes</value>
+			</condition>
+		</conditions>
+		<actions><action><attribute>udrp-db-13</attribute><value>True</value></action></actions>
+	</rule>
+</rules>
+
+
+<questions>
+	<!-- Questions for bad faith  -->
+	<question>
+		<attribute>squatter</attribute>
+		<text>Was the domain registered primarily for the purpose of selling, renting, or otherwise transferring the registration to the Complainant or a competitor for valuable consideration in excess of registration costs</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question> <!-- Nat'l Ass'n of Prof'l Baseball Leagues v. Zuccarini, D2002-1011 (WIPO 2003-01-21) -->
+		<attribute>typosquatter</attribute>
+		<text>Was the domain registered as an intentional misspelling of words, intended to intercept and siphon off traffic from its intended destination</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>camper</attribute>
+		<text>Was the domain registered in order to prevent the mark owner from having a domain for his mark</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>habitual-camper</attribute>
+		<text>Does the Respondent habitually register domains in order to prevent mark owners from having a domain for their marks</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>disruptor</attribute>
+		<text>Was the domain registered primarily for the purpose of disrupting the business of a competitor</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>confuser</attribute>
+		<text>Was the domain intended to attract users by creating confusion using the Complainant's mark</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>source-confuser</attribute>
+		<text>Was the confusion designed to make people think that the Respondent endorsed or was affiliated with the web site or products on it</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>commercial-confuser</attribute>
+		<text>Was the confusion for commercial gain</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+
+
+	<!-- Questions for legitimate interest -->
+	<question>
+		<attribute>response</attribute>
+		<text>Did the Respondent respond to the complaint</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-commercial-active</attribute>
+		<text>Before any notice of the dispute, was the Respondent using the domain name in connection with a bona fide offering of goods or services</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-commercial-prepare</attribute>
+		<text>Before any notice of the dispute, was the Respondent preparing to use the domain name in connection with a bona fide offering of goods or services</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-commercial-compete</attribute>
+		<text>Is the bona fide offering of goods or services an offering of products that compete with the Complainant's</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-known-as</attribute>
+		<text>Is the Respondent commonly known by the domain name</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-fair-maybe-noncommercial</attribute>
+		<text>Is the Respondent making legitimate noncommercial use of the domain name</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-fair-maybe-fairuse</attribute>
+		<text>Is the Respondent making fair use of the domain name</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-fair-divert</attribute>
+		<text>Does the Respondent intend to commercially gain by misleadingly diverting customers</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>legitimate-fair-tarnish</attribute>
+		<text>Does the Respondent intend to commercially gain by tarnishing the mark at issue</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+
+
+	<!-- Questions for mark infrigement -->
+	<question>
+		<!--
+			Registration == validity: Janus Int'l Holding Co. v. Rademacher, D2002-0201 (WIPO Mar. 5, 2002)
+			Punctuation doesn't count: Chernow Communications Inc. v. Kimball, D2000-0119 (WIPO May 18, 2000)
+			TLD doesn't count: Rollerblade, Inc. v. McCrady, D2000-0429 (WIPO June 25, 2000)
+		-->
+		<attribute>registered-mark</attribute>
+		<text>Does the Complainant have a trademark or service mark registered with the USPTO or similar organization which is identical to the disputed domain name, not including any punctuation or top-level domains (e.g. hyphens or ".com")</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+	<question>
+		<attribute>confusingly-similar</attribute>
+		<text>Is the contested domain identical or confusingly similar to the Complainant's mark?  Note that the addition of top-level domains, typographical marks (such as hyphens), removal of spaces, alteration of pluralisation, and reliance on typos (such as prepending "www" to the mark), or adding a generic term (e.g. "hotel" or "online") will not prevent a name from being confusingly similar to a mark.</text>
+		<response>yes</response>
+		<response>no</response>
+	</question>
+</questions>
+</knowledgebase>

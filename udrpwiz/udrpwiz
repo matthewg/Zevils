@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use lib qw(.);
+use AI::ExpertSystem::Simple;
+
+my $ai = AI::ExpertSystem::Simple->new();
+$ai->load("udrp.xml") or die "Couldn't load UDRP data: $@\n";
+
+while(1) {
+	foreach ($ai->log()) {
+		print "*** $_\n";
+	}
+	print "\n";
+
+	my $state = $ai->process();
+	if($state eq "question") {
+		my($question, @answers) = $ai->get_question();
+		while(1) {
+			print $question, "?\n";
+			for(my $i = 0; $i < @answers; $i++) {
+				printf("%d) %s\n", $i+1, $answers[$i]);
+			}
+			print "> ";
+			my $answer = <STDIN>;
+			chomp $answer;
+			if($answer > 0 and $answer <= @answers) {
+				$ai->answer($answers[$answer - 1]);
+				last;
+			} else {
+				print "That is not a valid answer.\n";
+			}
+		}
+	} elsif($state eq "continue") {
+		# no-op
+	} elsif($state eq "finished") {
+		print $ai->get_answer(), ".\n";
+		last;
+	} elsif($state eq "failed") {
+		print "The domain cannot be transferred.\n";
+		last;
+	}
+}

@@ -1,0 +1,2 @@
+#!/usr/bin/perl
+while(1) { print int(rand(2)) + 1, "\n"; }
