@@ -4,9 +4,6 @@ OBJS=graphics.o math.o
 
 all: $(LIB)
 
-$(LIB): $(OBJS)
-	$(MKLIB)
-
 app: $(APP)
 
 $(APP): $(APP).o

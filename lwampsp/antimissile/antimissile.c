@@ -191,7 +191,7 @@ void clicked_fire_a(int id) {
 	//LWA_MsgBox(glui, "A Fired", "The trajectory of A has been drawn in red.  Click a point on the trajectory to calculate how B should fire to intercept at that point.");
 }
 
-void do_projectiles(float t, float *xa, float *ya, float *xb, float *yb, float Vax, float Vay, float Vbx, float Vby) {
+void do_projectiles(double t, double *xa, double *ya, double *xb, double *yb, double Vax, double Vay, double Vbx, double Vby) {
 	/* Clear previous projectiles */
 	printf("Animating: (%f, %f) / (%f, %f) @ %f\n", *xa, *ya, *xb, *yb, t);
 	DrawRect(screen, (int) *xa, FIX_Y((int) *ya), 10, 10, 0, 0, 0);
@@ -221,8 +221,8 @@ void do_projectiles(float t, float *xa, float *ya, float *xb, float *yb, float V
 }
 
 void clicked_go(int id) {
-	float t = 0;
-	float Vax, Vay, Vbx, Vby, xa = 0, ya = 0, xb = 0, yb = 0;
+	double t = 0;
+	double Vax, Vay, Vbx, Vby, xa = 0, ya = 0, xb = 0, yb = 0;
 
 	/* Precompute rectangular velocities */
 	Vax = vector_x(site_a.velocity, deg2rad(site_a.angle));

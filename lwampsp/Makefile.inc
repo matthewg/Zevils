@@ -26,6 +26,9 @@ lwalib:
 %.o: %.c
 	$(COMPILE)
 
+%.a:
+	$(MKLIB)
+
 $(APP): $(OBJS) ../lwalib/lwalib.a
 	$(LINK)
 
