@@ -41,7 +41,7 @@ Signoff from AIM.
 sub signoff($) {
 	my($handle) = shift;
 	delete $config{_hnick($handle)};
-	$handle->close;
+	$handle->close if $handle;
 }
 
 =pod
