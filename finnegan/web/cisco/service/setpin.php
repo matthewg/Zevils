@@ -6,7 +6,7 @@ require "../../include/finnegan.inc";
 if(isset($_REQUEST["pin"])) {
 	$pin = $_REQUEST["pin"];
 	if(pin_syntax_check($pin)) {
-		cisco_message("Invalid PIN", "Please enter a valid PIN of up to four digits.");
+		cisco_message("Invalid PIN", "Please enter a valid PIN of up to four digits.", $FinneganCiscoConfig->url_base . "/service/setpin.php");
 	} else {
 		//Just in case...
 		mysql_query("INSERT INTO prefs (extension, pin) VALUES ('$extension', '$pin')");
