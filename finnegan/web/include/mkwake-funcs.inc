@@ -16,7 +16,10 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 
 	#echo "****CHECKING $weekday*****<br>\n";
 
-	$phonelines = sizeof($FinneganConfig->phonelines) * 4;
+	if($FinneganConfig->use_cisco)
+		$phonelines = $FinneganCiscoConfig->max_simultaneous_calls * 4;
+	else
+		$phonelines = sizeof($FinneganConfig->phonelines) * 4;
 	$seconds_per_week = 604800;
 	$wake_duration = $FinneganConfig->max_wake_duration;
 	$max_snooze = $FinneganConfig->max_snooze_count;
