@@ -1,0 +1,146 @@
+#!/usr/bin/perl -w
+
+# mp3info by Matthew Sachs <matthewg@zevils.com>
+#   This program licensed under Version 2 of the GPL.
+#   See the file COPYING for more information.
+#
+#   Run the program with no arguments for more info, including usage.
+
+use MPEG::MP3Info;
+use Getopt::Long;
+$version = "1.1";
+
+sub prettysize {
+	my ($size, $longname) = (shift, shift);
+	if($longname) { $kilos = " kilobytes"; $megas = " megabytes"; }
+	else { $kilos = "k"; $megas = "M"; }
+
+	if($size >= 1024 and $size < (1024*1024)) { #kilobytes
+		return (sprintf "%0.2f", ($size / 1024)) . $kilos;
+	} elsif($size >= (1024*1024)) { #megabytes
+		return (sprintf "%0.2f", ($size / (1024*1024))) . $megas;
+	} else { #bytes
+		return "$size bytes";
+	}
+}
+
+
+sub dispver {
+	print "mp3info: Get information about MPEG audio files.\nVersion: $version\n";
+	exit 0;
+}
+
+sub help {
+	print <<EOF
+mp3info - Get information about MPEG audio files. Version: $version
+
+by Matthew Sachs <matthewg\@zevils.com> - Latest version at
+http://www.zevils.com/linux/.  This program licensed under Version 2
+of the GNU Public License.  See http://www.gnu.org for details.
+
+mp3info can show you the filesize, MPEG version (1, 2, or 2.5), layer
+(1, 2, or 3), bitrate, and length (in hh:mm:ss) of an MPEG audio file.
+It's really only been tested on MPEG-1 Layer 3 (.mp3) files, however.
+
+Usage: mp3info [-h] [-q] [-n] [-p] <MPEG audio file>
+
+	You must pass at least one MPEG audio file as a command-line argument.
+
+	-p, --plain		Filesizes will be shown as plain bytecounts
+				instead of in human-readable format
+
+	-a, --aggressive	Look for an MPEG header aggressively.  You
+				might need this for things with weird headers,
+				but if you do use it then it will take forever
+				if you use it on something that really isn't
+				an MPEG audio file.
+
+	-n, --no-winamp		Don't use WinAmp genres.  The default is to use
+				them.  This will only affect things if you have
+				songs with a genre above 78.
+
+	-q, --quiet		If you use the "quiet" argument, then mp3info
+				will operate in quiet mode.  Quiet mode is
+				designed for using the output of mp3info in
+				other programs.  In quiet mode, mp3info will
+				print only the following:
+					bitrate
+					play length
+					[If there is a valid ID3 tag:]
+					ID3 songname
+					ID3 artist
+					ID3 album
+					ID3 year
+					ID3 comment
+					ID3 genre
+
+				Think of quiet mode as generating machine-
+				readable output and the default "noisy" mode as
+				generating human-readable output.
+
+	-h, --help		Show this screen and exit
+
+	-v, --version		Show program version and exit	
+
+EOF
+;
+	exit 1;
+}
+
+$errors = &GetOptions("quiet|q" => \$quiet, "no-winamp|n" => \$standard,
+		"aggressive|a", => \$MPEG::MP3Info::try_harder,
+		"plain|p" => \$plain, "help|h" => \&help, "version|v" => \&dispver);
+if(!$errors) {
+	warn "Try mp3info without any arguments if you need help.\n";
+        exit 1;
+}
+
+$mp3 = shift;
+&help unless $mp3;
+if($ARGV[1] and $ARGV[1] eq "quiet") { $quiet = "quiet"; }
+&use_winamp_genres unless $standard;
+$filesize = (stat $mp3)[7];
+print "File size: $filesize" unless $quiet;
+print " (" . prettysize($filesize) . ")" unless $quiet or $plain;
+print "\n" unless $quiet;
+$info = get_mp3info $mp3;
+
+die "Doen't look like a valid MP3!  Use -a to look for a header more aggressively.\n" unless $info->{VERSION};
+print "Version: $info->{VERSION}\n" unless $quiet;
+print "Layer: $info->{LAYER}\n" unless $quiet;
+
+print "Bitrate: " unless $quiet;
+print "$info->{BITRATE}\n";
+
+print "Length: " unless $quiet;
+$hh = int $info->{MM} / 60;
+$mm = $info->{MM} % 60;
+printf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $info->{SS};
+
+if($MPEG::MP3Info::VERSION > 0.71) {
+	print "VBR? " unless $quiet;
+	print "$info->{VBR}\n";
+}
+
+$info = get_mp3tag $mp3;
+exit 0	unless defined $info->{TITLE}; #we're done unless there's a valid ID3 tag.
+
+print "ID3 Songname: " unless $quiet;
+print "$info->{TITLE}\n";
+
+print "ID3 Artist: " unless $quiet;
+print "$info->{ARTIST}\n";
+
+print "ID3 Album: " unless $quiet;
+print "$info->{ALBUM}\n";
+
+print "ID3 Year: " unless $quiet;
+print "$info->{YEAR}\n";
+
+print "ID3 Comment: " unless $quiet;
+print "$info->{COMMENT}\n";
+
+print "ID3 Genre: " unless $quiet;
+print "$info->{GENRE}\n";
+
+exit 0;

@@ -1,0 +1,458 @@
+#!/usr/bin/perl -w
+
+# mp3index: Program for generating a listing of MP3 files.
+#    This program is licensed under Version 2 of the GPL.
+#    See the file COPYING for more information.
+#
+#    Run the program with no arguments for more information,
+#    including usage licensing.
+#
+# Feb 6  1999 - Version 0.3: Intial release.
+# Feb 11 1999 - Version 0.5: Added support for ID3.  The MP3 module is now
+#				used instead of running the mp3info program.
+# Feb 22 1999 - Version 0.7: Too many changes to list here - see HISTORY
+# Apr 07 1999 - Version 1.0: Removed ? option specifier for backwards
+#				compatibilty.
+# Oct 20 1999 - Version 1.1: Better cross-platform support and support for
+#				--keeppath, --noparse, and --alternatepat
+#				options, VBR support
+
+$version = "1.1";
+use MPEG::MP3Info;
+use Getopt::Long;
+use Text::Wrap qw(wrap);
+use File::Basename;
+
+$MPEG::MP3Info::VERSION > 0.71 ? $vbrsupport = 1 : $vbrsupport = 0;
+
+sub describe {
+	open FMTFILE;
+	while(<FMTFILE>) {
+		s/^[ \t]+//;
+		next if /^$/;
+		last unless /^#/;
+		s/^#[ \t]+//;
+		/([^ \t]+)/;
+		$descriptor = $1;
+		if(lc($descriptor) eq "formatfile") {
+			/[^ \t]+[ \t]+(.+)/;
+			$formatfile = $1;
+		} elsif(lc($descriptor) eq "formats") {
+			/[^ \t]+[ \t]+(\d+)/;
+			$numformats = $1;
+		} elsif(lc($descriptor) eq "format") {
+			/[^ \t]+[ \t]+(\d+)[ \t]+([^ \t]+)[ \t]+(.+)/;
+			$formatnum = $1;
+			$descriptions[$formatnum] = $3	if lc($2) eq "desc";
+			$options[$formatnum] = [split(/\^/, $3)]	if lc($2) eq "options";
+		}
+	}
+	$numformats ||= $#descriptions;
+
+	print "Format file overview: $formatfile\n";
+	print "Number of formats: $numformats\n";
+	print "\nDescriptions:\n\n";
+	$i = 1;
+	foreach $desc(@descriptions) {
+		next unless $desc;
+		print "Output file $i:\n";
+		print wrap("\t", "\t", ($desc));
+		print "\n\n";
+		$j = 1;
+		foreach $s(@{$options[$i++]}) {
+			print "\tOption " . $j++ . ":\n";
+			print wrap("\t\t", "\t\t", ($s));
+			print "\n";
+		}
+		print "\n";
+	}
+	exit 0;
+}
+
+sub prettysize {
+	my ($size, $longname) = (shift, shift);
+	if($longname) { $kilos = " kilobytes"; $megas = " megabytes"; }
+	else { $kilos = "k"; $megas = "M"; }
+
+	if($size >= 1024 and $size < (1024*1024)) { #kilobytes
+		return (sprintf "%0.2f", ($size / 1024)) . $kilos;
+	} elsif($size >= (1024*1024)) { #megabytes
+		return (sprintf "%0.2f", ($size / (1024*1024))) . $megas;
+	} else { #bytes
+		return "$size bytes";
+	}
+}
+
+sub writeout {
+	my $curr = shift;
+	my $whichoutput = $curr - 1;
+	$curr = "" if $curr == 1;
+	my $aref;
+	my $old = select OUTFILE;
+	(&{"outhead$curr"} or die "Format file didn't define outhead$curr!\n") unless $bodyonly;
+
+	foreach $mp3(@mp3) {
+		$artist = $artist{$mp3};
+		$title = $title{$mp3};
+		$ftpurl = $ftpurl{$mp3}		if $ftpurl{$mp3};
+		$httpurl = $httpurl{$mp3}	if $httpurl{$mp3};
+		$playurl = $playurl{$mp3}	if $playurl{$mp3};
+		$bitrate = $bitrate{$mp3};
+		$length = $length{$mp3};
+		$size = $size{$mp3};
+		$album = $album{$mp3};
+		$year = $year{$mp3};
+		$comment = $comment{$mp3};
+		$vbr = $vbr{$mp3};
+		$genre = $genre{$mp3};
+		$prettysize = prettysize($size);
+		$prettylongsize = prettysize($size, 1);
+		$foo = $prettysize; $foo = $prettylongsize; #squash warnings
+		$aref = $data{$mp3}; #ref to array
+		@data = @$aref if defined($aref);
+		@options = split(/\^/, $OPTIONS[$whichoutput]) if defined($OPTIONS[$whichoutput]);
+		if ($passlist) {
+			push @list, \[
+				vbr => $vbr,
+				filename => $mp3,
+				artist => $artist,
+				title => $title,
+				ftpurl => $ftpurl,
+				httpurl => $httpurl,
+				playurl => $playurl,
+				bitrate => $bitrate,
+				"length" => $length,
+				size => $size,
+				album => $album,
+				year => $year,
+				comment => $comment,
+				genre => $genre,
+				"prettysize" => $prettysize,
+				prettylongsize => $prettylongsize,
+				data => \[ @data ],
+			]; @list = @list; #squelch -w
+		} else {
+			&{"outbody$curr"} or die "Format file didn't define outbody$curr!\n";
+		}
+	}
+	&{"outbody$curr"} if $passlist;
+	(&{"outfoot$curr"} or die "Format file didn't define outfoot$curr!\n") unless $bodyonly;
+	close OUTFILE unless $noopen;
+	select $old;
+}
+
+sub dispver {
+	print "mp3index: Generates custom indexes of MPEG audio files.\nVersion: $version\n";
+	print "Use mp3index --help for more information.\n";
+	exit 0;
+}
+
+sub help {
+	print <<EOF
+mp3index - Generates listings of MPEG audio files in a custom format.
+Version $version
+
+Usage: mp3index [-f URL] [-h URL] [-o OUTPUT] [-d DATFILE] [-l FORMAT_FILE] 
+		[-p mp3play URL] [-O1 OPTIONS] [-n] [-k] [-N] [-A pat] FILES
+
+You can use either the short or long forms with one or two dashes in
+whatever combination you want.  However, you can't combine options as in
+mp3index -fh.
+
+	--help, --usage:		Print this message and exit
+
+	-V, --version:			Shows version and exits
+
+	-k, --keeppath			Do not strip the paths from files.
+					You need to do this if you keep your
+					files in multiple directories, but
+					if you use this then you'll need to
+					make sure that the paths mp3index
+					gets are relative from your root
+					MP3 directory.  You can probably do
+					that by running mp3index ./**/*mp3 from
+					that directory (if you're running bash
+					anyway.)
+
+	-N, --noparse			Don't parse the filename for artist
+					and title.  You need this if you have
+					the artist in the MP3 tag and the title
+					contains the pattern / - /
+
+	-A, --alternatepat=ALTPAT	Instead of using /(.+?) - (.+)\..+/ to
+					find the artist and title from the
+					filename, use an alternate pattern.
+					You must specify a valid regular
+					expression with the artist in the first
+					set of parens and the title in the
+					second.  Do not include the /slashes/
+
+	-f, --ftpurl=FTPURL		Prefix to use for FTP downloads,
+					such as ftp://matthewg.port.net/~mp3	
+
+	-h, --httpurl=HTTPURL		Prefix to use for HTTP downloads,
+					such as mp3files/
+
+	-p, --playurl=mp3play URL	URL for the mp3play.cgi program.
+					(ex: http://mysite/cgi-bin/mp3play.cgi)
+
+	-P, --playall_path=path		Full path and filename that the CGI
+					to play all MP3s will be written to.
+					This should end in .cgi or .pl and
+					might need to go in your webserver's
+					cgi-bin directory.  You must specify
+					this if specifying a playall_url.
+
+	-U, --playall_url=URL		URL for the file in playall_path.
+					If playall_path is 
+					/htdocs/cgi-bin/playall.cgi, this might
+					be http://www.yoursite.com/cgi-bin/
+					playall.cgi .  You must specify this if
+					specifying a playall_path.
+
+	-o, --output=OUTPUT_FILE	You can use multiple -o options to
+					specify multiple output files.
+					Your layout file must have a
+					subroutine for each output file.
+					If no output files are given,
+					output is written to STDOUT.
+
+	-d, --datfile=DATA_FILE		Specifies a data file.  See README
+					for how to use.
+
+	-l, --format=FORMAT_FILE	Specifies a format file (also called a
+					layout file.)  See README for what this
+					should look like.  If no format file is
+					given, format is read from STDIN.
+					However, the program must be able
+					to find a valid format.  Also accepts
+					--layout for backwards compatibility.
+
+	-O, --options=OPTIONS		Some formats need more options.
+					See README for details on this.
+					This should be a carrot-seperated
+					list of options.  Each time you
+					specify it, it sets the options
+					for the next output file.
+					--options=a^b^c --options=x^y^z
+					sets \$options[0] to a, $options[1] to 
+					b, and \$options[2] c for the first
+					output file.  For the second output,
+					the options will be x, y, and z.
+
+	-n, --no-winamp			Don't use WinAmp genres.  The default
+					is to use them.  This will only affect
+					things if you have songs with a genre
+					above 78.
+
+	-a, --aggressive		Look for an MPEG header aggressively.
+					You might need this for things with
+					weird headers, but if you do use it
+					then it will take forever if you use it
+					on something that really isn't an MPEG
+					audio file.
+
+	-D, --describe			Describe the format file from the
+					format descriptors in it.  See README
+					for more information on format
+					descriptors.
+
+	-v, --verbose			Show status information.
+
+	FILES are the MPEG audio files to index.
+
+	See the included README file for more information.
+EOF
+;
+	exit 0;
+}
+
+#					You can now specify multiple format
+#					files.  Conflicts in subroutine names
+#					will be automatically averted (at least
+#					for outhead, outbody, and outfoot.)
+
+
+
+$errors = &GetOptions("version|V" => \&dispver, 
+"ftpurl|c=s" => \$ftpurl, 
+"httpurl|h=s" => \$httpurl, 
+"playurl|p=s" => \$playurl,
+"datfile|d=s" => \$DATFILE,
+"output|o=s\@" => \@OUTFILE,
+"options|O=s\@" => \@OPTIONS,
+"format|layout|l=s" => \$FMTFILE,
+"no-winamp|n" => \$standard,
+"verbose|v" => \$verbose,
+"aggressive|a" => \$MPEG::MP3Info::try_harder,
+"describe|D" => \$describe,
+"playall_path|P=s" => \$playall_path,
+"playall_url|U=s" => \$playall_url,
+"keeppath|k" => \$keeppath,
+"noparse|N" => \$noparse,
+"alternatepat|A=s" => \$altpat,
+"help|usage" => \&help);
+
+#"format|layout|l=s@" => \@FMTFILE,
+
+if(!$errors) {
+	warn "Try mp3index --help if you need help.\n";
+	exit 1;
+}
+
+$FMTFILE ||= "-";
+&describe if $describe;
+
+if(!$ARGV[0]) {
+	print "You must pass at least one MPEG audio file as a command-line argument!\n";
+	exit 1;
+}
+
+&use_winamp_genres unless $standard;
+$ftpurl ||= "";
+$httpurl ||= "";
+
+$ftpurl =~ s!^(.+)/$!$1!; #strip trailing slash
+$httpurl =~ s!^(.+)/$!$1!;
+if($httpurl eq ".") { $httpurl = ""; }
+if($httpurl and $httpurl ne "") { $httpurl .= "/"; }
+if($ftpurl eq ".") { $ftpurl = ""; }
+if($ftpurl and $ftpurl ne "") { $ftpurl .= "/"; }
+
+warn "Processing MPEG audio files...\n" if $verbose;
+$totalsize = 0; $totalmins = 0; $totalhours = 0; $totalsecs = 0;
+foreach $mp3(@ARGV) {
+	die "Couldn't find $mp3!\n"	unless -f $mp3;
+	$fullname = $mp3;
+	$mp3 = basename($mp3) unless $keeppath;
+	push @mp3, $mp3;
+	$totalsize += ($size{$mp3} = (stat $fullname)[7]);
+	$altpat ||= '(.+?) - (.+)\..+';
+	($mp3 =~ /$altpat/ or $mp3 =~ /^()(.+)\..+/) unless $noparse;
+	$artist{$mp3} = $1;
+	$title{$mp3} = $2;
+	$ftpurl{$mp3} = $ftpurl . $mp3			if $ftpurl;
+	$tempmp3 = $mp3;
+		$tempmp3 =~ s/ /%20/g;
+		$tempmp3 =~ s/&/%26/g;
+		$tempmp3 =~ s/'/%27/g;
+		$tempmp3 =~ s/\(/%28/g;
+		$tempmp3 =~ s/\)/%29/g;
+		$tempmp3 =~ s/#/%23/g;
+		$tempmp3 =~ s/\[/%5b/g;
+		$tempmp3 =~ s/]/%5d/g;
+		$tempmp3 =~ s/-/%2d/g;
+	$httpurl{$mp3} = $httpurl . $tempmp3		if $httpurl;
+	$playurl{$mp3} = "$playurl?url=$httpurl{$mp3}"	if $playurl and $httpurl{$mp3};
+	$foo = get_mp3info($fullname);
+	$bar = get_mp3tag($fullname);
+	$bitrate{$mp3} = $foo->{BITRATE};
+	$hh = int $foo->{MM} / 60;
+	$mm = $foo->{MM} % 60;
+	$length = sprintf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $foo->{SS};
+	$title{$mp3} = $bar->{TITLE} if $bar->{TITLE};
+	$artist{$mp3} = $bar->{ARTIST} if $bar->{ARTIST};
+	$album{$mp3} = $bar->{ALBUM} if $bar->{ALBUM};
+	$year{$mp3} = $bar->{YEAR} if $bar->{YEAR};
+	$comment{$mp3} = $bar->{COMMENT} if $bar->{COMMENT};
+	$vbr{mp3} = $bar->{VBR} if $vbrsupport and $bar->{VBR};
+	$genre{$mp3} = $bar->{COMMENT} if $bar->{COMMENT};
+		($h, $m, $s) = split(":", $length);
+		$totalsecs += $s;
+		if($totalsecs >= 60) {
+			$totalsecs -= 60;
+			$totalmins++;
+		}
+		$totalmins += $m;
+		if($totalmins >= 60) {
+			$totalmins -= 60;
+			$totalhours++;
+		}
+		$totalhours += $h;
+	$length{$mp3} = $length;
+}
+
+if($playall_url) {
+	open PLAYOUT, ">$playall_path" or die "Could not open $playall_path: $!\n";
+	print PLAYOUT "#!/usr/bin/perl\n\n";
+	print PLAYOUT "use CGI qw(:standard);\n";
+	print PLAYOUT 'print "Content-Type: audio/mpeg-url\n\n";' . "\n";
+	print PLAYOUT "print <<EOF\n";
+	foreach $curr_play_url(keys %httpurl) {
+		print PLAYOUT $httpurl{$curr_play_url} . "\n";
+	}
+	print PLAYOUT "EOF\n;\n";
+	close PLAYOUT;
+}
+	
+
+$totaltime = "$totalhours:$totalmins:$totalsecs";
+$prettytotalsize = prettysize($totalsize);
+$prettylongtotalsize = prettysize($totalsize, 1);
+$foo = $prettytotalsize; $foo = $prettylongtotalsize; #squash warnings
+$foo = $totaltime;
+
+if(%artist) {
+	@mp3 = sort {$artist{$a} cmp $artist{$b}} @mp3;
+} else { @mp3 = sort @mp3; }
+
+warn "Processing datfile...\n" if $verbose;
+$nodat = 0;
+$DATFILE ||= "";
+open DATFILE or $nodat = 1;
+while(($nodat != 1) && ($_ = <DATFILE>)) {
+	chomp;
+	($mp3, @data) = split(/\^/);
+	$data{$mp3} = [@data];
+}
+close DATFILE;
+
+warn "Processing format files...\n" if $verbose;
+#$fmtnum = 0;
+$temp = "";
+#foreach $FMTFILE(@FMTFILE) {
+	open FMTFILE or die "Couldn't open format file: $!\n";
+	while(<FMTFILE>) { $temp .= $_; }
+	close FMTFILE;
+#}
+#warn "Renumbering subroutines...\n" if $verbose;
+#
+#sub getfmt {
+#	my $f = shift; $fmtnum++;
+#	return $fmtnum unless $fmtnum == 1; return "";
+#}
+#
+#while ($temp =~ s!\G.+?sub outhead([\d]*)?!sub outhead@{[&getfmt(1)]}!ig) {
+#	$oldnum = $1;
+#	warn "Renumbering $oldnum to $fmtnum\n" if $verbose;
+#	$temp =~ s!sub outbody$oldnum!sub outhead@{[&getfmt(0)]}!i;
+#	$temp =~ s!sub outfoot$oldnum!sub outhead@{[&getfmt(0)]}!i;
+#}
+
+$foo = $^W; $^W = 0;
+#See the sample format file for info on these variables
+$noopen = 0;
+$bodyonly = 0;
+$passlist = 0;
+$^W = $foo;
+
+warn "Evalling format file...\n" if $verbose;
+@options = split(/\^/, $OPTIONS[0]) if defined($OPTIONS[0]);
+eval $temp;
+die "Eval error: $@\n" if $@;
+
+if(!$OUTFILE[0]) {
+	warn "Processing outfile...\n" if $verbose;
+	*OUTFILE = *STDOUT; #Alias OUTFILE to STDOUT
+	writeout(1);
+} else {
+	$curr = 1;
+	foreach $OUTFILE(@OUTFILE) {
+		warn "Processing outfile $curr.\n" if $verbose;
+		(open OUTFILE, ">$OUTFILE" or die "Couldn't open output file: $!\n") unless $noopen;
+		writeout($curr);
+		$curr++;
+	}
+}
+
+warn "Done.\n" if $verbose;

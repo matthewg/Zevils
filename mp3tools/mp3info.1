@@ -1,0 +1,64 @@
+.TH MP3INFO 1 "June 1999" "mp3tools 1.1" "Matthew Sachs"
+.SH NAME
+mp3info \- get information about MPEG audio files
+.SH SYNOPSIS
+.B mp3info
+.SH DESCRIPTION
+.PP
+." Add any additional description here
+.PP
+[\fIOPTION\fR]... \fIFILE\fR...
+.TP
+If called without any options, mp3info will show information about the selected
+file.
+.TP
+\fB\-p\fR, \fB\-\-plain\fR
+Filesizes will be shown as plain bytecounts instead of in human-readable
+format.
+.TP
+\fB\-a\fR, \fB\-\-aggressive\fR
+Look for the MPEG header aggressively.  You might need this for things with
+weird headers, but if you do use it then it will take forever if used on
+something which isn't really an MPEG audio file.
+.TP
+\fB\-n\fR, \fB\-\-no\-winamp\fR
+Don't use WinAmp genres.  This will only affect things if you have files with
+a genre above 78.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+If you use this option, mp3info will operate in quiet mode.  Quiet mode is
+designed for other programs which need to read the output of mp3info.  In
+quiet mode, mp3info will print only the following:
+.br
+	bitrate
+.br
+	play length
+.br
+	[if there is a valid ID3 tag:]
+.br
+	ID3 songname
+.br
+	ID3 artist
+.br
+	ID3 album
+.br
+	ID3 year
+.br
+	ID3 comment
+.br
+	ID3 genre
+.br
+.br
+Think of quiet mode as generating machine\-readable output and the default
+"noisy" mode as generating human\-readable output.
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Display the version and exit.
+.TP
+\fB\-\-help\fR
+Show information about mp3gui
+.SH "REPORTING BUGS"
+Report bugs to <matthewg@zevils.com>.
+.SH "SEE ALSO"
+The README file and other documentation distributed with mp3tools.
+Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools

@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+
+use DBI;
+use Getopt::Long;
+
+# Synthesizes text from a Markov Chain.
+# Uses a mysql database, see genmarkov for details.
+# Usage: mkmarkov table db_pass_for_root -l [number of words to generate]
+
+$errors = &GetOptions("length|l=i" => \$length);
+
+if(!$errors) {
+	exit 1;
+}
+
+# warn "Reading mkv and mkp files...\n";
+
+# open WORDS, "$ARGV[0].mkv" or die "Couldn't open $ARGV[0].mkv: $!\n";
+# open PROBS, "$ARGV[0].mkp" or die "Couldn't open $ARGV[0].mkp: $!\n";
+
+warn "Reading database markov, table $ARGV[0]...\n";
+
+$dbh ||= DBI->connect("DBI:mysql:markov", "root", $ARGV[1]);
+die "Unable to connect to SQL Server" unless $dbh;
+
+$c = $dbh->prepare("SELECT prev,new,prob FROM $ARGV[0]");
+$c->execute();
+
+while (($prev, $new, $prob) = $c->fetchrow) {
+	$words = 1;
+	while ($new =~ m/ /g) {
+		$words++;
+	}
+	$probabilities[$words] = 1;
+	$words{$prev}->{$new} = $prob;
+	# warn "words{$prev}->$new has been set to $prob\n";
+}
+
+$dbh->disconnect();
+
+$words = 0;
+while($words < $length) {
+	$numwords = int (rand() * $#probabilities) + 1;
+	if($words > 0) {
+		$numwords = $words if $numwords > $words;
+		$prevseq = "";
+		for($i = $#probabilities; $i >= $#probabilities - ($numwords - 1); $i--) {
+			$prevseq = "$prev[$i] $prevseq";
+		}
+		chop($prevseq);
+	} else {
+		$numwords = 1;
+		$prevseq = "";
+	}
+	$words++; # += $numwords;
+	warn "Getting a sequence of $numwords words...\n";
+	$rval = rand();
+	#warn "Target is $rval\n";
+	$cprob = 0;
+	warn "Prevseq is $prevseq\n";
+	GETSEQ: foreach $word (sort randsort keys %{$words{$prevseq}}) {
+		warn "Is $word the one?\n";
+		$cprob += $words{$prevseq}->{$word};
+		$theword = $word if $cprob >= $rval;
+		#warn "cprob is $cprob\n";
+		warn "Yep.\n" if $cprob >= $rval;
+		last GETSEQ if $cprob >= $rval;
+	}
+	DONE: $theword =~ s/.+ (.+)$/$1/;
+	warn "We got $theword.\n";
+	print $theword . " ";
+	push @prev, $theword;
+	shift @prev if $#prev > $#probabilities;
+}
+
+sub randsort {
+	return 1 if rand() <= .5;
+	return -1;
+}

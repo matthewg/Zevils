@@ -1,0 +1,120 @@
+.TH MP3INDEX 1 "June 1999" "mp3tools 1.1" "Matthew Sachs"
+.SH NAME
+mp3index \- generate listings of MPEG audio files
+.SH SYNOPSIS
+.B mp3index
+[\fIOPTION\fR]... \fIFILE\fR...
+.SH DESCRIPTION
+.PP
+." Add any additional description here
+.PP
+Generate a listing for FILEs (the current directory by default).  If a format
+is not named using the --format option, it must be provided on standard input.
+.TP
+\fB\-k\fR, \fB\-\-keeppath\fR
+do not strip the paths from FILEs.  You need to do this if you keep your files
+in multiple directories, but if you use this then you'll need to make sure that
+the paths mp3index gets are relative to your root MP3 directory.  You can
+probably do that by running mp3index ./**/*.mp3 from that directory (if you're
+running bash anyway.)
+.TP
+\fB\-N\fR, \fB\-\-noparse\fR
+don't parse the filename for artist and title.  You need this if you have the
+artist in the ID3 tag and the title contains a dash surrounded spaces. ( - )
+.TP
+\fB\-A\fR, \fB\-\-alternatepat=ALTPAT\fR
+instead of using /(.+)? - (.+)\..+/ to find the artist and title from the
+filename, use an alternate pattern.  You must specify a valid regular
+expression with the artist in the first set of parentheses and the title in the
+second.  Do not include the /slashes/.
+.TP
+\fB\-f\fR, \fB\-ftpurl\fR=\fIFTPURL\fR
+prefix to use for FTP downloads, such as ftp://matthewg.port.net
+.TP
+\fB\-h\fR, \fB\-\-httpurl=HTTPURL\fR
+prefix to use for HTTP downloads, such as mp3files/
+.TP
+\fB\-p\fR, \fB\-\-playurl=MP3PLAY_URL\fR
+URL for the mp3play.cgi, such as http://matthewg.port.net/cgi-bin/mp3play.cgi
+.TP
+\fB\-P\fR, \fB\-\-playall_path=PATH\fR
+full path and filename that the CGI to play all MP3s will be written to.  This
+should end in .cgi or .pl and might need to go in your webserver's cgi-bin
+directory.  You must specify this if specifying a playall_url.
+.TP
+\fB\-U\fR, \fB\-\-playall_url=URL\fR
+URL for the file in playall_path.  If playall_path is
+/htdocs/cgi-bin/playall.cgi, this might be http://yoursite/cgi-bin/playall.cgi.
+You must specify this if specifying a playall_path.
+.TP
+\fB\-o\fR, \fB\-\-output=OUTPUT_FILE\fR
+You can use multiple -o options to specify multiple output files.  Your layout
+file must have a subroutine for each output file.  If no output files are
+given, output is written to STDOUT.
+.TP
+\fB\-d\fR, \fB\-\-datfile=DATA_FILE\fR
+Specifies a data file.  See the section on data files for more information.
+.TP
+\fB\-l\fR, \fB\-\-format=FORMAT_FILE\fR
+Specifies a format file (also called a layout file.)  See the section on
+format files for what this should look like.  If no format file is given, 
+format is read from STDIN.  mp3index must be able to find a valid format.  
+Also accepts --layout for backwards compatibility.
+.TP
+\fB\-O\fR, \fB\-\-options\fR
+Some formats need additional options.  See the section on format files for
+details.  This should be a carrot-seperated list of options.  Each time you
+specify it, it sets the options for the next output file.  --options=a^b^c
+--options=x^y^z sets the first option to a, the second to b, and the third to
+c for the first output file and the first, second, and third options to x, y,
+and z respectively for the second output file.
+.TP
+\fB\-n\fR, \fB\-\-no\-winamp\fR
+Don't use WinAmp genres.  The default is to use them.  This will only affect
+things if you have songs with a genre above 78.
+.TP
+\fB\-a\fR, \fB\-\-aggressive\fR
+Look for an MPEG header aggressively.  You might need this for things with
+weird headers, but if you do use it then it will take forever if it encounters
+something that isn't really an MPEG audio file.
+.TP
+\fB\-D\fR, \fB\-\-describe\fR
+Describe the format file from the format descriptors in it and exit.  See the
+section on format files for more information.
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Show status information.
+.TP
+\fB\-\-version\fR
+Display the program version and exit.
+.TP
+\fB\-\-help\fR
+Show information about the program.
+.SH "FORMAT FILES"
+Format files are what mp3index uses to determine what to make the output look
+like.  They are really just normal Perl code which is evaluated at runtime.
+To get the values for the various pieces of information about the files that
+mp3index has access to, they use certain variables which are documented in the
+README.  The only things special about them is that they must contain subroutines called
+outhead, outbody, and outfoot for the first output file, outhead2, outbody2,
+and outfoot2 for the second output file, etc.  outhead and outfoot are called
+once at the beginning and end of a run, while outbody is called once per mp3
+file.  Format files can assume that the desired output file has been selected
+and opened before the output subroutines are called.  They can alter this
+behavior by setting some variables at the time they are evaluated.  These are $noopen, $bodyonly, and
+$passlist.  They are all set to 0 by default.  If set to 1, the first two will
+prevent mp3index from opening the output file, prevent outbody and outfoot from being called.  $passlist causes outbody to be
+called only once and instead of the normal variables, @list will be set to a list of hashrefs.  The keys of the hash are described in the
+sample format file.
+
+All format files must contain format descriptors.  Format descriptors let
+mp3gui and mp3index give the user a description of a format file, the formats
+contained in it, and the options for each format file.  See the README for
+more infromation on format descriptors.
+.SH "DATA FILES"
+See the README for more information on data files.
+.SH "REPORTING BUGS"
+Report bugs to <matthewg@zevils.com>.
+.SH "SEE ALSO"
+The README file and other documentation distributed with mp3tools.
+Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools

@@ -1,0 +1,207 @@
+# Sample format for mp3index
+#
+# This wil generate a nice HTML table with quick jumps to go to a
+# specific artist on the first output file and a simple (and often
+# unreadable) tab-delimited listing on the second output file.
+#
+# **IMPORTANT**  If you want to have an @ sign, such as in an
+# email address, you _MUST_ prefix it with a \ unless the
+# string which the @ appears in is surrounded by 'single quotes'.
+# If it is part of a here document (print <<EOF) or "double quotes"
+# then you must you \@ instead of @ (unless you want to interpolate an
+# array).  The same applies for $.
+
+# Note on the funny-looking comments you're about to see:
+#	These tell mp3index and mp3gui about the formats.
+#	For more info about them, consult the README.
+
+# formatfile		Sample format file provided with mp3tools 1.1
+# format 1 desc		Generates a nice HTML table of everything arranged by artist with anchors and links to jump to a certain artist.  If you generate all three output files at the same time, provides links to the other output files.
+# format 1 options	Your email address^(optional) HTML <title> for page^(optional) Header (in <H1> tags) for page^(Only if the output files are going to different directories) Prefix to add to the link to the first output file so that the second and third can get to it (use your webserver's paths, not your filesystems)^Path to second output (see option 4)^Path to third output (see option 4)
+# format 2 desc		Generates a nice HTML table of everything arranged by song length.  If you generate all three output files at the same time, provides links to the other output files.
+# format 2 options	Your email address^(optional) HTML <title> for page^(optional) Header (in <H1> tags) for page^(Only if the output files are going to different directories) Prefix to add to the link to the first output file so that the second and third can get to it (use your webserver's paths, not your filesystems)^Path to second output (see option 4)^Path to third output (see option 4)
+# format 3 desc		Generates a nice HTML table of everything arranged by song title with anchors and links to jump to titles starting with a certain letter.  If you generate all three output files at the same time, provides links to the other output files.
+# format 3 options	Your email address^(optional) HTML <title> for page^(optional) Header (in <H1> tags) for page^(Only if the output files are going to different directories) Prefix to add to the link to the first output file so that the second and third can get to it (use your webserver's paths, not your filesystems)^Path to second output (see option 4)^Path to third output (see option 4)
+
+
+$noopen = 0;	#If a format file sets this to one, the output files won't be open
+$bodyonly = 0;	#If a format file sets this to one, the head and body subs won't be called
+$passlist = 0;	#If a format file sets this to one, the body sub will be called once and @list will be set to a list of hashrefs.
+			#The hashrefs will have the following keys:
+			#artist, title, ftpurl, httpurl, playurl
+			#bitrate, length, size, album, year, comment, genre
+			#prettysize, prettylongsize, data [array ref]
+			#
+			#ftpurl, httpurl, and playurl may not be present
+
+
+sub outhead {	#This is the header for all output files.  The second and third
+		#output files just change some variables and call this.
+
+	#If the arguments you pass to mp3index include something like this:
+	#
+	#--options="foo@bar.com^Title for my MP3 files by artist^H1 for my MP3
+	#files by artist" --options="foo@bar.com^Title for my MP3 files by
+	#length^H1 for my MP3 files by length" --options="foo@bar.com^Title^H1"
+	#
+	#then $options[1] and $options[2] will be set appropriately, depending
+	#on what output file we're writing to.
+	#
+	#Oh, and $options[0] is your email address btw.
+
+	$title = $options[1] || "My MP3 files";
+	$head = $options[2] || "My MP3 files";
+
+	#What you are about to see is a "here document."  It prints everything
+	#until EOF by itself as if it were enclosed in double quotes (ie: $var
+	#will print the value of $var.)  It also prints the newlines.
+
+	#Print the basic headers.
+	print <<EOF
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>$title</TITLE>
+</HEAD>
+<body bgcolor="#FFFFFF" text="#000000" link="#0000ee" vlink="#551a8b" 
+alink="#ff0000">
+<H1>$head</H1>
+<HR>
+This collection of MPEG audio contains ${totalhours}h ${totalmins}m
+${totalsecs}s of music totalling $prettylongtotalsize.<br>
+EOF
+;
+print "Click <a href=\"$playall_url\">here</a> to play them all!<br>\n" if $playall_url;
+if($playall_url or %playurl) {
+	print 'For instructions on configuring Netscape to work with these';
+	print ' playing links, go ';
+	print '<a href="http://www.zevils.com/linux/mp3tools/howto_play.html">';
+	print "here</a>.<br>\n";
+}
+
+	#If we're not writing to three output files (ie: we're only writing to
+	#one or we're using mp3index > outfile, we don't want to include the
+	#links to the second and third output file.  If you only want to use
+	#two output files, you'll need to hack this a bit.
+	#
+	#If your output files are in different directories, $options[3,4,5]
+	#should contain the prefixes you want attached to the links for artist,
+	#length, and title.
+
+	@xoutfile = @OUTFILE;		#Strip /leading/paths from filenames.
+	$xoutfile[0] =~ s!.+/(.+)!$1!;
+	$xoutfile[1] =~ s!.+/(.+)!$1!;
+	$xoutfile[2] =~ s!.+/(.+)!$1!;
+
+	$options[3] ||= ""; $options[4] ||= ""; $options[5] ||= "";
+	$options[3] =~ s!(.+)[^/]^!$1/!; #add trailing slash if needed
+	$options[4] =~ s!(.+)[^/]^!$1/!; #add trailing slash if needed
+	$options[5] =~ s!(.+)[^/]^!$1/!; #add trailing slash if needed
+
+	if($OUTFILE[0] && $OUTFILE[1] && $OUTFILE[2]) {
+		print "<table><tr><td><a href=\"$options[3]$xoutfile[0]\">Sorted by Artist</a></td>";
+		print "<td><a href=\"$options[4]$xoutfile[1]\">Sorted by Length</a></td>";
+		print "<td><a href=\"$options[5]$xoutfile[2]\">Sorted by Title</a></td></tr></table>\n";
+	}
+
+	#print jumps to specific artists\first letters of titles
+	print '<hr>';
+	if(!(defined $sortmode)) {
+		print "<b>Jump to a certain artist</b><br>\n";
+	} elsif($sortmode eq "title") {
+		print "<b>Jump to a title by initial letter</b><br>\n";
+	}
+	$prevartist = "";
+	if (!(defined $sortmode)) {
+		foreach $artist(sort values %artist) {
+			if($artist ne $prevartist) { #a new artist
+				$prevartist = $artist;
+				print "<a href=\"#$artist\">$artist</a><br>\n";
+			}
+		}
+	} elsif ($sortmode eq "title") {
+		foreach $ctitle(sort values %title) {
+			$xtitle = substr(uc($ctitle), 0, 1);
+			if($xtitle ne $prevartist) { #a new first letter
+				$prevartist = $xtitle;
+				print "<a href=\"#$xtitle\">$xtitle</a><br>\n";
+			}
+		}
+	}
+	$prevartist = "";
+
+	#The actual headers for the table
+	print <<EOF
+<br>
+<table cellpadding=5>
+<tr><td><b>Title</b></td>
+EOF
+;
+
+	print '<td><b>FTP (Preferred)</b></td>'		if %ftpurl;
+	print '<td><b>HTTP</b></td>'			if %httpurl;
+	print '<td><b>Play it!</b></td>'		if %playurl;
+	print '<td><b>Song Length</b></td><td><b>File Size</b></td><td><b>Bitrate</b></td>';
+	print '<td><b>VBR?</b></td>' if $MPEG::MP3Info::VERSION > 0.71;
+	print "</tr>\n";
+
+}
+
+sub outbody { #The body
+	print '<tr><td>';
+
+	#Print the anchors for jumps
+	if (!(defined $sortmode)) {
+		unless($anchors{$artist}) {
+			print "<a name=\"$artist\">\n";
+			$anchors{$artist} = 1;
+			$mustclose = 1;
+		}
+	} elsif ($sortmode eq "title") {
+		$ctitle = substr(uc($title), 0, 1);
+		unless($tanchors{$ctitle}) {
+			print "<a name=\"$ctitle\">\n";
+			$tanchors{$ctitle} = 1;
+			$mustclose = 1;
+		}
+	}
+	print "$artist - $title";
+	if ($mustclose) { print "</a>" ; $mustclose = 0; }
+	print "<td><a href=\"$ftpurl\">Get it (FTP)</a></td>"	if %ftpurl;
+	print "<td><a href=\"$httpurl\">Get it (HTTP)</a></td>"	if %httpurl;
+	print "<td><a href=\"$playurl\">Play it!</a></td>"	if %playurl;
+	print "<td>$length</td><td>$prettysize</td><td>$bitrate<br></td>";
+	print "<td>$vbr</td>" if $MPEG::MP3Info::VERSION > 0.71;
+	print "</tr>\n";
+}
+
+sub outfoot { #The footer
+	$email = $options[0] || 'you_should_put_your_email_address_as_the_first_option_in_--options_for_each_output_file@foo.bar';
+
+	print "</a>" if $notfirst;
+	print <<EOF
+</table>
+<hr>
+<i>
+<a href="mailto:$email">$email</a></i>
+</body></html>
+EOF
+;
+}
+
+sub outhead2 { #For the second and third output files, we set $sortmode & $mp3
+	@mp3 = sort { $length{$a} cmp $length{$b} } @mp3;
+	$sortmode = "none";
+	&outhead;
+}
+sub outbody2 { &outbody; }
+sub outfoot2 { &outfoot; }
+
+sub outhead3 {
+	@mp3 = sort { $title{$a} cmp $title{$b} } @mp3;
+	$sortmode = "title";
+	&outhead;
+}
+sub outbody3 { &outbody; }
+sub outfoot3 { &outfoot; }
+

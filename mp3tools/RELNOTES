@@ -1,0 +1,28 @@
+============Release notes, mp3tools 1.1===================
+
+mp3tools-1.1: the took-me-bloody-long-enough release
+
+This release is a ***LONG*** time coming.  I've been promising it for a while,
+and it's finally out.  MPEG::MP3Info should be including VBR support in the next
+release.  mp3index, mp3info, and mp3gui detect MPEG::MP3Info versions > 0.71
+(the latest at time of release) and if found enable VBR support.  The sample
+format will include a VBR column if you have an MPEG::MP3Info newer than 0.71.
+
+The mp3gui code is a lot cleaner.
+
+It should work better cross-platform, since I use File::Basename now.
+
+It definately works if you have MP3s laid out in the mp3root/Artist/files
+format.  It even works if you have a mixture of mp3root/Artist/files and
+mp3root/Artist/Album/files, since I've moved my personal collection to that
+format.  I've introduced new options in mp3index for this.
+
+There are a bunch of mp3gui improvements.  It remembers what directory you
+picked in the file selection widgets and it shows the filename in the mp3info
+section.
+
+Oh yes, and it's more user-friendly.  I scrapped plans for newbie stuff
+(INTRODUCTION.html and the wizard) since that's the main reason it took so
+long.  But there's an installer.  The installer is relatively untested, so let
+me know how it goes.  There's also documentation for the individual programs in
+both manpage and HTML format.

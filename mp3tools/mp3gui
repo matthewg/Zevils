@@ -1,0 +1,485 @@
+#!/usr/bin/perl
+
+use Getopt::Long;
+use Tk;
+use Tk::FileSelect;
+use Tk::BrowseEntry;
+use Tk::Dialog;
+use MPEG::MP3Info;
+use File::KGlob;
+use Cwd;
+use File::Basename;
+$version = "1.1";
+
+# mp3gui by Matthew Sachs <matthewg@zevils.com>
+#   This program licensed under Version 2 of the GPL.
+#   See the file COPYING for more information.
+#
+#   Run the program the argument --help for more info, including usage.
+
+sub dispver {
+	print "mp3gui: X-Windows GUI for viewing information about an MPEG\n";
+	print "audio file, viewing and altering ID3 tags, and a front-end for\n";
+	print "mp3index.\nVersion: $version\n";
+	exit 0;
+}
+
+sub help {
+	print <<EOF
+mp3gui - X-Windows graphical user interface for viewing information about an
+MPEG audio file, viewing and altering ID3 tags, and a front-end to mp3index.
+Version: $version
+
+by Matthew Sachs <matthewg\@zevils.com> - Latest version at
+http://www.zevils.com/linux/.  This program licensed under Version 2
+of the GNU Public License.  See http://www.gnu.org for details.
+
+Use it without any arguments to start normally.
+-v or --version shows the version.  --help shows this screen.
+EOF
+;
+	exit 1;
+}
+
+$errors = &GetOptions("version|v" => \&dispver, "help|h" => \&help);
+
+if(!$errors) {
+        warn "Try mp3gui --help if you need help.\n";
+        exit 1;  
+}
+
+$currdir = cwd;
+&use_winamp_genres;
+$top = MainWindow->new();
+$top->title("mp3tools GUI");
+$mp3info = $top->Button(text => 'Examine an MPEG audio file',
+			command => \&mp3info);
+$mp3info->pack();
+$mp3index = $top->Button(text => 'Generate a listing of MPEG audio files',
+				command => \&mp3index);
+$mp3index->pack();
+MainLoop();
+
+sub prettysize {
+        my ($size, $longname) = (shift, shift);
+        if($longname) { $kilos = " kilobytes"; $megas = " megabytes"; }
+        else { $kilos = "k"; $megas = "M"; }
+
+        if($size >= 1024 and $size < (1024*1024)) { #kilobytes
+                return (sprintf "%0.2f", ($size / 1024)) . $kilos;
+        } elsif($size >= (1024*1024)) { #megabytes
+                return (sprintf "%0.2f", ($size / (1024*1024))) . $megas;
+        } else { #bytes
+                return "$size bytes";
+        }
+}
+
+sub mklabel {
+	my($rframe, $above) = @_;
+	#return $rframe->Label->form(-top => [$above, 1], -left => [$rframe, 0]);
+	return $rframe->Label->pack(-padx => 1, -anchor => 'w');
+}
+sub mkentry {
+	my($rframe, $above) = @_;
+	#return $rframe->Label->form(-padx => 1, -top => [$above, 0], -left => [$rframe, 0]);
+	return $rframe->Entry->pack(-padx => 1, -anchor => 'w');
+}
+
+sub mp3info {
+	$i = 0;
+	return if $infowin;
+	$infowin = $top->Toplevel;
+	$infowin->OnDestroy(sub { $infowin = undef; });
+	$infowin->title("Examine an MPEG audio file");
+
+	$lframe = $infowin->Frame(width => 15)->form(-top => ['%0', 0], -left => ['%0', 0]);
+	$lframe->Label(text => 'Filename:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'Filesize:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'MPEG Version:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'Layer:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'Bitrate:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'Length:')->pack(-anchor => 'w');
+	$lframe->Label(text => 'VBR?')->pack(-anchor => 'w') if $MPEG::MP3Info::VERSION > 0.71;
+	$lframe->Label(text => 'ID3 Songname:')->pack(-pady => 4.35, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Artist:')->pack(-pady => 0, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Album:')->pack(-pady => 0, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Year:')->pack(-pady => 0, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Comment:')->pack(-pady => 0, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Genre:')->pack(-pady => 0, -anchor => 'w');
+
+	$infowin->update;
+	$rframe = $infowin->Frame(width => 35)->form(-left => [$lframe, 0], -top => ['%0', 0]);
+	$filename = mklabel($rframe, $rframe);
+	$filesize = mklabel($rframe, $filename);
+	$version = mklabel($rframe, $filesize);
+	$layer = mklabel($rframe, $version);
+	$bitrate = mklabel($rframe, $layer);
+	$length = mklabel($rframe, $bitrate);
+	$vbr = mklabel($rframe, $length) if $MPEG::MP3Info::VERSION > 0.71;
+	$songname = mkentry($rframe, $vbr) if $MPEG::MP3Info::VERSION > 0.71;
+	$songname = mkentry($rframe, $length) if $MPEG::MP3Info::VERSION <= 0.71;
+	$artist = mkentry($rframe, $songname);
+	$album = mkentry($rframe, $artist);
+	$year = mkentry($rframe, $album);
+	$comment = mkentry($rframe, $year);
+	#$genre = 	$rframe->BrowseEntry(-browsecmd => sub { my ($foo, $bar) = (shift, shift); $selected_genre = $bar }, -state => 'readonly', -variable => \$selected_genre)->form(-padx => 1, -top => $comment, -left => $rframe);
+	$genre = 	$rframe->BrowseEntry(-browsecmd => sub { my ($foo, $bar) = (shift, shift); $selected_genre = $bar }, -state => 'readonly', -variable => \$selected_genre)->pack(-padx => 1, -anchor => 'w');
+
+	$songname->bind("<Any-KeyPress>" => \&snpress);
+	$artist->bind("<Any-KeyPress>" => \&arpress);
+	$album->bind("<Any-KeyPress>" => \&alpress);
+	$year->bind("<Any-KeyPress>" => \&yrpress);
+	$comment->bind("<Any-KeyPress>" => \&cmpress);
+	$selected_genre = "Unknown";
+	$genre->insert(0, (sort @MPEG::MP3Info::winamp_genres, "Unknown"));
+
+	$infowin->update;
+	$bframe = $infowin->Frame(width => 50)->form(-top => [$rframe, 5], -left => ['%0', 0]);
+	$use_winamp = 1;
+	$bframe->Checkbutton(command => \&toggle_winamp, variable => \$use_winamp, text => 'Use WinAmp genres')->pack(side => 'top', anchor => 'w');
+	$bframe->Checkbutton(text => 'Look for MPEG audio header aggressively', variable => \$MPEG::MP3Info::try_harder)->pack(side => 'top', anchor => 'w');
+	$bframe->Button(text => 'Select a new file', command => \&newmp3info)->pack(side => 'left', anchor => 'w');
+	$bframe->Button(text => 'Set ID3 tag', command => \&mp3id3)->pack(side => 'left', anchor => 'w');
+	$bframe->Button(text => 'Erase ID3 tag', command => \&killid3)->pack(side => 'left', anchor => 'w');
+
+	$fsref = $infowin->FileSelect(-directory => $currdir);
+	$file = $fsref->Show;
+	if($file) {
+		$currdir = dirname($file);
+		getmp3info($file);
+	}
+}
+
+sub killid3 {
+	remove_mp3tag($file) if $file;
+	getmp3info($file) if $file;
+}
+
+sub newmp3info {
+	$fsref = $infowin->FileSelect(-directory => $currdir);
+	$file = $fsref->Show;
+	if($file) {
+		getmp3info($file);
+		$currdir = dirname($file);
+	}
+}
+
+sub getmp3info {
+	$info = get_mp3info($file);
+	$file = undef unless $info->{VERSION};
+	unless ($file) {
+		$msgbox = $infowin->Dialog(
+			-title => "Invalid MPEG Audio File",
+			-text => '',
+			-default_button => "OK",
+			-buttons => ["OK"],
+		);
+		$msgbox->configure(
+			-wraplength => '4i',
+			-text => "The file you selected is not a valid MPEG audio file.  If you are certain that it is, check the 'Look for MPEG audio header aggressively' box.  If you select this box and open an invalid MPEG audio file, the program will get stuck and you will be forced to kill it."
+		);
+		$msgbox->Show;
+		return;
+	}
+	$filesize->configure(-text => prettysize(((stat $file)[7])));
+	
+	$version->configure(-text => $info->{VERSION});
+	$layer->configure(-text => $info->{LAYER});
+	$bitrate->configure(-text => $info->{BITRATE});
+	$hh = int $info->{MM} / 60;
+	$mm = $info->{MM} % 60;   
+	$length->configure(-text => sprintf("%2.2d:%2.2d:%2.2d", $hh, $mm, $info->{SS}));
+	$vbr->configure(-text => $info->{VBR}) if $MPEG::MP3Info::VERSION > 0.71;
+	$filename->configure(-text => $file);
+
+	$info = get_mp3tag($file);
+	$songname->delete(0, 'end');
+	$songname->insert(0, $info->{TITLE});
+	$artist->delete(0, 'end');
+	$artist->insert(0, $info->{ARTIST});
+	$album->delete(0, 'end');
+	$album->insert(0, $info->{ALBUM});
+	$year->delete(0, 'end');
+	$year->insert(0, $info->{YEAR});
+	$comment->delete(0, 'end');
+	$comment->insert(0, $info->{YEAR});
+	$thegenre = $info->{GENRE};
+	$thegenre = "Unknown" if !$use_winamp and !$MPEG::MP3Info::mp3_genres{lc($thegenre)};
+	$thegenre = "Unknown" unless $MPEG::MP3Info::winamp_genres{lc($genre)};
+	$selected_genre = $thegenre;
+}
+
+sub mp3id3 {
+	set_mp3tag($file, $songname->get, $artist->get, $album->get, $year->get, $comment->get, $selected_genre);
+	getmp3info($file);
+}
+
+sub snpress { elimit("songname", 30); }
+sub arpress { elimit("artist", 30); }
+sub alpress { elimit("album", 30); }
+sub yrpress { elimit("year", 4); }
+sub cmpress { elimit("comment", 30); }
+sub elimit {
+	my($name, $size, $key) = (shift, shift);
+	my $oldtext = $oldtext{$name};
+	my $newtext = ${"$name"}->get;
+	if (length($newtext) > $size) {
+		${"$name"}->delete(0, 'end');
+		${"$name"}->insert(0, $oldtext{$name});
+		${"$name"}->bell;
+	} else {
+		$oldtext{$name} = $newtext;
+	}
+}
+
+sub toggle_winamp {
+	$genre->delete(0, 'end');
+	$genre->insert(0, (sort @MPEG::MP3Info::winamp_genres, "Unknown")) if $use_winamp;
+	$genre->insert(0, (sort @MPEG::MP3Info::mp3_genres, "Unknown")) unless $use_winamp;
+	if(!$use_winamp and !defined($MPEG::MP3Info::mp3_genres{lc($selected_genre)})) { $selected_genre = "Unknown"; }
+}
+
+sub mp3index {
+	return if $idxwin;
+	$idxwin = $top->Toplevel;
+	$idxwin->OnDestroy(sub { $idxwin = undef; });
+	$idxwin->title("Frontend to mp3index");
+
+	$tframe = $idxwin->Frame->form(-top => ['%0', 0], -left => ['%0', 0]);
+	$dlabel = $tframe->Label(-text => 'Format file description:')->form(-top => ['%0', 0], -left => ['%0', 0]);
+
+	$desc = $tframe->Label(-text => '')->form(-top => ['%0', 0], -left => [$dlabel, 0]);
+	$hlabel = $tframe->Label(-text => "Click on the label for an output file or one of its options to get a description of that file/option.\nSee the man page mp3index(1) or the output of mp3index --help for a description of the options.")->form(-top => [$desc, 0], -left => ['%0', 0]);
+	$tframe->Button(-text => 'Go!', -command => \&goindex)->form(-top => [$hlabel, 0], -left => ['%0', 0]);
+
+	$idxwin->update;
+	$lframe = $idxwin->Frame->form(-top => [$tframe, 0], -left => ['%0', 0]);
+
+	$t1 = $lframe->Label(-text => 'Format file: ')->form(-left => ['%0', 0], -top => ['%0', 0], -pady => 6);
+	$formatfile = $lframe->Entry(-textvariable => \$fmt_file, -width => 20, -state => 'disabled')->form(-left => [$t1, 0], -top => ['%0', 0], -pady => 6);
+	$lframe->Button(-command => \&newformat, -text => '...')->form(-left => [$formatfile, 0], -top => ['%0', 0], -pady => 6);
+
+	$t2 = $lframe->Label(-text => 'Data file:  ')->form(-left => ['%0', 0], -top => [$t1, 0], -pady => 6);
+	$datafile = $lframe->Entry(-textvariable => \$dat_file, -width => 20, -state => 'disabled')->form(-left => [$t2, 0], -top => [$t1, 0], -pady => 6);
+	$lframe->Button(-command => \&newdata, -text => '...')->form(-left => [$datafile, 0], -top => [$t1, 0], -pady => 6);
+
+	$mp3_files = '/misc/mp3/*.mp3';
+	$t3 = $lframe->Label(-text => 'MPEG audio files:  ')->form(-left => ['%0', 0], -top => [$t2, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$mp3_files, -width => 20)->form(-left => [$t3, 0], -top => [$t2, 0], -pady => 6);
+
+	$ftpurl = 'ftp://ftp.yoursite.com/path/to/mp3s';
+	$t4 = $lframe->Label(-text => 'FTP URL prefix:  ')->form(-left => ['%0', 0], -top => [$t3, 10], -pady => 6);
+	$lframe->Entry(-textvariable => \$ftpurl, -width => 20)->form(-left => [$t4, 0], -top => [$t3, 0], -pady => 6);
+
+	$httpurl = 'http://www.yoursite.com/path/to/mp3s';
+	$t5 = $lframe->Label(-text => 'HTTP URL prefix: ')->form(-left => ['%0', 0], -top => [$t4, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$httpurl, -width => 20)->form(-left => [$t5, 0], -top => [$t4, 0], -pady => 6);
+	
+	$mp3playurl = 'http://www.yoursite.com/cgi-bin/mp3play.cgi';
+	$t6 = $lframe->Label(-text => 'mp3play.cgi URL: ')->form(-left => ['%0', 0], -top => [$t5, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$mp3playurl, -width => 20)->form(-left => [$t6, 0], -top => [$t5, 0], -pady => 6);
+
+	$playall_path = "/htdocs/cgi-bin/playall.cgi";
+	$t7 = $lframe->Label(-text => 'playall path: ')->form(-left => ['%0', 0], -top => [$t6, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$playall_path, -width => 20)->form(-left => [$t7, 0], -top => [$t6, 0], -pady => 6);
+
+	$playall_url = "http://www.yoursite.com/cgi-bin/playall.cgi";
+	$t8 = $lframe->Label(-text => 'playall URL: ')->form(-left => ['%0', 0], -top => [$t7, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$playall_url, -width => 20)->form(-left => [$t8, 0], -top => [$t7, 0], -pady => 6);
+
+	$pattern = '(.+?) - (.+)\..+';
+	$t8point5 = $lframe->Label(-text => 'filename parse pattern: ')->form(-left => ['%0', 0], -top => [$t8, 0], -pady => 6);
+	$lframe->Entry(-textvariable => \$pattern, -width => 20)->form(-left => [$t8point5, 0], -top => [$t8, 0], -pady => 6);
+
+	$winamp = 1;
+	$t9 = $lframe->Checkbutton(-text => 'Use WinAmp genres', -variable => \$winamp)->form(-left => ['%0', 0], -top => [$t8point5, 10], -pady => 6);
+
+	$verbose = 1;
+	$t10 = $lframe->Checkbutton(-text => 'Verbose mp3index', -variable => \$verbose)->form(-left => ['%0', 0], -top => [$t9, 0], -pady => 6);
+
+	$aggressive = 0;
+	$t11 = $lframe->Checkbutton(-text => 'Look for MPEG audio headers aggressively', -variable => \$aggressive)->form(-left => ['%0', 0], -top => [$t10, 0], -pady => 6);
+
+	$verify_cmdline = 0;
+	$t12 = $lframe->Checkbutton(-text => 'Verify mp3index command line before executing', -variable => \$verify_cmdline)->form(-left => ['%0', 0], -top => [$t11, 0], -pady => 6);
+
+	$keeppath = 0;
+	$t13 = $lframe->Checkbutton(-text => 'Do not strip paths (path to MP3s must be relative!)', -variable => \$keeppath)->form(-left => ['%0', 0], -top => [$t12, 0], -pady => 6);
+
+	$parse = 1;
+	$lframe->Checkbutton(-text => 'Parse filenames for artist/title', -variable => \$parse)->form(-left => ['%0', 0], -top => [$t13, 0], -pady => 6);
+}
+
+sub goindex {
+	$any_o = 0;
+	foreach $o($do_output[$i]) {
+		next if $o;
+		$any_o = 1;
+		last;
+	}
+	if(!$fmt_file or !$mp3_files or !$any_o) {
+		$msgbox4 = $idxwin->Dialog(
+			-title => "Error",
+			-text => '',
+			-default_button => "Ok",
+			-buttons => ["Ok"],
+			);
+		$msgbox4->configure(
+			-wraplength => '4i',
+			-text => "You must select a format file, at least one output file, and type in a pattern for MP3 files!"
+		);
+		$msgbox4->Show;
+		return;
+	}
+
+	@mp3index_args = ("--format=$fmt_file");
+	push @mp3index_args, "--data=$dat_file" if $dat_file;
+
+	for($i = 1; $i <= $numformats; $i++) {
+		$argstring = "--output=";
+
+		$argstring .= $outputs[$i] if $do_output[$i];
+		$argstring .= "/dev/null" unless $do_output[$i];
+		push @mp3index_args, $argstring;
+
+		$argstring = "--options=";
+		$aref = $optentries[$i];
+		$$aref[0] = '';
+		$join_string = "";
+
+		$foo = $^W;
+		$^W = 0;
+
+		$join_string .= join('^', @$aref) if $do_output[$i];
+		$^W = $foo;
+		$join_string = substr($join_string, 1, length($join_string) - 1) if $join_string;
+		$argstring .= $join_string if $join_string;
+		$argstring .= '""' unless $do_output[$i];
+		push @mp3index_args, $argstring if $argstring;
+	}
+
+	push @mp3index_args, "--verbose" if $verbose;
+	push @mp3index_args, "--aggressive" if $aggressive;
+	push @mp3index_args, "--no-winamp" unless $winamp;
+	push @mp3index_args, "--keeppath" if $keeppath;
+	push @mp3index_args, "--noparse" unless $parse;
+
+	push @mp3index_args, "--httpurl=$httpurl" if $httpurl;
+	push @mp3index_args, "--ftpurl=$ftpurl" if $ftpurl;
+	push @mp3index_args, "--playurl=$mp3playurl" if $mp3playurl;
+	push @mp3index_args, "--playall_url=$playall_url", "--playall_path=$playall_path" if $playall_url;
+	push @mp3index_args, "--alternatepat=$pattern" if $pattern;
+	if($verify_cmdline) {
+		$msgbox4 = $idxwin->Dialog(
+			-title => "Confirmation",
+			-text => '',
+			-default_button => "No",
+			-buttons => ["Yes", "No"],
+		);
+		$msgbox4->configure(
+			-wraplength => '4i',
+			-text => "Are you sure you want to run mp3index with the following arguments:\n@mp3index_args [files]"
+		);
+		$answer = $msgbox4->Show;
+	} else { $answer = "Yes"; }
+
+	system("mp3index", @mp3index_args, File::KGlob::glob($mp3_files)) if $answer eq "Yes";
+	
+}
+
+sub newformat {
+	$fmt_fsref = $idxwin->FileSelect(-directory => $currdir);
+	$fmt_file = $fmt_fsref->Show;
+	if($fmt_file) {
+		$currdir = dirname($fmt_file);
+		loadformat($fmt_file);
+	}
+}
+
+sub loadformat {
+	# Parse it.
+	# Add bframe controls.
+	$bframe->destroy if Exists($bframe);
+	$bframe = $idxwin->Frame->form(-left => [$lframe], -top => ['&', $lframe]);
+
+	open FMTFILE, $fmt_file;
+	while(<FMTFILE>) {
+		s/^[ \t]+//;
+		next if /^$/;
+		last unless /^#/;
+		s/^#[ \t]+//;
+		/([^ \t]+)/;
+		$descriptor = $1;
+		if(lc($descriptor) eq "formatfile") {
+			/[^ \t]+[ \t]+(.+)/;
+			$formatfile_text = $1;
+		} elsif(lc($descriptor) eq "formats") {
+			/[^ \t]+[ \t]+(\d+)/;
+			$numformats = $1;
+		} elsif(lc($descriptor) eq "format") {
+			/[^ \t]+[ \t]+(\d+)[ \t]+([^ \t]+)[ \t]+(.+)/;
+			$formatnum = $1;
+			$descriptions[$formatnum] = $3	if lc($2) eq "desc";
+			$options[$formatnum] = [split(/\^/, $3)]	if lc($2) eq "options";
+		}
+	}
+	$numformats ||= $#descriptions;
+
+	if(!$numformats or $numformats < 1) {
+		$msgbox2 = $idxwin->Dialog(
+			-title => "Bad Format File",
+			-text => '',
+			-default_button => "OK",
+			-buttons => ["OK"],
+		);
+		$msgbox2->configure(
+			-wraplength => '4i',
+			-text => "The format file you selected does not have valid format descriptors.  Look in README and at the sample format to find out what these are and go add them to the format.  If you got this format from someone else, contact the author and tell them that they should add format descriptors to their format."
+		);
+		$msgbox2->Show;
+		return;
+	}
+
+	$desc->configure(-text => $formatfile_text);
+	$i = 1;
+	foreach $description(@descriptions) {
+		next unless $description;
+		$xframe = $bframe->Frame->pack(-side => 'top', -anchor => 'w');
+		$iframe = $xframe->Frame->pack(-side => 'top', -anchor => 'w');
+		$iframe->Checkbutton(-text => '', -variable => \$do_output[$i])->pack(-side => 'left', -anchor => 'w', -pady => 5);
+		$xlabel = $iframe->Label(-text => "Output file $i")->pack(-side => 'left', -anchor => 'w', -pady => 5);
+		$iframe->Entry(-textvariable => \$outputs[$i])->pack(-side => 'left', -anchor => 'w', -pady => 5);
+		$xlabel->bind('<1>', [\&disphelp, "Description of output file $i", $description]);
+		$j = 1;
+		foreach $option_description(@{$options[$i]}) {
+			next unless $option_description;
+			$yframe = $xframe->Frame->pack(-side => 'top', -anchor => 'w');
+			$ylabel = $yframe->Label(-text => "Option $j")->pack(-side => 'left', -anchor => 'w');
+			$ylabel->bind('<1>', [\&disphelp, "Description of output file $i, option $j", $option_description]);
+			$yframe->Entry(-textvariable => \$optentries[$i][$j])->pack(-side => 'left', -anchor => 'w');
+			$j++;
+		}
+		$i++;
+	}
+}
+
+sub newdata {
+	$dat_fsref = $idxwin->FileSelect(-directory => $currdir);
+	$dat_file = $dat_fsref->Show;
+	$currdir = dirname($dat_file) if $dat_file;
+}
+
+sub disphelp {
+	my ($widget, $title, $text) = (shift, shift, shift);
+	$msgbox3 = $idxwin->Dialog(
+		-title => $title,
+		-text => '',
+		-default_button => "OK",
+		-buttons => ["OK"],
+	);
+	$msgbox3->configure(
+		-wraplength => '4i',
+		-text => $text
+	);
+	$msgbox3->Show;
+}

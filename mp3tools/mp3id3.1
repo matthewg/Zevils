@@ -1,0 +1,61 @@
+.TH MP3ID3 1 "June 1999" "mp3tools 1.1" "Matthew Sachs"
+.SH NAME
+mp3id3 \- view and edit the ID3 tags of an MPEG audio file
+.SH SYNOPSIS
+.B mp3id3
+.SH DESCRIPTION
+.PP
+." Add any additional description here
+.PP
+[\fIOPTION\fR]... \fIFILE\fR...
+.TP
+If no options are given, mp3id3 will print all ID3 tags for the given file.
+If no file is given, mp3id3 will list the valid genres and their number.
+.TP
+\fBNote on \-a, \-A, \-c, \-g, \-s, and \-y options:\fR  To set an ID3 tag,
+you say something like \-\-arist=Beethoven Symphony9.mp3.  However, you can
+also use the ID3 tag options to select which ID3 tags to have mp3id3 display.
+But you can't just say mp3id3 \-a Symphony9.mp3.  If you do this, the program
+thinks that you are trying to set the ID3 artist tag on an unnamed file.  The
+proper way to do this is mp3id3 \-a "" Symphony9.mp3.
+.TP
+\fB\-l\fR, \fB\-\-list\fR
+List valid genres and exit
+.TP
+\fB\-d\fR, \fB\-\-delete\fR
+Remove all ID3 tags from a file
+.TP
+\fB\-n\fR, \fB\-\-no\-winamp\fR
+Don't use WinAmp genres.  This will only affect things if you have songs with a
+genre above 78.
+.TP
+\fB\-a\fR, \fB\-\-artist\fR[=ARTIST]
+Get or set the ID3 artist tag for the selected file.
+.TP
+\fB\-A\fR, \fB\-\-album\fR[=ALBUM]
+Get or set the ID3 album tag for the selected file.
+.TP
+\fB\-c\fR, \fB\-\-comment\fR[=COMMENT]
+Get or set the ID3 comment tag for the selected file.
+.TP
+\fB\-g\fR, \fB\-\-genre\fR[=GENRE]
+Get or set the ID3 genre tag for the selected file.  This can either be a
+number from 0 to 114 (higher values, up to 255, are valid but unknown) or the
+name of the genre as shown by mp3id3 \-\-list.
+.TP
+\fB\-s\fR, \fB\-\-songname\fR[=SONGNAME]
+Get or set the ID3 song name tag for the selected file.
+.TP
+\fB\-y\fR, \fB\-\-year\fR[=YEAR]
+Get or set the ID3 year tag for the selected file.
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Display the version and exit.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show information about mp3gui
+.SH "REPORTING BUGS"
+Report bugs to <matthewg@zevils.com>.
+.SH "SEE ALSO"
+The README file and other documentation distributed with mp3tools.
+Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools

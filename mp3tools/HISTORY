@@ -1,0 +1,31 @@
+Version 0.3, Feb 6  1999 - Initial release
+
+Version 0.5, Feb 11 1999 - Removed dependency on hexdump, added support for ID3
+tags, created mp3id3 program, created MP3 perl module, took care of some 
+warnings, and fixed minor bug in "Artist - Title" pattern match
+
+Version 0.7, Feb 22 1999 - Sample format greatly improved.  It now generates 
+valid HTML 4.0 (at least according to http://validator.w3.org).  I was having 
+some problems with it in Netscape, and those were fixed as well.  I also added
+the differently-sorted indexes (by length and artist.)  The other biggy is 
+switching from my MP3.pm to a module which had been in CPAN...  It's better
+than mine, though.  The --delete option in mp3id3 is new.  mp3play.cgi and 
+support for it in mp3index is new.  I also added an "mp3index quick start" in 
+README and the EXAMPLE.  Oh, and also the CONTRIBUTORS file.  Plus I changed 
+the format of this file ;0
+
+Lots of bugfixes as well, including some serious ones.  The main one that I
+can remember is that if httpurl or ftpurl didn't have a trailing slash,
+Bad Things would happen.
+
+Version 1.0, Apr 07 1999 - Removed ? option specifier from everything (meaning
+the -? option is no longer equivalent to --help) as it caused problems
+with older (aka 5.004, which isn't old at all) Perls.  (I'm using 5.005_54 at
+the time of this writing.)  Also, I found a weird file called .swp in the
+mp3tools-0.7 directory.  That file was removed for this release.  Plus I
+switched to a newer MPEG::MP3Info - read the README for that to see what it
+fixes.
+
+Version 1.1, Oct 20 1999 - VBR support, mp3gui cleanup, better cross-platform
+support (File::Basename), options in mp3index for multidirectory MP3 layout,
+installer, manpages/htmlpages

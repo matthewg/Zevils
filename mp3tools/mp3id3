@@ -1,0 +1,189 @@
+#!/usr/bin/perl -w
+
+# mp3id3 by Matthew Sachs <matthewg@zevils.com>
+#   This program licensed under Version 2 of the GPL.
+#   See the file COPYING for more information.
+#
+#   Run the program the argument --help for more info, including usage.
+
+use MPEG::MP3Info;
+use Getopt::Long;
+
+$version = "1.1";
+
+sub dispver {
+	print "mp3id3: View and edit the ID3 tag of an MPEG audio file.\nVersion: $version\n";
+	exit 0;
+}
+
+sub glist {
+	my $i;
+
+	for($i = 0; $i < $#MPEG::MP3Info::mp3_genres; $i++) { print "$i:\t$MPEG::MP3Info::mp3_genres[$i]\n"; }
+	print "All other genres are unknown.\n";
+	exit 0;
+}
+
+sub delete {
+	remove_mp3tag($mp3);
+	exit 0;
+}
+
+
+sub help {
+	print <<EOF
+mp3id3 - View and edit the ID3 tag of an MPEG audio file. Version: $version
+
+by Matthew Sachs <matthewg\@zevils.com> - Latest version at
+http://www.zevils.com/linux/.  This program licensed under Version 2
+of the GNU Public License.  See http://www.gnu.org for details.
+
+If no arguments are given, mp3id3 will print all ID3 tags for the given file.
+
+Usage: mp3id3 <MPEG audio file> [-h] [-v] [-l]
+				[-a [artist]] [-A [album]] [-c [comment]] 
+				[-g [genre]] [-s [songname]] [-y [year]]
+				[-n]				
+
+	-h,--help		Show this screen
+
+	-v,--version		Show program version
+
+	-l,--list		List valid genres
+
+	-d,--delete		Remove the ID3 tag
+
+	-n, --no-winamp		Don't use WinAmp genres.  The default
+				is to use them.  This will only affect
+				things if you have songs with a genre
+				above 78.
+
+	You can also use --artist instead of -a, --album instead of -A, etc.
+	If one of the arguments which takes a value is given without a value, 
+	only the value of those ID3 tags will be printed to standard output.
+	The order which things are shown in is:
+		songname
+		artist
+		album
+		year
+		comment
+		genre
+	If an argument is given a value, that ID3 tag will be set to the given
+	value.  Genre can be given as either a number from 0 to 114 (or higher
+	if you want your genre to be unknown) or name.
+EOF
+;
+	exit 1;
+}
+
+$songname = $artist = $album = $year = $comment = $genre = "-1";
+
+Getopt::Long::Configure("no_ignore_case");
+
+$errors = &GetOptions("version|v" => \&dispver,
+"delete" => \$delete,
+"d" => \$delete,
+"list|l" => \&glist,
+"songname|s:s" => \$songname,
+"artist|a:s" => \$artist,
+"album|A:s" => \$album,
+"year|y:s" => \$year,
+"comment|c:s" => \$comment,
+"genre|g:s" => \$genre,
+"no-winamp|n" => \$standard,
+"help|h" => \&help);
+
+if(!$errors) {
+        warn "Try mp3id3 --help if you need help.\n";
+        exit 1;  
+}
+
+&use_winamp_genres unless $standard;
+&glist unless $ARGV[0];
+$mp3 = shift;
+&delete if $delete;
+
+if(($songname eq "-1") && ($artist eq "-1") && ($album eq "-1") && ($genre eq "-1") && ($comment eq "-1") && ($year eq "-1")) {
+	$songname = $artist = $album = $genre = $comment = $year = "";
+}
+
+$tagref = get_mp3tag $mp3;
+
+($xsongname, $xartist, $xalbum, $xyear, $xcomment, $xgenre) = ($tagref->{TITLE}, $tagref->{ARTIST}, $tagref->{ALBUM}, $tagref->{YEAR}, $tagref->{COMMENT}, $tagref->{GENRE});
+$xsongname =~ s/\0//g if $xsongname;
+$xartist =~ s/\0//g if $xartist;
+$xalbum =~ s/\0//g if $xalbum;
+$xyear =~ s/\0//g if $xyear;
+$xcomment =~ s/\0//g if $xcomment;
+$xgenre =~ s/\0//g if $xgenre;
+
+$foo = $^W;
+$^W = 0;
+if($songname eq "") { print "Songname: $xsongname\n"; }
+if($artist eq "") { print "Artist: $xartist\n"; }
+if($album eq "") { print "Album: $xalbum\n"; }
+if($year eq "") { print "Year: $xyear\n"; }
+if($comment eq "") { print "Comment: $xcomment\n"; }
+if($genre eq "") { print "Genre: $xgenre\n"; }
+$^W = $foo;
+
+$doset = 0;
+if($songname ne "" and $songname ne "-1") {
+	$xsongname = $songname;
+	$doset = 1;
+}
+if($artist ne "" and $artist ne "-1") {
+	$xartist = $artist;
+	$doset = 1;
+}
+if($album ne "" and $album ne "-1") {
+	$xalbum = $album;
+	$doset = 1;
+}
+if($comment  ne "" and $comment ne "-1") {
+	$xcomment = $comment;
+	$doset = 1;
+}
+if($year ne "" and $year ne "-1") {
+	$xyear = $year;
+	$doset = 1;
+}
+if($genre ne "" and $genre ne "-1") {
+	if(($genre gt "0" or $genre gt "00" or $genre gt "000") and ($genre lt "256")) {
+		$genre = $MPEG::MP3Info::mp3_genres[$genre];
+	}
+	$xgenre = $genre;
+	$doset = 1;
+}
+
+
+$foo = $^W;
+$^W = 0;
+if($doset == 1) {
+	if (length($xcomment) > 30) {
+		$xcomment = substr($xcomment, 0, 30); warn "Warning: Comment truncated.\n";
+	}
+
+	if (length($xsongname) > 30) {
+		$xsongname = substr($xsongname, 0, 30);  warn "Warning: Songname truncated.\n";
+	}
+
+	if (length($xartist) > 30) {
+		$xartist = substr($xartist, 0, 30);  warn "Warning: Artist truncated.\n";
+	}
+
+
+	if (length($xalbum) > 30) {
+		$xalbum = substr($xalbum, 0, 30);  warn "Warning: Album truncated.\n";
+	}
+
+	if (length($xyear) > 4) {
+		$xyear = substr($xyear, 0, 4);  warn "Warning: Year truncated.\n";
+	}
+
+	set_mp3tag ($mp3, $xsongname, $xartist, $xalbum, $xyear, $xcomment, lc($xgenre));
+}
+$^W = $foo;
+
+exit 0;
+

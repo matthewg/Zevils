@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML><HEAD><TITLE>Manpage of MP3ID3</TITLE>
+</HEAD><BODY>
+<H1>MP3ID3</H1>
+Section: Matthew Sachs (1)<BR>Updated: June 1999<BR><A HREF="#index">Index</A>
+<BR><A HREF="http:/cgi-bin/man2html">Return to Main Contents</A>
+<HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+mp3id3 - view and edit the ID3 tags of an MPEG audio file
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<B>mp3id3</B>
+
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+
+<P>
+
+[<I>OPTION</I>]... <I>FILE</I>...
+<DL COMPACT>
+<DT>If no options are given, mp3id3 will print all ID3 tags for the given file.<DD>
+If no file is given, mp3id3 will list the valid genres and their number.
+<DT><B>Note on -a, -A, -c, -g, -s, and -y options:</B>  To set an ID3 tag,<DD>
+you say something like --arist=Beethoven Symphony9.mp3.  However, you can
+also use the ID3 tag options to select which ID3 tags to have mp3id3 display.
+But you can't just say mp3id3 -a Symphony9.mp3.  If you do this, the program
+thinks that you are trying to set the ID3 artist tag on an unnamed file.  The
+proper way to do this is mp3id3 -a &quot;&quot; Symphony9.mp3.
+<DT><B>-l</B>, <B>--list</B><DD>
+List valid genres and exit
+<DT><B>-d</B>, <B>--delete</B><DD>
+Remove all ID3 tags from a file
+<DT><B>-n</B>, <B>--no-winamp</B><DD>
+Don't use WinAmp genres.  This will only affect things if you have songs with a
+genre above 78.
+<DT><B>-a</B>, <B>--artist</B>[=ARTIST]<DD>
+Get or set the ID3 artist tag for the selected file.
+<DT><B>-A</B>, <B>--album</B>[=ALBUM]<DD>
+Get or set the ID3 album tag for the selected file.
+<DT><B>-c</B>, <B>--comment</B>[=COMMENT]<DD>
+Get or set the ID3 comment tag for the selected file.
+<DT><B>-g</B>, <B>--genre</B>[=GENRE]<DD>
+Get or set the ID3 genre tag for the selected file.  This can either be a
+number from 0 to 114 (higher values, up to 255, are valid but unknown) or the
+name of the genre as shown by mp3id3 --list.
+<DT><B>-s</B>, <B>--songname</B>[=SONGNAME]<DD>
+Get or set the ID3 song name tag for the selected file.
+<DT><B>-y</B>, <B>--year</B>[=YEAR]<DD>
+Get or set the ID3 year tag for the selected file.
+<DT><B>-v</B>, <B>--version</B><DD>
+Display the version and exit.
+<DT><B>-h</B>, <B>--help</B><DD>
+Show information about mp3gui
+</DL>
+<A NAME="lbAE">&nbsp;</A>
+<H2>REPORTING BUGS</H2>
+
+Report bugs to &lt;<A HREF="mailto:matthewg@zevils.com">matthewg@zevils.com</A>&gt;.
+<A NAME="lbAF">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+The README file and other documentation distributed with mp3tools.
+Also, the mp3tools mailing list at <A HREF="http://www.egroups.com/list/mp3tools">http://www.egroups.com/list/mp3tools</A>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">REPORTING BUGS</A><DD>
+<DT><A HREF="#lbAF">SEE ALSO</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="http:/cgi-bin/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 01:38:29 GMT, June 29, 1999
+</BODY>
+</HTML>

@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# NOTE ON OPTIONS: These are the --options accepted by the sample format:
+# your_email_address@foo.com^Title^H1 text (probably should be same as title)^
+# http://if.each.output.is.in.a.different.directory/the/path/to/output/1^
+# http://same.as.above/for/output/2^http://and.output/3
+#
+cd /misc/mp3
+mp3index --format=mp3format --ftpurl=ftp://localhost/ \ 
+	--httpurl=http://localhost/~mp3/ \ 
+	--playurl=http://localhost/~mp3/mp3play.cgi \ 
+	--output=/misc/mp3/index.html \ 
+	--output=/misc/mp3/index_length.html \ 
+	--output=/misc/mp3/index_title.html \ 
+	--options=matthewg@zevils.com \
+	--options=matthewg@zevils.com \
+	--options=matthewg@zevils.com \
+	--playall_path=/misc/mp3/playall.cgi \
+	--playall_url=http://localhost/~mp3/playall.cgi \
+	-A '(.+)/(.+)' --keeppath \
+	*/*.mp3

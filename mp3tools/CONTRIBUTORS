@@ -1,0 +1,18 @@
+Chris Nandor (pudge@pobox.com) created the MPEG::MP3Info which this program
+relies on.  A big thanks to him and everyone who worked on that module - the
+solution to the same problem which MPEG::MP3Info solves which I came up with
+was much less nice.
+
+Nelson Minar (nelson@media.mit.edu) suggested the mp3play.cgi program and even
+gave some code to help implement it.
+
+Michel Verdier (mverdier@chez.com) for finding bug which required adding of
+Getopt::Long::Configure("no_ignore_case").
+
+Steven Wilcox for the ideas for the mp3gui improvements.
+
+Alexander Zimmermann for finding the copy-n-paste error in mp3id3.
+
+Everyone who tried the 1.1 prerelease.
+
+I'm probably leaving some people out...

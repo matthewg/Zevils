@@ -1,0 +1,54 @@
+This is aimirc, by Matthew Sachs <matthewg@zevils.com>
+(c) 1999 Matthew Sachs, all rights reserved.
+This software is licensed under Version 2 of the GNU Public License.
+A copy of the license is contained in the file COPYING, which should have
+been included with this software.
+
+AOL Instant Messenger is a trademark of America Online.
+
+Requirements:
+	perl 5.004 or better
+	A working IRC server with C/N lines for aimirc
+		Your IRC server might not work with aimirc.  Cyclone and
+		Dragonfire are the only ones that are known to work.  However,
+		if you email me or contact me on AOL Instant Messenger or IRC,
+		I will try to help you get aimirc working with your IRC
+		server.
+
+		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
+
+Installation:
+	Untar the tarball.  This creates a directory called aimirc-XX where
+XX is the version number of aimirc that you downloaded.  Open the aimirc
+file in a text editor.  Near the top of the file are several variables,
+$us, $them, $themport, $ourpass, $theirpass, and $servermode.  $us is the
+IRC server name that you want to call the aimirc server.  $them is the IP or
+hostname for the IRC server to connect to.  $themport is the port to connect
+to on the IRC server.  $ourpass and $theirpass should be set to your IRC
+server passwords.  $servermode should be the type of your server.  Currently,
+the only supported types are dal2 and dragonfire.
+
+	You need C/N lines for aimirc set up in your ircd.conf.  Mine look
+like this:
+	C:127.0.0.1:password:aimserv.matthewg.port.net::50
+	N:127.0.0.1:password:aimserv.matthewg.port.net::50
+
+	Now you should be able to run aimirc.
+
+Usage:
+	You need an AOL Instant Messenger account.
+	Let's say your AIM account is tocname and the password is tocpass.
+	To connect to AIM: /msg aimserv signon tocname tocpass
+	To send an Instant Message to MattSachs: /msg AIM-MattSachs hi
+	To get help on additional commands: /msg aimserv help
+
+	To set yourself away on AIM, use the normal IRC /away command.  Anyone
+	contacting you while you are away will get an autoreply containing
+	your away message.
+
+Contacting the author:
+	E-Mail: matthewg@zevils.com
+	AIM: MattSachs
+	IRC: matthewg.port.net, nick matthewg
+
+aimirc: http://www.zevils.com/linux/aimirc/

@@ -1,0 +1,357 @@
+See INSTALL for installation instructions.
+
+You should also read RELNOTES (even if you aren't upgrading from an older
+version.)
+
+=====
+
+mp3tools version 1.1
+Created Feb 6 1999 by Matthew Sachs <matthewg@zevils.com>
+Official mp3tools web page: http://www.zevils.com/linux/mp3tools/
+
+mp3tools and all programs that are a part of it are licensed under Version
+2 of the GNU Public License.  A file called COPYING which contains a copy
+of the license should have been included with the program - if not, you
+can obtain a copy from http://www.zevils.com/linux/COPYING
+
+mp3tools is a set of utilities for working with MPEG audio files.  Despite
+the name, all of the utilities should work for all MPEG audio files and
+not just MPEG-1 Layer 3 ("mp3") files except where otherwise noted.
+Currently, the following utilities are a part of this program.  However, I
+generally use the terms MP3 and MPEG audio file interchangeably ;)
+
+	mp3info - Tells you the MPEG version, layer, bitrate, and play
+	length of an MPEG audio file.  It's only been tested with MP3s.
+	This is the program that mp3index uses to get the bitrate and
+	length.
+
+	mp3index - Generates customized indexes of MPEG audio files.
+	mp3index is a very powerful program - you use custom Perl
+	subroutines that are stored in an external file and evalled
+	at runtime to do the formats.  But don't despair - examples
+	are included that you should be able to figure out without
+	any Perl knowledge.  See below for detailed help on mp3index.
+	Use "mp3index --help" for usage information.
+
+	mp3id3 - View and alter the ID3 tag of an MP3 file.
+	Use "mp3id3 --help" for help.
+
+	mp3gui - Graphical user interface which can do everything that mp3info
+	and mp3id3 can combined, plus a nifty frontend to mp3index.
+
+Where can I find out more about mp3tools?
+
+	Besides the official web page, http://www.zevils.com/linux/mp3tools/,
+	you might want to join the mp3tools mailing list.  Send a blank message
+	to mp3tools-subscribe@egroups.com to do so.  This list is for 
+	discussion about mp3tools.
+
+What's this mp3play.cgi thing?
+
+	When someone clicks on an mp3play.cgi link, if they have their web
+	browser configured right then the MPEG audio file they selected will
+	be played in a streaming fashion - that is, it will be played as it
+	downloads (and it won't be saved to the hard disk.)
+
+	For instruction on setting up Netscape to work with mp3play.cgi links
+	(and playall.cgi), visit 
+	http://www.zevils.com/linux/mp3tools/howto_play.html .  The sample
+	format will automatically put a link to this page if you use
+	mp3play.cgi or playall.cgi.
+
+mp3gui quickstart
+
+	Load mp3gui.  Click on the button to the right of where it says
+	'Format file:'.  Type in the pattern to use to get your MP3s in
+	the appropriate box - you'll probably want something like /mp3s/*.mp3 .
+	To get a description of an output file, click on its label.  To get
+	a description of an option, click on its label.  Check the box next
+	to any output file you want to use and fill in the appropriate options.
+	Type in the file path/name that you want that output to go to.
+
+	Check off any other options you want.  Fill in the FTP URL prefix, the
+	HTTP URL prefix, and the mp3play.cgi URL if you want links to download
+	the file off FTP, HTTP, or invoke mp3play.cgi on the file.  Then click
+	on the button labeled 'Go'.
+
+mp3index quickstart
+
+	cat samples/mp3format | mp3index \
+	--output=/your/website/index.html \
+	--output=/your/website/index_length.html \
+	--output=/your/website/index_title.html \
+	--ftpurl=ftp://ftp.yoursite.com/pub/path_to_your_mp3s \
+	--httpurl=http://www.yoursite.com/path_to_your_mp3s \
+	--playurl=http://www.yoursite.com/cgi-bin/mp3play.cgi \
+	--options=foo@bar.com --options=foo@bar.com --options=foo@bar.com \
+	/mp3dir/*.mp3
+
+	foo@bar.com should be replaced by your email address.
+	mp3dir is the directory where your MP3s are stored.
+	/your/website/ is the path where the output will be placed,
+	which you may want to be accessible by your web server (or not.)
+
+	EXAMPLE is a stripped-down version of a bash script that I have in my
+	/usr/bin and which I use whenever I run a new MP3 (except I call it
+	mp3cmd ;))  It explains all the options for the sample format fairly
+	well.
+
+Detailed Info on mp3index
+
+	The best detailed info is in the samples/ directory - it includes
+	plenty of example format files.  But I'll explain the basic
+	outline of format and data files along with all variables that
+	you can use in format files.  Reading this will help you
+	understand the samples.  Reading the samples will help you
+	understand this.  If you don't know Perl, you'll probably
+	want to start with the samples.
+
+**IMPORTANT**
+
+	Depending on how many files you already have that you want to
+	index with this, you may want to rename everything so that
+	it is in the format "Artist - Song Name.foo" (where .foo is the
+	proper extension, such as .mp3.)  If you do this, mp3index
+	will parse it so that you can use the artist and the song name
+	in your format file.  It's up to you though.
+
+	If the ID3 songname or artist tags are available, these will
+	be used instead.
+
+The --options argument
+
+	Formats might need more data than mp3index provides.  For instance,
+	format-specific options or file locations.  This is provided through
+	the --options argument.  The format used by your first output file
+	might say "$options[0] should indicate whether or not you want the
+	output sorted, $options[1] should contain your email address, and
+	$options[2] should contain a link to an arbitrary web page" and the
+	format being used by your second output file might say "$options[0]
+	should contain your email address."  In this case, you would include
+	the following arguments when running mp3index:
+
+		--options="yes^foo@bar.com^http://slashdot.org"
+		--options="foo@bar.com"
+
+	In other words, --options is a carrot-seperated list of options which
+	must be specified for each output file if you are using options at all.
+	Use the -D flag on mp3index to see which options are available in a
+	format.
+
+What is a format file?
+
+	A format file is how mp3index knows how you want the index
+	to look like.  With format files, you can make anything from
+	simple text listings to complex HTML files, or even an SQL
+	database (if it's possible to write to the database in Perl.)
+	Oh, and despite the name, they don't necessarily use Perl
+	formats.  But they can.  And they don't have to be files - the
+	default format file is standard input.
+
+Special variables
+
+	There are three special variables which, if a format file sets them
+	when it is evalled (that is, the code which sets the variables is just
+	in the body of the format file and not inside any subroutine) will
+	influence the behavior of mp3index.  These are $noopen, $bodyonly, and
+	$passlist.  They are all set to 0 by default.  If set to 1, the first
+	two will prevent mp3index from opening the output file, prevent
+	outbody and outfoot from being called.  $passlist causes outbody to be
+	called only once and instead of the normal variables, @list will be
+	set to a list of hashrefs.  The keys of the hash are described in the
+	sample format file.
+
+The format descriptors
+
+	Format descriptors are special Perl comments (lines beginning with a
+	#) that must appear before the first non-blank, non-comment line.
+	Leading whitespace before the # is ignored, as is whitespace between
+	the # and the descriptor type and the descriptor type and its value.
+
+	Format descriptors let mp3gui and mp3index give the user a description
+	of a format file, the formats contained in it, and the options for
+	each format file.
+
+	Format descriptors look like this:
+
+		# formatfile		A description of the whole format file.
+		# formats [number of formats in file]
+		# format 1 desc		A description of the first format
+					(that is, outhead, outbody, and 
+					outfoot.)
+		# format 1 options	Description of option 1^Description of
+					option 2^Description of option 3
+
+	If you are giving a description for each format, you can omit the
+	# formats line.  Otherwise, it is needed to allow mp3gui to operate
+	properly.  If mp3gui cannot determine the number of formats in a file
+	from either the # formats or by looking at the # format n desc lines,
+	it will prompt the user to enter the number of formats contained in
+	the file.
+
+	Note that while there are newlines in the # format n desc and
+	# format n options lines in this file for purposes of readability
+	on an 80 column wide terminal, you must not have newlines embedded in
+	those (or any other) line in the actual format file.
+
+Anatomy of a format file
+
+	A format file must define a minimum of three subroutines.
+	outhead, outbody, and outfoot.  All of these subroutines can
+	assume that the file handle for the output file that they need to
+	print to is selected.  If they need to show status information,
+	they should use warn since STDOUT might be redirected to the
+	output file.
+
+	outhead is called to generate the header for the first output
+	file.  outbody is called for each MP3, and outfoot does the
+	footer.  If multiple output files are specified on the command
+	line, outhead2, outbody2, and outfoot2 will be called for the
+	second output file.  I think you can figure out what will be
+	called for the third output file. ;)
+
+	Format files would be pretty pointless without variables.  The
+	following package (aka global unless you tell Perl otherwise
+	by being in a different package) variables should have the
+	proper variables by the time the format file is evalled (note - this
+	list is by no means complete.  Poking around the source or even the
+	sample format might yield some other interesting ones:)
+
+		(Note that many of these - namely the hashes - have
+		per-MP3 equivalents.  See the next section.)
+
+		$verbose - Set if the user wants mp3index to be
+		verbose.  Otherwise it's undefined.
+
+		@options - the options that the user gave for this output
+		file.
+
+		@OUTFILE - array of values of --output arguments
+
+		@mp3 - array of filenames of all MP3s with everything
+		between the beginning and the last slash removed.  It
+		is sorted in ascending alphabetical order.
+
+		$totalsize - Total size of all MP3 files in number of
+		bytes.
+
+		$prettytotalsize - Total size of all MP3 files in
+		the form "3.9k or 1256.2M"
+
+		$prettylongtotalsize - Total size of all MP3 files in
+		the form "3.9 kilobytes" or "1256.2 megabytes"
+
+		$totaltime - Total play length for all MP3 files in
+		hh:mm:ss form.  (Or you can use $totalhours:$totalmins:
+		$totalsecs.)
+
+		For all hashes, the keys are @mp3.
+
+		%artist - Hash of artists (obtained from the file
+		name of the MP3 or ID3 tag - see the section labeled
+		"Important" above.)
+
+		%title - Hash of titles (obtained from the file name
+		or ID3 tag as well.)
+
+		%ftpurl - Hash of URLs for FTP download.
+
+		%httpurl - Hash of URLs for HTTP download.
+
+		(See $ftpurl and $httpurl below for more information on
+		%ftpurl and %httpurl.)
+
+		%bitrate - Hash of bitrates.
+
+		%length - Hash of play length in hh:mm:ss format.
+
+		%vbr - 1 iff the MP3 uses VBR encoding.
+
+		%data - Hash of references to the arrays of data from the
+		data file.		
+
+		%size - Hash of filesizes.
+
+		%album - Hash of ID3 album tags.
+
+		%genre - Hash of ID3 genres (in name format, not number.)
+
+		%year  - Hash of ID3 year tags.
+
+		%comment - Hash of ID3 comment tags.
+
+	Per-MP3 Variables - These are set each time outbody (and outbody2,
+	and outbody3...) is called from the hashes above.
+
+		$ftpurl - URL for FTP downloads, although it
+		can be used for an alternate HTTP download site or
+		something more esoteric.  It will have a trailing
+		slash if and only if it needs one.
+
+		$httpurl - URL HTTP downloads, altough it
+		can be used for an alternate FTP download site as
+		well.  Like $ftpurl, it will have a trailing slash
+		if it needs one.
+
+		$ftpurl and $httpurl are intended to allow both
+		an FTP and an HTTP download site for the same file.
+		The difference between the two is that $httpurl will
+		automagically have some characters, such as a space,
+		converted to their %xx escapes (%20 for space) since
+		that's what HTTP wants.  FTP is okay with non-alphanumeric
+		characters in spaces, so $ftpurl doesn't undergo this
+		mangling.  For instance, if you run mp3index with
+		the arguments "-f ftp://mysite.com/pub/mp3 -h files/", and
+		you have an MP3 file named "Foo Bar&'()#[]-Baz.mp3", 
+		$ftpurl will be set to ftp://mysite.com/pub/mp3/Foo
+		Bar&'()#[]-Baz.mp3 when outbody is called for it while
+		$httpurl will be set to
+		files/Foo%20Bar%26%27%28%29%23%5b%5d%2dBaz.mp3.
+
+		$mp3 - Correct value from %mp3 (for the current MP3.)
+
+		$artist - Correct value from %artist.
+
+		$title - Correct value from %title.
+
+		$bitrate - Correct value from %bitrate.
+
+		$length - Correct value from %length.
+
+		$vbr - Correct value from %vbr.
+
+		$size - Correct value from %size (in number of bytes.)
+
+		$album - Correct value from %album.
+
+		$genre - Correct value from %genre.
+
+		$year  - Correct value from %year.
+
+		$comment - Correct value from %comment.
+
+		$prettysize - $size in the format "1.1M"
+
+		$prettylongsize - $size in the format "1.1 megabytes"
+
+		@data - The information from the data file.
+
+What is a data file?
+
+	A data file lets you hold additional information on each MP3.
+	It is carrot (^) seperated and does not ignore leading or trailing
+	whitespace or lines beginning with #.  It should look like this
+	(without the whitespace at the beginning of each line):
+
+		Foo - Bar.mp3^Camel Records^1998^Original Recording
+		Baz - Buzz.mp3^Penguin Music^1999^Remix
+
+	When outbody (or outbody2, or outbody 3...) is called for Foo -
+	Bar.mp3, the first element of @data will be set to Camel Records,
+	the second will be set to 1998, and so on.  When outbody is
+	called for Baz - Buzz.mp3, the first element of @data will be
+	set to Penguin Music.
+
+	Note that for the particular data in this example it would be
+	better to use some ID3 tags.
+

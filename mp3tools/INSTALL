@@ -1,0 +1,31 @@
+**NOTE** Starting with version 1.1, mp3tools comes with an automated
+installer.  In most cases, you should use this instead of following the
+instructions given below.  However, if the installer doesn't work (or if you
+just want to do things by hand) you should send a bug report to
+matthewg@zevils.com and then follow the instructions below.
+
+
+==Installation==
+
+Download the Perl module MPEG::MP3Info from CPAN and install it.
+This can be done by ungzipping it, untarring it, changing to the directory it
+creates, running "perl Makefile.PL", "make all", "make test", and, as root, 
+"make install".
+
+You'll also need CPAN's File::KGlob.  This doesn't have a nice friendly
+installer.  To install File::KGlob, run perl -V and see which directories it
+lists under @INC.  You'll need to make a new directory called File under one of
+those directories and copy the .pm files from the File::KGlob tarball to it.
+
+If you want to use mp3gui, you'll need the Tk module as well.  It is
+available from CPAN.
+
+You should copy mp3play.cgi somewhere where your webserver can get to it and
+chmod it so it is executable (if appliciable to your filesystem) if you want
+to use it.
+
+You might also want to copy mp3index, mp3info, mp3gui, and mp3id3 to some 
+place like /usr/bin.  Putting the sample format file somewhere is probably a
+good idea as well.
+
+Now go read the README and the man pages.
