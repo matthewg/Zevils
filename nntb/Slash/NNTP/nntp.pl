@@ -10,8 +10,8 @@ my $me = 'nntp.pl';
 
 use vars qw( %task );
 
-$task{$me}{timespec} = '*/2 * * * *';
-$task{$me}{timespec_panic_1} = '*/5 * * * *'; # less often
+$task{$me}{timespec} = '1-59/2 * * * *';
+$task{$me}{timespec_panic_1} = '1-59/5 * * * *'; # less often
 $task{$me}{code} = sub {
 	my($virtual_user, $constants, $slashdb, $user) = @_;
 
