@@ -136,7 +136,7 @@ use Toc qw(:all);
 $SIG{__DIE__}  = sub { croak $_[0] };
 
 $home = (getpwuid($>))[7];
-$version = $VERSION = "0.98";
+$version = $VERSION = "1.2";
 
 @args = @ARGV;
 
@@ -835,6 +835,12 @@ sub process_irc_message($) {
 		}
 	}
 
+	$screenname = $connection = $sndata = "";
+	$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
+	$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+
+
+
 	if(/^ERROR +:(.+)/) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
@@ -843,7 +849,7 @@ sub process_irc_message($) {
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
 	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+) +\S+ +:(\S+)/i)) {
-		my $screenname = $1;
+		$screenname = $1;
 		$nick = $2 if $2;
 		$nnick =~ tr/\@+//d;
 		$nnick = normalize($nick);
@@ -978,7 +984,7 @@ sub process_irc_message($) {
 			}
 		}
 	} elsif(!/#aimirc-debug/i and /^PART +#aimirc-(\S+)/i) {
-		my $screenname = $1;
+		$screenname = $1;
 		my $dude;
 
 		if(exists $aim_connections{$nnick}{screennames}{$screenname} and $aim_connections{$nnick}{screennames}{$screenname}{inchan}) {
@@ -990,11 +996,7 @@ sub process_irc_message($) {
 			irc_send(irc_part($usnick, "#aimirc-$screenname"));
 		}
 	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +#aimirc-(\S+) +:?(.+)/i)) {
-		my($cmd, $param, $extra, $connection, $screenname, $sndata, %config);
-
-		$screenname = $connection = $sndata = "";
-		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
-		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+		my($cmd, $param, $extra, $connection, $sndata, %config);
 
 		Toc::debug_print("Received IRC command from '$screenname'", "irc", 2);
 
@@ -2351,7 +2353,8 @@ sub timestuff($) {
 
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %nicks) {
-		next if normalize($anick) eq normalize($usnick);
+		$anick = normalize $anick;
+		next if $anick eq normalize($usnick);
 		next if exists $irc_connections{noprefix($anick)};
 		next if $anick =~ /^chat-\d+/;
 		$kill = 1;
