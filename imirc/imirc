@@ -2719,11 +2719,15 @@ sub loadbuddies($$$) {
 		$profile = $data->{User}->{profile}->{dataBlob};
 
 		foreach my $group(keys %{$data->{Buddy}->{list}}) {
-			@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
-			foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
-				#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
-				next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
-				$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
+			if(ref($data->{Buddy}->{list}->{$group})) {
+				@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
+				foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
+					#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
+					next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
+					$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
+				}
+			} else {
+				@{$buddies{$group}} = ();
 			}
 		}
 	}
