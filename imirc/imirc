@@ -189,6 +189,7 @@ sub loadconf() {
 		close STDERR;
 		open(STDOUT, ">>$output") or die "Couldn't open STDOUT: $!\n";
 		open(STDERR, ">>&STDOUT") or die "Couldn't open STDERR: $!\n";
+		$| = 1;
 	}
 
 	#Okay, try loading the config files
