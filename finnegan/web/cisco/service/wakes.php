@@ -13,38 +13,28 @@ $wakes = get_wakes();
 <?
 
 while($wake = mysql_fetch_assoc($wakes)) {
-	$time_array = time_to_user($wake["time"]);
-	$time = "$time_array[0] $time_array[1]";
+	echo <MenuItem>\n";
+	echo "<Name>" . format_wake($wake) . "</Name>\n";
 
-	if($wake["disabled"])
-		$x = "[OFF] ";
+	if($PHONE_MODEL == "CP-7912G")
+		echo "<URL>".$FinneganCiscoConfig->url_base."/service/wakeprops.php?id=".$wake["wake_id"]."</URL>\n";
 	else
-		$x = "[ON]  ";
+		echo "<URL>QueryStringParam:id=".$wake["wake_id"]."</URL>\n";
 
-	echo "<MenuItem>\n";
-	if($wake["date"]) {
-		$date = date_to_user($wake["date"]);
-		echo "<Name>$x$time; $date</Name>\n";
-	} else {
-		$days = explode(",", $wake["weekdays"]);
-		for($i = 0; $i < count($days); $i++) $days[$i] = ucfirst($days[$i]);
-		$daytext = implode(", ", $days);
-
-		if($wake["cal_type"] == "normal")
-			$cal = "Regular";
-		else if($wake["cal_type"] == "holidays")
-			$cal = "National Holidays";
-		else if($wake["cal_type"] == "Brandeis")
-			$cal = "Brandeis";
-
-		echo "<Name>$x$time; $daytext; $cal</Name>\n";
-	}
-
-	echo "<URL>QueryStringParam:id=".$wake["wake_id"]."</URL>\n";
 	echo "</MenuItem>\n";
 }
 
+if($PHONE_MODEL == "CP-7912G") {
 ?>
+
+<Prompt>Select 'Properties' edit, delete, or enable/disable an alarm.</Prompt>
+<SoftKeyItem>
+<Name>Properties</Name>
+<URL>SoftKey:Select</URL>
+<Position>1</Position>
+</SoftKeyItem>
+
+<? } else { <?
 
 <SoftKeyItem>
 <Name>Edit</Name>
@@ -61,6 +51,9 @@ while($wake = mysql_fetch_assoc($wakes)) {
 <URL><? echo $FinneganCiscoConfig->url_base ?>/service/togglewake.php</URL>
 <Position>3</Position>
 </SoftKeyItem>
+
+<? } ?>
+
 <SoftKeyItem>
 <Name>Back</Name>
 <URL><? echo $FinneganCiscoConfig->url_base ?>/service/index.php</URL>

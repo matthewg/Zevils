@@ -9,6 +9,8 @@ db_start();
 $extension = get_extension();
 
 function get_extension() {
+	global $PHONE_MODEL;
+
 	$phonepage = implode("", @file("http://".$_SERVER["REMOTE_ADDR"]."/"));
 	if(!$phonepage) {
 		cisco_message("Invalid Extension", "Cannot find your extension: " . $_SERVER["REMOTE_ADDR"]);
@@ -24,6 +26,11 @@ function get_extension() {
 			else
 				cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
 		} else {
+			if(preg_match("/Product ID.*<TD>(.*?)\\b/mi", $phonepage, $matches))
+				$PHONE_MODEL = $matches[1];
+			else
+				$PHONE_MODEL = "";
+
 			return $matches[1];
 		}
 	}
@@ -45,6 +52,34 @@ function cisco_message($title, $msg, $url = "") {
 </CiscoIPPhoneText>
 <?
 	exit;
+}
+
+function format_wake($wake) {
+	$time_array = time_to_user($wake["time"]);
+	$time = "$time_array[0] $time_array[1]";
+
+	if($wake["disabled"])
+		$x = "[OFF] ";
+	else
+		$x = "[ON]  ";
+
+	if($wake["date"]) {
+		$date = date_to_user($wake["date"]);
+                return "$x$time; $date";
+	} else {
+		$days = explode(",", $wake["weekdays"]);
+		for($i = 0; $i < count($days); $i++) $days[$i] = ucfirst($days[$i]);
+		$daytext = implode(", ", $days);
+
+		if($wake["cal_type"] == "normal")
+			$cal = "Regular";
+		else if($wake["cal_type"] == "holidays")
+			$cal = "National Holidays";
+		else if($wake["cal_type"] == "Brandeis")
+			$cal = "Brandeis";
+
+		return "x$time; $daytext; $cal<";
+        }
 }
 
 ?>
