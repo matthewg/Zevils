@@ -996,7 +996,6 @@ sub process_irc_message($) {
 			if(@permitlist) {
 				irc_send(irc_privmsg($usnick, $nick, join(" ", sort @permitlist), "", "", $screenname));
 			}
-			}
 			irc_send(irc_privmsg($usnick, $nick, "[End of Permit List]", "", "", $screenname));
 		} elsif ($cmd eq "denylist") {
 			my @denylist = $oscar->get_denylist();
