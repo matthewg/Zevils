@@ -28,14 +28,14 @@ CREATE TABLE wakes (
 );
 
 CREATE TABLE log_wake (
-	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	wake_id INT UNSIGNED NOT NULL,
 	event ENUM('create', 'delete', 'edit', 'activate', 'verify') NOT NULL,
 	result ENUM('success', 'failure') NULL,
 	start_time DATETIME NOT NULL,
 	end_time DATETIME NULL,
 	data VARCHAR(255) NULL,
-	PRIMARY KEY (wake_id, event, start_time),
+	ip VARCHAR(15) NULL,
 	INDEX (wake_id),
 	INDEX (event),
 	INDEX (result),
@@ -44,17 +44,17 @@ CREATE TABLE log_wake (
 );
 
 CREATE TABLE log_ext (
-	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	extension CHAR(5) NOT NULL,
 	event ENUM('getwakes', 'setpin', 'delcookie') NOT NULL,
 	result ENUM('success', 'failure') NULL,
 	time DATETIME NOT NULL,
 	data VARCHAR(255) NULL,
-	PRIMARY KEY (extension, event, time),
+	ip VARCHAR(15) NULL,
 	INDEX (extension),
 	INDEX (event),
 	INDEX (result),
-	INDEX (start_time),
+	INDEX (time),
 	KEY (log_id)
 );
 

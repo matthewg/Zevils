@@ -4,7 +4,7 @@
  *	page_start: Top of the entire page.
  *		TITLE: Title of the page
  *	viewcalls_start: Start of the 'view wake-up calls' psage.  This will be called immediately after 'page_start'.
- *	viewcalls_start_noext: This is called instead of form_start if we don't know the user's extension.
+ *	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
  *
  *
  *  Wake-up call list.  To give the user the ability to edit their wake-up calls,
@@ -51,10 +51,11 @@
  *		Form parameters:
  *			extension: User's extension
  *			pin: User's PIN (4-digit number).  If the user did not previously have a PIN, and one is present here, a PIN will be set.  Otherwise, this must match the user's previously-set PIN.
- *			saveping: If this parameter is present, the user's PIN will be saved in a cookie.
- *			op: Either 'login' to log the user in, or 'forgotpin' to have the system call the user's extension and tell the user his/her PIN.
+ *			savepin: If this parameter is present, the user's PIN will be saved in a cookie.
+ *			op: 'Forgot PIN' to have the system call the user's extension and tell the user his/her PIN.
  *
  *	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
+ *	viewcalls_end_noext: This is called instead of viewcalls_start if we don't know the user's extension.
  *	page_end: End of the entire page.
  *
  *	db_error: Database error.
@@ -64,7 +65,13 @@
  *	pin_error: Incorrect PIN.
  *	pin_invalid: Syntactically invalid PIN.
  *	pin_empty: User gave PIN, but doesn't have one set.
+ *	pin_bruteforce_warn: User will be temporarily locked out of the system if they enter a bad PIN again.
+ *	pin_bruteforce: User has had too many recent login failures, and should wait an hour.
  *	pin_sent: System will soon call the user's extension and read out the PIN.
+ *	pin_set_old_error: When setting PIN, "old PIN" is wrong.
+ *	pin_set_new_mismatch: When setting PIN, pin1 != pin2
+ *	pin_set_new_invalid: When setting PIN, new PIN is not syntactically valid.
+ *	pin_set_ok: Pin changed.
  *
  *
  * Things that you must do somewhere in your template:
@@ -96,7 +103,7 @@
  *
  *	Submitting to index.php with op='Log Out' will clear the user's saved PIN.
  *
- *	Submitting to index.php with op='setpin', and parameters 'oldpin', 'pin1', and 'pin2'
+ *	Submitting to index.php with op='Set Pin', and parameters 'oldpin', 'pin1', and 'pin2'
  *	will change the user's PIN.  oldpin must match the previous PIN, and pin1 and pin2
  *	must match.
  *
@@ -135,7 +142,7 @@ td {
 }
 .error {
 	font-weight: bold;
-	font-color: #FF0000;
+	color: #FF0000;
 }
 .weekday-off {
 	text-decoration: line-through
@@ -213,16 +220,22 @@ END_WAKE_LIST_END
 <p>
 Use this form to set or change your PIN.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
 Your PIN is not protected by very strong security. <br />
-Old PIN: <input type="password" name="oldpin" size="5" length="4" /><br />
-New PIN: <input type="password" name="pin1" size="5" length="4" /><br />
-Confirm new PIN: <input type="password" name="pin2" size="5" length="4" /><br />
+Old PIN: <input type="password" name="oldpin" size="5" maxlength="4" /><br />
+New PIN: <input type="password" name="pin1" size="5" maxlength="4" /><br />
+Confirm new PIN: <input type="password" name="pin2" size="5" maxlength="4" /><br />
+<input type="submit" name="op" value="Set PIN" />
 <p>
 Log out to have your browser forget your PIN.  Note that you should do this even if you did
 not check the "Save PIN" box, unless you want the browser to remember your PIN.<br />
-<input method="submit" name="op" value="Log Out" />
+<input type="submit" name="op" value="Log Out" />
 </p>
 </form>
 END_VIEWCALLS_END
+,
+
+	"viewcalls_end_noext" => <<<END_VIEWCALLS_END_NOEXT
+</form>
+END_VIEWCALLS_END_NOEXT
 ,
 
 	"page_end" => <<<END_PAGE_END
@@ -239,10 +252,14 @@ and the <a href="http://www.brancog.org/">Computer Operators Group</a>.
 Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.
 If you'd like your PIN to be saved on this computer, check the 'Save PIN' box.
 </p><p>
-Extension: <input type="text" name="extension" size="6" length="5" value="__EXTENSION__" /><br />
-PIN: <input type="password" name="pin" size="5" length="4" /><br />
+If you've forgotten your PIN and would like to have the system call you and you it,
+click the "Forgot PIN" button below.
+</p><p>
+Extension: <input type="text" name="extension" size="6" maxlength="5" value="__EXTENSION__" /><br />
+PIN: <input type="password" name="pin" size="5" maxlength="4" /><br />
 <input type="checkbox" name="savepin" value="1" />Save PIN<br />
-<input type="submit" name="op" value="View Wake-up Calls" />
+<input type="submit" name="op" value="View Wake-up Calls" /><br />
+<input type="submit" name="op" value="Forgot PIN" />
 </p>
 END_GET_EXTENSION
 ,
@@ -276,6 +293,14 @@ long, and can only contain the digits 0 through 9.
 END_PIN_INVALID
 ,
 
+	"pin_set_new_invalid" => <<<END_PIN_SET_NEW_INVALID
+<p class="error">
+Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits
+long, and can only contain the digits 0 through 9.
+</p>
+END_PIN_INVALID
+,
+
 	"pin_error" => <<<END_PIN_ERROR
 <p class="error">
 The PIN you entered is incorrect.  If you've forgotten your PIN, please
@@ -298,6 +323,45 @@ You have entered a PIN, but your extension doesn't have a PIN associated with it
 To set a PIN, use the 'change PIN' field on the main screen.
 </p>
 END_PIN_EMPTY
+,
+
+	"pin_bruteforce_warn" => <<<END_PIN_BRUTEFORCE_WARN
+<p class="error">
+You have been entering too many incorrect PINs.  If you enter another incorrect PIN,
+you will be temporarily locked out of the system.
+</p>
+END_PIN_BRUTEFORCE_WARN
+,
+
+	"pin_bruteforce" => <<<END_PIN_BRUTEFORCE
+<p class="error">
+You have entered too many incorrect PINs and are temporarily locked out of the system.
+Please wait an hour, and then click the 'Forgot PIN' button below.
+</p>
+END_PIN_BRUTEFORCE
+,
+
+	"pin_set_old_error" => <<<END_PIN_SET_OLD_ERROR
+<p class="error">
+Your PIN could not be set because you entered your old PIN incorrectly.
+Please try again.
+</p>
+END_PIN_SET_OLD_ERROR
+,
+
+	"pin_set_new_msmatch" => <<<END_PIN_SET_NEW_MISMATCH
+<p class="error">
+Your PIN could not be set because what you typed for "New PIN" didn't
+match what you typed for "Confirm New PIN".  Please try again.
+</p>
+END_PIN_SET_NEW_MISMATCH
+,
+
+	"pin_set_ok" => <<<END_PIN_SET_OK
+<p>
+Your PIN was successfully changed.
+</p>
+END_PIN_SET_OK
 ,
 
 	"pin_sent" => <<<END_PIN_SENT
