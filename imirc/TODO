@@ -31,6 +31,9 @@ Pending/Maybe:
 	Code cleanup? (Where?)
 	Default set_info?
 	Ability to join chatrooms in different exchange
+	"Short-circuiting"
+		When sending an IM, check to see if the target is signed onto
+		the local aimirc.  If so, don't go through TOC.
 
 Wishlist:
 	Fix #aimirc-debug reload command
