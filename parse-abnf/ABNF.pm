@@ -16,8 +16,8 @@ Text::ABNF v. 0.01 - Perl module for dealing with Augmented Backus-Naur Form (AB
     $word = Text::ABNF->new;
 
     # Then we add some rules.
-    $word->add("LETTER", "CHAR");
-    $word->add("WORD", "1*LETTER"); # A word is one or more letters
+    $word->add("LETTER=CHAR");
+    $word->add("WORD=1*LETTER"); # A word is one or more letters
 
     # Now get the 'word' rule in various forms...
     print "A word consists of ", $word->text("WORD"), "\n";
@@ -60,22 +60,22 @@ a rule.
 
 =over
 
-=item add ( NAME => ELEMENTS )
+=item add ( RULES )
 
-This method should be called with a single parameter, a hash whose keys are the names
-of rules to add and whose values are the elements which the rules are made up of.
+Adds a rule or rules (the parmeter may either be a scalar or a list) to the object.
+The rules may be given in any form that RFC 2234 declares as a valid rule declaration.
+fI something that isn't valid ABNF is given, the object will croak with an error like
+C<Invalid ABNF Syntax: Unknown rule 'FOO'>, so use C<eval { ... }> if you don't want
+that to be a fatal error.
 
-Adds a rule called C<NAME> to the object.  C<ELEMENTS> is the definition of the rule in
-ABNF form.  If something that isn't valid ABNF is given in the C<ELEMENTS> parameter,
-the object will croak with an error like C<Invalid ABNF Syntax: Unknown rule 'FOO'>,
-so use C<eval { ... }> if you don't want that to be a fatal error.
+The termination of each rule with CRLF is optional for this method.
 
 =item delete ( RULES )
 
-Removes C<RULES> from the object.  C<RULES> may be a scalar or a list.  If the removal of
-C<RULES> would cause the object to no longer contain a complete grammar, C<RULES> will not
-be deleted and instead the object will croak with the error
-C<Could not remove ABNF rules: RULES>.
+Removes C<RULES> from the object.  C<RULES> may be a scalar or a list, but it should consist
+of the names of the rules to remove from the object.  If the removal of any rule listed for deletion would cause
+the object to no longer contain a complete grammar, no rules will be deleted and instead the object will croak
+with the error C<Could not remove ABNF rules: RULES>.
 
 =item text ( RULE )
 
