@@ -3321,7 +3321,7 @@ sub rm_nick_user($$) {
 
 	if(!haskeys($nicks->{$nick})) {
 		delete $nicks->{$nick};
-		irc_send(irc_quit($shortnicks->{$prefix.$nick}, "No more users (reaped)"));
+		irc_send(irc_quit($shortnicks->{$prefix.$nick}, "No more users (reaped)")) if exists($shortnicks->{$prefix.$nick});
 	}
 }
 
