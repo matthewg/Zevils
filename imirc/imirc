@@ -1957,7 +1957,7 @@ sub irc_send($;$) {
 	$! = EAGAIN;
 	while(!defined($rv) && $! == EAGAIN) {
 		$rv = $upstream->syswrite($msg, length $msg);
-		if($rv != length $msg) {
+		if(defined $rv and $rv != length $msg) {
 			substr($msg, 0, $rv) = "";
 			undef $rv;
 			$! = EAGAIN;
