@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+@ARGV = qw(--debug 2 --output aimirc.log);
+
 $license = <<EOF
 Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
 
@@ -662,6 +664,7 @@ sub process_irc_message($) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
 	} elsif(!/#aimirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +:(\S+)/i)) {
 		my $screenname = new Net::OSCAR::Screenname $1;
+		$screenname =~ s/,.*//;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d;
 		$nick = new Net::OSCAR::Screenname $nick;
@@ -1416,7 +1419,7 @@ sub process_irc_message($) {
 				}
 			} elsif($cmd eq "nicklen") {
 				if($param == 0) {
-					delete $oscar->get_app_data()->{0x0201};
+					delete $oscar->get_app_data()->{0x0201} if $oscar->get_app_data();
 					delete $sndata->{nicklen};
 					$oscar->commit_buddylist;
 				} else {
@@ -1956,7 +1959,7 @@ sub oscar_signon_done($) {
 	}
 	irc_send(irc_privmsg($usnick, $nick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname)) if $pouncecount > 0;
 
-	if(exists($oscar->get_app_data()->{0x0201})) {
+	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0201})) {
 		$sndata->{nicklen} = $oscar->get_app_data()->{0x0201};
 		irc_send(irc_privmsg($usnick, $nick, "Your maximum nick length has been set to $sndata->{nicklen}.  Use the 'set nicklen' command to change it.", "", "", $screenname));
 	}
