@@ -25,6 +25,7 @@ John Ripa <jahr@home.com>, mp3id3 multiple files
 
 Queco Jones <quecojones@netzero.net>, discovering stupid mp3gui bug
 
-Richard van den Berg <richard@vdberg.org>, patch for mp3index VBR bug
+Richard van den Berg <richard@vdberg.org>, patch for mp3index VBR bug,
+idea for mp3index accepting M3U files, another example of an mp3index format
 
 I'm probably leaving some people out...
