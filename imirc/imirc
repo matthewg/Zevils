@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks $profiles $pounces $buddylists %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks $profiles $pounces $buddylists %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 sub loadconf();
 sub loaddat($);
@@ -74,6 +74,7 @@ sub irc_invite($$$);
 sub ircirfy($);
 sub bounce_join($$);
 sub process_dcc($$);
+sub send_im($$$);
 
 $starttime = time;
 
@@ -441,6 +442,8 @@ sub mainloop() {
 
 	unless($reload) {
 		$chatseq = 0;
+		$usercount = 0;
+		$maxusers = 0;
 
 		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $profiles, $pounces, $buddylists, $irc_away, $away, $longnicks, $shortnicks) {
 			$hashref = $oscarprime->buddyhash();
@@ -495,12 +498,18 @@ sub mainloop() {
 			#	goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
 			#}
 
+			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
+			alarm 5;
+
+			debug_print("Processing OSCARs...", "irc", 2);
+
 			foreach $nick(keys %$aim_connections) {
 				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 					$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
 				}
 			}
 
+			debug_print("Processing IRC...", "irc", 2);
 			process_irc_message(irc_recv()) if vec($rin, $upstream->fileno, 1);
 
 			$currtime = time;
@@ -534,6 +543,8 @@ sub mainloop() {
 				timestuff($currtime);
 				$lasttime = $currtime;
 			}
+
+			alarm 0;
 		}
 	}
 }
@@ -671,7 +682,6 @@ sub process_irc_message($) {
 	}
 	my $nnick = normalize($nick);
 	
-
 	if($aim_connections->{$nnick}) {
 		foreach my $tmpscreenname(keys %{$aim_connections->{$nnick}->{screennames}}) {
 			$sndata = $aim_connections->{$nnick}->{screennames}->{$tmpscreenname};
@@ -707,15 +717,16 @@ sub process_irc_message($) {
 			bounce_join($nick, "#aimirc-$screenname");
 		} else {
 			$aim_connections->{$nnick}->{screennames}->{$screenname}->{inchan} = 1;
-			irc_send(irc_join($usnick, "#aimirc-$screenname"));
-			irc_send(irc_mode($us, "#aimirc-$screenname", "+o $usnick"));
-			irc_send(irc_mode($usnick, "#aimirc-$screenname", "-o $nick"));
-			irc_send(irc_mode($usnick, "#aimirc-$screenname", "+ints"));
+			irc_send(irc_join($usnick, normalize("#aimirc-$screenname")));
+			irc_send(irc_mode($us, normalize("#aimirc-$screenname"), "+o $usnick"));
+			irc_send(irc_mode($usnick, normalize("#aimirc-$screenname"), "-o $nick"));
+			irc_send(irc_mode($usnick, normalize("#aimirc-$screenname"), "+ints"));
 			foreach $dude(keys %$nicks) {
 				next unless $nicks->{$dude}->{$screenname};
-				irc_send(irc_join(ircify($prefix.$dude), "#aimirc-$screenname"));
-				irc_send(irc_mode($usnick, "#aimirc-$screenname", "+v $prefix$dude")) if $oscar->buddy($dude);
+				irc_send(irc_join(ircify($prefix.$dude), normailze("#aimirc-$screenname")));
+				irc_send(irc_mode($usnick, normalize("#aimirc-$screenname"), "+v $prefix$dude")) if $oscar->buddy($dude);
 			}
+			irc_send(irc_privmsg($usnick, normalize("#aimirc-$screenname"), "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the imchan command."));
 		}
 	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
@@ -866,15 +877,24 @@ sub process_irc_message($) {
 			my $connection = $aim_connections->{$nnick} if exists $aim_connections->{$nnick} and ref $aim_connections->{$nnick};
 			$sndata = $connection->{screennames}->{$screenname} if $connection;
 			$oscar = $sndata->{oscar} if $sndata;
+
+			# Let the user talk to buddies in #aimirc-screenname
+			# This triggers inchan==2 mode
+			if($cmd =~ /$prefix?(.+?)\x02?:\x02?/ and $sndata->{inchan}) {
+				my $recipient = $1;
+				$sndata->{inchan} = 2 unless $sndata->{inchan} == 3;
+				$msg =~ s/.*?:\x02? //;
+				send_im($oscar, $recipient, $msg);
+			}
 		}
 
 		unless($screenname or ($cmd eq "stats") or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "stats") {
 			if($param eq "users" and $msg =~ /users $ourpass/) {
-				irc_send(irc_privmsg($usnick, $nick, scalar(keys(%$irc_connections)) . ": " . join(", ", keys %$irc_connections)));
-			} elsif($param =~ /^users\b/) {
-				irc_send(irc_privmsg($usnick, $nick, "Incorrect password."));
+				irc_send(irc_privmsg($usnick, $nick, "$usercount users (max $maxusers): " . join(", ", keys %$irc_connections)));
+			} elsif($param eq "users") {
+				irc_send(irc_privmsg($usnick, $nick, "$usercount users (max $maxusers)"));
 			} elsif($param eq "uptime") {
 				my($days, $hours, $minutes, $seconds);
 				$seconds = time - $starttime;
@@ -1349,6 +1369,7 @@ Buddy {
 				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
+				irc_send("$foo :imchan (on|off) - If set to on, incoming IMs for your screenname will appear in #aimirc-YourScreenName\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
@@ -1423,6 +1444,18 @@ Buddy {
 			foreach my $tmpscreenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 				irc_send(irc_privmsg($usnick, $nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->screenname, "", "", $screenname));
 			}
+		} elsif($cmd eq "imchan") {
+			if($sndata->{inchan}) {
+				if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
+					irc_send(irc_privmsg($usnick, $nick, normalize("#aimirc-$screenname"), "Incoming IMs for this screenname will now appear in this channel."));
+					$sndata->{imchan} = 2;
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, normalize("#aimirc-$screenname"), "Incoming IMs for this screenname will no longer appear in this channel, even if you send someone an IM through this channel."));
+					$sndata->{imchan} = 3;
+				}
+			} else {
+				irc_send(irc_privmsg($usnick, $nick, "You must join ".normalize("#aimirc-$screenname")." to use this feature.", "", "", $screenname));
+			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
@@ -1475,12 +1508,7 @@ Buddy {
 			}
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections->{$nnick}) {
-				if($irc_connections->{$target} and $shortcircuit) {
-					$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
-				} else {
-					$oscar->send_im($target, $msg) if $oscar;
-				}
-				$nicks->{$target}->{$screenname} = time if $nicks->{$target}->{$screenname} != -1;
+				send_im($oscar, $target, $msg);
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
 			}
@@ -1713,7 +1741,10 @@ sub oscar_im_in($$$$) {
 
 	$ar = "[automatic response] " if $away;
 	$msg = $ar . join("\n", html2txt($msg, $nick));
-	irc_send(irc_privmsg($inick, $nick, $msg, "", $notice, $screenname));
+	
+	my $recipient = $nick;
+	$recipient = normalize("#aimirc-$screenname") if $sndata->{inchan} == 2;
+	irc_send(irc_privmsg($inick, $recipient, $msg, "", $notice, $screenname));
 
 	if(!$away and $irc_away->{$nick} and (time - $sndata->{away_buddies}->{$from} > $time)) {
 		my $tmp = "";
@@ -1832,6 +1863,9 @@ sub oscar_buddy_info($$$) {
 sub oscar_signon_done($) {
 	my($oscar) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
+
+	$usercount++;
+	$maxusers = $usercount if $usercount > $maxusers;
 
 	irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger as $screenname.", "", "", $screenname));
 	irc_send(irc_privmsg($usnick, $nick, "The email address registered to this account is ".$oscar->email.".  Use the change_email command if this is not your current email address.", "", "", $screenname));
@@ -2106,6 +2140,7 @@ sub do_signoff($$;$) {
 	$oscar->signoff() unless $already_off or !$oscar;
 
 	if($aim_connections->{$nick}) {
+		$usercount--;
 		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname", "", "", $screenname)) unless $already_off or not $screenname;
 		delete $aim_connections->{$nick}->{screennames}->{$screenname} if $screenname;
 		if(haskeys $aim_connections->{$nick}->{screennames}) {
@@ -2839,3 +2874,14 @@ sub process_dcc($$) {
 	}
 }
 
+sub send_im($$$) {
+	my($oscar, $target, $msg) = @_;
+	my $screenname = $oscar->screenname;
+
+	if($irc_connections->{$target} and $shortcircuit) {
+		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
+	} else {
+		$oscar->send_im($target, $msg) if $oscar;
+	}
+	$nicks->{$target}->{$screenname} = time if $nicks->{$target}->{$screenname} != -1;
+}
