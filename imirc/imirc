@@ -716,6 +716,7 @@ sub process_irc_message($) {
 	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
 		$nick = $2 if $2;
+		$nick =~ tr/\@+//d; #Only needed for Hybrid?
 		$nnick = normalize($nick);
 
 		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
