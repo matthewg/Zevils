@@ -153,6 +153,9 @@ while(1) {
 				if(!$update_nexttime->execute($waketime, $row->{id})) {
 					db_error("Couldn't update trigger_time");
 				}
+
+				next;
+			}
 		}
 	}
 }
