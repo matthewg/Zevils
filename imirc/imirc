@@ -557,7 +557,6 @@ sub irc_newnick($) {
 	return if haskeys($nicks->{noprefix($nick)});
 	$shortnick = new Net::OSCAR::Screenname ircify($nick);
 	$nicks->{noprefix($nick)} = $oscarprime->buddyhash();
-	$nicks->{noprefix($nick)}->{$usnick} = time;
 	debug_print("\tCreating $nick (normalized ". normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks->{$shortnick} = $nick;
 	$shortnicks->{$nick} = $shortnick;
@@ -793,14 +792,14 @@ sub process_irc_message($) {
 	} elsif(/^PART +$chatchan(\d+)/i) {
 		my $chat = $1;
 		if(exists $aim_connections->{$nick}->{screennames}->{$chats{$1}->{screenname}}) {
-			debug_print("$nick left aimchat $1 (".$chats{$1}->{name}.").", "chat", 1);
+			debug_print("$nick left chat $1 (".$chats{$1}->{name}.").", "chat", 1);
 			if($aim_connections->{$nick} and $chats{$1}->{name}) {
 				$chats{$chat}->{obj}->part() if $chats{$chat}->{obj};
 				irc_send(irc_part($usnick, chatchan($1)));
 				foreach my $who(keys %{$chats{$1}->{members}}) {
 					delete $chats{$1}->{members}->{$who};
-					delete $nicks->{$who}->{"chat-$1"};
 					irc_send(irc_part(ircify($prefix.$who), chatchan($1)));
+					rm_nick_user($who, $chatchan.$1);
 				}
 				delete $chats{$1};
 			}
@@ -1005,7 +1004,10 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname", "", "", $screenname));
 			} else {
 				my @buddies = split(/,\s*/, $param);
-				map { irc_send(irc_part("$prefix" . normalize $_, nickchan($screenname), "Removed from buddylist.")) if delete $nicks->{normalize $_}->{$screenname} and $sndata->{inchan} } @buddies;
+				map {
+					irc_send(irc_part(ircify($prefix.$_), nickchan($screenname), "Removed from buddylist.")) if $sndata->{inchan};
+					rm_nick_user($_, $screenname);
+				} @buddies;
 				my %rembuds = ();
 				foreach my $buddy(@buddies) {
 					my $currgroup = $oscar->findbuddy($buddy);
@@ -1753,7 +1755,7 @@ sub oscar_chat_buddy_in($$$$) {
 	my $inick = ircify($prefix.$buddy);
 	manglewarn($nick, $inick, $screenname) unless $nicks->{$buddy}->{$screenname};
 	irc_send(irc_join($inick, chatchan($chatid)));
-	$nicks->{$buddy}->{"chat-$chatid"} = -1;
+	$nicks->{$buddy}->{$chatchan.$chatid} = -1;
 }
 
 sub oscar_buddy_out($$$) {
@@ -1767,11 +1769,7 @@ sub oscar_buddy_out($$$) {
 	} else {
 		irc_send(irc_privmsg($usnick, $nick, "$buddy has departed"));
 	}
-	delete $nicks->{$buddy}->{$screenname};
-	unless(haskeys($nicks->{$buddy})) {
-		irc_send(irc_quit($inick, "Nobody wants me anymore."));
-		delete $nicks->{$buddy};
-	}
+	rm_nick_user($buddy, $screenname);
 }
 
 sub oscar_chat_buddy_out($$$) {
@@ -1781,11 +1779,7 @@ sub oscar_chat_buddy_out($$$) {
 	my $inick = ircify($prefix.$buddy);
 	my $chatid = $chat->{chat_id};
 	irc_send(irc_part($inick, chatchan($chatid)));
-	delete $nicks->{$buddy}->{"chat-$chatid"};
-	unless(haskeys($nicks->{$buddy})) {
-		irc_send(irc_quit($inick, "Nobody wants me anymore."));
-		delete $nicks->{$buddy};
-	}
+	rm_nick_user($buddy, $chatchan.$chatid);
 }
 
 sub oscar_im_in($$$$) {
@@ -2204,7 +2198,7 @@ sub do_signoff($$;$) {
 		next unless normalize($chats{$chat}->{screenname}) eq normalize($screenname) or not $screenname;
 		foreach my $who(keys %{$chats{$chat}->{members}}) {
 			delete $chats{$chat}->{members}{$who};
-			delete $nicks->{$who}->{"chat-$chat"};
+			rm_nick_user($who, $chatchan.$chat);
 			irc_send(irc_part(ircify($prefix.$who), $chan));
 		}
 		delete $chats{$chat};
@@ -2218,11 +2212,10 @@ sub do_signoff($$;$) {
 		irc_send(irc_kick($usnick, nickchan($screenname), $nick, "You have been signed off of AOL Instant Messenger."));
 	}
 
-	delete $nicks->{$screenname}->{($usnick, $screenname)} if $screenname;
+	rm_nick_user($screenname, $screenname) if $screenname;
 	foreach my $xnick(keys %$nicks) {
 		next if $xnick eq $usnick or not $screenname;
-		delete $nicks->{$xnick}->{$screenname}; 
-		irc_send(irc_quit(ircify($xnick), "Nobody wants me anymore.")) unless haskeys($nicks->{$xnick});
+		rm_nick_user($xnick, $screenname);
 	}
 
 	irc_send(irc_part($usnick, nickchan($screenname))) if $screenname;
@@ -3068,4 +3061,13 @@ User {
 sub update_usercount() {
 	$usercount = scalar keys %$irc_connections;
 	$maxusers = $usercount if $usercount > $maxusers;
+}
+
+sub rm_nick_user($$) {
+	my($nick, $user) = (noprefix(shift), shift);
+	delete $nicks->{$nick}->{$user};
+	if(!haskeys($nicks->{$nick})) {
+		delete $nicks->{$nick};
+		irc_send(irc_quit(ircify($prefix.$nick), "No more users (reaped)"));
+	}
 }
