@@ -248,7 +248,9 @@ set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br
 <input type="radio" name="type" value="recur" __RECUR__ /> Recurring
 </p><p>
 4a. <strong>Skip this step for recurring wake-up calls.</strong> Enter the date, in month/day format,
-that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.<br />
+that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
+to specify a year; Finnegan will automatically set the wake-up call for the next time the date and time
+roll around (so if it's December, and you enter a date in January, it will go off next month.)<br />
 Date: <input type="text" name="date" size="6" maxlength="5" value="__DATE__" />
 </p><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
