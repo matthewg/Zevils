@@ -4,12 +4,15 @@ In Progress:
 
 Real Soon Now:
 	savebuddies/loadbuddies for buddylist backup
+		CTCP SAVEBUDDIES, CTCP LOADBUDDIES for scriptability
+			As long as we're add it, support other CTCPs?
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
 	  every signon in documentation/help message.
 
 Pending/Maybe:
+	(#aimirc-debug or IRC or AIMServ?) stats command
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
