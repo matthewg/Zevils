@@ -27,7 +27,6 @@ use IO::Handle;
 use IO::Socket;
 use IO::Select;
 use POSIX;
-use Toc qw(:all);
 use Carp;
 $Carp::Verbose = 1;
 
@@ -55,6 +54,8 @@ if($@) {
 	print STDERR "        package.\n";
 	die "\n";
 }
+
+require Toc qw(:all);
 
 $SIG{__DIE__}  = sub { croak $_[0] };
 
@@ -305,6 +306,7 @@ sub process_irc_message {
 			if($aim_connections{$nick} and $aim_connections{$nick}{aimnick}) {
 				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger as $aim_connections{$nick}{aimnick} - please sign off first if you wish to sign on under a different screename, or use a different IRC connection."));
 			} else {
+				$param = normalize($param);
 				@ret = signon $param, $extra, sub {
 				irc_send(irc_privmsg($usnick, $nick, $_[0]))
 				};
