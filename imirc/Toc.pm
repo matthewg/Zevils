@@ -323,7 +323,7 @@ with $_[0] set to the text of the message.
 
 sub signon($$&;&) {
 	my($username, $password, $socksub, $status) = @_;
-	my($socket, $msg, $config, $buddy, $flags);
+	my($socket, $msg, $config, $buddy, $flags, $alarm);
 
 	$alarm = "";
 	$username = normalize($username);
@@ -336,7 +336,7 @@ sub signon($$&;&) {
 
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
 	eval {
-		local $SIG{ALRM} = sub { die "alarm\n" };
+		local $SIG{ALRM} = sub { $alarm = 1; die "alarm\n" };
 		alarm 5;
 
 		if(ref $socksub eq "CODE") {
@@ -392,8 +392,10 @@ sub signon($$&;&) {
 	if($@) {
 		alarm 0;
 		croak unless $@ eq "alarm\n";
-		$err = "connect timed out";
-		return -1;
+		if($alarm) {
+			$err = "connect timed out";
+			return -1;
+		}
 	}
 
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
