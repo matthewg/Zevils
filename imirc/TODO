@@ -1,13 +1,9 @@
 Unclassified:
 	Write a TOC server and a set of stress tests and regression tests.
 
-Bugs:
-	Reports of miscellaneous reaping problems
-
 Real Soon Now:
 	savebuddies/loadbuddies for buddylist backup
 		CTCP SAVEBUDDIES, CTCP LOADBUDDIES for scriptability
-			As long as we're add it, support other CTCPs?
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
@@ -22,7 +18,7 @@ Real Soon Now:
 
 Probably/Second Priority:
 	#buddies-SCREENNAME (geniusj)
-
+	Option to have AIMServ store a backup of your buddylist (textfile) 
 
 Pending/Maybe:
 	(#aimirc-debug or IRC or AIMServ?) stats command
