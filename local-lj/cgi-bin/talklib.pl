@@ -1240,7 +1240,7 @@ sub format_text_mail {
         $text .= "$who replied to your $LJ::SITENAMESHORT comment in which you said:";
     }
     $text .= "\n\n";
-    $text .= indent($parent->{body}, ">") . "\n\n";
+    $text .= indent(LJ::html2txt($parent->{body}), ">") . "\n\n";
     $text .= (LJ::u_equals($targetu, $comment->{u}) ? 'Your' : 'Their') . " reply was:\n\n";
     if ($comment->{subject}) {
         $text .= Text::Wrap::wrap("  Subject: ",
