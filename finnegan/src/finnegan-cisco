@@ -79,7 +79,7 @@ sub prepare_statements() {
 	$update_forgotpin = $dbh->prepare("UPDATE prefs SET forgot_pin=0 WHERE extension=?");
 	$delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
 	$call_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
-	$update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(trigger_date + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
+	$update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_date=NULL, next_trigger=CONCAT(trigger_date + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
 	$snooze_wake = $dbh->prepare("UPDATE wakes SET snooze_count=snooze_count+1, next_trigger=NOW() + INTERVAL 9 MINUTE WHERE wake_id=?");
 	$update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
 	$log_error = $dbh->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
@@ -255,8 +255,8 @@ while(1) {
 			my $yesterday = ($weekday - 1) % 8;
 
 			if($row->{cal_type} eq "Brandeis") {
-				$weekday = $Finnegan::Calendar::BRANDEIS_DAYS->{$date} if $Finnegan::Calendar::BRANDEIS_DAYS->{$date};
-				$yesterday = $Finnegan::Calendar::BRANDEIS_DAYS->{$yesterday_date} if $Finnegan::Calendar::BRANDEIS_DAYS->{$yesterday_date};
+				$weekday = $finnegan::BRANDEIS_DAYS->{$date} if $finnegan::BRANDEIS_DAYS->{$date};
+				$yesterday = $finnegan::BRANDEIS_DAYS->{$yesterday_date} if $finnegan::BRANDEIS_DAYS->{$yesterday_date};
 			}
 
 			my %wake_days = map { $daymap{$_} => 1 } split(/,/, $row->{weekdays});
@@ -279,9 +279,9 @@ while(1) {
 				$go_today = 0;
 			}
 
-			$go_today = 0 if $row->{cal_type} eq "Brandeis" and $Finnegan::Calendar::NO_CLASSES->{$date};
-			$go_today = 0 if $row->{cal_type} eq "holidays" and $Finnegan::Calendar::HOLIDAYS->{$date};
-			log_debug("After date check (date=$date), status: $go_today");
+			$go_today = 0 if $row->{cal_type} eq "Brandeis" and $Finnegan::Config::NO_CLASSES->{$date};
+			$go_today = 0 if $row->{cal_type} eq "holidays" and $Finnegan::Config::HOLIDAYS->{$date};
+			log_debug("After date check, status: $go_today");
 
 			if(!$go_today) {
 				$row->{time} =~ /(\d+):(\d+)/;
@@ -528,10 +528,6 @@ sub make_call($$) {
 						exit 1;
 					} elsif($status == 2) { # No dial tone
 						$end->("failure", "no dial tone");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						exit 1;
-					} elsif($status == 4) { # Timed out
-						$end->("failure", "time out");
 						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 						exit 1;
 					} else {

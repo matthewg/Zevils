@@ -1,0 +1,141 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use POSIX;
+use IO::Socket::Multicast;
+no warnings 'once';
+
+use constant BYTES_PER_SECOND => 8000;
+use constant SECONDS_PER_PACKET => 0.02;
+
+sub log_debug($);
+
+sub load_settings {
+	open(SETTINGS, "../etc/settings.inc") or die "Couldn't open settings: $!\n";
+	my $settings = join("", <SETTINGS>);
+	close SETTINGS;
+	open(SETTINGS, "../etc/cisco-settings.inc") or die "Couldn't open settings: $!\n";
+	my $settings .= join("", <SETTINGS>);
+	close SETTINGS;
+	$settings =~ s/#__PHPONLY_START__.*?#__PHPONLY_END__//gs;
+	eval $settings;
+	die "Couldn't load settings: $@\n" if $@;
+}
+
+load_settings;
+
+# Daemonize
+if(!$Finnegan::Config::testmode) {
+	my $pid = fork;
+	exit if $pid;
+	die "Couldn't fork: $!" unless defined($pid);
+	POSIX::setsid() or die "Can't start a new session: $!";
+}
+
+sub log_debug($) {
+	my $str = shift;
+	if($Finnegan::Config::testmode) {
+		warn "$$ - " . time() . ": $str\n";
+	}
+}
+
+my @sockets = ();
+foreach my $message (map { $_->{id} } @$Finnegan::Config::messages, {id => 0}) {
+	$sockets[$message] = IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::multicast_port_base + $message*2) or die "Couldn't create multicast socket: $@\n";
+	$sockets[$message]->add($Finnegan::Config::Cisco::multicast_addr) or die "Couldn't add multicast address: $@\n";
+	$sockets[$message]->loopback(0);
+}
+
+my $timestamp = 0;
+while(1) {
+	$packet = pack("C", 2 | );
+	
+mcast_send
+	my @samples = ();
+	my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
+	$hour =~ s/^0//;
+	$minute =~ s/^0//;
+	$ampm = lc($ampm);
+
+	my $message;
+				my @messages = map { $_->{id} } @$Finnegan::Config::messages;
+				$message = $messages[int(rand(@messages))];
+			} else {
+				$message = $row->{message};
+			}
+
+			@samples = (
+				"../rmd/messages/$message.rmd",
+				"../rmd/wake/timeis.rmd",
+				"../rmd/wake/hours/$hour.rmd"
+			);
+
+			if($minute > 0) {
+				if($minute > 0 and $minute < 20) {
+					push @samples, "../rmd/wake/ten-minutes/0.rmd" if $minute < 10;
+					push @samples, "../rmd/wake/one-minutes/$minute.rmd";
+				} else {
+					$minute =~ /(.)(.)/;
+					push @samples, "../rmd/wake/ten-minutes/".($1*10).".rmd";
+					push @samples, "../rmd/wake/one-minutes/$2.rmd" if $2;
+				}
+			}
+
+			push @samples, "../rmd/wake/$ampm.rmd";
+
+			push @samples, "../rmd/wake/snooze.rmd";
+			push @samples, "../rmd/wake/edit.rmd";
+		} else {
+			my @pindigits = split(//, $row->{pin});
+			my $lastdigit = pop @pindigits;
+			my @pinsamples = map { "../rmd/forgotpin/digits-nonfinal/$_.rmd" } @pindigits;
+			push @pinsamples, "../rmd/forgotpin/digits-final/$lastdigit.rmd";
+
+			@samples = ("../rmd/forgotpin/pinis.rmd", @pinsamples, "../rmd/forgotpin/again.rmd", @pinsamples);
+		}
+
+		if(!open(OUTSAMPLE, ">../tmp/$$.rmd")) {
+			$end->("failure", "Couldn't open output sample ../tmp/$$.rmd: $!");
+			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+			exit 1;
+		}
+
+		local $/ = undef;
+
+		my $all_sdata = "";
+
+		my $firstsample = shift @samples;
+		log_debug("Reading sample $firstsample");
+		if(!open(SAMPLE, $firstsample)) {
+			$end->("failure", "Couldn't open input sample $firstsample: $!");
+			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+			exit 1;
+		}
+		my $sdata = <SAMPLE>;
+		print OUTSAMPLE $sdata;
+		$all_sdata = $sdata;
+		close SAMPLE;
+
+		log_debug("Reading more samples...");
+		foreach(@samples) {
+			log_debug("Reading sample $_");
+			if(!open(SAMPLE, $_)) {
+				$end->("failure", "Couldn't open input sample $_: $!");
+				$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+				exit 1;
+			}
+			$sdata = <SAMPLE>;
+			substr($sdata, 0, 32) = "";
+			$all_sdata .= $sdata;
+			print OUTSAMPLE $sdata;
+			close SAMPLE;
+		}
+
+		if($type eq "wake") { # Repeat it
+			substr($all_sdata, 0, 32) = "";
+			print OUTSAMPLE $all_sdata;
+		}
+		close OUTSAMPLE;
+		log_debug("Done with samples.");
+
