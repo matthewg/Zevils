@@ -280,6 +280,15 @@ if(!$errors) {
 		nicklen => 9,
 		pass => "PASS $ourpass :TS\r\n",
 	},
+	unreal => {
+		nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via aimirc\r\n",
+		server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
+		uspass => 1,
+		theirpass => 1,
+		nicklen => 30,
+		pass => "PASS :$ourpass\r\n",
+		EBURST => 1,
+	}
 );
 
 foreach $server(keys %temp) { #Preserve custom ircservers
@@ -454,7 +463,7 @@ unless($reload) {
 	}
 
 	if($ircservers{$servermode}{EBURST}) {
-		while($in and ($in !~ /EBURST/)) {
+		while($in and ($in !~ /EBURST|NETINFO/)) {
 			$in = irc_recv();
 			chomp $in;
 			if($in =~ /^ERROR :(.+)/) {
