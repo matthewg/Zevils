@@ -2694,6 +2694,7 @@ sub loadbuddies($$$) {
 		foreach my $group(keys %{$data->{Buddy}->{list}}) {
 			@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
 			foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
+				irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
 				$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString} if exists($data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote});
 			}
 		}
@@ -2703,6 +2704,7 @@ sub loadbuddies($$$) {
 
 	$oscar->set_visibility($pmode);
 	foreach my $group(keys %buddies) {
+		irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Adding ".join(",",@{$buddies{$group}})." to $group.", "", "", $oscar->screenname));
 		$oscar->add_buddy($group, @{$buddies{$group}});
 		foreach my $buddy(grep { exists($bnotes{$_}) } @{$buddies{$group}}) {
 			$oscar->set_buddy_comment($group, $bnotes{$buddy});
@@ -2719,6 +2721,7 @@ sub loadbuddies($$$) {
 			for(my $i = scalar(@currbuddies) - 1; $i >= 0; $i--) {
 				splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
 			}
+			irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Removing ".join(",",@currbuddies)." from $group.", "", "", $oscar->screenname));
 			$oscar->remove_buddy($group, @currbuddies);
 		}
 
