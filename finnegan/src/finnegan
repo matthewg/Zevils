@@ -503,7 +503,7 @@ sub make_call($$) {
 					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 					exit 1;
 				} elsif($? & 127) {
-					$end->("failure", "VM shell died with signal " . $? & 127);
+					$end->("failure", "VM shell died with signal " . ($? & 127));
 					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 					exit 1;
 				} else {
