@@ -282,6 +282,7 @@ sub saveSub
           my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
                                             localtime(time);
           $mon++;
+	  $year += 1900;
           my $subid="$hour$min$sec.$mon$mday$year";               
 	  $$FORM{story}=~s/'/''/g;
 	  $$FORM{subj}=~s/'/''/g;
