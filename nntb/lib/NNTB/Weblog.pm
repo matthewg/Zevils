@@ -1,7 +1,7 @@
 package NNTB::Weblog;
 
 # This package provides common functions to all NNTB weblog modules.
-# NNTB modules should be inherit from this.
+# NNTB modules should be inherit from this. 
 
 $VERSION = '0.01';
 
