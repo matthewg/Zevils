@@ -36,8 +36,9 @@ like this:
 	N:127.0.0.1:password:imserv.your_irc_network.com::50
 
 	Now you should be able to run IMIRC.  If you want to make your IMIRC
-	available to the public, go to http://www.zevils.com/programs/imirc/
-	and add yourself to the networks list.
+	available to the public, go to
+	http://www.zevils.com/programs/imirc/imstat/ and add yourself to the
+	networks list.
 
 Usage:
 	You need an AOL Instant Messenger account.
@@ -70,7 +71,7 @@ IMPORTANT NOTE:
 	ABSOLUTELY MUST TURN DEBUGGING ON!!!**
 
 For more info:
-	There's are mailing lists and a CVS tree.
+	There are mailing lists and a CVS tree.
 	See http://www.zevils.com/programs/ for details.
 
 Contacting the author:
