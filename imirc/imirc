@@ -1163,9 +1163,9 @@ User {
 						$config .= "DenyAll";
 					} elsif($oscar->visibility == 3) {
 						$config .= "AllowSome";
-					} elsif($oscar->visiblity == 4) {
+					} elsif($oscar->visibility == 4) {
 						$config .= "DenySome";
-					} elsif($oscar->visiblity == 5) {
+					} elsif($oscar->visibility == 5) {
 						$config .= "AllowBuddies";
 					}
 					$config .= "\n}\n";
