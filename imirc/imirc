@@ -49,6 +49,12 @@ use constant DCC_STATE_GET_READY => 2<<2; #8
 use constant DCC_STATE_GET_SENDACK => DCC_STATE_WRITE | (3<<2); #14
 
 use constant RELNOTES => {
+	1.6 => <<EOF,
+Important changes in IMIRC 1.6:
+	*New commands: set_away, set_icon, get_icon, set_status (see 'help misc')
+	*Support for @mac.com screennames and ICQ UINs
+	*Support for buddy icons and extended status messages
+EOF
 	1.5 => <<EOF,
 Important Changes in IMIRC 1.5:
 	*This software is now called IMIRC, not aimirc.  The new website is http://www.zevils.com/programs/imirc/
@@ -87,7 +93,7 @@ sub BEGIN {
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 1.10 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 1.10;
+	$@ .= "We require Net::OSCAR 1.11 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 1.11;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";

@@ -41,7 +41,9 @@ http://www.perl.com/CPAN/modules/ .
 ========INSTALLATION========
 
 If you are upgading from an older version of IMIRC, such as AIMIRC 1.2,
-read the file RELNOTES.1.5.
+read the file RELNOTES.1.5.  If you are upgrading from IMIRC 1.5, there
+are some new configuration options that you might want to set; see
+RELNOTES.1.6.
 
 Change into the IMIRC directory.  This directory was created when you
 unpacked the IMIRC tarball and should be called imirc-XX where XX is the IMIRC
