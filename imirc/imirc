@@ -915,7 +915,7 @@ sub process_irc_message($) {
 					my $msg = "Buddy Info for $buddyconf->{screenname}\r\n";
 					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
 					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
-					$msg .= "Idle Time: \t".($buddyconf->{idle}/60)." minutes\r\n";
+					$msg .= "Idle Time: \t".(sprintf "%.1f", $buddyconf->{idle}/60)." minutes\r\n";
 					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
 
 					$msg .= "User Class: \t";
@@ -1824,7 +1824,7 @@ sub oscar_buddy_info($$$) {
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
-		$msg .= "Idle Time: \t".($buddat->{idle}/60)." minutes\r\n";
+		$msg .= "Idle Time: \t".(sprintf "%.1f", $buddat->{idle}/60)." minutes\r\n";
 
 		$msg .= "User Class: \t";
 		$msg .= " TRIAL" if $buddat->{trial};
