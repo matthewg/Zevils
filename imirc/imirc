@@ -557,14 +557,18 @@ sub mainloop() {
 					my $events = $poll->events($handle);
 					my $target = $fdmap{fileno($handle)};
 
-					if(!ref($target)) { # DCC
+					#debug_print("Got target $target (", ref($target), ") with events $events", "irc", 2);
+					if(UNIVERSAL::isa($target, "Net::OSCAR::Connection") {
+					} elsif($target == $upstream) {
+						$do_irc = 1;
+					} else { # DCC
 						for(my $dccno = 0; $dccno < length(@dccqueue); $dccno++) {
 							if($dccqueue[$dccno] == $target) {
 								$do_dcc[$dccno] = 1;
 								last;
 							}
 						}
-					} elsif($target->isa("Net::OSCAR::Connection")) {
+
 						eval {
 							$target->process_one($events & POLLIN, $events & POLLOUT, $events & (POLLERR | POLLHUP));
 						};
@@ -574,8 +578,6 @@ sub mainloop() {
 							irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
 							do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
 						}
-					} else { # upstream
-						$do_irc = 1;
 					}
 				}
 			} else {
