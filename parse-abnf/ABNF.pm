@@ -1,5 +1,3 @@
-# REP ROLLBACK!
-
 # Parse::ABNF
 #
 # Copyright (c) 2001 Matthew Sachs <matthewg@zevils.com>.  All rights reserved.
@@ -209,6 +207,7 @@ $VERSION = '0.01';
 use strict;
 use warnings;
 use vars qw($VERSION $ABNF $tablevel);
+use Symbol;
 use Lingua::EN::Inflect qw(PL);
 use Carp;
 
@@ -264,29 +263,29 @@ use constant OP_MODE_ALTERNATOR => 1;
 use constant OP_MODE_AGGREGATOR => 2;
 
 use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
-	ALPHA => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x41..0x5A, 0x61..0x7A)] }, 	# A-Z / a-z
-	BIT => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [qw(chr(0) chr(1))] },
-	CHAR => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x01..0x7F)] }, 			# any 7-bit US-ASCII character, excluding NUL
-	CR => { type => OP_TYPE_NUMVAL, value => [chr(0x0D)] }, 								# carriage return
-	CRLF => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(CR LF)] }, 					# Internet standard newline
-	CTL => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x00..0x1F, 0x7F)] }, 		# controls
-	DIGIT => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x30..0x39)] }, 			# 0-9
-	DQUOTE => { type => OP_TYPE_NUMVAL, value => [chr(0x22)] }, 								# " (Double Quote)
-	HEXDIG => {
+	alpha => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x41..0x5A, 0x61..0x7A)], core=>1 }, 	# A-Z / a-z
+	bit => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [qw(0 1)], core=>1 },
+	char => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x01..0x7F)], core=>1 }, 			# any 7-bit US-ASCII character, excluding NUL
+	cr => { type => OP_TYPE_NUMVAL, value => [chr(0x0D)], core=>1 }, 								# carriage return
+	crlf => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(CR LF)], core=>1 }, 					# Internet standard newline
+	ctl => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x00..0x1F, 0x7F)], core=>1 }, 		# controls
+	digit => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x30..0x39)], core=>1 }, 			# 0-9
+	dquote => { type => OP_TYPE_NUMVAL, value => [chr(0x22)], core=>1 }, 								# " (Double Quote)
+	hexdig => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [
-			"DIGIT",
+			"digit",
 			{
 				type => OP_TYPE_CHARVAL,
 				mode => OP_MODE_ALTERNATOR,
 				value => [qw(A B C D E F)]
 			}
-		]
+		], core=>1
 	},
-	HTAB => { type => OP_TYPE_NUMVAL, value => [chr(0x09)] }, 								# horizontal tab
-	LF => { type => OP_TYPE_NUMVAL, value => [chr(0x0A)] }, 								# linefeed
-	LWSP => { # linear white space (past newline)
+	htab => { type => OP_TYPE_NUMVAL, value => [chr(0x09)], core=>1 }, 								# horizontal tab
+	lf => { type => OP_TYPE_NUMVAL, value => [chr(0x0A)], core=>1 }, 								# linefeed
+	lwsp => { # linear white space (past newline)
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
 		minreps => 0,
@@ -295,15 +294,15 @@ use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
 			{
 				type => OP_TYPE_OPS,
 				mode => OP_MODE_ALTERNATOR,
-				value => [qw(WSP CRLF)]
+				value => [qw(wsp crlf)]
 			},
-			"WSP"
-		]
+			"wsp"
+		], core=>1
 	},
-	OCTET => { type => OP_TYPE_NUMVAL, value => [map {chr} (0x00..0xFF)] }, 						# 8 bits of data
-	SP => { type => OP_TYPE_NUMVAL, value => [chr(0x20)] }, 								# space
-	VCHAR => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x21..0x7E)] }, 			# visible (printing) characters
-	WSP => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(SP HTAB)] } 					# white space
+	octet => { type => OP_TYPE_NUMVAL, value => [map {chr} (0x00..0xFF)], core=>1 }, 						# 8 bits of data
+	sp => { type => OP_TYPE_NUMVAL, value => [chr(0x20)], core=>1 }, 								# space
+	vchat => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x21..0x7E)], core=>1 }, 			# visible (printing) characters
+	wsp => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(sp htab)], core=>1 } 					# white space
 );
 
 
@@ -316,6 +315,158 @@ sub new($;@) {
 	$self->add(@_) if @_ > 0;
 	return $self;
 }
+
+sub printparse {
+	my @syms = @_;
+	my $sym;
+	my $retval = "";
+
+	$tablevel++;
+	foreach $sym(@syms) {
+		if(ref($sym) eq "GLOB") {
+			my $name = ${*$sym} || "";
+			my @values = @{*$sym};
+
+			$retval .= "\t"x$tablevel. "$name = \n". printparse(@values);
+		} elsif(ref($sym) eq "ARRAY") {
+			$retval .= printparse(@$sym);
+		} else {
+			$retval .= "\t"x$tablevel. "$sym,\n";
+		}
+	}
+	$tablevel--;
+	#warn "Returning $retval\n";
+	return $retval;
+}
+
+sub add_ruleparse($$$;$) {
+	my ($self, $rule, $intoks, $parent) = @_; # Do not use this method while intoksicated! ;)
+	my @intoks = ref($intoks) eq "GLOB" ? @{*$intoks} : @$intoks;
+	my $rulename = "";
+	my $intok;
+	my @saverules;
+
+	$rulename = ${*$intoks} if ref($intoks) eq "GLOB";
+	print tabify("$rulename\n") if $rulename;
+	if($rulename eq "char-val") { #strip surrounding ""
+		shift @intoks;
+		pop @intoks;
+	} elsif($rulename eq "prose-val") {
+		shift @intoks;
+		pop @intoks;
+		croak "ABNF error: prose-vals (rule elements enclosed in <angle brackets>) are not supported: $intoks[0]";
+	}
+
+	foreach $intok(@intoks) {
+		if(ref($intok) eq "GLOB") {
+			#print "Got GLOB.\n";
+			$tablevel++;
+			$self->add_ruleparse($rule, $intok, $rulename);
+			$tablevel--;
+		} elsif(ref($intok) eq "ARRAY") {
+			#print "Got ARRAY.\n";
+			$self->add_ruleparse($rule, $intok, $rulename);
+		} else {
+			if($rulename eq "rulename" or $rulename eq "group" or $rulename eq "option" or $rulename =~ /(char|bin|dec|hex)-val/) {
+				my $type;
+				if($rulename eq "char-val") {
+					$type = OP_TYPE_CHARVAL;
+				} elsif($rulename =~ /val$/) {
+					$type = OP_TYPE_NUMVAL;
+				} else {
+					$type = OP_TYPE_OPS;
+				}
+				if(exists($rule->{value}) and $rule->{type} != $type) { 
+					my $newval = {
+						mode => $rule->{mode},
+						type => $rule->{type},
+						value => $rule->{value}
+					};
+					$newval->{minreps} = $rule->{minreps} if exists $rule->{minreps};
+					$newval->{maxreps} = $rule->{maxreps} if exists $rule->{maxreps};
+					$rule->{value} = [$newval];
+					delete $rule->{mode};
+				}
+				$rule->{type} = $type;
+				if($self->{nextalt}) {
+					if(scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) { #Something like foo bar / baz
+						my $newval = {
+							mode => OP_MODE_ALTERNATOR,
+							type => $rule->{type},
+							value => [pop @{$rule->{value}}, $intok]
+						};
+						push @{$rule->{value}}, $newval;
+					} else {
+						$rule->{mode} = OP_MODE_ALTERNATOR;
+						push @{$rule->{value}}, $intok;
+					}
+					delete $self->{nextalt};
+				}
+				$rule->{mode} ||= OP_MODE_AGGREGATOR;
+				if($self->{nextrep}) {
+					$self->{nextrep} =~ /(\d*)\*?(\d*)/;
+					$rule->{minreps} = $1 || 0;
+					$rule->{maxreps} = $2 || -1;
+					delete $self->{nextrep};
+				} elsif($rulename eq "option") {
+					if($intok eq "[") {
+						$rule->{minreps} = 0;
+						$rule->{maxreps} = 1;
+						push @saverules, $rule;
+						$rule = {};
+						push @{$saverules[-1]->{value}}, $rule;
+					} else {
+						$rule = pop @saverules;
+					}
+				} elsif($rulename eq "group") {
+					if($intok eq ")") {
+						push @saverules, $rule;
+						$rule = {};
+						push @{$saverules[-1]->{value}}, $rule;
+					} else {
+						$rule = pop @saverules;
+					}
+				}
+
+				if($type == OP_TYPE_NUMVAL) {
+					$intok =~ /^[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)$/;
+					my $left = $1;
+					my $conjunction = $2;
+					my $right = $3;
+
+					if($rulename eq "hex-val") {
+						$left = hex $left;
+						$right = hex $right if $right;
+					} elsif($rulename eq "bin-val") {
+						$left = oct "0b$left";
+						$right = oct "0b$right" if $right;
+					}
+
+					if($conjunction eq "-") {
+						push @{$rule->{value}}, map {chr} ($left..$right);
+					} elsif($conjunction eq ".") {
+						push @{$rule->{value}}, chr($left), chr($right);
+					} else {
+						push @{$rule->{value}}, chr($left);
+					}
+				} elsif($rulename eq "char-val" or $rulename eq "rulename") {
+					push @{$rule->{value}}, $intok;
+				}
+			} elsif($rulename eq "repeat") {
+				$self->{nextrep} = $intok;
+			} elsif($rulename eq "num-val") {
+				#ignore the %
+			} elsif($intok =~ m!^\s*/\s*$! and $parent eq "alternation") {
+				$self->{nextalt} = 1; # Next thingy should be alternated w/ previous thingy
+			} else {
+				print tabify(Data::Dumper->Dump([$intok], [$rulename])) if $intok =~ /\S/;
+			}
+
+			#option, group
+		}
+	}
+}
+
 
 sub add($@) {
 	my ($self, @rules) = @_;
@@ -331,29 +482,69 @@ sub add($@) {
 	$rule .= "\n"; # but we need a terminal newline
 
 	#print "$rule\n======\n";
-	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
+	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements element repeat group option alternation char-val num-val bin-val dec-val hex-val prose-val));
 	#print Data::Dumper::Dumper($parse), "\n======\n";
 	my $inrule;
+
+#	rulename => {
+#		type => OP_TYPE_OPS,
+#		mode => OP_MODE_AGGREGATOR,
+#		value => ["ALPHA", 
+#			{
+#				type => OP_TYPE_OPS,
+#				mode => OP_MODE_ALTERNATOR,
+#				minreps => 0,
+#				maxreps => -1,
+#				value => ["ALPHA", "DIGIT", {type => OP_TYPE_NUMVAL, value => ["-"]}]
+#			}
+#		]
+#	},
+
+	$tablevel = 0;
+	#print printparse(@$parse), "\n";
 	foreach $inrule(@$parse) {
-		my %inrule;
-		my $tmp;
-		my @elements;
-		$inrule = $inrule->{rule};
-		foreach $tmp(@$inrule) {
-			next unless ref($tmp) eq "HASH";
-			$inrule{(keys %$tmp)[0]} = (values %$tmp)[0];
+		my $rulename = ${*$inrule}[0]; #rulename is now the glob for rulename
+		$rulename = ${*$rulename}[0]; #This gets the actul rule name.
+		$self->{$rulename} ||= {};
+		my $rule = $self->{$rulename};
+
+		my $defined = ${*$inrule}[1];
+		$defined = join("", @{*$defined});
+		$defined =~ tr/ //d; #Either = or =/
+
+		if($defined eq "=/") {
+			if (exists $rule->{value} and ($rule->{mode} != OP_MODE_ALTERNATOR or $rule->{type} != OP_TYPE_OPS)) {
+				my $newval = {
+					mode => $rule->{mode},
+					type => $rule->{type},
+					value => $rule->{value}
+				};
+				$newval->{minreps} = $rule->{minreps} if exists $rule->{minreps};
+				$newval->{maxreps} = $rule->{maxreps} if exists $rule->{maxreps};
+				$rule->{value} = [$newval];
+			}
+			$rule->{mode} = OP_MODE_ALTERNATOR;
+			$rule->{type} = OP_TYPE_OPS;
+			push @{$rule->{value}}, {};
+			$rule = $rule->{value}->[-1];
 		}
 
-		#print "Got $inrule{rulename}\n";
-		#foreach $tmp(@{$inrule{elements}}) {
-		#	next unless ref($tmp) eq "HASH";
-		#	push @elements, $tmp->{rulename};
-		#}
-		#$inrule{elements} = [@elements];
-
-		#print Data::Dumper::Dumper \%inrule;
-		$self->{$inrule{rulename}} = $inrule{elements};
+		my $elements = ${*$inrule}[2];
+		$tablevel = 0;
+		print "alternation\n";
+		$self->add_ruleparse($rule, $elements, "alternation");
+		print "\n";
+		
+		#print "$rulename $defined\n";
+		#$tablevel = 0;
+		#print Data::Dumper->Dump([\@elements], ["*$rulename"]), "\n";
+		#print printparse(@elements), "\n";
 	}
+	print "================\n";
+	foreach $inrule(keys %$self) {
+		delete $self->{$inrule} if $self->{$inrule}->{core};
+	}
+	print Data::Dumper::Dumper($self), "\n";
 }
 
 sub delete($@) {
@@ -383,6 +574,18 @@ sub rules($;$) {
 
 }
 
+sub op_is_fork($$) { #Is there more than one way to match this op?
+	my($self, $op) = @_;
+
+	$op = $self->{$op} unless ref($op);
+	my $minreps = $op->{minreps} || 1;
+	my $maxreps = $op->{maxreps} || 1;
+
+	return 1 if $minreps != $maxreps;
+	return 1 if $op->{mode} and $op->{mode} == OP_MODE_ALTERNATOR and scalar(@{$op->{value}}) > 1;
+	return 0;
+}
+
 # Woah, what's going on here?
 # What's with the matches being this thin wrapper for this _matches thing?
 # Well, _matches is recursive, right?  The child-matches needs to be able to
@@ -403,6 +606,10 @@ sub matches($$$;@) {
 	$data = $tmpdata;
 	$tablevel = -1;
 
+	if($matchrules[0] eq "*") {
+		@matchrules = grep { not exists $self->{$_}->{core} } keys %$self;
+	}
+
 	if(@matchrules) { # $rule needs to be in @matchrules, so we use this hack to compensate
 		my $tmprule;
 		foreach $tmprule(@matchrules) {
@@ -413,13 +620,12 @@ sub matches($$$;@) {
 		}
 	}
 	push @matchrules, $rule;
-	$ret = $self->_matches($rule, $rule, @matchrules);
-	if(@matchrules and $nomatchself) {
-		$ret = $ret->{$rule};
-		$ret = [ grep { ref($_) eq "HASH" } @$ret ];
-	} else {
-		return $ret;
+	undef $ret;
+	$ret = $self->_matches($rule, $rule, undef, undef, 0, @matchrules);
+	if($ret and @matchrules and $nomatchself) {
+		$ret = [@{*$ret}];
 	}
+	return $ret;
 }
 
 sub tabify($) {
@@ -434,11 +640,28 @@ sub tabify($) {
 sub obj($) {
 	my $obj = shift;
 
-	return ref($obj) ? ("\n".tabify(Data::Dumper::Dumper($obj))) : $obj;
+	if(ref($obj)) {
+		if(ref($obj) eq "GLOB") {
+			return "\n".tabify(Data::Dumper->Dump([\@{*$obj}], ["*".${*$obj}]));
+		} else {
+			return "\n".tabify(Data::Dumper::Dumper($obj));
+		}
+	} else {
+		return $obj;
+	}
 }
 
-sub _matches($$$;@) {
-	my($self, $rule, $tokname, @matchrules) = @_;
+sub multival($$) {
+	my($self, $tok) = @_;
+	$tok = $self->{$tok} unless ref($tok);
+
+	return 0 unless $tok;
+	return 1 if scalar(@{$tok->{value}}) > 1;
+	return 0;
+}
+
+sub _matches($$$;$$$@) {
+	my($self, $rule, $tokname, $inplay, $outplay, $doplay, @matchrules) = @_;
 	no strict qw(vars); # We need this because $data comes from matches which the compiler doesn't know yet.
 	
 	my $foodata = $data;
@@ -450,7 +673,7 @@ sub _matches($$$;@) {
 
 	}
 	$tablevel++;
-	#warn "\t"x$tablevel . "_matches called with rule=$rule, data='$foodata'\n";
+	#warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -461,12 +684,12 @@ sub _matches($$$;@) {
 	$tokname = "" unless exists $matchrules{$tokname};
 
 	unless(ref($rule)) { # $rule may be a hashref to an op
-		$rule = $self->{$rule} or croak "Unknown ABNF rule: $rule";
+		$rule = $self->{lc($rule)} or croak "Unknown ABNF rule: $rule";
 	}
 
-	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata);
+	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata, $repplay, $playback, @my_playback, @opmatches);
 	if($rule->{type} == OP_TYPE_OPS and $tokname eq $litrule) {
-		$retval = {};
+		$retval = gensym;
 	} elsif($rule->{type} == OP_TYPE_OPS) {
 		$retval = [];
 	} else {
@@ -502,10 +725,20 @@ sub _matches($$$;@) {
 	@matchvalues = @{$rule->{value}};
 	$mode = exists($rule->{mode}) ? $rule->{mode} : OP_MODE_ALTERNATOR; #singleton is effectively the same as either one
 
+	@my_playback = ();
+	@opmatches = ();
 	REP: for($rep = 0; $rep < $minreps or ($maxreps == -1 or $rep < $maxreps); $rep++) {
-		$didmatch = 1;
+		$repplay = shift @$inplay if $inplay and not $doplay;
+		undef $didmatch;
 		$prevdata = $data;
+		my $currval = 0;
 		MATCHVALUE: foreach $matchvalue(@matchvalues) {
+			#This is where playback gets done.
+			#Skip to the next matchvalue until the currep is the same one as last time.
+			#BUT!  If this is the last branchpoint that matched, this is the time to try something different.
+			#
+			next MATCHVALUE if defined($repplay) and $currval <= $repplay;
+
 			if($rule->{type} != OP_TYPE_OPS) {
 				if($rule->{type} == OP_TYPE_NUMVAL) {
 					$didmatch = substr($data, 0, length($matchvalue)) eq $matchvalue;
@@ -518,7 +751,6 @@ sub _matches($$$;@) {
 					$retval .= $matchvalue;
 					$data = substr($data, length($matchvalue)); # Exorcise the bit that we matched from the start of $data
 				} else {
-					
 					undef $didmatch;
 				}
 
@@ -534,21 +766,53 @@ sub _matches($$$;@) {
 						$nexttok = $tokname;
 					}
 				}
+				$playback = shift @$inplay if $doplay and $self->op_is_fork($matchvalue) and @$inplay;
 
-				$didmatch = $self->_matches($matchvalue, $nexttok, @matchrules);
-				#$tablevel--;
-				if($didmatch and exists($matchrules{$tokname})) {
+				my $next_inplay = undef;
+				my $next_outplay = undef;
+				my $next_doplay = 0;
+
+				if(scalar(@matchvalues) == 1) {
+					$next_outplay = $outplay;
+				} else {
+					$next_outplay = \@my_playback;
+				}
+
+				if(not $self->multival($matchvalue)) {
+					$next_inplay = $inplay;
+					$next_doplay = $doplay;
+				} else {
+					$next_inplay = $playback if $playback and $doplay and $self->op_is_fork($matchvalue) and not @$inplay;
+				}
+
+				$didmatch = $self->_matches($matchvalue, $nexttok, $next_inplay, $next_outplay, $next_doplay, @matchrules);
+				if(defined($didmatch) and exists($matchrules{$tokname})) {
 					if($litrule eq $tokname) {
-						push @{$retval->{$tokname}}, (ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
+						${*$retval} = $tokname;
+						if(ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @{*$retval}) {
+							${*$retval}[0] = "" unless defined ${*$retval}[0]; #Make sure the array exists before writing to [-1]
+							${*$retval}[-1] .= join("", @$didmatch);
+						} else {
+							push @{*$retval}, $didmatch; #(ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
+						}
 					} else {
-						push @$retval, (ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
+						if(ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @$retval) {
+							$retval->[0] = "" unless defined $retval->[0]; #Make sure the array exists before writing to [-1]
+							$retval->[-1] .= join("", @$didmatch);
+						} else {
+							push @$retval, $didmatch; #(ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
+						}
 					}
+				} elsif(defined($didmatch)) {
+					$retval = $didmatch;
 				}
 			}
 
 			# We have a couple of terminal conditions for matching this op...
 			last MATCHVALUE if $mode == OP_MODE_ALTERNATOR and defined $didmatch;
 			last REP if $mode == OP_MODE_AGGREGATOR and not defined $didmatch;
+		} continue {
+			$currval++;
 		}
 
 		if(not defined $didmatch) {
@@ -559,6 +823,8 @@ sub _matches($$$;@) {
 				undef $didmatch;
 				last REP;
 			}
+		} else {
+			push @opmatches, $currval;
 		}
 	}
 
@@ -573,12 +839,19 @@ sub _matches($$$;@) {
 
 	if(not defined $didmatch) {
 		$data = $prevdata;
-		return undef;
+		if(@my_playback and grep { scalar @$_ } @my_playback ) {
+			#warn "\t"x($tablevel+1) . "_matches($litrule) doing playback\n";
+			return $self->_matches($litrule || $rule, $tokname, \@my_playback, $outplay, 1, @matchrules);
+		} else {
+			return undef;
+		}
 	}
 
-	if($litrule eq $tokname) {
-		$retval->{$tokname} = join("", @{$retval->{$tokname}}) if ref($retval->{$tokname}) eq "ARRAY" and not grep { ref($_) } @{$retval->{$tokname}};
-	}
+	#if($litrule eq $tokname) {
+	#	$retval->{$tokname} = join("", @{$retval->{$tokname}}) if ref($retval->{$tokname}) eq "ARRAY" and not grep { ref($_) } @{$retval->{$tokname}};
+	#}
+
+	push @$outplay, \@opmatches if $self->op_is_fork($rule);
 	return @matchrules ? $retval : 1;
 }
 

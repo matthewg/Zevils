@@ -9,5 +9,11 @@ require "ABNF.pm";
 
 #print Data::Dumper::Dumper($ret), "\n";
 
-$newobj = Parse::ABNF->new("foo = bar baz\nthe = quick *(brown fox) / jumped\n");
-print Data::Dumper::Dumper($newobj), "\n";
+$rules = <<EOF;
+foo = bar baz
+baz = ["the"] quick 1*2(brown fox) / jumped "over" %x3C.3E %d48-50 %b100000
+bar = "alt1"
+bar =/ "alt2"
+EOF
+$newobj = Parse::ABNF->new($rules);
+#print Data::Dumper::Dumper($newobj), "\n";
