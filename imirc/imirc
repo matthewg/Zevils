@@ -671,7 +671,7 @@ sub process_irc_message($) {
 		if(not $chats{$chat} or !$screenname or not grep { normalize($_) eq normalize($chats{$chat}->{screenname}) } @screennames) {
 			bounce_join($nick, chatchan($chat));
 		} else {
-			delete $chantimer{chatchan($chan)};
+			delete $chantimer{chatchan($chat)};
 			$oscar = $aim_connections->{$nick}->{screennames}->{$chats{$chat}->{screenname}}->{oscar};
 			$chats{chat}->{joined} = 1;
 			if($chats{$chat}->{invited}) {
