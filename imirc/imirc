@@ -1896,6 +1896,7 @@ sub reap() {
 	if($keepalive) {
 		foreach $connection(keys %aim_connections) {
 			foreach $screenname(keys %{$aim_connections{$connection}{screennames}}) {
+				next unless $screenname;
 				if($aim_connections{$connection}{screennames}{$screenname}{socket}) {
 					if(sflap_keepalive($aim_connections{$connection}{screennames}{$screenname}{socket}) == -1) {
 						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection for screenname $screenname: $err"));
