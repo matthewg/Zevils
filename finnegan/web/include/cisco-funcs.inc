@@ -1,6 +1,8 @@
 <?
 
 header("Content-type: text/xml");
+header("Expires: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
+
 ob_start();
 db_start();
 
