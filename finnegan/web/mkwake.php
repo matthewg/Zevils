@@ -120,11 +120,15 @@ if(isset($_POST["submit"])) {
 		$sql_time = time_to_sql($time, $ampm);
 		$baddays = array();
 		if($date) {
+			echo "date<br>\n";
+			exit;
 			if(!is_time_free($id, $sql_time, "", "", date_to_sql($date, $sql_time))) {
 				$error = 1;
 				echo $TEMPLATE["mkwake"]["time_unavailable_onetime"];
 			}
 		} else {
+			echo "no date<br>\n";
+			exit;
 			$weekday_names = array("", "sun", "mon", "tue", "wed", "thu", "fri", "sat");
 			for($i = 1; $i < sizeof($weekday_names); $i++) {
 				if($weekdays[$weekday_names[$i]]) {

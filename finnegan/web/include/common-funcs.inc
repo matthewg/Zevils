@@ -176,6 +176,7 @@ function date_to_sql($user_date, $sql_time) {
 	$user_time = mktime($time_matches[1], $time_matches[2], 0, $matches[1], $matches[2], $year);
 	if($cur_time > $user_time) $year++;
 	
+	echo "Returning $year-$matches[1]-$matches[2]<br>\n";
 	return sprintf("%04d-%02d-%02d", $year, $matches[1], $matches[2]);
 }
 
