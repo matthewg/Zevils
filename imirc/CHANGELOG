@@ -1,0 +1,8 @@
+Dec 31 1999, 0.80:
+	Tremendous amounts of improvements in this release.
+	Stability, bugfixes, things actually working right...
+	Toc.pm is now much nicer, and aimirc is thus cleaner.
+	debug_print/#aimirc-debug
+	The logo
+	Undernet server support, easier to add servers, etc.
+	Lots more - see the CVS tree for details.
