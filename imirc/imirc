@@ -38,7 +38,7 @@ sub irc_newnick($);
 sub noprefix($);
 sub haskeys($);
 sub irc_subparms($;$$);
-sub irc_privmsg($$$;$);
+sub irc_privmsg($$$;$$);
 sub process_irc_message($);
 sub process_aim_message($$$);
 sub html2txt($;$);
@@ -66,6 +66,7 @@ sub safename($);
 sub checkpoint();
 sub num2base64($);
 sub base642num($);
+sub got_im($$$$);
 
 $| = 1;
 
@@ -156,6 +157,7 @@ $savepounces = 2;
 $checkpoint = 60;
 $directory = "$home/.aimirc.dat";
 $shortcircuit = 1;
+$numeric = num2base64(42);
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
 loadconf();
@@ -296,8 +298,8 @@ sub loadconf() {
 	if(defined $output) {
 		close STDOUT;
 		close STDERR;
-		open(STDOUT, ">$output") or die "Couldn't open STDOUT: $!\n";
-		open(STDERR, ">&STDOUT") or die "Couldn't open STDERR: $!\n";
+		open(STDOUT, ">>$output") or die "Couldn't open STDOUT: $!\n";
+		open(STDERR, ">>&STDOUT") or die "Couldn't open STDERR: $!\n";
 	}
 
 	#Okay, try loading the config files
@@ -358,6 +360,7 @@ sub loadconf() {
 		"checkpoint=i" => \$checkpoint,
 		"directory=s" => \$directory,
 		"shortcircuit:i" => \$shortcircuit,
+		"numeric=s" => \$numeric,
 	);
 
 	if(!$errors) {
@@ -552,6 +555,7 @@ sub mainloop() {
 					if($dcc->{put} == -1) {
 						undef $rv;
 						vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
+						#Anyone trying to connect to us?
 						if(!select($rin, $win, $ein, 0.01)) {
 							if(time - $dcc->{starttime} > 60*10) {
 								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out."));
@@ -650,6 +654,9 @@ sub mainloop() {
 							update_config($sndata->{socket}, $buddylists{safename $screenname});
 						} elsif($dcc) {
 							irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+							update_config($sndata->{socket}, "m 4\n");
+						} else {
+							update_config($sndata->{socket}, "m 4\n");
 						}
 					}
 				}
@@ -752,8 +759,8 @@ sub irc_subparms($;$$) {
 }
 
 # Format an IRC private message - you must still irc_send it!
-sub irc_privmsg($$$;$) {
-	my($from, $to, $msg, $prefix, $line, $ret, $text, $temp) = @_;
+sub irc_privmsg($$$;$$) {
+	my($from, $to, $msg, $prefix, $notice, $line, $ret, $text, $temp) = @_;
 	$prefix ||= "";
 
 	return unless $from and $to and $msg;
@@ -767,7 +774,7 @@ sub irc_privmsg($$$;$) {
 		$text = "$prefix$line";
 		while($text) {
 			$temp = substr($text, 0, 498 - length($from) - length($to), "");
-			$ret .= ":$from PRIVMSG $to :$temp\r\n";
+			$ret .= ":$from " . ($notice ? "NOTICE" : "PRIVMSG") . " $to :$temp\r\n";
 		}
 	}
 	return $ret or $msg;
@@ -899,7 +906,7 @@ sub process_irc_message($) {
 		irc_send(":$usnick MODE #aimchat-$chat $modestring\r\n") if $modestring;
 	} elsif(/^TOPIC +#aimchat-(\d+)/i) {
 		irc_send("505 $nick :Cannot change topic in AIM chat channels.\r\n");
-		irc_send("TOPIC #aimchat-$chat :$chattopics{$chat}\r\n");
+		irc_send("TOPIC #aimchat-$1 :$chattopics{$1}\r\n");
 	} elsif(/^KICK +#aimchat-(\d+) +(\S+)/i) {
 		irc_send("503 $nick :Cannot kick users from AIM chat channels.\r\n");
 		send_join($2, "#aimchat-$1");
@@ -1022,9 +1029,9 @@ sub process_irc_message($) {
 					local $^W = 0;
 					$msg = "Buddy Info for $buddyconf->{unnormalized}\r\n";
 					$msg .= "Group: \t\t$buddyconf->{group}\r\n";
-					$msg .= "Signon Time: \t\t" . localtime($buddyconf->{signon}) . "\r\n";
+					$msg .= "Signon Time: \t" . localtime($buddyconf->{signon}) . "\r\n";
 					$msg .= "Idle Time: \t\t$buddyconf->{idle} minutes\r\n";
-					$msg .= "User Class: \t\t" . parseclass($buddyconf->{class}) . "\r\n";
+					$msg .= "User Class: \t" . parseclass($buddyconf->{class}) . "\r\n";
 					$msg .= "Warning Level: \t$buddyconf->{evil}%\r\n";
 					irc_send(irc_privmsg($usnick, $nick, $msg));
 				} else {
@@ -1340,7 +1347,7 @@ Buddy {
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
 				irc_send("$foo :signon screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
-				irc_send("$foo :signoff - Sign off of AIM\.r\n", 1);
+				irc_send("$foo :signoff - Sign off of AIM.\r\n", 1);
 				irc_send("$foo :add screenname - Create an IRC nickname for screenname.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
 				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
 				irc_send("$foo :set_permit_mode newmode - Set your permit mode.\r\n", 1);
@@ -1354,7 +1361,7 @@ Buddy {
 				irc_send("$foo :buddyinfo screenname - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
 				irc_send("$foo :add_buddy screenname[,screenname2,...,screennameN] [group] - Add screenname (possibly multiple screennames) to your buddy list.  If you give a group, the screenname will be added to that buddy group.\r\n", 1);
 				irc_send("$foo :remove_buddy screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from your buddy list.\r\n", 1);
-				irc_send("$foo :evil screenname [anon] (or warn screenname [anon]) - Warn screenname, optionally anonymously.\r\n", 1);
+				irc_send("$foo :warn screenname [anon] - Warn screenname, optionally anonymously.\r\n", 1);
 				irc_send("$foo :remove_permit screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from permit list.\r\n", 1);
 				irc_send("$foo :remove_deny screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from deny list.\r\n", 1);
 				irc_send("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n", 1);
@@ -1521,11 +1528,11 @@ Buddy {
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
 				if($irc_connections{normalize $target} and $shortcircuit) {
-					irc_send(irc_privmsg("$prefix$aim_connections{$nnick}{aimnick}", $irc_connections{normalize $target}, html2txt(txt2html($msg))));
+					got_im($aim_connections{$nnick}{aimnick}, $target, txt2html($msg), 0);
 				} else {
 					message($aim_connections{$nnick}{socket}, $target, $msg);
-					$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
 				}
+				$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
 			}
@@ -1537,6 +1544,7 @@ Buddy {
 				$aim_connections{$nnick}{away} = $1;
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket}, $1);
+					irc_send(":$prefix$screenname AWAY :$1\r\n");
 				}
 			}
 		} else {
@@ -1546,6 +1554,7 @@ Buddy {
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					delete $aim_connections{$nnick}{screennames}{$screenname}{away_buddies};
 					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket});
+					irc_send(":$prefix$screenname AWAY\r\n");
 				}
 			}
 		}
@@ -1640,6 +1649,8 @@ sub process_aim_message($$$) {
 			} elsif($dcc) {
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
 				update_config($socket, "m 4\n");
+			} else {
+				update_config($socket, "m 4\n");
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Got your buddylist."));
@@ -1666,46 +1677,10 @@ sub process_aim_message($$$) {
 			}
 		}
 	} elsif($cmd eq "IM_IN") {
-		my($nick, @lines, $line);
 		$val =~ /([^:]+):(.):(.*)/;
-		my $autoflag = $2;
-		my $message = $3;
-		$inick = $1; $inick =~ tr/ //d;
-		$nnick = lc($inick);
-
-		unless($nicks{noprefix $nnick}) {
-			irc_send(irc_newnick($prefix . $inick));
-		}
-		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
-
-		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
-		@lines = html2txt($message, $nick);
-
-		foreach $line(@lines) {
-			$line = "$multinick$line";
-		}
-
-		irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, $ar . $lines[0]));
-		shift @lines;
-		foreach $line(@lines) {
-			irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, "[continued]\t\t$line"));
-		}
-
-		if(($ar eq "") and $connection->{away} and (time - $sndata->{away_buddies}{$nnick} > $time)) {
-			my $tmp;
-			my %config = deref(get_config($screenname));
-			my $class = $config{Buddies}{$nnick}{class};
-			if(substr($class, 0, 1) eq "A") {
-				$tmp = "[automated reply] " . $connection->{away};
-			} else {
-				$tmp = $connection->{away};
-			}
-			message($socket, $nnick, $tmp, 1);
-			$sndata->{away_buddies}{$nnick} = time;
-		}
-		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
+		got_im($1, $screenname, $3, $2);
 	} elsif($cmd eq "UPDATE_BUDDY") {
-		my($xinick, $ircnick, $i, %temp, $class, $ison, $evil, $signontime, $idletime);
+		my($xinick, $ircnick, $i, %config, $class, $ison, $evil, $signontime, $idletime);
 
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
 		$inick = $xinick = $1; 
@@ -1720,10 +1695,10 @@ sub process_aim_message($$$) {
 		Toc::debug_print("$connection->{nick} UPDATE_BUDDY: $val", "buddies", 1);
 
 		if($ison eq "T") {
-			%temp = deref(get_config($screenname));
+			%config = deref(get_config($screenname));
 
 			irc_send(irc_newnick($prefix . $inick)) unless haskeys($nicks{noprefix $nnick});
-			unless($temp{Buddies}{$nnick}{online}) {
+			unless($config{Buddies}{$nnick}{online}) {
 				manglewarn($connection->{nick}, $inick);
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
 				$i = 0;
@@ -1732,7 +1707,7 @@ sub process_aim_message($$$) {
 					$pounce = $pouncehash{$pouncenum};
 					next unless normalize $pounce->{who} eq $nnick;
 					Toc::debug_print("Yep.", "IRC", 1);
-					my $class = $temp{Buddies}{$nnick}{class};
+					my $class = $config{Buddies}{$nnick}{class};
 					my $tmp;
 					if(substr($class, 0, 1) eq "A") {
 						$tmp = "[automated pounce] " . $pounce->{what};
@@ -1750,13 +1725,13 @@ sub process_aim_message($$$) {
 					@{$pounces{$screenname}} = ();
 					map { push @{$pounces{$screenname}}, $_ } values %pouncehash;
 				}
-			} elsif($irc_connections{$screenname} ne normalize $connection->{nick}) { #If it's us, we already know it.
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick${xinick}'s warning level has changed to $evil%.")) unless $evil == $temp{Buddies}{$nnick}{evil};
+			} elsif($irc_connections{$screenname} ne normalize $connection->{nick} or $config{Buddies}{$nnick}{evil} >= $evil + 5) { #If it's us, we already know it.  Unless it's decreasing (does AIM tell us every time our warning level goes down 1%?  Only tell the user every 5 just in case.)
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick${xinick}'s warning level has changed to $evil%.")) unless $evil == $config{Buddies}{$nnick}{evil};
 			}
 			{
 				local $^W = 0;
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($class, 2, 1) eq "U";
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick is no longer away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($class, 2, 1) ne "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has gone away")) if substr($config{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($class, 2, 1) eq "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick is no longer away")) if substr($config{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($class, 2, 1) ne "U";
 			}
 			update_buddy($screenname, $xinick, $class, $evil, $signontime, $idletime, 1);
 			$nicks{noprefix $nnick}{$connection->{nick}} = -1;
@@ -2380,7 +2355,13 @@ sub process_ctcp($$$) {
 		$cmd = $1; $args = $2;
 
 		Toc::debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
-		irc_send(irc_ctcp($to, $from, $ctcp, 1)) if $cmd eq "PING";
+		if($cmd eq "PING") {
+			if($irc_connections{noprefix($to)} eq $from) {
+				message($aim_connections{$from}{socket}, noprefix $to, "<!-- NOTICE --><!-- CTCP -->$ctcp");
+			} else {
+				irc_send(irc_ctcp($to, $from, $ctcp, 1)) if $cmd eq "PING";
+			}
+		}
 		$message .= "\02ACTION\02 $args" if $cmd eq "ACTION"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
 		if($cmd eq "DCC") {
 			($cmd, $args) = split(/ /, $args, 2);
@@ -2649,4 +2630,46 @@ sub base642num($) {
 		$ret += $table{$currdig}*64**$num++;
 	}
 	return $ret;
+}
+
+sub got_im($$$$) {
+		my($from, $to, $message, $autoflag, $nick, $multinick, $notice, $screenname, $connection, $ar, $sndata, $config, $socket, $inick, $nnick) = @_;
+
+		$inick = $from; $inick =~ tr/ //d;
+		$nnick = lc($inick);
+
+		$screenname = $to;
+		$config = deref get_config($to);
+		$connection = $aim_connections{$irc_connections{$to}};
+		$sndata = $connection->{screennames}{$to};
+		$socket = $sndata->{socket};
+
+		$multinick = "";
+		$multinick = "{$to} " if $to ne $connection->{aimnick};
+
+		($message =~ /<!-- NOTICE -->/) ? ($notice = 1) : ($notice = 0);
+		$message = chr(01) . $message . chr(01) if $message =~ /<!-- CTCP -->/;
+		unless($nicks{noprefix $nnick}) {
+			irc_send(irc_newnick($prefix . $inick));
+		}
+		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
+
+		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
+		$message = join("\n", html2txt($message, $nick));
+
+		irc_send(irc_privmsg("$prefix$inick", $connection->{nick}, $message, "$multinick$ar", $notice));
+
+		if(($ar eq "") and $connection->{away} and (time - $sndata->{away_buddies}{$nnick} > $time)) {
+			my $tmp;
+			my %config = deref(get_config($screenname));
+			my $class = $config{Buddies}{$nnick}{class} if exists $config{Buddies}{$nnick};
+			if(substr($class, 0, 1) eq "A") {
+				$tmp = "[automated reply] " . $connection->{away};
+			} else {
+				$tmp = $connection->{away};
+			}
+			message($socket, $nnick, $tmp, 1);
+			$sndata->{away_buddies}{$nnick} = time;
+		}
+		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
 }

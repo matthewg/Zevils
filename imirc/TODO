@@ -1,5 +1,7 @@
-Maybe select is no longer needed because we've removed Timeout for DCC?
-buddy list printf?
+DCC connect timeout
+
+ buddy list printf?
+buddy notes/subgroups
 
 Preference for sending NOTICE
 
