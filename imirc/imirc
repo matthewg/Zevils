@@ -2702,7 +2702,7 @@ sub loadbuddies($$$) {
 		}
 	}
 
-	$oscar->set_profile(decode_base64($profile)) if $profile;
+	$oscar->set_info(decode_base64($profile)) if $profile;
 
 	$oscar->set_visibility($pmode);
 	foreach my $group(keys %buddies) {
