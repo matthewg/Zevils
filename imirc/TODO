@@ -1,7 +1,3 @@
-Someone-else-signed-on-with-your-SN disconnect notification
-Check potential irc_newnick bug
-Make it find Toc.pm regardless of CWD
-
 file transfer -> DCC
 Handle colors as well as bold, etc.?
 Allow passwords to be sent via DCC.
