@@ -260,11 +260,11 @@ sub process_irc_message {
 				}
 				foreach $buddy(keys %{$temp{permit}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_permit($aim_connections{$nick}{socket}, $buddy);
+					add_permit($aim_connections{$nick}{socket}, $buddy, 1);
 				}
 				foreach $buddy(keys %{$temp{deny}}) {
 					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_deny($aim_connections{$nick}{socket}, $buddy);
+					add_deny($aim_connections{$nick}{socket}, $buddy, 1);
 				}
 				$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
 				$aimselect->add($aim_connections{$nick}{socket});
