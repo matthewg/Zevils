@@ -71,7 +71,7 @@ if(isset($_POST["submit"])) {
 	}
 	if(isset($_POST["message"])) $message = $_POST["message"];
 
-	if(!isset($_POST["max_snooze_count"]) || !preg_match('/^\d*$/', $_POST["max_snooze_count"])) {
+	if(!isset($_POST["max_snooze_count"]) || !preg_match('/^\d+$/', $_POST["max_snooze_count"])) {
 		$error = 1;
 		echo $TEMPLATE["mkwake"]["max_snooze_count_invalid"];
 	} else {
