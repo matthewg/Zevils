@@ -2394,10 +2394,11 @@ sub oscar_buddylist_ok($) {
 	my($oscar) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
-	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 	if(--$oscar->{__IMIRC_blmod}) {
 		$oscar->{__IMIRC_blmod} = 1;
 		$oscar->commit_buddylist;
+	} else {
+		irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 	}
 }
 
@@ -3533,6 +3534,7 @@ sub process_dcc($$$$$) {
 					}
 				} elsif($dcc->{desc} eq "icon") {
 					$sndata->{oscar}->set_icon($dcc->{what});
+					$sndata->{oscar}->commit_buddylist;
 				} else {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "Unknown DCC type '$dcc->{desc}'.", "", "", $screenname));
 				}
