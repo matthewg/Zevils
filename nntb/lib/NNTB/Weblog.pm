@@ -64,7 +64,7 @@ The first system is a globally-unique message ID.  Message IDs are enclosed in
 angle brackets and typically have an at sign in them.  Here's an example of a
 message ID:
 
-	E<lt>1234@5678.site.weblogE<gt>
+	<1234@5678.site.weblog>
 
 In the example above, 1234 might be the comment ID and 5678 might be the story
 ID.
@@ -101,7 +101,7 @@ provides a useful default constructor that will give you an appropriately-blesse
 hashref; it is recommended that you inherit this constructor, e.g.:
 
 	my $type = shift;
-	my $self = $type-E<gt>SUPER::new;
+	my $self = $type->SUPER::new;
 
 The object returned by C<SUPER::new> may also have some parameters set.  These
 parameters are:
@@ -196,7 +196,7 @@ sub groupname($$) {
 
 Call this method and return to indicate failure.  C<REASON> should be an NNTP result code.  Example:
 
-	$self-E<gt>{auth_ok} or return $self-E<gt>fail("480 Authorization Required");
+	$self->{auth_ok} or return $self->fail("480 Authorization Required");
 
 See RFC 977 for details on NNTP result codes.  You B<MUST NOT> override this method.
 
