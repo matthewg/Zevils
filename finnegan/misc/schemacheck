@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+use strict;
+use XML::Xerces;
+use vars qw();
+
+my $file = $ARGV[0];
+-f $file or die "File '$file' does not exist!\n";
+
+my $namespace = 1;
+my $schema = 1;
+my $validate = $XML::Xerces::AbstractDOMParser::Val_Always;
+
+#
+# Parse and print
+#
+
+my $parser = XML::Xerces::XercesDOMParser->new();
+$parser->setValidationScheme ($validate);
+$parser->setDoNamespaces ($namespace);
+$parser->setCreateEntityReferenceNodes(1);
+$parser->setDoSchema ($schema);
+$parser->setExternalNoNamespaceSchemaLocation("ipphone.xsd");
+
+my $ERROR_HANDLER = XML::Xerces::PerlErrorHandler->new();
+$parser->setErrorHandler($ERROR_HANDLER);
+eval {$parser->parse ($file)};
+XML::Xerces::error($@) if ($@);
+
+exit(0);
+
+my $doc = $parser->getDocument();
+my $impl = XML::Xerces::DOMImplementationRegistry::getDOMImplementation('LS');
+my $writer = $impl->createDOMWriter();
+if ($writer->canSetFeature("$XML::Xerces::XMLUni::fgDOMWRTFormatPrettyPrint",1)) {
+  $writer->setFeature("$XML::Xerces::XMLUni::fgDOMWRTFormatPrettyPrint",1);
+}
+my $target = XML::Xerces::StdOutFormatTarget->new();
+$writer->writeNode($target,$doc);
+exit(0);
