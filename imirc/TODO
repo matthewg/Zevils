@@ -1,23 +1,11 @@
-DANGER!!  EVIL SUBTLE BUG!?!?
+DANGER!!  EVIL SUBTLE BUG!?!?  Hrm, there might be something wrong in the
+main loop.
 
-Debug stuff: Always use debug_print, more verbosity available
-Warn if aimirc.conf/.aimirc is not found
+Multithread support.
 
 Support for TS protocol
 
-*You know how it only sends one auto-away reply per time you're away per
-*AOLnick?  Have it also be per $time (default is 5 minutes.)
-##This is done, just clean it up a bit (give user ability to change $time)
-
-More admin stuff:
-	SIGHUP will have it rehash aimirc.conf
-	Admin commands:
-		rehash
-		raw - send raw stuff to IRC
-		setlevel all
-	Ability to alter $debug at runtime (via a rehash)
-	Optional minimal libfaim - for password changes and such?????
-
+Optional minimal libfaim - for password changes and such?????
 
 file transfer -> DCC
 Handle colors as well as bold, etc.?
