@@ -1,5 +1,3 @@
-Fix paramless dir_search/set_dir
-
 file transfer -> DCC
 Handle colors as well as bold, etc.?
 Allow passwords to be sent via DCC.
