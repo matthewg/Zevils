@@ -317,7 +317,7 @@ sub dostuff { 	# The stuff starts here - this is called every time a client
 sub getgroups {
 	my (@sectiontopics, @ret, $min, $max, $section, $topic, $sectiontopic, $sidate);
 	$sidate = storydatecomp($_[0]);
-	$dbh ||= sqlconnect();
+	$dbh ||= sqlConnect();
 	$t = $dbh->prepare("SELECT section, tid FROM sections, topics WHERE section != '' and tid != '' and (sections.cdate >= '$_[0]' or topics.cdate >= '$_[0]')");
 	$t->execute;
 	while (($section, $topic) = $t->fetchrow) { push @sectiontopics, "$section.$topic"; }
@@ -815,7 +815,7 @@ sub xover {
 	$first-- if $sid eq "stories"; $last-- if $sid eq "stories";
 	print CLIENT "224 Overview information follows\n";
 
-	$dbh ||= sqlconnect();
+	$dbh ||= sqlConnect();
 	if ($sid eq "stories") {
 		$t = $dbh->prepare("SELECT sid, snum, title, email, name, length(introtext), length(bodytext), sid FROM stories, authors WHERE stories.aid = authors.aid AND stories.section='$section' AND stories.tid='$topic' AND snum >= '$first' AND snum <= '$last' ORDER BY snum ASC");
 		$t->execute;
