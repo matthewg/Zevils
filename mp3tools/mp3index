@@ -24,7 +24,11 @@ use Getopt::Long;
 use Text::Wrap qw(wrap);
 use File::Basename;
 
-$MPEG::MP3Info::VERSION > 0.71 ? $vbrsupport = 1 : $vbrsupport = 0;
+if($MPEG::MP3Info::VERSION > 0.71) {
+	$vbrsupport = 1
+} else {
+	$vbrsupport = 0;
+}
 
 sub describe {
 	open FMTFILE;
@@ -104,7 +108,7 @@ sub writeout {
 		$album = $album{$mp3};
 		$year = $year{$mp3};
 		$comment = $comment{$mp3};
-		$vbr = $vbr{$mp3};
+		$vbr = $vbr{$mp3} || 0;
 		$genre = $genre{$mp3};
 		$prettysize = prettysize($size);
 		$prettylongsize = prettysize($size, 1);
@@ -274,6 +278,7 @@ EOF
 #					for outhead, outbody, and outfoot.)
 
 
+$errors = $MPEG::MP3Info::try_harder; # Squelch 'only used once' warnings.
 
 $errors = &GetOptions("version|V" => \&dispver, 
 "ftpurl|c=s" => \$ftpurl, 
@@ -345,31 +350,34 @@ foreach $mp3(@ARGV) {
 		$tempmp3 =~ s/-/%2d/g;
 	$httpurl{$mp3} = $httpurl . $tempmp3		if $httpurl;
 	$playurl{$mp3} = "$playurl?url=$httpurl{$mp3}"	if $playurl and $httpurl{$mp3};
-	$foo = get_mp3info($fullname);
-	$bar = get_mp3tag($fullname);
-	$bitrate{$mp3} = $foo->{BITRATE};
-	$hh = int $foo->{MM} / 60;
-	$mm = $foo->{MM} % 60;
-	$length = sprintf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $foo->{SS};
-	$title{$mp3} = $bar->{TITLE} if $bar->{TITLE};
-	$artist{$mp3} = $bar->{ARTIST} if $bar->{ARTIST};
-	$album{$mp3} = $bar->{ALBUM} if $bar->{ALBUM};
-	$year{$mp3} = $bar->{YEAR} if $bar->{YEAR};
-	$comment{$mp3} = $bar->{COMMENT} if $bar->{COMMENT};
-	$vbr{mp3} = $bar->{VBR} if $vbrsupport and $bar->{VBR};
-	$genre{$mp3} = $bar->{COMMENT} if $bar->{COMMENT};
-		($h, $m, $s) = split(":", $length);
-		$totalsecs += $s;
-		if($totalsecs >= 60) {
-			$totalsecs -= 60;
-			$totalmins++;
-		}
-		$totalmins += $m;
-		if($totalmins >= 60) {
-			$totalmins -= 60;
-			$totalhours++;
-		}
-		$totalhours += $h;
+	$mp3info = get_mp3info($fullname);
+	$id3tag = get_mp3tag($fullname);
+	$bitrate{$mp3} = $mp3info->{BITRATE};
+	$vbr{$mp3} = $foo->{VBR} if $vbrsupport and $foo->{VBR};
+	$hh = int $mp3info->{MM} / 60;
+	$mm = $mp3info->{MM} % 60;
+	$length = sprintf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $mp3info->{SS};
+
+	$title{$mp3} = $id3tag->{TITLE} if $id3tag->{TITLE};
+	$artist{$mp3} = $id3tag->{ARTIST} if $id3tag->{ARTIST};
+	$album{$mp3} = $id3tag->{ALBUM} if $id3tag->{ALBUM};
+	$year{$mp3} = $id3tag->{YEAR} if $id3tag->{YEAR};
+	$comment{$mp3} = $id3tag->{COMMENT} if $id3tag->{COMMENT};
+	$genre{$mp3} = $id3tag->{COMMENT} if $id3tag->{COMMENT};
+
+	($h, $m, $s) = split(":", $length);
+	$totalsecs += $s;
+	if($totalsecs >= 60) {
+		$totalsecs -= 60;
+		$totalmins++;
+	}
+	$totalmins += $m;
+	if($totalmins >= 60) {
+		$totalmins -= 60;
+		$totalhours++;
+	}
+	$totalhours += $h;
+
 	$length{$mp3} = $length;
 }
 

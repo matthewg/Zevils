@@ -87,6 +87,8 @@ EOF
 	exit 1;
 }
 
+$errors = $MPEG::MP3Info::try_harder; # Squelch 'only used once' warnings.
+
 $errors = &GetOptions("quiet|q" => \$quiet, "no-winamp|n" => \$standard,
 		"aggressive|a", => \$MPEG::MP3Info::try_harder,
 		"plain|p" => \$plain, "help|h" => \&help, "version|v" => \&dispver);
