@@ -8,7 +8,7 @@ Configuration parameters:
 	slashsite: Which slash site this entry is for; the first entry in
 		slashsites will be used by default.
 	snum_lockfile: Semaphore file for stories.nntp_snum.  Defaults to
-		$datadir/site/$slashsite/nntb_snum.lock
+		$datadir/site/$slashsite/misc/nntb_snum.lock
 
 Custom article headers:
 	X-Slash-URL: URL for web access to (story/comment/journal)

@@ -48,7 +48,7 @@ sub new($;@) {
 	$self->{slash_slashsite} ||= (keys %slashsites)[0];
 	croak "Couldn't find Slash site $self->{slash_slashsite}!" if !$slashsites{$self->{slash_slashsite}};
 
-	$self->{slash_snum_lockfile} ||= "$self->{slash_datadir}/site/$self->{slash_slashsite}/nntb_snum.lock";
+	$self->{slash_snum_lockfile} ||= "$self->{slash_datadir}/site/$self->{slash_slashsite}/misc/nntb_snum.lock";
 
 	$self->{slash_virtuser} = $slashsites{$self->{slash_slashsite}};
 	createEnvironment($self->{slash_virtuser});
@@ -317,8 +317,6 @@ sub articles($$;$) {
 	my($self, $group, $time) = @_;
 	$self->auth_status_ok() or return $self->fail("480 Authorization Required");
 
-	$self->update_stories();
-
 	my %ret;
 	my($id, $format, $grouptype) = $self->parsegroup($group);
 
@@ -329,6 +327,8 @@ sub articles($$;$) {
 		my $where = "NOT ISNULL(nntp_ctime)";
 		$where .= " AND UNIX_TIMESTAMP(nntp_ctime) > $time" if $time;
 		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+
+		$self->update_stories();
 
 		my $stories = $self->{slash_db}->sqlSelectAllHashref(
 			"nntp_snum",
