@@ -23,6 +23,30 @@ Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
 EOF
 ;
 
+sub irc_newnick($);
+sub noprefix($);
+sub haskeys($);
+sub irc_subparms($;$$);
+sub irc_privmsg($$$;$);
+sub process_irc_message($);
+sub process_aim_message($);
+sub html2txt($;$);
+sub Toc::debug_print($$$);
+sub irc_send($;$);
+sub deref($);
+sub rehash();
+sub reload();
+sub dispver();
+sub license();
+sub help();
+sub do_signon($$$$);
+sub do_signoff($$;$);
+sub send_server_mode($);
+sub send_join($$);
+sub irc_recv(;$);
+sub truncwarn($$);
+
+
 sub BEGIN {
 	require FindBin;
 	use lib $FindBin::Bin;
@@ -602,6 +626,24 @@ unless($reload) {
 	}
 }
 
+sub irc_newnick($) {
+	my($nick, $user, $string, $shortnick) = shift;
+	$nick =~ tr/ //d;
+	$user = $nick;
+	$user =~ s/^$prefix//;
+
+	Toc::debug_print("Shall we create $nick?", "nicks", 2);
+	return if haskeys($nicks{noprefix $nick});
+	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
+	$nicks{noprefix($shortnick)}{$usnick} = time;
+	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
+	$longnicks{normalize($shortnick)} = $nick;
+	$shortnicks{noprefix($nick)} = $shortnick;
+	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
+	$string .= ":$shortnick MODE $shortnick +i\r\n";
+	return $string;
+}
+
 sub noprefix($) {
 	my $nick = shift;
 	$nick =~ s/^$prefix//i;
@@ -642,25 +684,9 @@ sub irc_privmsg($$$;$) {
 	return $ret or $msg;
 }
 
-sub irc_newnick {
-	my($nick, $user, $string, $shortnick) = shift;
-	$nick =~ tr/ //d;
-	$user = $nick;
-	$user =~ s/^$prefix//;
+sub process_irc_message($) {
+	$_ = shift;
 
-	Toc::debug_print("Shall we create $nick?", "nicks", 2);
-	return if haskeys($nicks{noprefix $nick});
-	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
-	$nicks{noprefix($shortnick)}{$usnick} = time;
-	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
-	$longnicks{normalize($shortnick)} = $nick;
-	$shortnicks{noprefix($nick)} = $shortnick;
-	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
-	$string .= ":$shortnick MODE $shortnick +i\r\n";
-	return $string;
-}
-
-sub process_irc_message {
 	if(s/^:(\S+)(!\S+@\S+)?\s+//) {
 		$nick = $1;
 	} else {
@@ -816,8 +842,7 @@ sub process_irc_message {
 			if($aim_connections{$nnick} and $aim_connections{$nnick}{aimnick}) {
 				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger as $aim_connections{$nnick}{aimnick} - please sign off first if you wish to sign on under a different screename, or use a different IRC connection."));
 			} else {
-				local @temp = ($param, $extra, $usnick, $nick);
-				do_signon(@temp);
+				do_signon($param, $extra, $usnick, $nick);
 			}
 		} elsif ($cmd eq "buddylist") {
 			my(%groups, $buddy, $group);
@@ -1129,7 +1154,7 @@ sub process_irc_message {
 	}
 }
 
-sub process_aim_message {
+sub process_aim_message($) {
 	my ($msg) = shift;
 	my($cmd, $val, $inick, $ar);
 	my($nnick) = normalize($connection->{nick});
@@ -1261,10 +1286,10 @@ sub process_aim_message {
 			foreach $who(@who) {
 				next if normalize($who) eq normalize($connection->{aimnick});
 				$chats{$1}{$who} = 1;
+				irc_send(irc_newnick("$prefix$who"));
 				send_join("$prefix$who", "#aimchat-$1");
 
 				$nicks{normalize($who)}{chat-$1} = 1;
-				irc_newnick($who);
 				truncwarn($connection->{nick}, $who);
 			}
 		} else {
@@ -1289,7 +1314,7 @@ sub process_aim_message {
 	}
 }
 
-sub html2txt {
+sub html2txt($;$) {
 	my ($msg, $nick, $parsetree, @lines, $formatter) = @_;
 	my($linkct, $link, $elem, $node) = 0;
 
@@ -1324,7 +1349,7 @@ sub Toc::debug_print($$$) {
 	}
 }
 
-sub irc_send {
+sub irc_send($;$) {
 	my ($msg, $nodbg) = @_;
 
 	return unless $msg;
@@ -1350,7 +1375,7 @@ sub deref($) {
 	return %$href;
 }
 
-sub rehash {
+sub rehash() {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehashing..."));
 	if(-r "/etc/aimirc.conf") {
 		do "/etc/aimirc.conf";
@@ -1378,7 +1403,7 @@ sub rehash {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehash complete!"));
 }
 
-sub reload {
+sub reload() {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloading $0..."));
 	$reload = 1;
 	local $SIG{__DIE__} = sub { $@ = shift; };
@@ -1391,7 +1416,7 @@ sub reload {
 	}
 }
 
-sub dispver {
+sub dispver() {
 	print "aimirc: IRC <-> AOL Instant Messenger gateway.\n";
 	print "AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.\n";
 	print "Version: $VERSION\n";
@@ -1400,9 +1425,9 @@ sub dispver {
 	exit 0;
 }
 
-sub license { print $license; exit 0; }
+sub license() { print $license; exit 0; }
 
-sub help {
+sub help() {
 	print <<EOF
 aimirc - IRC <-> AOL Instant Messenger gateway
 AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
@@ -1438,7 +1463,7 @@ EOF
 }
 
 
-sub do_signon {
+sub do_signon($$$$) {
 	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags, $nnick) = @_;
 
 	$nparam = normalize($tparam);
@@ -1469,7 +1494,7 @@ sub do_signon {
 	}
 }
 
-sub do_signoff {
+sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
 	foreach $xnick(keys %nicks) {
@@ -1529,7 +1554,7 @@ sub send_join($$) {
 	irc_send($ret);
 }
 
-sub irc_recv() {
+sub irc_recv(;$) {
 	$noblock = $_[0];
 
 	undef $rv;
