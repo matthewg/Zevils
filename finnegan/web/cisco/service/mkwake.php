@@ -166,7 +166,7 @@ while(list($name, $var) = each($prompts)) {
 			$_SESSION[$name] = $_REQUEST[$name];
 		else if($id && isset($oldvalues[$name]))
 			$_SESSION[$name] = $oldvalues[$name];
-		else
+		else if(!isset($_SESSION[$name]))
 			$_SESSION[$name] = "";
 	}
 		
