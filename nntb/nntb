@@ -14,7 +14,16 @@ sub BEGIN {
 	unshift @INC, dirname($0)."/lib";
 }
 
-sub debug {}
+use constant LOG_ERROR => 0;
+use constant LOG_WARNING => 1;
+use constant LOG_NOTICE => 2;
+use constant LOG_INFO => 3;
+use constant LOG_DEBUG => 4;
+sub log {
+	return unless $config{loglevel} >= pop;
+	print LOG @_, "\n";
+}
+
 
 sub dispver {
 	print "NNTB: Network News Transport for 'Blogs.\n";
@@ -38,7 +47,7 @@ Use -p to specify a port, -i if running from inetd, -v to show version
 and exit, -h to get this message.  Default port is whatever nntp is listed
 on in /etc/services (119).
 
-Usage: $0 [-v] [-i] [-p port] [-c conffile]
+Usage: $0 [-v] [-i] [-p port] [-c conffile] [-l loglevel]
 
 You can use either the short or long forms with one or two dashes in
 whatever combination you want.  However, you can't combine options, as in
@@ -65,7 +74,10 @@ $0 -ip 120
 	-c, --conf conffile:		Use an alternate configuration file.
 					This option may be specified multiple
 					times.	By default, NNTB will look first
-					in /etc/nntb.conf and then in ~/.nntb
+					in /etc/nntb.conf and then in ~/.nntb .
+
+	-d, --debug:			Don't fork and log to STDERR with the most
+					verbose logging level.
 EOF
 	exit 0;
 }
@@ -75,9 +87,22 @@ use Time::Local;
 use Sys::Hostname;
 use HTML::FormatText;
 use HTML::Parse;
+use IO::Handle;
 use File::Basename;
 use File::Spec;
 use Cwd;
+
+sub init() {
+	%config = (
+		debug => 0,
+		loglevel => LOG_NOTICE,
+		inetd => 0,
+		port => (getservbyname("nntp", "tcp"))[2],
+	);
+
+	open(LOG, ">&STDERR");
+	autoflush LOG 1;
+}
 
 sub loadconf() {
 	#First we check to see what config files to use.
@@ -99,17 +124,17 @@ sub loadconf() {
 		"version|v" => \&dispver, 
 		"help|h" => \&help,
 		"config|c=s\@" => \@conffiles,
+		"debug|d" => \$debug,
 	);
 
 	if(@ARGV) {  # We shouldn't have any arguments left over
-		print STDERR "Unknown options: ", join(" ", @ARGV), "\n";
+		warn "Unknown options: ", join(" ", @ARGV), "\n";
 		$okay = 0;
 	}
 	if(!$okay) {
-		print STDERR "Try $0 --help if you need help.\n";
+		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
-
 
 	@conffiles = @default_conffiles unless @conffiles;
 
@@ -120,42 +145,44 @@ sub loadconf() {
 
 	foreach my $conffile(@conffiles) {
 		$conffile =~ s/~/$home/;
-		print STDERR "Trying to read config file $conffile\n" if $verbose;
+		log("Trying to read config file $conffile", LOG_INFO);
 		if(-d $conffile) {
-			print STDERR "$conffile is a directory!\n";
+			warn "$conffile is a directory!\n";
 		} elsif(-r $conffile) {
-			print STDERR "Reading config file $conffile\n" if $verbose;
+			log("Reading config file $conffile", LOG_INFO);
 			$confversion = 0;
 			do $conffile;
 			die $@ if $@;
-			if($confversion < 1.5) {
-				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
+			if($confversion < 1) {
+				warn "Not using config file $conffile - it is too old (\$confversion must be >= 1)\n";
 				$foundconfig = -1 unless $foundconfig;
 			} else {
 				$foundconfig = 1;
 			}
 		} elsif(-e $conffile) {
-			print STDERR "Couldn't read config file $conffile\n";
+			warn "Couldn't read config file $conffile\n";
 		} else {
-			print STDERR "$conffile does not exist\n" if $verbose;
+			log("$conffile does not exist", LOG_INFO);
 		}
 	}
 
 	unless($foundconfig) {
-		print STDERR "We couldn't find a config file.\n";
-		print STDERR "You must edit imirc.conf and copy it to either /etc/imirc.conf or\n";
-		print STDERR "   $home/.imirc.  If you have already done this, make sure the IMIRC\n";
-		print STDERR "   user has permission to read it.\n";
-		print STDERR "Or, perhaps you specified a config file with the --config (-C) option.\n";
-		print STDERR "If you want to specify everything on the command-line and not use a config\n";
-		print STDERR "   file (why?) then just give it a blank config file to make it happy.\n";
+		warn <<EOF;
+We couldn't find a config file.
+You must edit nntb.conf and copy it to either /etc/nntb.conf or
+$home/.nntb .  If you have already done this, make sure the NNTB
+user has permission to read it.  Or, perhaps you specified an
+invalid config file with the --config (-c) command-line option.
+EOF
 		exit 1;
 	}
 
 	if($foundconfig == -1) {
-		print STDERR "Your configuration is too old.\n";
-		print STDERR "Please copy the imirc.conf file distributed with IMIRC to either\n";
-		print STDERR "/etc/imirc.conf or $home/.imirc and modify it as needed for your site.\n";
+		warn <<EOF;
+Your configuration is too old.
+Please copy the nntb.conf file distributed with NNTB to either
+/etc/nntb.conf or $home/.nntb and modify it as needed for your site.
+EOF
 		exit 1;
 	}
 
@@ -169,7 +196,7 @@ sub loadconf() {
 	);
 
 	if(!$errors) {
-		print STDERR "Try $0 --help if you need help.\n";
+		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
 }
