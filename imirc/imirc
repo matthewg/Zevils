@@ -2356,7 +2356,15 @@ sub irc_mode($$$) {
 sub irc_join($$) {
 	my($user, $channel, $ret) = @_;
 
-	$ret = irc_newnick($user);
+	$ret = "";
+
+	# Unless it's us that's joining, it's probably an AIM- nick coming
+	# into a chatchan or nickchan.  Some servers get pissed when they join
+	# a +i chan w/o an invite, so send the invite.
+	#
+	$ret = irc_invite($usnick, $channel, $user) if $user ne $usnick;
+
+	$ret .= irc_newnick($user);
 	$user = ircify($user);
 
 	if($servermode eq "ts") {
