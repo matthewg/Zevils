@@ -1527,9 +1527,9 @@ sub _get_events_talks
 	my %props = ();
 
         if($type eq "events") {
-            LJ::load_log_props2($dbcr, $ownerid, \@itemids, \%props);
+            LJ::load_log_props2($dbcr, $ownerid, \@ids, \%props);
         } elsif($type eq "talks") {
-            LJ::load_talk_props2($dbcr, $ownerid, \@itemids, \%props);
+            LJ::load_talk_props2($dbcr, $ownerid, \@ids, \%props);
         }
 
 	foreach my $id (keys %props) {
