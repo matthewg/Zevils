@@ -10,6 +10,11 @@ Real Soon Now:
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
 	  every signon in documentation/help message.
+	AWAY tracking for everyone, not just keys %aim_connections
+		This prevents the following from causing IRC/AIM away desynch:
+			:SomeDude AWAY :foo
+			:SomeDude PRIVMSG AIMServ :signon SomeDude SomePass
+		by keeping track of AWAY for IRCers who haven't signed on.
 
 Pending/Maybe:
 	(#aimirc-debug or IRC or AIMServ?) stats command
