@@ -2,9 +2,9 @@
 
 $faqs = array(
 	array("Who's responsible for Finnegan?", <<<END_FAQITEM
-The <a href="http://union.brandeis.edu/">Student Union</a> and <a href="http://www.brancog.org/">Computer Operators Group</a>
-have provided the funding and equipment for Finnegan.  The system was developed, and is being maintained by,
-<a href="http://www.zevils.com/">Matthew Sachs</a>, with help from <a href="http://people.brandeis.edu/~zeno/">Danny Silverman</a>
+The <a href="http://www.brancog.org/">Computer Operators Group</a> (via <a href="http://union.brandeis.edu/">the Student Union</a>) and <a href="http://www.brandeis.edu/its/">Information Technology Services</a>
+provide support for Finnegan.  The system was developed, and is being maintained by,
+<a href="http://www.zevils.com/">Matthew Sachs</a>, with help from ITS, <a href="http://people.brandeis.edu/~zeno/">Danny Silverman</a>
 and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.  Danny Silverman did the visual layout of the web site,
 and Nat Budin is the Finnegan audio engineer.
 END_FAQITEM

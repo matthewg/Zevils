@@ -24,12 +24,7 @@ $TEMPLATE["index"] = array(
 		<li><strong>One-Time Alarms</strong>
 		<br />One-time alarms trigger on a particular date and time and can be scheduled up to one year in advance.</li>
 	</ul>
-	<p>Finnegan was created primarily by <a href="http://www.zevils.com/">Matthew 
-	  Sachs</a> '06 with assistance from <a href="http://www.spiritlamp.net/">Nat 
-	  Budin</a> '05 and <a href="http://www.agblog.com/">Danny Silverman</a> '05, and was conceived in part by Becky Fromer '05. Finnegan is operated by 
-	  <a href="http://www.brancog.org/">Computer Operators Group</a> with support 
-	  from the <a href="http://union.brandeis.edu/">Student Union</a> and <a href="http://www.brandeis.edu/its/">Information 
-	  Technology Services</a>.</p>
+	<p>Finnegan is a joint project of <a href="http://www.brancog.org/">the Computer Operators Group</a> and <a href="http://www.brandeis.edu/its/">Information Technology Services</a>.</p>
 END
 );
 
