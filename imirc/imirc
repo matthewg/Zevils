@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts %nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away %p10_tokens %p10_tokens_rev %p10_servers $nicknumerics %nicknumerics_rev @p10_numerics_rev);
 
 
 # DCC states
@@ -84,6 +84,7 @@ use Carp;
 use Getopt::Long;
 use File::Basename;
 use FormatIMIRC;
+use P10Tokens;
 use Symbol;
 
 $Carp::Verbose = 1;
@@ -125,7 +126,7 @@ $oscarserver = 'login.oscar.aol.com';
 $oscarport = 5190;
 $dcc = 1;
 $shortcircuit = 1;
-$numeric = num2base64(42);
+$numeric = 42;
 $debug = 0;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
@@ -357,8 +358,8 @@ sub loadconf() {
 			pass => "PASS $ourpass 0210030002 IRC\r\n",
 		},
 		p10 => {
-			nick => "$numeric N _NICK_ 1 _TIME_ _USER_ _USER_.$us +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\n$numeric EB\r\n$numeric EA\r\n",
+			nick => "N _NICK_ 1 _TIME_ _USER_ _USER_.$us +i _P10IP_ _NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
+			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\nEB\r\nEA\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
@@ -381,6 +382,7 @@ sub loadconf() {
 
 	$usnick = new Net::OSCAR::Screenname $usnick;
 	$oldnick = new Net::OSCAR::Screenname $oldnick if $oldnick;
+	$numeric = num2base64($numeric, 2);
 }
 
 sub mainloop() {
@@ -417,7 +419,7 @@ sub mainloop() {
 		$usercount = 0;
 		$maxusers = 0;
 
-		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $irc_away, $away, $longnicks, $shortnicks) {
+		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $irc_away, $away, $longnicks, $shortnicks, $nickservers, $nicknumerics) {
 			$hashref = $oscarprime->buddyhash();
 		}
 
@@ -604,13 +606,26 @@ sub irc_newnick($) {
 	$nick = new Net::OSCAR::Screenname $nick;
 	debug_print("Shall we create $nick?", "nicks", 2);
 	return if exists($nicks->{noprefix($nick)});
+
+	if($servermode eq "p10") {
+		my $nicknumeric = 0;
+		for(my $i = 0; $i < scalar @p10_numerics_rev; $i++) {
+			next if $p10_numerics_rev[$i];
+			$nicknumeric = $i;
+			$p10_numerics_rev[$i] = $nick;
+			last;
+		}
+		$nicknumerics->{$nick} = $numeric . num2base64($nicknumeric, 3);
+		$nicknumerics_rev{$numeric . num2base64($nicknumeric, 3)} = $nick;
+	}
+
 	$shortnick = new Net::OSCAR::Screenname ircify($nick);
 	$nicks->{noprefix($nick)} = $oscarprime->buddyhash();
 	debug_print("\tCreating $nick (normalized ". normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks->{$shortnick} = $nick;
 	$shortnicks->{$nick} = $shortnick;
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
-	$string .= ":$shortnick MODE $shortnick +i\r\n";
+	$string .= irc_mode($shortnick, $shortnick, "+i");
 	return $string;
 }
 
@@ -634,6 +649,8 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
+	$input =~ s/_NUMERIC_/nick2num($nick)/g;
+	$input =~ s/_P10IP_/num2base64(unpack("N", (sockaddr_in(getpeername($upstream)))[1]))/g;
 	print "$input\n";
 	return $input;
 }
@@ -656,6 +673,7 @@ sub irc_privmsg($$$;$$$) {
 	}
 	$from = ircify($from);
 
+	$to = nick2num($to) if $servermode eq "p10";
 
 	$maxlen = 450 - length($from) - length($to);
 	foreach $line(split(/[\r\n]+/, $msg)) {
@@ -763,7 +781,7 @@ sub process_irc_message($) {
 			irc_send(irc_mode($usnick, chatchan($chat), "+o $nick"));
 		}
 	} elsif(/^INVITE +(\S+) +:?$chatchan(\d+)/i) {
-		my $recipient = noprefix($1);
+		my $recipient = noprefix(num2nick($1));
 		my $chat = $2;
 		my $topic = $chats{$chat}->{name};
 
@@ -789,11 +807,12 @@ sub process_irc_message($) {
 				if($modechar =~ /[vbokl]/) { #Mode takes a parm
 					$modes =~ s/(?:\s|\A)([^-+]\S*)(?:\s|\Z)/ / or next MODE;
 					$modeparm = $1;
+					$modeparm = num2nick($modeparm) if $servermode eq "p10" and $modechar eq "v" or $modechar eq "o";
 					#debug_print("Mode takes parm, parm is $modeparm", "errors", 3);
 				} else {
 					$modeparm = "";
 				}
-				if($modechar eq "o" and $modeparm eq $usnick) {
+				if($modechar eq "o" and num2nick($modeparm) eq $usnick) {
 					if($modetype eq "+") {
 						irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, chatchan($chat), "+o $usnick"));
 					}
@@ -835,8 +854,8 @@ sub process_irc_message($) {
 		irc_send(irc_topic($usnick, chatchan($1), $chats{$1}->{name}));
 	} elsif(/^KICK +$chatchan(\d+) +(\S+)/i) {
 		irc_send(irc_error($nick, 503, "Cannot kick users from AIM chat channels."));
-		irc_send(irc_join($2, chatchan($1)));
-		if($2 eq $usnick) {
+		irc_send(irc_join(num2nick($2), chatchan($1)));
+		if(num2nick($2) eq $usnick) {
 			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, chatchan($1), "+o $usnick"));
 		}
 	} elsif(/^PART +$chatchan(\d+)/i) {
@@ -1693,21 +1712,35 @@ sub process_irc_message($) {
 			# Ignore NICK TheNick
 			(undef, undef, @targs) = split(/\s+/, $template);
 
-			# Find template-arg that is $us - that is where server lies
-			for(my $i = 0; $i < scalar @targs; $i++) {
-				next unless $targs[$i] eq $us;
-				$server = $args[$i];
-				last;
+			if($servermode eq "p10") {
+				$server = $p10_servers{substr($args[6], 0, 2)};
+				my $numeric = $args[6];
+				$nicknumerics->{$nick} = $numeric;
+				$nicknumerics_rev{$numeric} = $nick;
+			} else {
+				# Find template-arg that is $us - that is where server lies
+				for(my $i = 0; $i < scalar @targs; $i++) {
+					next unless $targs[$i] eq $us;
+					$server = $args[$i];
+					last;
+				}
 			}
 
-			$nickservers{$newnick} = lc($server);
+			$nickservers->{$newnick} = lc($server);
 		} else {
-			$nickservers{$newnick} = $nickservers{$nick};
-			delete $nickservers{$nick};
+			($nickservers->{$newnick}) = delete $nickservers->{$nick};
+			if($servermode eq "p10") {
+				my($numeric) = ($nicknumerics->{$newnick}) = delete $nicknumerics->{$nick};
+				$nicknumerics_rev{$numeric} = $newnick;
+			}
 		}
 	} elsif(/^QUIT/) {
 		delete $irc_away->{$nick};
-		delete $nickservers{$nick};
+		delete $nickservers->{$nick};
+		if($servermode eq "p10") {
+			my($numeric) = delete $nicknumerics->{$nick};
+			delete $nicknumerics_rev{$numeric};
+		}
 
 		my($dcc, $i);
 		for($i = $#dccqueue; $i >= 0; $i--) {
@@ -1722,6 +1755,10 @@ sub process_irc_message($) {
 		irc_send(irc_pong());
 	} elsif(/^248 +$usnick +U +(\S+)/) { # STATS U reply
 		push @uhosts, $1;
+	} elsif(/^SERVER/) {
+		return unless $servermode eq "p10";
+		my(@args) = split(/\s+/, $_);
+		$p10_servers{substr($args[6], 0, 2)} = $args[1];
 	}
 }
 
@@ -2129,11 +2166,50 @@ sub html2txt($;$) {
 	return $msg;
 }
 
+# Convert IRC nick to P10 numeric
+sub nick2num($) {
+	return unless $servermode eq "p10";
+	my $nick = shift;
+	return $nicknumerics->{$nick};
+}
+
+# Convert P10 numeric to IRC nick
+sub num2nick($) {
+	my $numeric = shift;
+	return $numeric unless $servermode eq "p10";
+	return $nicknumerics_rev{$numeric};
+}
+
+# Convert IRC command to P10 token
+sub cmd2tok($) {
+	my $cmd = shift;
+	return $cmd unless $servermode eq "p10";
+	return exists($p10_tokens{$cmd}) ? $p10_tokens{$cmd} : $cmd;
+}
+
+# Convert P10 token to IRC command
+sub tok2cmd($) {
+	my $tok = shift;
+	return $tok unless $servermode eq "p10";
+	return $p10_tokens_rev{$tok};
+}
+
 # Send something to IRC
 sub irc_send($;$) {
 	my ($msg, $flags, $nodbg, $rv) = @_;
 
 	return unless $msg;
+
+	if($servermode eq "p10") {
+		my $newmsg = "";
+		foreach my $amsg (split(/[\r\n]{1,2}/, $msg)) {
+			next if $amsg =~ /^SERVER\s/ or $amsg =~ /^PASS\s/;
+			$amsg =~ s/^(?::(\S+)\s+)?(\S+)/nick2num($1)." ".cmd2tok($2)/e;
+		} continue {
+			$newmsg .= "$amsg\n";
+		}
+		$msg = $newmsg;
+	}
 
 	$flags ||= 0;
 	$nodbg = 1 if $flags & 1;
@@ -2353,10 +2429,22 @@ sub irc_mode($$$) {
 	my($who, $chan, $modes, $modestr) = @_;
 
 	$modestr = "";
-	$modestr = ":$who " unless $who eq $us;
-	$modestr .= "MODE $chan $modes";
-	$modestr .= " " . time if $servermode ne "ts" and $who eq $us;
+
+	if($servermode eq "p10" and $chan !~ /^#/) { # Changing modes for user - use numeric
+		$chan = nick2num($chan);
+	} elsif($modestr =~ /^[-+][ov]/) { # Changing channel modes - replace nick parms with numerics
+		$modestr =~ s/\b(?![-+])(\S+)\b/nick2num($1)/ge;
+	}
+
+	if($servermode eq "p10" and $who eq $us) {
+		$modestr = ":$usnick OPMODE $chan $modes";
+	} else {
+		$modestr = ":$who " unless $who eq $us;
+		$modestr .= "MODE $chan $modes";
+		$modestr .= " " . time if $servermode ne "ts" and $who eq $us;
+	}
 	$modestr .= "\r\n";
+
 	return $modestr;
 }
 
@@ -2382,6 +2470,7 @@ sub irc_kick($$$;$) {
 	my($from, $channel, $nick, $reason) = @_;
 
 	$nick =~ s/\@+//;
+	$nick = nick2num($nick) if $servermode eq "p10";
 	return ":$from KICK $channel $nick" . ($reason ? " :$reason" : "") . "\r\n";
 }
 
@@ -2396,6 +2485,7 @@ sub irc_part($$;$) {
 sub irc_error($$$) {
 	my($to, $number, $text) = @_;
 
+	$to = nick2num($to) if $servermode eq "p10";
 	return "$number $to :$text\r\n";
 }
 
@@ -2408,6 +2498,7 @@ sub irc_topic($$$) {
 
 # Reply to a PING
 sub irc_pong() {
+	return "PONG $numeric\r\n" if $servermode eq "p10";
 	return "PONG $us\r\n";
 }
 
@@ -2422,6 +2513,7 @@ sub irc_quit($;$) {
 sub irc_invite($$$) {
 	my($from, $channel, $who) = @_;
 
+	$who = nick2num($who) if $servermode eq "p10";
 	return ":$from INVITE $who $channel\r\n";
 }
 
@@ -2462,6 +2554,19 @@ sub irc_recv(;$) {
 	$ret = shift @getbuff;
 	debug_print("From IRC: $ret", "irc", 2) if $ret;
 	#print STDERR "Returning $ret\n";
+
+	if($servermode eq "p10") {
+		if($ret !~ /^SERVER\s/ and $ret !~ /^PASS\s/) {
+			$ret =~ /^(\S+)/;
+			if(length($1) == 2) {
+				$ret =~ s/^(\S+)/":".$p10_servers{$1}/e;
+			} else {
+				$ret =~ s/^(\S+)/":".num2nick($1)/e;
+			}
+			$ret =~ s/^(\S+\s+)(\S+)/$1.tok2cmd($2)/e;
+			$ret =~ s/^(\S+\s+)(PRIVMSG|NOTICE\s+)(\S+)/$1.$2.num2nick($3)/e;
+		}
+	}
 
 	return $ret;
 }
@@ -2701,6 +2806,7 @@ sub irc_ctcp($$$;$) {
 	my($from, $to, $message, $reply) = @_;
 	my $delim = chr(001);
 
+	$to = nick2num($to) if $servermode eq "p10";
 	return ":$from " . ($reply ? "NOTICE" : "PRIVMSG") . " $to :$delim" . irc_ctcp_quote($message) . "$delim\r\n";
 }
 
@@ -2872,8 +2978,8 @@ sub irc_dcc($$$$$$) {
 }
 
 #The base64 functions are for the P10 IRC protocol
-sub num2base64($) {
-	my $number = shift;
+sub num2base64($;$) {
+	my($number, $mindigits) = @_;
 	my (@table, $char, $ret, $num, $currdig);
 
 	$ret = "";
@@ -2887,6 +2993,8 @@ sub num2base64($) {
 		$ret .= $table[$currdig];
 		$number -= $currdig;
 	}
+
+	$ret = "A"x($mindigits-length($ret)) . $ret if length($ret) < $mindigits;
 	return $ret;
 }
 
@@ -3175,6 +3283,11 @@ sub rm_nick_user($$) {
 	my($nick, $user) = (noprefix(shift), shift);
 	delete $nicks->{$nick}->{$user};
 
+	if($servermode eq "p10") {
+		my($nicknumeric) = substr(nick2num($nick), 2, 3);
+		$p10_numerics_rev[base642num($nicknumeric)] = "";
+	}
+
 	my $ircname = $irc_connections->{$user};
 
 	irc_send(irc_part(ircify($prefix.$nick), nickchan($user))) if
@@ -3223,12 +3336,12 @@ sub ignorenick($) {
 	my $nick = shift;
 
 	if($ignoreuhosts) {
-		my $server = $nickservers{$nick};
+		my $server = $nickservers->{$nick};
 		return 1 if grep {$_ eq $server} map {lc($_)} @uhosts;
 	}
 
 	if(@ignorehosts) {
-		my $server = $nickservers{$nick};
+		my $server = $nickservers->{$nick};
 		foreach my $globhost(@ignorehosts) {
 			# Transform glob into regex
 			my $host = $globhost;

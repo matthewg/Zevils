@@ -10,15 +10,13 @@ Requirements:
 	perl 5.004 or better (5.6.1 or better strongly recommended)
 	A working IRC server with C/N lines for IMIRC
 		Your IRC server might not work with IMIRC.  Bahamut, Cyclone,
-		Dragonfire, Undernet IRCD, TS irc servers such as Hybrid, Unreal,
-		and irc.org 2.10 and possibly 2.9 are the only ones that are known
-		to work.  It should also work with anything that uses RFC-standard
-		SERVER and USER/NICK protocols.  However, if you email me or contact
-		me on AOL Instant Messenger or IRC,  I will try to help you get
-		IMIRC working with your IRC server.
-
-		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
-
+		Dragonfire, Undernet IRCD (P10 support is experimental), TS irc
+		servers such as Hybrid, Unreal, and irc.org 2.10 and possibly 2.9
+		servers are the only ones that are known to work.  It should also
+		work with anything that uses RFC-standard SERVER and USER/NICK
+		protocols.  However, if you email me or contact me on AOL Instant
+		Messenger or IRC,  I will try to help you get IMIRC working with
+		your IRC server.
 	The modules required are available from CPAN.  See
 	http://www.perl.com/CPAN/modules/, or do perl -MCPAN -e shell.  You
 	can also just use the getmodules script to grab them.
