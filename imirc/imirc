@@ -2638,7 +2638,7 @@ sub irc_recv(;$) {
 
 sub irc_stats($$) {
 	my($who, $what) = @_;
-	return ":$who STATS $what\r\n";
+	return ":$who STATS $what $themname\r\n";
 }
 
 sub irc_kill($$$) {
