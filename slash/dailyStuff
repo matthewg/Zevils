@@ -2,6 +2,11 @@
 require 'ctime.pl';          
 use Slash;
 
+sub BEGIN {
+        require File::Basename;
+        push @INC, File::Basename::dirname($0);
+}
+
 $dbh||=sqlconnect();
 my ($basedir,$datadir)=getvar("basedir","datadir");
 
