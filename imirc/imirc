@@ -472,7 +472,7 @@ sub mainloop() {
 	$oscarprime->set_callback_log(\&oscar_log);
 	$oscarprime->set_callback_buddylist_error(\&oscar_buddylist_error);
 	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
-	$oscarprime->set_callback_connection_changes(\&oscar_connection_changed) if $usepoll;
+	$oscarprime->set_callback_connection_changed(\&oscar_connection_changed) if $usepoll;
 
 	unless($reload) {
 		$chatseq = 0;
