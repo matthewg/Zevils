@@ -446,7 +446,13 @@ sub mainloop() {
 
 			foreach $nick(keys %$aim_connections) {
 				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
-					$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
+					eval {
+						$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
+					};
+					if($@) {
+						irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
+						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+					}
 				}
 			}
 
