@@ -624,7 +624,7 @@ sub process_aim_message {
 		$val =~ /([^:]+):([^:]+):(.+):(.*)/;
 		Toc::debug_print("$2 said to $connection->{nick} in chat $1: $lines[0]", "chat", 2);
 		$msg = ":$usnick PRIVMSG $connection->{nick} :$2 ";
-		($3 eq "T" or $3 eq "t") ? $msg .= "whispered " : $msg .= "said ";
+		($3 eq "T" or $3 eq "t") ? ($msg .= "whispered ") : ($msg .= "said ");
 		@lines = html2txt($4, $nick);
 		$msg .= "in chat $1: $lines[0]\r\n";
 		shift @lines;
@@ -635,9 +635,10 @@ sub process_aim_message {
 		irc_send($msg);
 	} elsif($cmd eq "CHAT_UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):(.+)/;
-		irc_send(":$usnick PRIVMSG $connection->{nick} :The following users have ");
-		($2 eq "T") ? (irc_send("joined")) : (irc_send("left"));
-		irc_send(" chat $connection->{chats}{$1}: $3\r\n");
+		my $msg;
+		$msg = ":$usnick PRIVMSG $connection->{nick} :The following users have ";
+		($2 eq "T") ? ($msg .= "joined") : ($msg .= "left");
+		irc_send("$msg chat $connection->{chats}{$1}: $3\r\n");
 	} elsif($cmd eq "CHAT_INVITE") {
 		$val =~ /([^:]+):([^:]+):([^:]+):(.*)/;
 		Toc::debug_print("$connection->{nick} has been invited to chat $1 ($4) [$2] by $3", "chat", 2);
