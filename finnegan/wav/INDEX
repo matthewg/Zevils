@@ -1,0 +1,81 @@
+You must run ../misc/wavtormd whatever.wav after changing any WAV.
+
+messages/
+	0.wav: easter egg
+	1.wav: "This is your wake-up call."
+	2.wav: "WAKE UP!"
+	3.wav: musical medley
+	4.wav: "Up and at 'em, Atom Ant"
+	5.wav: "Wake up, wake up you sleepy head"
+wake/
+	timeis.wav: "The time is"
+	snooze.wav: "Press any button to snooze."
+	snooze-ok.wav: "Snooze activated."
+	snooze-no.wav: "Too many snoozes."
+	edit.wav: "To disable this, visit the website"
+	hours/
+		1.wav
+		2.wav
+		3.wav
+		4.wav
+		5.wav
+		6.wav
+		7.wav
+		8.wav
+		9.wav
+		10.wav
+		11.wav
+		12.wav
+	ten-minutes/
+		0.wav
+		20.wav
+		30.wav
+		40.wav
+		50.wav
+	one-minutes/
+		1.wav
+		2.wav
+		3.wav
+		4.wav
+		5.wav
+		6.wav
+		7.wav
+		8.wav
+		9.wav
+		10.wav
+		11.wav
+		12.wav
+		13.wav
+		14.wav
+		15.wav
+		16.wav
+		17.wav
+		18.wav
+		19.wav
+	am.wav
+	pm.wav
+forgotpin/
+	pinis.wav: "Your PIN is"
+	again.wav: "That number again is"
+	digits-nonfinal/
+		0.wav
+		1.wav
+		2.wav
+		3.wav
+		4.wav
+		5.wav
+		6.wav
+		7.wav
+		8.wav
+		9.wav
+	digits-final/
+		0.wav
+		1.wav
+		2.wav
+		3.wav
+		4.wav
+		5.wav
+		6.wav
+		7.wav
+		8.wav
+		9.wav
