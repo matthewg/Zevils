@@ -1,3 +1,27 @@
+Feb 17 2002, 1.5-rc7
+	*Many README enhancements
+	*New feature, $usepoll, should increase performance and
+	   decrease CPU utilization
+	*A variety of improvements in our handling of TS-family IRC protocols
+	*Commands can now be sent to $oldnick (AIMServ)
+	*Don't crash when someone who's not signed on CTCPs an AIM-nick
+	*Accept Unreal-format STATS Q replies
+	*p0210 fixes
+	*Ensure uniqueness of truncated nicknames
+	*Delay acting on $output until after loading configfiles
+	*We now require Net::OSCAR 0.59 (0.60 for $usepoll)
+	*Disable $require_qlines and $kill_impersonaters if $prefix is ""
+	*New servermode "dancer" for OPN's dancer-ircd
+	*Fix for potential signon race condition
+	*Honor $ignoreuhosts/@ignorehosts for AIM-nicks
+	*Nicer config-file checking
+	*React more intelligently to KILLs
+	*Don't acidentally display user info when we request an away message
+	   and it's not there
+	*Fix oddball crash when user joins #aimchan-*
+	*Don't set IMServ umode +a
+	*Document IMServ stats command
+
 Jan 24 2002, 1.5-rc6
 	*Critical crash-prevention fixes
 	*Major protocol fixes for TS and P0210
