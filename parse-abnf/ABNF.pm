@@ -43,8 +43,11 @@ Internet standards use ABNF to define various protocols.
 C<Parse::ABNF> objects will, by default, contain the rules listed in Appendix A of C<RFC 2234>.
 These rules define some basic entities like C<ALPHA>, C<BIT>, C<CHAR>, and C<DIGIT>.
 
+Anywhere that the specification calls for CRLF, C<Parse::ABNF> will accept a CR or an LF in
+addition to CRLF.
+
 For any of the methods which take a rule name and return some value, the object will croak
-with the error C<Unknown ABNF rule: RULENAME>.
+with the error C<Unknown ABNF rule: RULENAME> if and only if an unknown rule is specified.
 
 =head1 CONSTRUCTOR
 
@@ -247,7 +250,26 @@ sub matches($$$;@) {
 }
 
 
-use constant REGEX_WHITESPACE => '[ \t]*'
+# Various regexes that we use to parse ABNF.
+use constant REGEX_WHITESPACE => '[ \t]*';
+use constant REGEX_VISCHAR => '[\x21-\x7E]';
+use constant REGEX_CRLF => "\(\r|\n|\(\r\n\)\)";
+
+use constant REGEX_COMMENT => '\(;\(' . REGEX_WHITESPACE . '|' . REGEX_VISCHAR . '\)\)'
+use constant REGEX_COMMENT_NEWLINE => '\(' . REGEX_COMMENT . '|' . REGEX_CRLF . '\)';
+use constant REGEX_COMMENT_WHITESPACE => '\(' . REGEX_COMMENT_NEWLINE . '?' . REGEX_WHITESPACE . '\)';
+
+use constant REGEX_REPEAT => '\([0-9]+|\([0-9]*\*[0-9]*\)\)';
+
+use constant REGEX_ELEMENT => '\(' . REGEX_RULENAME . '|' . REGEX_GROUP . '|' . REGEX_OPTION . '|' . REGEX_CHAR_VAL . '|' . REGEX_NUM_VAL . '|' . REGEX_PROSE_VAL . '\)';
+use constant REGEX_REPETITION => '\(' . REGEX_REPEAT . '?' . REGEX_ELEMENT . '\)';
+use constant REGEX_CONCATENATION => '\(' . REGEX_REPETITION . '\(' . REGEX_COMMENT_WHITESPACE . '+' . REGEX_REPETITION . '\)*\)';
+use constant REGEX_ALTERNATION => '\(' . REGEX_CONCATENATION . '\(' . REGEX_COMMENT_WHITESPACE . '*/' . REGEX_COMMENT_WHITESPACE . '*' . REGEX_CONCATENATION . '\)*\)';
+
+use constant REGEX_RULENAME => '\([a-zA-Z][-a-zA-Z0-9]*\)';
+use constant REGEX_DEFINED_AS => '\(' . REGEX_COMMENT_WHITESPACE . '*=/?' . REGEX_COMMENT_WHITESPACE . '*\)';
+
+
 sub _parse_rules($$) {
 	my($self, $rules) = @_;
 
