@@ -26,18 +26,20 @@ EOF
 use strict;
 use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
+
 # DCC states
 # Iff state & 1, it's a SEND.
 # Iff state & 2, we care about if the socket is ready for writing.
 use constant DCC_STATE_SEND => 1;
 use constant DCC_STATE_WRITE => 2;
 
-use constant DCC_STATE_SEND_LISTEN => DCC_STATE_SEND | DCC_STATE_WRITE | (1<<2);
-use constant DCC_STATE_SEND_READY => DCC_STATE_SEND | DCC_STATE_WRITE | (2<<2);
-use constant DCC_STATE_SEND_NEEDACK => DCC_STATE_SEND | (3<<2);
-use constant DCC_STATE_GET_CONNECT => DCC_STATE_WRITE | 1<<2;
-use constant DCC_STATE_GET_READY => 2<<2;
-use constant DCC_STATE_GET_SENDACK => DCC_STATE_WRITE | (3<<2);
+use constant DCC_STATE_SEND_LISTEN => DCC_STATE_SEND | (1<<2); #5
+use constant DCC_STATE_SEND_READY => DCC_STATE_SEND | DCC_STATE_WRITE | (2<<2); #8
+use constant DCC_STATE_SEND_NEEDACK => DCC_STATE_SEND | (3<<2); #13
+use constant DCC_STATE_GET_CONNECT => DCC_STATE_WRITE | 1<<2; #6
+use constant DCC_STATE_GET_READY => 2<<2; #8
+use constant DCC_STATE_GET_SENDACK => DCC_STATE_WRITE | (3<<2); #14
+
 
 $starttime = time;
 
@@ -203,7 +205,11 @@ sub loadconf() {
 		close STDERR;
 		open(STDOUT, ">>$output") or die "Couldn't open STDOUT: $!\n";
 		open(STDERR, ">>&STDOUT") or die "Couldn't open STDERR: $!\n";
+		select STDOUT;
 		$| = 1;
+		select STDERR;
+		$| = 1;
+		select STDOUT;
 	}
 
 	#Okay, try loading the config files
@@ -410,12 +416,14 @@ sub mainloop() {
 
 			vec($rin, $upstream->fileno, 1) = 1;
 			foreach my $dcc(@dccqueue) {
-				if($dcc->{state} | DCC_STATE_WRITE) {
-					vec($win, fileno $dcc->{socket}, 1) = 1;
+				#debug_print("(vec'ing) dccqueue has DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} (state=$dcc->{state}, fileno=".fileno($dcc->{socket}).")", "DCC", 3);
+				if($dcc->{state} & DCC_STATE_WRITE) {
+					vec($win, fileno($dcc->{socket}), 1) = 1;
 				} else {
-					vec($rin, fileno $dcc->{socket}, 1) = 1;
+					vec($rin, fileno($dcc->{socket}), 1) = 1;
 				}
 			}
+			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
 
 			undef $currtime;
 			#eval {
@@ -432,6 +440,8 @@ sub mainloop() {
 			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
 			alarm 10;
 
+			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
+
 			debug_print("Processing OSCARs...", "irc", 2);
 
 			foreach $nick(keys %$aim_connections) {
@@ -446,16 +456,20 @@ sub mainloop() {
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
 				my $dcc = $dccqueue[$i];
+				#debug_print("(proc'ing) dccqueue has DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} (state=$dcc->{state}, fileno=".fileno($dcc->{socket}).")", "DCC", 3);
+
 				if($currtime - $dcc->{time} > 3600) {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection timed out.", "", "", $dcc->{screenname}));
 					close $dcc->{socket};
 					splice(@dccqueue, $i, 1);
 				}
-				if($dcc->{state} | DCC_STATE_WRITE) {
-					next unless vec($win, fileno $dcc->{socket}, 1);
+
+				if($dcc->{state} & DCC_STATE_WRITE) {
+					next unless vec($win, fileno($dcc->{socket}), 1);
 				} else {
-					next unless vec($rin, fileno $dcc->{socket}, 1);
+					next unless vec($rin, fileno($dcc->{socket}), 1);
 				}
+
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
 
@@ -491,10 +505,7 @@ sub connect_to_irc() {
 
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 5) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
 
-	$flags = 0;
-	fcntl($upstream, F_GETFL, $flags) or die "Couldn't get flags for upstream: $!";
-	$flags |= O_NONBLOCK;
-	fcntl($upstream, F_SETFL, $flags) or die "Couldn't set flags for upstream: $!";
+	set_blocking($upstream, 0);
 
 	do { irc_send($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
 	irc_send(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $!\n";
@@ -1184,7 +1195,7 @@ sub process_irc_message($) {
  version 1
 }
 User {
- screenName $screenname";
+ screenName $screenname\n";
 					if($oscar->profile) {
 						$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
 						$config .= "  dataLength ".length($oscar->profile)."\n";
@@ -1201,7 +1212,7 @@ User {
 						foreach $buddy(sort $oscar->buddies($group)) {
 							$config .= "   \"$buddy\"";
 							if(my $comment = $oscar->buddy($buddy, $group)->{comment}) {
-								$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }   }";
+								$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }\n   }";
 							}
 							$config .= "\n";
 						}
@@ -1523,7 +1534,7 @@ User {
 				eval $1;
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 			} elsif($msg =~ /^show (.+)/ and $1) {
-				eval "irc_send(irc_privmsg($usnick, \"#aimirc-debug\", $1));";
+				eval "irc_send(irc_privmsg(\$usnick, \"#aimirc-debug\", $1));";
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
 			} elsif($msg =~ /#/) {
 				# Do nothing
@@ -1578,7 +1589,7 @@ User {
 			for($i = 0; $i <= $#dccqueue; $i++) {
 				$dcc = $dccqueue[$i];
 				$dcc->{for} = $newnick;
-				if($dcc->{state} | DCC_STATE_SEND and $dcc->{to} eq $nick) {
+				if($dcc->{state} & DCC_STATE_SEND and $dcc->{to} eq $nick) {
 					$dccqueue[$i]->{to} = $newnick;
 				} elsif($dcc->{from} eq $nick) {
 					$dccqueue[$i]->{from} = $newnick;
@@ -1706,7 +1717,20 @@ sub oscar_chat_buddy_in($$$$) {
 	my($oscar, $buddy, $chat, $buddat) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 	return if $buddy eq $screenname;
-	my($chatid) = grep { $chats{$_}->{url} eq $chat->url and $chats{$_}->{screenname} eq $oscar->screenname} keys %chats;
+	my($chatid) = grep {
+		$chats{$_}->{url} eq $chat->url
+		   and
+		$chats{$_}->{screenname} eq $oscar->screenname
+	} keys %chats;
+
+	if(!$chatid) {
+		die "Couldn't find chat.  Dump of \%chats: ",
+		   Data::Dumper::Dumper(\%chats),
+		   "\n.  Dump of \$chat: ",
+		   Data::Dumper::Dumper($chat),
+		   "\n.  Dump of \$oscar: ",
+		   Data::Dumper::Dumper($oscar), "\n";
+	}
 
 	irc_send(irc_newnick($prefix.$buddy));
 	my $inick = ircify($prefix.$buddy);
@@ -2147,6 +2171,14 @@ sub do_signoff($$;$) {
 
 	my $screenname = $oscar->screenname if $oscar;
 
+	for(my $i = $#dccqueue; $i >= 0; $i--) {
+		my $dcc = $dccqueue[$i];
+		next unless $screenname and $dcc->{screenname} eq $screenname;
+		close $dcc->{socket} if $dcc->{socket};
+		debug_print("Closed DCC $dcc->{desc} for $screenname due to signoff", "DCC", 3);
+		splice(@dccqueue, $i, 1);
+	}
+
 	foreach my $chat(keys %chats) {
 		my $chan = chatchan($chat);
 		next unless normalize($chats{$chat}->{screenname}) eq normalize($screenname) or not $screenname;
@@ -2475,7 +2507,7 @@ sub process_ctcp($$$$) {
 					$dcc = $dccqueue[$i];
 					next unless $dcc->{for} eq $from;
 					debug_print("$from rejected our DCC.", "DCC", 1);
-					close $dccqueue[$i]->{socket} if $dcc->{socket};
+					close $dcc->{socket} if $dcc->{socket};
 					splice(@dccqueue, $i, 1);
 				}
 			} elsif($cmd eq "SEND") {
@@ -2493,19 +2525,17 @@ sub process_ctcp($$$$) {
 					next CTCP;
 				} else {
 					socket($socket, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
-					$flags = 0;
-					fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
-					$flags |= O_NONBLOCK;
-					fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";					
+					set_blocking($socket, 0);
+
 					if(!connect($socket, sockaddr_in($port, inet_aton($ipaddr))) and $! != EINPROGRESS) {
 						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $!"));
 						next CTCP;
 					}
 					push @dccqueue, {
 						screenname => $screenname,
-						from => new Net::OSCAR::Screenname $from,
-						to => new Net::OSCAR::Screenname $to,
-						for => new Net::OSCAR::Screenname $from,
+						from => new Net::OSCAR::Screenname($from),
+						to => new Net::OSCAR::Screenname($to),
+						for => new Net::OSCAR::Screenname($from),
 						socket => $socket,
 						time => time,
 						size => $filesize,
@@ -2669,45 +2699,44 @@ sub irc_dcc($$$$$$) {
 		return "";
 	}
 
-	eval { $socket = IO::Socket::INET->new(
-		LocalPort => 0,
-		Listen => 1,
-		Proto => 'tcp',
-		LocalAddr => $dccip
-	); };
+	$socket = gensym;
+	socket($socket, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 
-	unless(!$@ and $socket) {
-		irc_send(irc_privmsg($from, $to, "Couldn't create DCC socket: $@", "", "", $screenname));
+	set_blocking($socket, 0);
+
+	if(!setsockopt($socket, SOL_SOCKET, SO_REUSEADDR, pack("l", 1))) {
+		irc_send(irc_privmsg($from, $to, "Couldn't set sockopt for DCC socket: $!", "", "", $screenname));
 		return "";
-	} else {
-		$flags = 0;
-		if(!fcntl($socket, F_GETFL, $flags)) {
-			irc_send(irc_privmsg($from, $to, "Couldn't get flags for DCC socket: $!", "", "", $screenname));
-			return "";
-		}
-		$flags |= O_NONBLOCK;
-		if(!fcntl($socket, F_SETFL, $flags)) {
-			irc_send(irc_privmsg($from, $to, "Couldn't set flags for DCC socket: $!", "", "", $screenname));
-			return "";
-		}
-
-		push @dccqueue, {
-			screenname => new Net::OSCAR::Screenname $screenname,
-			from => new Net::OSCAR::Screenname $from,
-			to => new Net::OSCAR::Screenname $to,
-			for => new Net::OSCAR::Screenname $to,
-			socket => $socket,
-			time => time,
-			size => length($what),
-			what => $what,
-			desc => $why,
-			state => DCC_STATE_SEND_LISTEN,
-			sent => 0,
-			received => 0
-		};
-		debug_print("DCC SEND buff: $what", "DCC", 3);
-		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
 	}
+	if(!bind($socket, sockaddr_in(0, inet_aton($dccip)))) {
+		irc_send(irc_privmsg($from, $to, "Couldn't bind DCC socket: $!", "", "", $screenname));
+		return "";
+	}
+	if(!listen($socket, SOMAXCONN)) {
+		irc_send(irc_privmsg($from, $to, "Couldn't listen on DCC socket: $!", "", "", $screenname));
+		return "";
+	}
+
+	my($port) = sockaddr_in(getsockname($socket));
+
+	$flags = 0;
+
+	push @dccqueue, {
+		screenname => new Net::OSCAR::Screenname($screenname),
+		from => new Net::OSCAR::Screenname($from),
+		to => new Net::OSCAR::Screenname($to),
+		for => new Net::OSCAR::Screenname($to),
+		socket => $socket,
+		time => time,
+		size => length($what),
+		what => $what,
+		desc => $why,
+		state => DCC_STATE_SEND_LISTEN,
+		sent => 0,
+		received => 0
+	};
+	debug_print("DCC SEND (litening on $dccip:$port) buff: $what", "DCC", 3);
+	return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " $port " . length($what));
 }
 
 #The base64 functions are for the P10 IRC protocol
@@ -2786,15 +2815,20 @@ sub process_dcc($$) {
 	my $buff;
 	my $rv = undef;
 
+	debug_print("Got activity on DCC $dcc->{desc} from $dcc->{from} to $dcc->{to}...", "DCC", 3);
+
 	if($dcc->{state} == DCC_STATE_SEND_LISTEN) {
+		debug_print("...State DCC_STATE_SEND_LISTEN", "DCC", 3);
 		my $newsocket = gensym;
-		accept $dcc->{socket}, $newsocket;
+		accept $newsocket, $dcc->{socket} or die "Couldn't accept: $!";
+		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
+		set_blocking($newsocket, 0);  # This pisses it off.
 		close $dcc->{socket};
 		$dcc->{socket} = $newsocket;
-		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		$dcc->{state} = DCC_STATE_SEND_READY;
 		return 1;
 	} elsif($dcc->{state} == DCC_STATE_SEND_READY) {
+		debug_print("...State DCC_STATE_SEND_READY", "DCC", 3);
 		my $send = $dcc->{send} % 2048;
 		$send = 2048 - $send;
 		my $buff = substr($dcc->{what}, 0, $send);
@@ -2810,9 +2844,10 @@ sub process_dcc($$) {
 		} else {
 			substr($buff, 0, $rv) = "";
 			$dcc->{sent} += $rv;
-			$dcc->{state} = DCC_STATE_SEND_NEEDACK if $dcc->{sent} % 2048 == 0;
+			$dcc->{state} = DCC_STATE_SEND_NEEDACK if $dcc->{sent} % 2048 == 0 or $dcc->{sent} == $dcc->{size};
 		}
 	} elsif($dcc->{state} == DCC_STATE_SEND_NEEDACK) {
+		debug_print("...State DCC_STATE_SEND_NEEDACK", "DCC", 3);
 		my $buff;
 		my $rv = sysread $dcc->{socket}, $buff, 4;
 		if(!defined($rv)) {
@@ -2836,10 +2871,12 @@ sub process_dcc($$) {
 			}
 		}
 	} elsif($dcc->{state} == DCC_STATE_GET_CONNECT) {
+		debug_print("...State DCC_STATE_GET_CONNECT", "DCC", 3);
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		$dcc->{state} = DCC_STATE_GET_READY;
 		return 1;
 	} elsif($dcc->{state} == DCC_STATE_GET_READY) {
+		debug_print("...State DCC_STATE_GET_READY", "DCC", 3);
 		my $buff;
 		my $rv = sysread $dcc->{socket}, $buff, 2048;
 		if(!defined($rv)) {
@@ -2853,10 +2890,11 @@ sub process_dcc($$) {
 		} else {
 			$dcc->{what} .= $buff;
 			$dcc->{received} += $rv;
-			$dcc->{state} = DCC_STATE_GET_SENDACK if $dcc->{received} % 2048 == 0;
+			$dcc->{state} = DCC_STATE_GET_SENDACK if $dcc->{received} % 2048 == 0 or $dcc->{received} == $dcc->{size};
 			return 1;
 		}
 	} elsif($dcc->{state} == DCC_STATE_GET_SENDACK) {
+		debug_print("...State DCC_STATE_GET_SENDACK", "DCC", 3);
 		my $rv = syswrite $dcc->{socket}, pack("N", $dcc->{received}), 4;
 		if(!defined($rv)) {
 			if($! == EAGAIN) {
@@ -2884,6 +2922,7 @@ sub process_dcc($$) {
 			return 1;
 		}
 	} else {
+		debug_print("...State unknown ($dcc->{state})", "DCC", 3);
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "Unknown state $dcc->{state}!  Please email matthewg\@zevils.com.", "", "", $screenname));
 		return 0;
 	}
@@ -2911,3 +2950,16 @@ sub mkchan($$) {
 
 sub chatchan($) { confess "chatchan \"\"!" unless $_[0]; return mkchan("aimchat", shift); }
 sub nickchan($) { return mkchan("aimirc", shift); }
+
+sub set_blocking($$) {
+	my($socket, $blocking) = @_;
+
+	my $flags = 0;
+	fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for upstream: $!";
+	if($blocking) {
+		$flags &= ~O_NONBLOCK;
+	} else {
+		$flags |= O_NONBLOCK;
+	}
+	fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for upstream: $!";
+}
