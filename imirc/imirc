@@ -1887,9 +1887,9 @@ sub oscar_buddy_info($$$) {
 	my($oscar, $buddy, $buddat) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	if($oscar->{awaymsg}) {
-		$away->{$buddy} = $oscar->{awaymsg};
-		irc_send(":".ircify($prefix.$buddy)." AWAY :$oscar->{awaymsg}\r\n");
+	if($buddat->{awaymsg}) {
+		$away->{$buddy} = $buddat->{awaymsg};
+		irc_send(":".ircify($prefix.$buddy)." AWAY :$buddat->{awaymsg}\r\n");
 	} else {
 		local $^W = 0;
 		my $msg = "Buddy Info for $buddat->{screenname}\r\n";
