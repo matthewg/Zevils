@@ -532,7 +532,6 @@ sub mainloop() {
 						if(haskeys($sndata->{away_queue}) and $currtime - $sndata->{away_time} > 5) {
 							$sndata->{away_time} = $currtime;
 							my $buddy = (keys %{$sndata->{away_queue}})[0];
-							irc_send(irc_privmsg($usnick, $nick, "Awaydequeueing $buddy"));
 							$sndata->{oscar}->get_away($buddy);
 							delete $sndata->{away_queue}->{$buddy};
 						}
@@ -3053,14 +3052,7 @@ sub nickchan($) { return mkchan($nickchan, shift); }
 sub set_blocking($$) {
 	my($socket, $blocking) = @_;
 
-	my $flags = 0;
-	fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for upstream: $!";
-	if($blocking) {
-		$flags &= ~O_NONBLOCK;
-	} else {
-		$flags |= O_NONBLOCK;
-	}
-	fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for upstream: $!";
+	$socket->blocking($blocking);
 }
 
 sub export_buddylist($;$) {
