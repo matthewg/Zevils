@@ -85,7 +85,7 @@ sub BEGIN {
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 0.59 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.59;
+	$@ .= "We require Net::OSCAR 0.61 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.61;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -430,11 +430,6 @@ sub loadconf() {
 		} elsif($IO::Poll::VERSION < 0.05) {
 			print STDERR "Your version of IO::Poll is too old - falling back to select\n";
 			$usepoll = 0;
-		} elsif($Net::OSCAR::VERSION < 0.60) {
-			print STDERR "Your version of Net::OSCAR is not new enough for \$usepoll.\n";
-			print STDERR "\$usepoll requires Net::OSCAR 0.60 or newer; you have $Net::OSCAR::VERSION.\n";
-			print STDERR "Falling back to select.\n";
-			$usepoll = 0;
 		} elsif($IO::Poll::VERSION == 0.05) {
 			print STDERR "Your version of IO::Poll has the remove bug - enabling workaround.\n";
 			*{IO::Poll::remove} = sub {
@@ -546,57 +541,48 @@ sub mainloop() {
 			my($do_irc, @do_dcc) = 0;
 			$do_irc = 1 if @getbuff;
 
-			if($usepoll) {
-				#debug_print("Processing poll results...", "irc", 2);
-				foreach my $handle ($poll->handles(POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)) {
-					next unless $handle;
+			my $dccno = 0;
+			my %dccmap = map { $_ => $dccno++ } @dccqueue;
+
+			foreach my $handle (
+				$usepoll ?
+					grep { $_ }
+						$poll->handles(POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)
+				:
+					grep { vec($rout|$wout|$eout, $_, 1) }
+						keys %fdmap
+			) {
+				next unless $handle;
+				my $connection = $usepoll ? $fdmap{fileno($handle)} : $fdmap{$handle};
+				my ($read, $write, $error) = (0, 0, 0);
+				if($usepoll) {
 					my $events = $poll->events($handle);
-					my $target = $fdmap{fileno($handle)};
-
-					#debug_print("Got handle $handle (". fileno($handle). ") target $target (". ref($target). ") with events $events", "irc", 2);
-
-					if($events & (POLLNVAL|POLLERR|POLLHUP)) {
-						$poll->remove($handle);
-						delete $fdmap{fileno($handle)};
-					}
-
-					if(UNIVERSAL::isa($target, "Net::OSCAR::Connection")) {
-						eval {
-							$target->process_one($events & POLLIN, $events & POLLOUT, $events & (POLLERR|POLLHUP));
-						};
-						if($@) {
-							my $screenname = $target->session->screenname;
-							my $nick = $irc_connections->{$screenname};
-							irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
-							do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
-						}
-					} elsif($target == $upstream) {
-						$do_irc = 1;
-					} else { # DCC
-						for(my $dccno = 0; $dccno < length(@dccqueue); $dccno++) {
-							if($dccqueue[$dccno] == $target) {
-								$do_dcc[$dccno] = 1;
-								last;
-							}
-						}
-					}
-				}
-			} else {
-				debug_print("Processing OSCARs...", "irc", 2);
-
-				foreach $nick(keys %$aim_connections) {
-					foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
-						eval {
-							$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rout, \$wout, \$eout);
-						};
-						if($@) {
-							irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
-							do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
-						}
-					}
+					$read = 1 if $events & POLLIN;
+					$write = 1 if $events & POLLOUT;
+					$error = 1 if $events & (POLLNVAL | POLLERR | POLLHUP);
+				} else {
+					$read = 1 if vec($rout, $handle, 1);
+					$write = 1 if vec($wout, $handle, 1);
+					$error = 1 if vec($eout, $handle, 1);
 				}
 
-				$do_irc = 1 if vec($rout, $upstream->fileno, 1);
+				io_events($handle, "deleted") if $error;
+
+				if(UNIVERSAL::isa($connection, "Net::OSCAR::Connection")) {
+					eval {
+						$connection->process_one($read, $write, $error);
+					};
+					if($@) {
+						my $screenname = $connection->session->screenname;
+						my $nick = $irc_connections->{$screenname};
+						irc_send(irc_privmsg($usnick, $nick, "There was a problem with your AIM connection: $@", "", "", $screenname));
+						do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
+					}
+				} elsif($connection == $upstream) {
+					$do_irc = 1;
+				} else { # DCC
+					$do_dcc[$dccmap{$connection}] = 1;
+				}
 			}
 
 			if($do_irc or @getbuff) {
@@ -616,9 +602,9 @@ sub mainloop() {
 				}
 
 				if($dcc->{state} & DCC_STATE_WRITE) {
-					next unless $usepoll ? $do_dcc[$i] : vec($wout, fileno($dcc->{socket}), 1);
+					next unless $do_dcc[$i];
 				} else {
-					next unless $usepoll ? $do_dcc[$i] : vec($rout, fileno($dcc->{socket}), 1);
+					next unless $do_dcc[$i];
 				}
 
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
@@ -694,8 +680,7 @@ sub connect_to_irc() {
 	}
 
 	${*$upstream}{imirc_connected} = 1;
-	io_events($upstream, "read");
-	$fdmap{fileno($upstream)} = $upstream if $usepoll;
+	io_events($upstream, "read", $upstream);
 }
 
 # Create a new IRCnick, with mangling and anti-collide
@@ -2308,12 +2293,7 @@ sub oscar_connection_changed($$$) {
 	my($oscar, $connection, $status) = @_;
 
 	my $filehandle = $connection->get_filehandle;
-	io_events($filehandle, $status);
-	if($status eq "deleted") {
-		delete $fdmap{fileno($filehandle)} if $filehandle;
-	} else {
-		$fdmap{fileno($filehandle)} = $connection;
-	}
+	io_events($filehandle, $status, $connection);
 }
 
 sub oscar_log($$$) {
@@ -2539,7 +2519,6 @@ sub do_signoff($$;$) {
 		next unless $screenname and $dcc->{screenname} eq $screenname;
 
 		io_events($dcc->{socket}, "deleted");
-		delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket} and $usepoll;
 
 		close $dcc->{socket} if $dcc->{socket};
 		debug_print("Closed DCC $dcc->{desc} for $screenname due to signoff", "DCC", 3);
@@ -2932,7 +2911,6 @@ sub process_ctcp($$$$$) {
 					debug_print("$from rejected our DCC.", "DCC", 1);
 
 					io_events($dcc->{socket}, "deleted");
-					delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket} and $usepoll;
 
 					close $dcc->{socket} if $dcc->{socket};
 					splice(@dccqueue, $i, 1);
@@ -2974,7 +2952,6 @@ sub process_ctcp($$$$$) {
 					};
 
 					io_events($socket, dcc_state_io_events(DCC_STATE_GET_CONNECT));
-					$fdmap{fileno($socket)} = $dccqueue[-1] if $usepoll;
 
 					delete $dccget{$from};
 					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename.", "", "", $screenname));
@@ -3157,8 +3134,7 @@ sub irc_dcc($$$$$$) {
 		received => 0
 	};
 
-	io_events($socket, dcc_state_io_events(DCC_STATE_SEND_LISTEN));
-	$fdmap{fileno($socket)} = $dccqueue[-1] if $usepoll;
+	io_events($socket, dcc_state_io_events(DCC_STATE_SEND_LISTEN), $dccqueue[-1]);
 
 	debug_print("DCC SEND (litening on $dccip:$port) buff: $what", "DCC", 3);
 	return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " $port " . length($what));
@@ -3270,7 +3246,6 @@ sub process_dcc($$) {
 		set_blocking($newsocket, 0);  # This pisses it off.
 
 		io_events($dcc->{socket}, "deleted");
-		delete $fdmap{fileno($dcc->{socket})} if $usepoll;
 
 		close $dcc->{socket};
 		$dcc->{socket} = $newsocket;
@@ -3387,11 +3362,9 @@ sub process_dcc($$) {
 
 	DCC_CLEANUP:
 	if($retval == 1) {
-		io_events($dcc->{socket}, dcc_state_io_events($dcc->{state}));
-		$fdmap{fileno($dcc->{socket})} = $dcc if $usepoll;
+		io_events($dcc->{socket}, dcc_state_io_events($dcc->{state}), $dcc);
 	} else {
 		io_Events($dcc->{socket}, "deleted");
-		delete $fdmap{fileno($dcc->{socket})} if $usepoll;
 	}
 
 	if($retval == -1) {
@@ -3650,7 +3623,6 @@ sub did_quit($) {
 		debug_print("Closing DCC socket for transfer to $nick", "DCC", 1);
 
 		io_events($dcc->{socket}, "deleted");
-		delete $fdmap{fileno($dcc->{socket})} if $dcc->{socket} and $usepoll;
 
 		close $dcc->{socket};
 		splice(@dccqueue, $i, 1);
@@ -3682,41 +3654,49 @@ sub dcc_state_io_events($) {
 	return "read";
 }
 
-sub io_events($$) {
-	my($handle, $events) = @_;
+sub io_events($$;$) {
+	my($handle, $events, $associate) = @_;
 
 	return unless $handle;
-	my $fileno = fileno($handle);
+	my $fileno = ref($handle) ? fileno($handle) : $handle;
+
+	if($events ne "deleted") {
+		$fdmap{$fileno} = $associate;
+	} else {
+		delete $fdmap{$fileno};
+	}
 
 	if($usepoll) {
+		my $mask = 0;
 		if($events eq "deleted") {
 			$poll->remove($handle);
 		} elsif($events eq "read") {
-			$poll->mask($handle => POLLIN);
+			$mask = POLLIN;
 		} elsif($events eq "write") {
-			$poll->mask($handle => POLLOUT);
+			$mask = POLLOUT;
 		} elsif($events eq "readwrite") {
-			$poll->mask($handle => POLLIN|POLLOUT);
-		} else {
-			croak "Unknown event type $events in io_events";
-		}
-	} else {
-		if($events eq "deleted") {
-			vec($select_rd, $fileno, 1) = 0;
-			vec($select_wr, $fileno, 1) = 0;
-		} elsif($events eq "read") {
-			vec($select_rd, $fileno, 1) = 1;
-			vec($select_wr, $fileno, 1) = 0;
-		} elsif($events eq "write") {
-			vec($select_rd, $fileno, 1) = 0;
-			vec($select_wr, $fileno, 1) = 1;
-		} elsif($events eq "readwrite") {
-			vec($select_rd, $fileno, 1) = 1;
-			vec($select_wr, $fileno, 1) = 1;
+			$mask = POLLIN | POLLOUT;
 		} else {
 			croak "Unknown event type $events in io_events";
 		}
 
+		$poll->mask($handle => $mask) if $mask;
+	} else {
+		my($read, $write);
+		if($events eq "deleted") {
+			($read, $write) = (0, 0);
+		} elsif($events eq "read") {
+			($read, $write) = (1, 0);
+		} elsif($events eq "write") {
+			($read, $write) = (0, 1);
+		} elsif($events eq "readwrite") {
+			($read, $write) = (1, 1);
+		} else {
+			croak "Unknown event type $events in io_events";
+		}
+
+		vec($select_rd, $fileno, 1) = $read;
+		vec($select_wr, $fileno, 1) = $write;
 		$select_err = $select_rd | $select_wr;
 	}
 }
