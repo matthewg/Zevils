@@ -1,0 +1,37 @@
+How it works:
+	When starting aimirc, check to see if we have the right Perl modules to do crypto, and for which algorithms.
+
+	If we do, and the config file indicates that the user wants to use cryptography, either read in the existing
+	El Gamal keypair or generate a new one.
+
+	If we are sending an IM to someone who both:
+		*Is on our buddylist (since we need to know when they sign off) and
+		*We have not sent an IM to since the last time they signed on
+	then insert a special HTML comment into the message.
+	The HTML comment looks like this:
+		<!-- crypto available AsymmetricAlgos:SymmetricAlgos -->
+	AsymmetricAlgos is a comma-seperated list of asymmetric encryption algorithms
+	which we can use, in order of preference.  SymmetricAlgos is the same deal for the
+	symmetric bits.
+
+	Upon receiving a message containing such a comment, reply with an IM that looks like this:
+		<!-- crypto init AsymmetricAlgo:SymmetricAlgo --> auto
+	AsymmetricAlgo and SymmetricAlgo are the algorithms that we want to use.
+	After sending or receiving a crypto init, each client should do (at least for El Gamal - different asymmetric algorithms will have slightly different sequences):
+		<!-- crypto pubkey p -->[P part of public key] auto
+		<!-- crypto pubkey g -->[G part of public key] auto
+		<!-- crypto pubkey y -->[Y part of public key] auto
+	(No, don't actually send [braces].)  You see, an El Gamal public key has three parts.  These are called p, g, and y.
+
+	Okay. so both clients have each other's public key.  Now each sends:
+		<!-- crypto sessionkey -->[session key to use for symmetric algorithm, encrypted to other client's public key] auto
+	The session key should be some big randomly-generated number.
+
+	Now every time the clients want to exchange IMs, they encrypt the contents (NOT the SFLAP headers!!) with the session key.
+	Note that it is not only valid, but an extremely good idea, for a client to send a <!-- crypto sessionkey --> message even
+	after a session key has been established.  The <!-- crypto sessionkey --> should, however, not be encrypted.  The client should send
+	a new session key after a certain number of IMs have been sent with the current key.
+
+	To stop using cryptography, a client may send:
+		<!-- crypto terminate -->
+	Note that this message should not be encrypted.
