@@ -210,57 +210,81 @@ sub sflap_get($;$) {
 
 	#print STDERR "Block? $block\n";
 
-	undef $rv;
-	$! = EAGAIN;
-	while($! == EAGAIN and !defined($rv)) {
-		$buff = ' ' x 6;
-		$rv = $handle->sysread($buff, 6);
-		#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
-		if (!defined($rv) && $! != EAGAIN) {
-			$err = "Couldn't read: $!";
-			return -1;
+	eval {
+		local $SIG{ALRM} = sub { die "alarm\n" };
+		alarm 5;
+
+		undef $rv;
+		$! = EAGAIN;
+		while($! == EAGAIN and !defined($rv)) {
+			$buff = ' ' x 6;
+			$rv = $handle->sysread($buff, 6);
+			#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
+			if (!defined($rv) && $! != EAGAIN) {
+				$err = "Couldn't read: $!";
+				alarm 0;
+				return -1;
+			}
+			if(!defined($rv) && ($! == EAGAIN) && !$block) {
+				alarm 0;
+				return undef;
+			}
 		}
-		return undef if !defined($rv) && ($! == EAGAIN) && !$block;
-	}
 
-	#get $len chars
-	@hdr = unpack("CCnn", $buff);
+		#get $len chars
+		@hdr = unpack("CCnn", $buff);
 
-	if($hdr[1] == 1) {
-		$type = "signon";
-	} elsif($hdr[1] == 2) {
-		$type = "data";
-	} else { $type = $hdr[1];
-	}
-	debug_print("sflap_get (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
-	if($type eq "signon") {
-		@signon_hdr = unpack("NnnA*", $buff);
-		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
-	}
-
-	$len = $hdr[3];
-
-	undef $rv;
-	$! = EAGAIN;
-	while($! == EAGAIN and !defined($rv)) {
-		$buff = ' ' x $len;
-		$rv = $handle->sysread($buff, $len);
-		$err = "Couldn't read: $!" unless $rv;
-		#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
-		if (!defined($rv) && $! != EAGAIN) {
-			$err = "Couldn't read: $!";
-			return -1;
+		if($hdr[1] == 1) {
+			$type = "signon";
+		} elsif($hdr[1] == 2) {
+			$type = "data";
+		} else { $type = $hdr[1];
 		}
-		return undef if !defined($rv) && ($! == EAGAIN) && !$block;
-	}
-	chomp $buff;
+		debug_print("sflap_get (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+		if($type eq "signon") {
+			@signon_hdr = unpack("NnnA*", $buff);
+			debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
+		}
+
+		$len = $hdr[3];
+
+		undef $rv;
+		$! = EAGAIN;
+		while($! == EAGAIN and !defined($rv)) {
+			$buff = ' ' x $len;
+			$rv = $handle->sysread($buff, $len);
+			$err = "Couldn't read: $!" unless $rv;
+			#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
+			if (!defined($rv) && $! != EAGAIN) {
+				$err = "Couldn't read: $!";
+				alarm 0;
+				return -1;
+			}
+			if(!defined($rv) && ($! == EAGAIN) && !$block) {
+				alarm 0;
+				return undef;
+			}
+		}
+		chomp $buff;
  
-	debug_print("\tdata: $buff\n", "sflap", 2) if $type ne "signon";
+		debug_print("\tdata: $buff\n", "sflap", 2) if $type ne "signon";
 
-	if($err) {
-		$handle->close if $handle;
+		if($err) {
+			$handle->close if $handle;
+			alarm 0;
+			return -1;
+		}
+
+		alarm 0;
+	};
+
+	if($@) {
+		alarm 0;
+		croak unless $@ eq "alarm\n";
+		$err = "sflap_get timed out";
 		return -1;
 	}
+
 	return $buff;
 }
 
@@ -622,9 +646,9 @@ sub message($$$;$) {
 
 =pod
 
-=item add_buddy(HANDLE, NICK[, GROUP[, NO_SET_CONFIG]])
+=item add_buddy(HANDLE, NICKS[, GROUP[, NO_SET_CONFIG]])
 
-Add NICK to the buddy list.  This automatically does a set_config so that the change is saved.
+Add NICKS to the buddy list.  This automatically does a set_config so that the change is saved.
 The optional parameter GROUP specifies which group to place the buddy in.  Returns the result of set_config.
 
 If the NO_SET_CONFIG parameter is present, the user's configuration will not be resent to the Toc server.
@@ -632,95 +656,119 @@ This is very useful for when you've just gotten a config from Toc, such as upon 
 
 =cut
 
-sub add_buddy($$;$$) {
-	my($handle, $nick, $group, $noconfig) = @_;
+sub add_buddy($\@;$$) {
+	my($handle, $nicks, $group, $noconfig, $nickstring, $nick) = @_;
+
+	$nickstring = join(" ", @$nicks);
 	$group ||= "Buddies";
-	debug_print(_hnick($handle) . " is adding $nick to buddylist", "buddies", 1);
+	debug_print(_hnick($handle) . " is adding $nickstring to buddylist", "buddies", 1);
 	delete $config{_hnick($handle)}->{deny}{$nick};
-	sflap_do($handle, "toc_add_buddy $nick");
-	$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
-	$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
+	sflap_do($handle, "toc_add_buddy $nickstring");
+	foreach $nick(@$nicks) {
+		$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
+		$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
+	}
 	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 =pod
 
-=item remove_buddy(HANDLE, NICK)
+=item remove_buddy(HANDLE, NICKS)
 
-Remove NICK from the buddy list.
+Remove NICKS from the buddy list.
 
 =cut
 
-sub remove_buddy($$) {
-	my($handle, $nick) = @_;
-	debug_print(_hnick($handle) . " is removing $nick from the buddylist", "buddies", 1);
-	sflap_do($handle, "toc_remove_buddy $nick");
-	delete $config{_hnick($handle)}->{Buddies}{$nick};
+sub remove_buddy($\@) {
+	my($handle, $nicks, $nickstring, $nick) = @_;
+
+	$nickstring = join(" ", @$nicks);
+	debug_print(_hnick($handle) . " is removing $nickstring from the buddylist", "buddies", 1);
+	sflap_do($handle, "toc_remove_buddy $nickstring");
+	foreach $nick(@$nicks) {
+		delete $config{_hnick($handle)}->{Buddies}{$nick};
+	}
 	set_config($handle, $config{_hnick($handle)});
 }
 
 =pod
 
-=item add_permit(HANDLE, NICK[, NO_SET_CONFIG])
+=item add_permit(HANDLE, NICKS[, NO_SET_CONFIG])
 
-Add NICK to the permit list.  Returns the result of set_config.
+Add NICKS to the permit list.  Returns the result of set_config.
 See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_permit($$;$) {
-	my($handle, $nick, $noconfig) = @_;
-	debug_print(_hnick($handle) . " is adding $nick to permit list", "buddies", 1);
-	sflap_do($handle, "toc_add_permit $nick");
-	delete $config{_hnick($handle)}->{deny}{$nick};
-	$config{_hnick($handle)}->{permit}{$nick} = 1;
+sub add_permit($\@;$) {
+	my($handle, $nicks, $noconfig, $nickstring, $nick) = @_;
+
+	$nickstring = join(" ", @$nicks);
+	debug_print(_hnick($handle) . " is adding $nickstring to permit list", "buddies", 1);
+	sflap_do($handle, "toc_add_permit $nickstring");
+	foreach $nick(@$nicks) {
+		delete $config{_hnick($handle)}->{deny}{$nick};
+		$config{_hnick($handle)}->{permit}{$nick} = 1;
+	}
 	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 =pod
 
-=item remove_permit(HANDLE, NICK)
+=item remove_permit(HANDLE, NICKS)
 
-Remove NICK from the permit list.
+Remove NICKS from the permit list.
 
 =cut
 
-sub remove_permit($$) {
-	my($handle, $nick) = @_;
-	debug_print(_hnick($handle) . " is removing $nick from permit list", "buddies", 1);
-	delete $config{_hnick($handle)}->{permit}{$nick};
+sub remove_permit($\@) {
+	my($handle, $nicks, $nick, $nickstring) = @_;
+
+	$nickstring = join(" ", @$nicks);
+	debug_print(_hnick($handle) . " is removing $nickstring from permit list", "buddies", 1);
+	foreach $nick(@$nicks) {
+		delete $config{_hnick($handle)}->{permit}{$nick};
+	}
 	set_config($handle, $config{_hnick($handle)});
 }
 
 =pod
 
-=item add_deny(HANDLE, NICK[, NO_SET_CONFIG])
+=item add_deny(HANDLE, NICKS[, NO_SET_CONFIG])
 
-Add NICK to the deny list.  Returns the result of set_config.
+Add NICKS to the deny list.  Returns the result of set_config.
 See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_deny($$;$) {
-	my($handle, $nick, $noconfig) = @_;
-	debug_print(_hnick($handle) . " is adding $nick to deny list", "buddies", 1);
-	sflap_do($handle, "toc_add_deny $nick");
-	delete $config{_hnick($handle)}->{permit}{$nick};
-	$config{_hnick($handle)}->{deny}{$nick} = 1;
+sub add_deny($\@;$) {
+	my($handle, $nicks, $noconfig, $nick, $nickstring) = @_;
+
+	$nickstring = join(" ", @$nicks);
+	debug_print(_hnick($handle) . " is adding $nickstring to deny list", "buddies", 1);
+	sflap_do($handle, "toc_add_deny $nickstring");
+	foreach $nick(@$nicks) {
+		delete $config{_hnick($handle)}->{permit}{$nick};
+		$config{_hnick($handle)}->{deny}{$nick} = 1;
+	}
 	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 
-=item remove_deny(HANDLE, NICK)
+=item remove_deny(HANDLE, NICKS)
 
-Remove NICK from the deny list.
+Remove NICKS from the deny list.
 
 =cut
 
-sub remove_deny($$) {
-	my($handle, $nick) = @_;
-	debug_print(_hnick($handle) . " is removing $nick from deny list", "buddies", 1);
-	delete $config{_hnick($handle)}->{deny}{$nick};
+sub remove_deny($\@) {
+	my($handle, $nicks, $nick, $nickstring) = @_;
+
+	$nickstring = join(" ", @$nicks);
+	debug_print(_hnick($handle) . " is removing $nickstring from deny list", "buddies", 1);
+	foreach $nick(@$nicks) {
+		delete $config{_hnick($handle)}->{deny}{$nick};
+	}
 	set_config($handle, $config{_hnick($handle)});
 }
 
@@ -777,6 +825,7 @@ sub permtype($;$) {
 	if($permtype) {
 		$config{_hnick($handle)}->{permtype} = $permtype;
 		set_config($handle, $config{_hnick($handle)});
+		_setup($handle);
 		return $permtype;
 	} else {
 		return $config{_hnick($handle)}->{permtype} || 4;
@@ -847,7 +896,6 @@ sub set_config($$) {
 	$config{_hnick($handle)} = $config;
 
 	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
-	_setup($handle);
 }
 sub _setup($) { 
 	my $handle = shift;
@@ -859,19 +907,23 @@ sub _setup($) {
 	foreach $buddy(keys %{$config->{Buddies}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 	sflap_do($handle, $msg);
 
+	if($config{_hnick($handle)}->{permtype} != 2) {
+		$msg = "toc_add_permit";
+		foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
+		sflap_do($handle, $msg);
+	}
+
+	if($config{_hnick($handle)}->{permtype} != 1) {
+		$msg = "toc_add_deny";
+		foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
+		sflap_do($handle, $msg);
+	}
+
 	if($config{_hnick($handle)}->{permtype} == 3 or $config{_hnick($handle)}->{permtype} == 1) {
 		sflap_do($handle, "toc_add_permit");
 	} else {
 		sflap_do($handle, "toc_add_deny");
 	}
-
-	$msg = "toc_add_permit";
-	foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
-	sflap_do($handle, $msg);
-
-	$msg = "toc_add_deny";
-	foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
-	sflap_do($handle, $msg);
 
 }
 
@@ -1012,51 +1064,65 @@ will be stored in $Net::Toc::err if an error occurs.
 sub sflap_put($$) {
 	my($handle, $msg, $type, @signon_hdr, $rv) = @_; #msg must already be encoded
 
-	$err = "Undefined handle";
-	return -1 unless $handle;
-	$err = undef;
+	eval {
+		$err = "Undefined handle";
+		return -1 unless $handle;
+		$err = undef;
 
-	my($seqno) = ++${*$handle}{'net_toc_seqno'};
-	my @hdr = unpack("CCnn", substr($msg, 0, 6));
-	$hdr[2] = $seqno;
+		local $SIG{ALRM} = sub { die "alarm\n"; };
+		alarm 5;
 
-	if($hdr[1] == 1) {
-		$type = "signon";
-	} elsif($hdr[1] == 2) {
-		$type = "data";
-	} elsif($hdr[1] == 5) {
-		$type = "keep_alive";
-	} else {
-		$type = $hdr[1];
-	}
-	debug_print("sflap_put (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
-	$foo = $msg;
-	substr($foo, 0, 6) = "";
-	if($type eq "signon") {
-		@signon_hdr = unpack("NnnA*", $foo);
-		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
-	} elsif($type ne "keep_alive") {
-		debug_print("\tdata: $foo\n", "sflap", 2);
-	}
+		my($seqno) = ++${*$handle}{'net_toc_seqno'};
+		my @hdr = unpack("CCnn", substr($msg, 0, 6));
+		$hdr[2] = $seqno;
 
-	substr($msg, 0, 6) = pack("CCnn", @hdr);
-
-	undef $rv;
-	$! = EAGAIN;
-	while(!defined($rv) && $! == EAGAIN) {
-		$rv = $handle->syswrite($msg, length $msg);
-		if($rv != length $msg) {
-			#print STDERR "Incomplete write (wrote $rv of " . length $msg . ")\n";
-			substr($msg, 0, $rv) = "";
-			undef $rv;
-			$! = EAGAIN;
-		} elsif(!defined($rv) && $! != EAGAIN) {
-			$err = "Couldn't write: $!";
-			$handle->close if $handle;
-			return -1;
+		if($hdr[1] == 1) {
+			$type = "signon";
+		} elsif($hdr[1] == 2) {
+			$type = "data";
+		} elsif($hdr[1] == 5) {
+			$type = "keep_alive";
+		} else {
+			$type = $hdr[1];
 		}
-	}
+		debug_print("sflap_put (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+		$foo = $msg;
+		substr($foo, 0, 6) = "";
+		if($type eq "signon") {
+			@signon_hdr = unpack("NnnA*", $foo);
+			debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
+		} elsif($type ne "keep_alive") {
+			debug_print("\tdata: $foo\n", "sflap", 2);
+		}
 
+		substr($msg, 0, 6) = pack("CCnn", @hdr);
+
+		undef $rv;
+		$! = EAGAIN;
+		while(!defined($rv) && $! == EAGAIN) {
+			$rv = $handle->syswrite($msg, length $msg);
+			if($rv != length $msg) {
+				#print STDERR "Incomplete write (wrote $rv of " . length $msg . ")\n";
+				substr($msg, 0, $rv) = "";
+				undef $rv;
+				$! = EAGAIN;
+			} elsif(!defined($rv) && $! != EAGAIN) {
+				$err = "Couldn't write: $!";
+				$handle->close if $handle;
+				alarm 0;
+				return -1;
+			}
+		}
+		alarm 0;
+	};
+
+	if($@) {
+		alarm 0;
+		croak unless $@ eq "alarm\n";
+		$err = "sflap_put timed out";
+		return -1;
+	}
+		
 	return 1;
 }	
 
