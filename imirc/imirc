@@ -477,9 +477,9 @@ sub irc_subparms($;$$) {
 sub irc_privmsg {
 	my($from, $to, $msg, $prefix, $line, $ret) = @_;
 
-	if($from ne $usnick and not $nicks{$from}) {
+	if($from ne $usnick and not $nicks{normalize($from)}) {
 		irc_send(irc_newnick($from));
-		$nicks{$from} = 1;
+		$nicks{normalize($from)} = 1;
 	}
 
 	foreach $line(split(/[\r\n]+/, $msg)) {
@@ -490,10 +490,11 @@ sub irc_privmsg {
 
 sub irc_newnick {
 	my($nick, $user, $string, $shortnick) = shift;
+	$nick =~ tr/ //d;
 	($user = $nick) =~ s/^$prefix//;
 	$nicks{$nick} = 1;
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
-	$longnicks{$shortnick} = $nick;
+	$longnicks{normalize($shortnick)} = $nick;
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
 	$string .= ":$nick MODE $shortnick +i\r\n";
 	return $string;
@@ -715,7 +716,7 @@ sub process_irc_message {
 		} elsif ($cmd eq "add") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname")) unless $param;
 			$param =~ tr/ //d; $inick = lc($param);
-			unless($nicks{normalize($inick)}) {
+			unless($nicks{$inick}) {
 				irc_send(irc_newnick($prefix . $param));
 			}
 			$nicks{$inick}{$nick} = time;
@@ -781,11 +782,13 @@ sub process_irc_message {
 				$upstream->print("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n");
 				$upstream->print("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n");
 			}
+		} elsif($cmd eq "webpage") {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, html2txt(get($param), $connection->{nick})));
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
 	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
-		$nick = $1; $target = normalize(aimnick($longnicks{$2})); $msg = $3;
+		$nick = $1; $target = normalize(aimnick($longnicks{normalize($2)})); $msg = $3;
 
 		if($2 eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
@@ -881,12 +884,12 @@ sub process_aim_message {
 	} elsif($cmd eq "IM_IN") {
 		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
-		$inick = normalize($1);
 		my $autoflag = $2;
 		my $message = $3;
+		$inick = $1; $inick =~ tr/ //d;
+		$nnick = lc($inick);
 
-
-		unless($nicks{normalize($inick)}) {
+		unless($nicks{$nnick}) {
 			irc_send(irc_newnick($prefix . $inick));
 		}
 		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
@@ -897,41 +900,42 @@ sub process_aim_message {
 			irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, "[continued]\t\t$line"));
 		}
 
-		if(($ar eq "") and $connection->{away} and (time - $connection->{away_buddies}{$inick} > $time)) {
+		if(($ar eq "") and $connection->{away} and (time - $connection->{away_buddies}{$nnick} > $time)) {
 			my $tmp;
 			my %config = deref(get_config($connection->{aimnick}));
-			my $class = $config{Buddies}{$inick}{class};
+			my $class = $config{Buddies}{$nnick}{class};
 			if(substr($class, 0, 1) eq "A") {
 				$tmp = "[automated reply] " . $connection->{away};
 			} else {
 				$tmp = $connection->{away};
 			}
-			message($connection->{socket}, $inick, $tmp, 1);
+			message($connection->{socket}, $nnick, $tmp, 1);
 		}
-		$connection->{away_buddies}{$inick} = time;
-		$nicks{normalize($inick)}{$connection->{nick}} = time if $nicks{normalize($inick)}{$connection->{nick}} != -1;
+		$connection->{away_buddies}{$nnick} = time;
+		$nicks{$nnick}{$connection->{nick}} = time if $nicks{$nnick}{$connection->{nick}} != -1;
 	} elsif($cmd eq "UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
-		($inick = $1) =~ tr/ //d; $inick = lc($inick);
+		$inick = $1; $inick =~ tr/ //d;
+		$nnick = lc($inick);
 		Toc::debug_print("$connection->{nick} UPDATE_BUDDY: $val", "buddies", 1);
 		if($2 eq "T") {
 			%temp = deref(get_config($connection->{aimnick}));
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $temp{Buddies}{$inick}{online};
 			{
 				local $^W = 0;
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($temp{Buddies}{$inick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($temp{Buddies}{$inick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
 			}
-			update_buddy($connection->{aimnick}, $inick, $6, $3, $4, $5, 1);
+			update_buddy($connection->{aimnick}, $nnick, $6, $3, $4, $5, 1);
 
-			irc_send(irc_newnick($prefix . $inick)) unless scalar keys %{$nicks{normalize($inick)}};;
-			$nicks{normalize($inick)}{$connection->{nick}} = -1;
+			irc_send(irc_newnick($prefix . $inick)) unless scalar keys %{$nicks{$nnick}};;
+			$nicks{$nnick}{$connection->{nick}} = -1;
 		} else {
-			update_buddy($connection->{aimnick}, $inick, $6, $3, $4, $5, 0);
+			update_buddy($connection->{aimnick}, $nnick, $6, $3, $4, $5, 0);
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has departed"));
-			delete $nicks{normalize($inick)}{$connection->{nick}};
-			delete $nicks{normalize($inick)} unless keys %{$nicks{normalize($inick)}};
-			irc_send(":$prefix$inick QUIT :$prefix$inick\r\n") unless scalar keys %{$nicks{normalize($inick)}};
+			delete $nicks{$nnick}{$connection->{nick}};
+			delete $nicks{$nnick} unless keys %{$nicks{$nnick}};
+			irc_send(":$prefix$inick QUIT :$prefix$inick\r\n") unless scalar keys %{$nicks{$nnick}};
 		}
 	} elsif($cmd eq "EVILED") {
 		$val =~ /([^:]+):(.*)/;
