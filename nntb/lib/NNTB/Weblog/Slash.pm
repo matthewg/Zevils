@@ -57,7 +57,7 @@ sub root($) { return shift->{root}; }
 # $type should be either "comment", "story", "journal"
 sub form_msgid($$$$) {
 	my($self, $id, $format, $type) = @_;
-	return "<$id\@$type.$format." . join(".", reverse split(/\./, $self->{root})) . ">";
+	return "<$id\@$type.$format.$self->{root}">";
 }
 
 # Parses a message ID, returning:
@@ -427,13 +427,7 @@ sub article($$$;@) {
 		}
 	}
 
-	if($type eq "article") {
-		return \%headers, $body;
-	} elsif($type eq "head") {
-		return \%headers;
-	} elsif($type eq "body") {
-		return $body;
-	}
+	return 1, $body, %headers;
 }
 
 sub auth($$$) {

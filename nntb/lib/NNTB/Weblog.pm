@@ -70,7 +70,8 @@ In the example above, 1234 might be the comment ID and 5678 might be the story
 ID.  If you are following the recommendations and keeping separate groups for
 text and HTML articles, articles will need different message IDs for the two
 groups, since an article in the text group is not the seame as the article
-in the HTML group.
+in the HTML group.  NNTB message IDs B<MUST> end in your L<"root"> (except
+for the closing E<gt>.)
 
 The other way of identifying an article is its article number; article numbers
 are monotonically increasing integers that are unique only within a particular
@@ -216,9 +217,23 @@ sub groupname($$) {
 
 Call this method and return to indicate failure.  C<REASON> should be an NNTP result code.  Example:
 
-	$self->{auth_ok} or return $self->fail("480 Authorization Required");
+	$self->{auth_ok} or return $self->fail("500 Something Broke);
 
 See RFC 977 for details on NNTP result codes.  You B<MUST NOT> override this method.
+
+You can also use the following failure constants, provided by C<NNTB::Common>:
+
+=over 4
+
+=item ERR_NOARTICLE
+
+430 No Such Article
+
+=item ERR_MUSTAUTH
+
+480 Authorization Required
+
+=back
 
 =cut
 
@@ -359,10 +374,13 @@ This method should return the indicated article.  C<TYPE> will
 be one of "article", "head", or "body", indicating which portion of 
 the article to return.  If C<TYPE> is "head", C<HEADERS> may be a list of
 which headers to return; return only those headers if C<HEADERS> is present,
-otherwise return all headers.  The headers should be returned as a a hashref
+otherwise return all headers.  The headers should be returned as a a hash
 whose keys are the names of the headers and whose values are their values.
-If C<TYPE> is "article", return a list whose first value is the headers hashref
-and whose second value is the body text.
+
+The return value of this method is a list whose first element is 1 (indicating
+success), whose second element is the body of the message, and whose third
+element is a the headers hash - the body or head may be omitted if either of
+those portions aren't called for.
 
 The values in C<HEADERS> will be, and the keys in the return hashref B<MUST> be, in
 B<all lower-case>.  You may wish to have custom headers for certain data specific
@@ -370,7 +388,7 @@ to your weblog, for instance a header pointing to the URL to access the article
 via the web interface, or a header indicating the moderation score.  These headers
 B<MUST> be prefixed with C<X-Weblog>, e.g. "X-Slash-Dept" or "X-Scoop-VotesFor".
 
-Return undef if the article does not exist.  See L<"post"> below for some important
+Return C<$self-E<gt>fail(ERR_NOARTICLE)> if the article does not exist.  See L<"post"> below for some important
 NNTP headers.
 
 =cut
@@ -426,6 +444,8 @@ only a single newsgroup will be allowed.
 If this matches C<\btext/html\b>, the comment is in HTML; otherwise it is in plain
 text.
 
+=back
+
 =cut
 
 sub post($$$) { return 0; }
@@ -465,6 +485,9 @@ sub groupstats($$) { return undef; }
 This method should convert a message number in a particular group to a message ID.
 If the message indicated does not exist, return undef.
 The validity of the group name will be verified before this method is called.
+
+Your message IDs B<MUST> all end in the the value of L<"root"> (except for the
+closing E<gt>.)
 
 =cut
 
@@ -512,7 +535,7 @@ Matthew Sachs E<lt>matthewg@zevils.comE<gt>.
 
 =head1 SEE ALSO
 
-RFCs 977 and 2980
+RFCs 850, 977 and 2980
 
 =head1 LEGAL
 

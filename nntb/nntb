@@ -18,7 +18,7 @@ sub BEGIN {
 sub do_log(@) { _log("NNTB: ", @_); }
 sub _log(@) {
 	return unless $config{loglevel} >= pop;
-	print LOG scalar(localtime), "  ", @_, "\n";
+	print LOG scalar(localtime), " $$  ", @_, "\n";
 }
 
 
@@ -200,9 +200,37 @@ EOF
 	}
 
 	foreach my $blog (@{$config{blogs}}) {
-		eval "require NNTB::Weblog::$blog->{type}";
-		die "Couldn't load NNTB::Weblog::$blog->{type}: $@\n" if $@;
-		my $blog_obj = $b
+		my $package = "NNTB::Weblog::$blog->{type}";
+		eval "require $package";
+		if(!$@) {
+			do_log("Couldn't load $package: $@", LOG_ERROR);
+			next;
+		}
+
+		# Figuring out the syntax for this was fun ;)
+		my $method = $package . "->new";
+		my $blog_obj = eval "$method(\%config)";
+		if(!$blog_obj) {
+			do_log("Couldn't create new $package object: $@", LOG_ERROR);
+			exit 1;
+		} else {
+			if(!$blog_obj->root) {
+				do_log("$package gave us empty root - not using", LOG_ERROR);
+				exit 1;
+			} elsif(exists($blogs{lc($blog_obj->root)})) {
+				do_log("Duplicate root ", $obj->root, " for $package", LOG_ERROR);
+				exit 1;
+			} elsif(my(@dups) = grep {
+				  index(lc($blog_obj->root), lc($_->root)) != -1 or
+				  index(lc($_->root), lc($blog_obj->root)) != -1
+				} values %blogs
+			) {
+				do_log("Root ", $obj->root, " is a substring of the following roots: ", (map { $_->root } @dups), LOG_ERROR);
+				exit 1;
+			} else {
+				$blogs{lc($blog_obj->root)} = $blog_obj;
+			}
+		}
 	}
 }
 
@@ -270,8 +298,22 @@ sub main() {
 }
 
 sub nntp_put(@) {
-	do_log("To NNTP  : ", @_);
+	do_log("To NNTP  : ", @_, LOG_DEBUG);
 	print @_, "\r\n";
+}
+
+# (group|ID) -> blog
+sub findblog($) {
+	my $group = lc(shift);
+
+	$group =~ s/^<(.+)>/$1/;
+
+	my($blog) = grep {
+		my $pos = index($group, lc($_->root));
+		$pos != -1 and # It is in the string...
+		  $pos + length($_->root) == length($group); # At the end
+	} values %blogs;
+	return $blog;
 }
 
 sub got_client() {
@@ -285,6 +327,7 @@ sub got_client() {
 	print "200 " . hostname() . " NNTB server $version ready\n";
 
 	do_log("Got a client\n", LOG_INFO);
+	map { $_->got_client() } values %blogs;
 
 	GETLINE: while(<CLIENT>) {
 		s/[\r\n]{1,2}$/;
@@ -293,21 +336,35 @@ sub got_client() {
 		my @params = split;
 		my $command = lc(shift @params);
 		$_ = $command;
+
+		my $blog;
+		$blog = findblog($currgroup) if $currgroup;
+
 		SWITCH: {
 			if (/^article$/ || /^body$/ || /^head$/ || /^stat$/) {
 				my ($msgnum, $msgid);
 
 				if ($params[0] and $params[0] !~ /\<.+\>/) {
 					if(!$currgroup) { #Client tried to use a message number while no group was selected
-						print "412 Not in a newsgroup\n";
+						nntp_put("412 Not in a newsgroup");
 						last SWITCH;
 					} else {
 						$currmsg = $params[0];
-						$msgid 
+						$msgid = $blog->num2id($group, $currmsg) if $blog;
+						if(!$msgid) {
+							nntp_put(ERR_NOARTICLE);
+							next;
+						}
 					}
+				} else {
+					if(!($blog = findblog($msgid))) {
+						nntp_put(ERR_NOARTICLE);
+						next;
+					}
+					$msgnum = 0; # We can't map ID -> num - what 'bout crossposts?
 				}
 
-				#do_log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
+				do_log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
 
 				my($response, $resptext);
 				if($command eq "article") {
@@ -318,39 +375,73 @@ sub got_client() {
 					($response, $resptext) = (222, "body follows");
 				} elsif($command eq "stat") {
 					($response, $resptext) = (223, "request text seperately");
+					next;
 				}
-				print "$response $msgnum $msgid article retrieved - $resptext\n";
 
-				if ($msgid !~ /\<[^\@.]+\./) { #Story
-					getstory($_, parseid($msgid));
-					last SWITCH;
-				} else { #Comment
-					getcomment($_, parseid($msgid));
-					last SWITCH;
+				my($result, $body, %headers) = $blog->article($command, $msgid);
+
+				if($result) {
+					nntp_put("$response $msgnum $msgid article retrieved - $resptext\n");
+					if($command eq "head" or $command eq "article") {
+						map { nntp_put("$_: $headers{$_}") } keys %headers;
+						nntp_put("") if $command eq "article";
+					}
+					if($command eq "body" or $command eq "article") {
+						$body =~ s/^\.$/../m;
+						$body =~ s/(?!\r)\n/\r\n/g;
+						nntp_put($body);
+						nntp_put(".");
+					}
+				} else {
+					nntp_put($blog->{errstr});
 				}
-				last SWITCH;
+				next;
 			} elsif (/^group$/) {
 				unless (@params == 1) {
 					print "501 Syntax error - group groupname\n";
 					last SWITCH;
 				}
-				changegroup($params[0]);
-				do_log("Okay, current group is now $params[0]\n", LOG_DEBUG);
-				last SWITCH;
+				my $group = shift @params;
+				my $blog = findblog($group);
+				if(!$blog or !$blog->is_group($group)) {
+					nntp_put("411 no such group");
+				} else {
+					$currgroup = $group;
+					my($first, $last, $num) = $blog->groupstats($group);
+					nntp_put("211 $num $first $last $group group selected");
+					do_log("Okay, current group is now $params[0]\n", LOG_DEBUG);
+				}
+				next;
 			} elsif (/^help$/) {
-				print "100 Legal commands\n";
-				print "article\nhead\nbody\nstat\n";
-				print "group\nhelp\nihave\nlast\nnext\n";
-				print "list\nnewgroups\nnewnews\npost\nquit\n";
-				print "slave\nmode\ndate\nlistgroup\nauthinfo\n";
-				print ".\n";
-				last SWITCH;
+				nntp_put("Legal commands");
+				map { nntp_put($_); }
+					qw(article head body stat group help ihave last),
+					qw(next list newgroups newnews post quit slave),
+					qw(mode date listgroup authinfo xover);
+				next;
 			} elsif (/^ihave$/) { #This command is only for inter-server post transfers
-				print "435 article not wanted - do not send it\n";
-				last SWITCH;
+				nntp_put("435 article not wanted - do not send it");
+				next;
 			} elsif (/^last$/ || /^next$/) {
-				movepointer($command);
-				last SWITCH;
+				if(!$currgroup) {
+					nntp_put("412 no newsgroup selected");
+				} elsif(!$currmsg) {
+					nntp_put("420 no current article has been selected");
+				} else {
+					my $newmsg = ($params[0] eq "next") ? ($currmsg + 1) : ($currmsg - 1);
+					my $msgid = $blog->num2id($currgroup, $newmsg);
+					if(!$msgid) {
+						if($params[0] eq "next") {
+							nntp_put("421 no next article in this group");
+						} else {
+							nntp_put("422 no previous article in this group");
+						}
+					} else {
+						nntp_put("223 $currmsg <$msgid> article retrieved - request text separately");
+						$currmsg = $newmsg;
+					}
+				}
+				next;
 			} elsif (/^list$/) {
 				if (lc($params[0]) eq "overview.fmt") {
 					print "215 Order of fields in overview database.\n";

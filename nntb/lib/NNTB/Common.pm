@@ -2,7 +2,10 @@ package NNTB::Common;
 
 $VERSION = 0.01;
 @ISA = qw(Exporter);
-@EXPORT = qw(LOG_ERROR LOG_WARNING LOG_NOTICE LOG_INFO LOG_DEBUG);
+@EXPORT = qw(
+	LOG_ERROR LOG_WARNING LOG_NOTICE LOG_INFO LOG_DEBUG
+	ERR_NOARTICLE ERR_MUSTAUTH
+);
 
 use strict;
 use warnings;
@@ -15,3 +18,5 @@ use constant LOG_NOTICE => 2;
 use constant LOG_INFO => 3;
 use constant LOG_DEBUG => 4;
 
+use constant ERR_NOARTICLE => "430 No Such Article";
+use constant ERR_MUSTAUTH => "480 Authorization Required";
