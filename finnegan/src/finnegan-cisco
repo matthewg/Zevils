@@ -466,7 +466,7 @@ sub activate_wake($) {
 		} else {
 			my $error = post_to_phone($row->{extension},
 				"Play:${Finnegan::Config::Cisco::tftp_prefix}fin-".$row->{wake_id}.".ul",
-				$Finnegan::Config::Cisco::url_base . "/wake/dowake.php?id=" . $row->{wake_id}
+				$Finnegan::Config::Cisco::url_base . "/wake/dowake.php?id=" . $row->{wake_id} . "&amp;date=". ($row->{date} ? "1" : "0")
 			);
 
 			if($error) {
