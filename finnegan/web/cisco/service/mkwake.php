@@ -132,7 +132,7 @@ END
 END
 		)
 	), "date" => array(
-		"next" => "done",
+		"next" => "advanced",
 		"prev" => "type",
 		"values" => array("mon", "day"),
 		"validate" => create_function('$values', <<<END
