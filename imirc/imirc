@@ -52,7 +52,7 @@ use constant RELNOTES => {
 	1.6 => <<EOF,
 Important changes in IMIRC 1.6:
 	*New commands: set_away, set_icon, get_icon, set_status (see 'help misc')
-	*Support for @mac.com screennames and ICQ UINs
+	*Support for \@mac.com screennames and ICQ UINs
 	*Support for buddy icons and extended status messages
 EOF
 	1.5 => <<EOF,
