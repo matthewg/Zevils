@@ -8,7 +8,7 @@ use IO::Select;
 use Fcntl;
 use Fcntl qw(:flock);
 use POSIX;
-use Net::OSCAR qw(:standard);
+use Net::OSCAR 0.05 qw(:standard);
 use vars qw($oscarprime %tocs $dir %chats);
 
 $Toc::SERVER = 1;
