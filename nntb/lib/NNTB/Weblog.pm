@@ -375,7 +375,8 @@ be one of "article", "head", or "body", indicating which portion of
 the article to return.  If C<TYPE> is "head", C<HEADERS> may be a list of
 which headers to return; return only those headers if C<HEADERS> is present,
 otherwise return all headers.  The headers should be returned as a a hash
-whose keys are the names of the headers and whose values are their values.
+whose keys are the names of the headers in lower-case and whose values are
+their values.
 
 The return value of this method is a list whose first element is 1 (indicating
 success), whose second element is the body of the message, and whose third
@@ -386,7 +387,10 @@ The values in C<HEADERS> will be, and the keys in the return hashref B<MUST> be,
 B<all lower-case>.  You may wish to have custom headers for certain data specific
 to your weblog, for instance a header pointing to the URL to access the article
 via the web interface, or a header indicating the moderation score.  These headers
-B<MUST> be prefixed with C<X-Weblog>, e.g. "X-Slash-Dept" or "X-Scoop-VotesFor".
+B<MUST> be prefixed with C<x-weblog>, e.g. "x-slash-dept" or "x-scoop-votes-for".
+Case of headers will be normalized as follows before displaying to the user:
+The first character of the header name, and the first character after any dash,
+will be upper-cased.
 
 Return C<$self-E<gt>fail(ERR_NOARTICLE)> if the article does not exist.  See L<"post"> below for some important
 NNTP headers.
@@ -414,8 +418,8 @@ sub auth($$$) { return 0; }
 This method is called when a user attempts to post an article to one of your
 groups.  Return 1 to indicate success and 0 to indicate failure.
 
-C<HEAD> will be a hashref whose keys are the names of the headers and whose
-values are their values.
+C<HEAD> will be a hashref whose keys are the names of the headers (in lower-case)
+and whose values are their values.
 Invalid groupnames, and groups that the user is not allowed to post to, will have
 already been removed from the C<Newsgroups> header.
 
@@ -427,19 +431,19 @@ Some of the more important headers:
 
 =over 4
 
-=item Subject
+=item subject
 
-=item References
+=item references
 
 Space-separated list of the message IDs this is in reply to; nonexistant for a
 top-level post.  For this method, only a single message ID will be given to you.
 
-=item Newsgroups
+=item newsgroups
 
 Comma-separated list of the newsgroups this message was posted to.  For this method,
 only a single newsgroup will be allowed.
 
-=item Content-Type
+=item content-type
 
 If this matches C<\btext/html\b>, the comment is in HTML; otherwise it is in plain
 text.
