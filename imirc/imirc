@@ -833,14 +833,17 @@ sub process_irc_message($) {
 					local @ARGV = split(/\s+/, "$param $extra");
 					my $loglevel = $user_loglevel;
 					my $errors = &GetOptions(
-						"loglevel|l|d" => \$loglevel
+						"loglevel|l|d=i" => \$loglevel
 					);
 
 					if(!$errors) {
 						irc_send(irc_privmsg($usnick, $nick, "Invalid signon command - '/msg $usnick signon' for usage."));
 					} else {
 						my $params = {loglevel => $loglevel};
-						do_signon($param, $extra, $nick, $params);
+						my $cmdline = "$param $extra";
+						$cmdline =~ s/-+(loglevel|l|d)\s+\d+\s+//;
+						my($screenname, $password) = split(/\s+/, $cmdline);
+						do_signon($screenname, $password, $nick, $params);
 					}
 				}
 			}
@@ -1879,8 +1882,8 @@ sub oscar_log($$$) {
 	my($oscar, $level, $msg) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	debug_print($msg, "oscar", 1) if $debug and $level >= $debuglevel{oscar};
-	irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname)) if $level >= $sndata->{loglevel};
+	debug_print($msg, "oscar", 1) if $debug and $level <= $debuglevel{oscar};
+	irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname)) if $level <= $sndata->{loglevel};
 }
 
 sub debug_print($$$) {
@@ -2051,6 +2054,7 @@ sub do_signon($$$$) {
 	my $connection = $aim_connections->{$nick};
 	$connection->{screennames} = $oscarprime->buddyhash() unless tied(%{$connection->{screennames}});
 	my $oscar = $oscarprime->clone();
+	$oscar->loglevel($params->{loglevel});
 	$oscar->signon($screenname, $password, $oscarserver, $oscarport);
 
 	$aim_connections->{$nick}->{nick} = $nick;
