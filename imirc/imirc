@@ -1618,7 +1618,9 @@ sub oscar_error($$$$$) {
 
 	debug_print("Got oscar_error $errno: $desc ($fatal)", "irc", 2);
 	irc_send(irc_privmsg($usnick, $nick, "Error $errno: $desc", "", "", $screenname));
-	do_signoff($nick, $oscar, 1) if $fatal;
+	eval {
+		do_signoff($nick, $oscar, 1) if $fatal;
+	}; # Trap connection reset by peer problems?
 }
 
 sub oscar_rate_alert($$$$) {
