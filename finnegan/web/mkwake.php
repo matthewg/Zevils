@@ -16,9 +16,16 @@ ob_start();
 $dbh = get_dbh();
 if(!$dbh) return db_error();
 
-check_extension_pin();
-
 echo $TEMPLATE["page_start"];
+check_extension_pin();
+if(!$pin) {
+	$uri = "index.php";
+	header("Location: $uri");
+
+	echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">'."\n";
+	echo "<head><title>303 See Other</title></head><body><h1>303 See Other</h1><p>This document has moved <a href=\"$uri\">here</a>.</p></body></html>\n";
+	exit;
+}
 
 if($extension_ok) {
 	echo preg_replace("/__ID__/", $id, $TEMPLATE[$page."_start"]);
@@ -120,7 +127,8 @@ if($extension_ok) {
 					$weekdays_cur_ct++;
 				}
 			}
-			if(!$weekdays_cur_ct && !$id) {
+
+			if((!$weekdays_cur_ct || implode(",",$weekdays)==implode(",",$weekdays_cur)) && !$id) {
 				$weekdays_cur = $weekdays;
 			}
 
@@ -138,11 +146,23 @@ if($extension_ok) {
 			}
 		}
 
-		$sql_time = time_to_sql($time, $ampm);
+		if(!$error) {
+			$result = @mysql_query("SELECT COUNT(*) FROM wakes WHERE extension='$extension'");
+			if(!$result) db_error();
+			$row = mysql_fetch_row($result);
+			$wakes = $row[0];
+
+			if($wakes >= 10) {
+				$error = 1;
+				echo $TEMPLATE["too_many_wakes"];
+				log_wake("0", $extension, $event, "failure", "too_many_wakes");
+			}
+		}
 
 		if(!$error) {
+			$sql_time = time_to_sql($time, $ampm);
 			if($date) {
-				if(!is_time_free($sql_time, "", date_to_sql($date, $sql_time))) {
+				if(!is_time_free($sql_time, "", "", date_to_sql($date, $sql_time))) {
 					$error = 1;
 					echo $TEMPLATE["time_unavailable_onetime"];
 				}
@@ -151,7 +171,7 @@ if($extension_ok) {
 				$baddays = array();
 				for($i = 1; $i < sizeof($weekday_names); $i++) {
 					if($weekdays[$weekday_names[$i]] || $weekdays_cur[$weekday_names[$i]]) {
-						if(!is_time_free($sql_time, $i)) {
+						if(!is_time_free($sql_time, $i, $_POST["cal_type"])) {
 							$error = 1;
 							$baddays[] = ucfirst($weekday_names[$i]);
 						}
@@ -160,6 +180,7 @@ if($extension_ok) {
 
 				if($error) echo preg_replace("/__DAYS__/", implode(", ", $baddays), $TEMPLATE["time_unavailable_recur"]);
 			}
+			if($error) log_wake("0", $extension, $event, "failure", "time_unavailable: $time/$date/".implode(",",$baddays));
 		}
 
 		if(!$error) {
@@ -207,8 +228,8 @@ if($extension_ok) {
 
 			log_wake($id, $extension, $event, "success");
 
-			ob_clean();
-			header("Status: 303 See Other");
+			#ob_clean();
+			#header("Status: 303 See Other");
 
 			#$uri = "http";
 			#$port = getenv("SERVER_PORT");

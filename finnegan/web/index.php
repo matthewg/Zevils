@@ -10,6 +10,8 @@ ob_start();
 $dbh = get_dbh();
 if(!$dbh) db_error();
 
+echo $TEMPLATE["page_start"];
+
 check_extension_pin();
 
 if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
@@ -26,18 +28,13 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	$extension_ok = 0;
 }
 
-echo $TEMPLATE["page_start"];
-
 if($extension_ok) {
 	echo $TEMPLATE["viewcalls_start"];
-
 	if(!$dbh) db_error();
-
-
 
 	if(isset($_POST["op"])) {
 		$op = $_POST["op"];
-		if($op == "Set PIN") {
+		if(isset($_POST["pin1"]) && $op == "Set PIN") {
 			$oldpin = isset($_POST["oldpin"]) ? $_POST["oldpin"] : "";
 			$pin1 = isset($_POST["pin1"]) ? $_POST["pin1"] : "";
 			$pin2 = isset($_POST["pin2"]) ? $_POST["pin2"] : "";
@@ -76,6 +73,11 @@ if($extension_ok) {
 			}
 
 			log_ext($extension, "setpin", $error ? "failure" : "success", $error);
+			if($error && !$pin) {
+				$extension_ok = 0;
+				echo $TEMPLATE["no_pin"];
+				do_end();
+			}
 		} else if($op == "Confirm Deletion" && isset($_POST["id"])) {
 			while(list($id, $value) = each($_POST["id"])) {
 				if(!preg_match('/^[0-9]+$/', $id)) unset($_POST["id"]);

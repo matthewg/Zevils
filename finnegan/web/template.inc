@@ -20,21 +20,21 @@ $TEMPLATE = array(
 END_PAGE_START
 ,
 
-	"viewcalls_start_noext" => <<<END_VIEWCALLS_START_NOEXT
-<ul class="navigation">
-<li><a href="docs.php">Help with Finnegan</a></li>
-</ul>
-<h3>Log In to Finnegan</h3>
-<form method="post" action="index.php">
-END_VIEWCALLS_START_NOEXT
-,
-
 	"viewcalls_start" => <<<END_VIEWCALLS_START
 <ul class="navigation">
 <li><a href="docs.php">Help with Finnegan</a></li>
 <li><a href="mkwake.php">Create a New Wake-up Call</a></li>
 </ul>
 <h3>View Your Wake-up Calls</h3>
+<form method="post" action="index.php">
+END_VIEWCALLS_START
+,
+
+	"viewcalls_start_noext" => <<<END_VIEWCALLS_START
+<ul class="navigation">
+<li><a href="docs.php">Help with Finnegan</a></li>
+</ul>
+<h3>Enter Extension and PIN</h3>
 <form method="post" action="index.php">
 END_VIEWCALLS_START
 ,
@@ -123,15 +123,28 @@ Are you sure you want to delete the selected wake-up calls?<br />
 END_DELETE_CONFIRM
 ,
 
+	"no_pin" => <<<END_NO_PIN
+<p class="error">
+You have not set a PIN.  Please set one now using the form below.  Your PIN may be between one
+and four digits long.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
+Your PIN is not protected by very strong security.<br />
+<input type="hidden" name="oldpin" value="" /><br />
+New PIN: <input type="password" name="pin1" size="5" maxlength="4" /><br />
+Confirm new PIN: <input type="password" name="pin2" size="5" maxlength="4" /><br />
+<input type="submit" name="op" value="Set PIN" />
+</p>
+END_NO_PIN
+,
+
 	"viewcalls_end" => <<<END_VIEWCALLS_END
 <p>
-Use this form to set or change your PIN.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
-Your PIN is not protected by very strong security. <br />
+Use this form to change your PIN.  You shouldn't use the same PIN that you use for voice mail, or anything else important.
+Your PIN is not protected by very strong security.<br />
 Old PIN: <input type="password" name="oldpin" size="5" maxlength="4" /><br />
 New PIN: <input type="password" name="pin1" size="5" maxlength="4" /><br />
 Confirm new PIN: <input type="password" name="pin2" size="5" maxlength="4" /><br />
 <input type="submit" name="op" value="Set PIN" />
-<p>
+</p><p>
 Log out to have your browser forget your PIN.  Note that you should do this even if you did
 not check the "Save PIN" box, unless you want the browser to remember your PIN.<br />
 <input type="submit" name="op" value="Log Out" />
@@ -170,7 +183,8 @@ END_PAGE_END
 Welcome to Finnegan, the Brandeis wake-up call system, brought to you by the <a href="http://union.brandeis.edu/">Student Union</a>
 and the <a href="http://www.brancog.org/">Computer Operators Group</a>.
 </p><p>
-Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.
+Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.  If you've never used the
+system before, leave your PIN blank.
 If you'd like your PIN to be saved on this computer, check the 'Save PIN' box.
 </p><p>
 If you've forgotten your PIN and would like to have the system call you and you it,
@@ -189,12 +203,10 @@ END_GET_EXTENSION
 	"extension_forbidden" => errmsg("That extension is not allowed to receive wake-up calls."),
 	"db_error" => errmsg("There was a problem with the database: <tt>__ERROR__</tt>. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
 	"date_error" => errmsg("There was a problem with a date or time: '<tt>__DATE__</tt>'. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
-	"lock_error" => errmsg("There was a problem checking if the wake-up time you requested is available. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
 	"pin_invalid" => errmsg("The PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
 	"pin_set_new_invalid" => errmsg("Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
 	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, please click the \"Forgot PIN\" button, and the system will call you with your PIN."),
 	"pin_mismatch" => errmsg("The values you entered for 'New PIN' and 'Confirm New PIN' don't match. Please try again."),
-	"pin_empty" => errmsg("You have entered a PIN, but your extension doesn't have a PIN associated with it. To set a PIN, use the 'change PIN' field on the main screen."),
 	"pin_bruteforce_warn" => errmsg("You have been entering too many incorrect PINs.  If you enter another incorrect PIN, you will be temporarily locked out of the system."),
 	"pin_bruteforce" => errmsg("You have entered too many incorrect PINs and are temporarily locked out of the system. Please wait an hour, and then click the 'Forgot PIN' button below."),
 	"pin_set_old_error" => errmsg("Your PIN could not be set because you entered your old PIN incorrectly. Please try again."),
@@ -225,7 +237,7 @@ END_PIN_SENT
 	"cal_type_invalid" => errmsg("Please select a valid calendar type."),
 	"type_invalid" => errmsg("Please select a type of wake-up call.  If you've selected a recurring wake-up call, do not enter a date, and select which days of the week the wake-up call should be activate on.  If you've selected a one-time wake-up call, enter a date, and do not select days of the week."),
 	"time_unavailable_onetime" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available."),
-	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__"),
+	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__."),
 	"too_many_wakes" => errmsg("You have too many wake-up calls.  You may only have ten.  Try using recurring wake-up calls instead of setting one-time calls for every day, or delete some of your other wake-up calls.  If you need more wake-up calls, email <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>"),
 
 	"mkwake_form" => <<<END_MKWAKE_FORM
@@ -269,11 +281,29 @@ Standard Active Weekdays: <br />
 <input type="checkbox" name="sun" value="1" __SUN__ /> Sunday
 </p><p>
 5b. <strong>Skip this step for one-time wake-up calls.</strong> Which type of calendar
-would you like this wake-up call to use?  Calls which use the "Brandeis" calendar will
-only call you if the University is having classes on that day, and it will treat
-Brandeis Mondays as Monday.  Calls which use the "National Holidays" calendar
-won't call you on national holidays.  Calls which use the "Normal" calendar
-don't do anything special.<br />
+would you like this wake-up call to use?
+</p><p>
+Calls which use the "Brandeis" calendar will
+only call you if the University is having classes on that day, and it will treat, for instance,
+Brandeis Mondays as Monday.  It won't honor the end of a semester, though, so you
+should delete calls which use the Brandeis calendar when final exams start.
+</p><p>
+Calls which use the "National Holidays" calendar
+won't call you on national holidays.  Holidays:
+</p><ul>
+<li>New Year's Day, January 1st</li>
+<li>Martin Luther King, Jr. Day, third Monday in January</li>
+<li>Presidents' Day, third Monday in February</li>
+<li>Memorial Day, last Monday in May</li>
+<li>Independence Day, July 4th</li>
+<li>Labor Day, first Monday in September</li>
+<li>Columbus Day, second Monday in October</li>
+<li>Veterans' Day, November 11th</li>
+<li>Thanksgiving Day, fourth Thursday in November</li>
+<li>Christmas Day, December 25th</li>
+</ul>
+Calls which use the "Normal" calendar don't do anything special.
+</p><p>
 Calendar Type: <select name="cal_type">
 <option value="Brandeis" __CALTYPE_BRANDEIS__>Brandeis</option>
 <option value="holidays" __CAPTYPE_HOLIDAYS__>National Holidays</option>

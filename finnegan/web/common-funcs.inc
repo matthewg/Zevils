@@ -1,7 +1,12 @@
 <?
 
-function is_time_free($sql_time, $weekday = "", $date = "") {
+eval(implode('', file('../src/brancal.inc')));
+
+function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $TEMPLATE;
+	global $NO_CLASSES;
+	global $BRANDEIS_DAYS;
+	global $HOLIDAYS;
 	global $extension;
 
 	$phonelines = 1;
@@ -39,7 +44,7 @@ function is_time_free($sql_time, $weekday = "", $date = "") {
 	 */
 
 	$fp = fopen(".lock", "w+");
-	if(!$fp || flock($fp, LOCK_EX)) {
+	if(!$fp || !flock($fp, LOCK_EX)) {
 		echo $TEMPLATE["lock_error"];
 		return 0;
 	}
@@ -52,10 +57,29 @@ function is_time_free($sql_time, $weekday = "", $date = "") {
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 		$weekday = strftime("%w", mktime($time_matches[1], $time_matches[2], 0, $date_matches[2], $date_matches[3], $date_matches[1])) + 1;
 
-		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE NOT ISNULL(date) AND extension='$extension' AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
+		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+			"WHERE NOT ISNULL(date) AND extension='$extension' AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
 	} else {
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
-		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE NOT ISNULL(date) AND extension='$extension'");
+		if($cal_type == "normal") {
+			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE NOT ISNULL(date) AND extension='$extension'");
+		} else if($cal_type == "holidays") {
+			$holidays = array_keys($HOLIDAYS);
+			for($i = 0; $i < sizeof($holidays); $i++) $holidays[$i] = "'$holidays[$i]'";
+			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE NOT ISNULL(date) AND extension='$extension' AND date NOT IN (".implode(",",$holidays).")");
+		} else {
+			$no_classes = array_keys($NO_CLASSES);
+			for($i = 0; $i < sizeof($no_classes); $i++) $no_classes[$i] = "'$no_classes[$i]'";
+
+			$case = "CASE date WHEN";
+			while(list($bdate, $bday) = each($BRANDEIS_DAYS)) $case .= " '$bdate' THEN $bday";
+			$case .= " ELSE DAYOFWEEK(date) END";
+
+			$result = @mysql_query("SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE NOT ISNULL(date) AND extension='$extension' AND date NOT IN (".implode(",",$no_classes).")");
+		}
 	}
 	if(!$result) {
 		flock($fp, LOCK_UN);
@@ -63,7 +87,7 @@ function is_time_free($sql_time, $weekday = "", $date = "") {
 		db_error();
 	}
 
-	$fintime = ($weekday-1) * 86400 + $time_matches[1]*60*60 + $time_matches[0]*60;
+	$fintime = ($weekday-1) * 86400 + $time_matches[1]*60*60 + $time_matches[2]*60;
 	$wake_intervals = _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration);
 
 	$okay = 1;
@@ -79,7 +103,30 @@ function is_time_free($sql_time, $weekday = "", $date = "") {
 	if($okay) {
 		$weekday_names = array("", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat");
 		$weekday_name = $weekday_names[$weekday];
-		$result = @mysql_query("SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE ISNULL(date) AND extension='$extension' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0)");
+
+		if($date) {
+			if(isset($BRANDEIS_DAYS[$date])) $brandeis_weekday_name = $weekday_names[$BRANDEIS_DAYS[$date]];
+
+			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
+				"WHERE ISNULL(date) AND extension='$extension' AND (".
+				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
+			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
+			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+			$query .= ")";
+
+			echo "Doing query <tt>$query</tt><br />\n";
+			$result = @mysql_query($query);
+		} else {
+/*			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
+				"WHERE ISNULL(date) AND extension='$extension' AND (".
+				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
+			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
+			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+			$query .= ")";
+
+			echo "Doing query <tt>$query</tt><br />\n";*/
+		}
+
 		if(!$result) {
 			flock($fp, LOCK_UN);
 			fclose($fp);
@@ -121,7 +168,7 @@ function _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_s
 
 	for($i = 0; $i <= $max_snooze; $i++) {
 		$ret[$i] = array($fintime + $i*$snooze_duration, $fintime+$wake_duration + $i*($snooze_duration+$wake_duration), 0);
-		echo "<tt>Got interval (".$ret[$i][0].", ".$ret[$i][1]."</tt><br />\n";
+		echo "<tt>Got interval (".$ret[$i][0].", ".$ret[$i][1].")</tt><br />\n";
 	}
 	echo "<tt>=======</tt><br />\n";
 
@@ -173,11 +220,13 @@ function extension_ok($extension) {
 
 function pin_ok($extension, $pin, $newpin = 0) {
 	global $TEMPLATE;
+	global $extension_ok;
+
 	if(!extension_ok($extension)) return 0;
 	$ok = 0;
 	$error = "";
 
-	if(!preg_match('/^[0-9]{0,4}$/', $pin)) {
+	if(!preg_match('/^[0-9]{1,4}$/', $pin)) {
 		if(!$newpin) {
 			echo $TEMPLATE["pin_invalid"];
 			$error = "pin_invalid";
@@ -191,12 +240,17 @@ function pin_ok($extension, $pin, $newpin = 0) {
 		if(!$result) db_error();
 
 		$row = mysql_fetch_array($result, MYSQL_NUM);
-		if(!$row || !$row[0]) {			
-			if($pin) {
-				echo $TEMPLATE["pin_empty"];
-				$error = "pin_empty";
-			} else {
-				$ok = 1;
+		if(!$row || !$row[0]) {
+			if(!$newpin && !$pin) {
+				if(!(isset($_POST["op"]) && $_POST["op"] == "Set PIN")) {
+					echo $TEMPLATE["viewcalls_start_noext"];
+					echo $TEMPLATE["no_pin"];
+					$extension_ok = 0;
+					do_end();
+				} else {
+					$extension_ok = 1;
+					return 1;
+				}
 			}
 		} else {
 			$goodpin = $row[0];
@@ -318,6 +372,7 @@ function do_end() {
 	global $TEMPLATE;
 	global $page;
 	global $extension_ok;
+
 	if($extension_ok) {
 		echo $TEMPLATE[$page."_end"];
 	} else {
@@ -348,9 +403,9 @@ function check_extension_pin() {
 	if(isset($_POST["savepin"]) && $_POST["savepin"] == 1) $savepin = 1;
 
 	if($extension) {
+		setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 		if(pin_ok($extension, $pin)) {
 			$extension_ok = 1;
-			setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 
 			if($savepin) {
 				setcookie("finnegan-pin", $pin, time()+60*60*24*365);
@@ -358,6 +413,8 @@ function check_extension_pin() {
 			} else {
 				setcookie("finnegan-pin", $pin);
 			}
+		} else if(extension_ok($extension)) {
+			setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 		}
 	}
 }

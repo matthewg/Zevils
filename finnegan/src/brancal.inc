@@ -1,10 +1,21 @@
 # This evil file works in both Perl and PHP.
 
-#/** PHP can't see this...
+# =pod
+
+/** PHP can't see this...
+
+=cut
+
 package finnegan;
 
 sub array { return {@_}; }
-#*** PHP regains vision. */
+*** PHP regains vision.
+
+=pod
+
+*/
+
+# =cut
 
 $NO_CLASSES = array(
 		"2004-01-19" => 1, "2004-02-16" => 1, "2004-02-17" => 1, "2004-02-18" => 1, "2004-02-19" => 1, "2004-02-20" => 1, # Spring 2004
@@ -17,6 +28,7 @@ $NO_CLASSES = array(
 		"2004-04-29" => 1 
 	);
 
+# Sunday is '1'.
 $BRANDEIS_DAYS = array(
 		"2004-04-14" => 2, "2004-04-15" => 3, "2004-04-16" => 2, # Spring 2004
 		"2004-09-15" => 5, "2004-10-26" => 4, "2004-11-24" => 5, # Fall 2005

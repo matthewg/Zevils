@@ -13,7 +13,6 @@ General template items:
 	lock_error: Problem obtaining lock for validating availability of wake timeslot.
 	pin_error: Incorrect PIN.
 	pin_invalid: Syntactically invalid PIN.
-	pin_empty: User gave PIN, but doesn't have one set.
 	pin_bruteforce_warn: User will be temporarily locked out of the system if they enter a bad PIN again.
 
 	extension_invalid: Show 'extension invalid' error.
@@ -30,8 +29,9 @@ Main page (wake-up call list, index.php) items:
 
 	viewcalls_start: Start of the 'view wake-up calls' page.  This will be called immediately after 'page_start'.
 	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
+	no_pin: Yell at the user for not having a PIN and let them set one.
 	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
-	viewcalls_end_noext: This is called instead of viewcalls_start if we don't know the user's extension.
+	viewcalls_end_noext: This is called instead of viewcalls_end if we don't know the user's extension.
 
   Wake-up call list.  To give the user the ability to edit their wake-up calls,
   submit a POST request to index.php as per the method for creating wake-up calls
