@@ -49,7 +49,7 @@ function log_wake($wake_id, $extension, $event, $result, $data = "") {
 
 function set_pin($extension, $pin) {
 	if(!mysql_query(sprintf("UPDATE prefs SET pin='%s' WHERE extension='%s'", $pin, $extension))) db_error();
-	if(!log_ext($extension, "setpin", "success")) db_error();
+	log_ext($extension, "setpin", "success");
 }
 
 function get_wakes() {
