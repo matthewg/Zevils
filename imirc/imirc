@@ -10,6 +10,11 @@ use HTML::FormatText;
 use HTML::Parse;
 use POSIX;
 use Toc qw(:all);
+use Carp;
+$Carp::Verbose = 1;
+
+$SIG{__WARN__} = sub { carp  $_[0] };
+$SIG{__DIE__}  = sub { croak $_[0] };
 
 $home = (getpwuid($>))[7];
 
@@ -222,11 +227,10 @@ sub process_irc_message {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
-				$aimselect->remove($aim_connections{$nick}{socket});
-				delete $nicks{normalize($aim_connections{$nick}{aimnick})};
 				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
+				delete $aim_connections{$aim_connections{$nick}{socket}->fileno};
+				$aimselect->remove($aim_connections{$nick}{socket});
 				signoff($aim_connections{$nick}{socket});
-				delete $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick};
 				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
 		} elsif ($cmd eq "buddyinfo") {
@@ -434,8 +438,9 @@ sub process_irc_message {
 		delete $aim_connections{$1};
 		$filenos[$aim_connections{$2}{socket}->fileno] = $2 if $aim_connections{$2}{socket};
 	} elsif(/^:(\S+) QUIT/) {
-		signoff($aim_connections{$1}{socket});
+		delete $aim_connections{$aim_connections{$1}{socket}->fileno};
 		$aimselect->remove($aim_connections{$1}{socket});
+		signoff($aim_connections{$1}{socket});
 		delete $aim_connections{$1};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
