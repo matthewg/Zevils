@@ -26,7 +26,7 @@ Call this when you get a toc CONFIG message.
 sub update_config($$) {
 	my($handle, $conf) = @_;
 	
-	($config{_hnick($handle)}{permtype}, $config{_hnick($handle)}{groups}) = str2conf($conf);
+	(undef, $config{_hnick($handle)}) = str2conf($conf);
 	
 }
 
@@ -56,17 +56,17 @@ sub update_buddy($$$$$$$) {
 	my($sn, $nick, $class, $evil, $signon, $idle, $online) = @_;
 
 	if($online) {
-		$config{$sn}{groups}->{Buddies}{$nick}{class} = $class;
-		$config{$sn}{groups}->{Buddies}{$nick}{evil} = $evil;
-		$config{$sn}{groups}->{Buddies}{$nick}{signon} = $signon;
-		$config{$sn}{groups}->{Buddies}{$nick}{idle} = $idle;
+		$config{$sn}{config}->{Buddies}{$nick}{class} = $class;
+		$config{$sn}{config}->{Buddies}{$nick}{evil} = $evil;
+		$config{$sn}{config}->{Buddies}{$nick}{signon} = $signon;
+		$config{$sn}{config}->{Buddies}{$nick}{idle} = $idle;
 	} else {
-		delete $config{$sn}{groups}->{Buddies}{$nick}{class};
-		delete $config{$sn}{groups}->{Buddies}{$nick}{evil};
-		delete $config{$sn}{groups}->{Buddies}{$nick}{signon};
-		delete $config{$sn}{groups}->{Buddies}{$nick}{idle};
+		delete $config{$sn}{config}->{Buddies}{$nick}{class};
+		delete $config{$sn}{config}->{Buddies}{$nick}{evil};
+		delete $config{$sn}{config}->{Buddies}{$nick}{signon};
+		delete $config{$sn}{config}->{Buddies}{$nick}{idle};
 	}
-	$config{$sn}{groups}->{Buddies}{$nick}{online} = $online;
+	$config{$sn}{config}->{Buddies}{$nick}{online} = $online;
 }
 
 =item get_config(NICK)
@@ -74,7 +74,7 @@ Returns a config-hash of the type returned by signon for NICK.
 
 =cut
 
-sub get_config($) { return $config{$_[0]}{groups}; }
+sub get_config($) { return $config{$_[0]}{config}; }
 
 =pod
 
@@ -186,8 +186,8 @@ sub sflap_get($) {
 
 =item signon(NICK, PASSWORD[, STATUS])
 
-Returns an array consisting of a return value (0 for success, -1 for failure), an IO::Socket::INET object
-the Toc permit type, and a group configuration hash.  $Net::Toc::err will be set to the error message if there
+Returns an array consisting of a return value (0 for success, -1 for failure), an IO::Socket::INET object, 
+and a group configuration hash.  $Net::Toc::err will be set to the error message if there
 is an error.
 
 The IO::Socket::INET object returned by this function is a bit special, so if you plan on using your own IO::Handle
@@ -196,8 +196,6 @@ without going into too many technical details, is that there's a hash (and a sca
 IO::Handle.  You can store things in that hash just like any other hash.  This is documented in perldoc IO::Handle, and
 IO::Socket makes use of it.  We store the username in the hash in key net_toc_username, so make sure that you do that for
 any IO::Handle's you try to use with Net::Toc.
-
-The Toc permit type is documented in PROTOCOL.  1 is Permit All, 2 is Deny All, 3 is Permit Some, and 4 is Deny Some.
 
 The group configuration hash has three keys, Buddies, permit, and deny.
 permit and deny are hashes whose keys are the members of the permit and deny lists.
@@ -213,7 +211,7 @@ with $_[0] set to the text of the message.
 
 sub signon($$;&) {
 	my($username, $password, $status) = @_;
-	my($socket, $msg, $permtype, $groups);
+	my($socket, $msg, $config);
 
 	unless($username and $password) {
 		$err = "You must provide a username and password!";
@@ -287,9 +285,9 @@ sub signon($$;&) {
 		debug_print("$username had an error after toc_signon and get: $err", "signon", 1);
 		return -1;
 	}
-	($permtype, $groups) = str2conf($msg);
-	$config{$username}{permtype} = $permtype;
-	$config{$username}{groups} = %$groups;
+	$config = str2conf($msg);
+	$config{$username}{config} = %$config;
+	$config{$username}{config}{permtype} = $permtype;
 
 	debug_print("$username is about to send toc_init_done", "signon", 2);
 
@@ -302,7 +300,7 @@ sub signon($$;&) {
 
 	debug_print("$username has succesfully signed on", "signon", 1);
 
-	return (0, $socket, $permtype, $groups);
+	return (0, $socket, $config);
 }
 
 =pod
@@ -597,11 +595,11 @@ PERMTYPE is the Toc permit type.
 sub permtype($;$) {
 	my($handle, $permtype) = @_;
 	if($permtype) {
-		$config{_hnick($handle)}{permtype} = $permtype;
-		set_config($handle, $config{_hnick($handle)}, $permtype);
+		$config{_hnick($handle)}{config}{permtype} = $permtype;
+		set_config($handle, $config{_hnick($handle)});
 		return $permtype;
 	} else {
-		return $config{_hnick($handle)}{permtype};
+		return $config{_hnick($handle)}{config}{permtype};
 	}
 }
 
@@ -652,7 +650,7 @@ sub normalize($) { $_[0] =~ tr/ //d; return lc($_[0]); }
 
 =pod
 
-=item set_config(HANDLE, CONFIG, PERMTYPE)
+=item set_config(HANDLE, CONFIG)
 
 Sets configuration from the config-hash (in the format that you get from get_config) CONFIG.
 You shouldn't need to call this unless you are directly accessing the config-hash.
@@ -660,12 +658,11 @@ In all other cases, it is called automatically when needed.  Returns the result 
 
 =cut
 
-sub set_config($$$) {
-	my($handle, $config, $permtype) = @_;
-	$config{_hnick($handle)}{groups} = $config;
-	$config{_hnick($handle)}{permtype} = $permtype;
+sub set_config($$) {
+	my($handle, $config) = @_;
+	$config{_hnick($handle)}{config} = %$config;
 
-	sflap_do($handle, conf2str($permtype, $config));
+	sflap_do($handle, conf2str($config));
 }
 
 =pod
@@ -828,7 +825,7 @@ sub sflap_put($$) {
 
 =pod
 
-=item conf2str(PERMTYPE, CONFIG-HASHREF)
+=item conf2str(CONFIG-HASHREF)
 
 Takes a hashref to a config-hash (in the same format returned by signon) and a permit
 type (the same one that signon returns) and makes a string of the type that Toc wants for
@@ -838,30 +835,31 @@ instead calling set_config.  Returns the toc_set_config-format string.
 =cut
 
 sub conf2str($\%) {
-	my($permtype, $groups) = @_;
-	my($msg, %groups, $group, $buddy);
+	my($config) = @_;
+	my($msg, %config, $group, $buddy, $permtype);
+	$permtype = $config->{permtype}
 	$permtype ||= 4;
 	$msg = "m $permtype\n";
-	foreach $buddy (keys %{$groups->{Buddies}}) {
-		push @{$groups{$groups->{Buddies}{$buddy}{group}}}, $buddy;
+	foreach $buddy (keys %{$config->{Buddies}}) {
+		push @{$config{$config->{Buddies}{$buddy}{group}}}, $buddy;
 	}
-	foreach $group (keys %$groups) {
-		next if $group eq "permit" or $group eq "deny";
+	foreach $group (keys %$config) {
+		next if $group eq "permit" or $group eq "deny" or $group eq "permtype";
 		next if $group eq "permtype" or $group eq "groups";
 		$msg .= "g $group\n";
-		foreach $buddy (@{$groups{$group}}) {
+		foreach $buddy (@{$config{$group}}) {
 			$msg .= "b $buddy\n";
 		}
 	}
-	foreach $buddy (keys %{$groups->{permit}}) {
+	foreach $buddy (keys %{$config->{permit}}) {
 		$msg .= "p $buddy\n";
 	}
-	foreach $buddy (keys %{$groups->{deny}}) {
+	foreach $buddy (keys %{$config->{deny}}) {
 		$msg .= "d $buddy\n";
 	}
 	$msg = "toc_set_config {" . quote($msg) . "}";
 	#warn "$msg\n";
-	debug_print("conf2str: " . Dumper($groups), "config", 2);
+	debug_print("conf2str: " . Dumper($config), "config", 2);
 	return $msg;
 }
 
@@ -870,7 +868,7 @@ sub conf2str($\%) {
 =item str2conf(STRING)
 
 Takes a string in the format that toc_set_config wants and that the signon process
-produces and returns an array consisting of a permit type and a config-hashref of the type returned by signon.
+produces and returns a config-hashref of the type returned by signon.
 You almost definately should not be calling this directly - let signon handle things.  Actually, I suppose you
 would use str2conf/conf2str to export and import a Toc configuration.
 
@@ -878,7 +876,7 @@ would use str2conf/conf2str to export and import a Toc configuration.
 
 sub str2conf($) {
 	my($confstr) = shift;
-	my($line, $type, $val, $groups, $permtype, $currgroup);
+	my($line, $type, $val, $config, $permtype, $currgroup);
 	#warn "Confstr: $confstr\n";
 	my @lines = split(/\n/, $confstr);
 	$lines[0] =~ s/^CONFIG://;
@@ -893,22 +891,23 @@ sub str2conf($) {
 		} elsif($type eq "b") {
 			#warn "$val added to group $currgroup\n";
 			$val = lc($val);
-			$groups->{Buddies}{$val}{group} = $currgroup;
-			$groups->{Buddies}{$val}{online} ||= 0;
+			$config->{Buddies}{$val}{group} = $currgroup;
+			$config->{Buddies}{$val}{online} ||= 0;
 		} elsif($type eq "p") {
 			#warn "$val added to permit list\n";
 			$val = lc($val);
-			$groups->{permit}{$val} = 1;
+			$config->{permit}{$val} = 1;
 		} elsif($type eq "d") {
 			#warn "$val added to deny list\n";
 			$val = lc($val);
-			$groups->{deny}{$val} = 1;
+			$config->{deny}{$val} = 1;
 		} elsif($type eq "m") {
+			$config->{permtype} = $val;
 			$permtype = $val;
 		}
 	}
-	debug_print("str2conf: " . Dumper($groups), "config", 2);
-	return ($permtype, $groups);
+	debug_print("str2conf: " . Dumper($config), "config", 2);
+	return $config;
 }
 
 sub _hnick($) { my $socket = shift; return ${*$socket}{'net_toc_username'} if $socket and UNIVERSAL::isa($socket, "IO::Socket::INET"); }
