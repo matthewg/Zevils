@@ -19,29 +19,29 @@ if(isset($_REQUEST["id"])) {
 	} else {
 		$wake = get_wake($id);
 ?>
-		<CiscoIPPhoneText>
-		<Name>Confirm Deletion</Name>
-		<Text><? echo format_wake($wake) ?></Text>
-		<Prompt>Are you sure?</Prompt>
+<CiscoIPPhoneText>
+<Title>Confirm Deletion</Title>
+<Text><? echo format_wake($wake) ?></Text>
+<Prompt>Are you sure?</Prompt>
 
-		<SoftKeyItem>
-		<Name>Yes</Name>
-		<Position>1</Position>
-		<URL><? echo $FinneganCiscoConfig->url_base ?>/service/rmwake.php?id=<?echo $id?>&amp;confirm=1</URL>
-		</SoftKeyItem>
+<SoftKeyItem>
+<Name>Yes</Name>
+<Position>1</Position>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/rmwake.php?id=<?echo $id?>&amp;confirm=1</URL>
+</SoftKeyItem>
 
-		<SoftKeyItem>
-		<Name>No</Name>
-		<Position>4</Position>
-		<URL><? 
-			if($PHONE_MODEL == "CP-7912G")
-				echo $FinneganCiscoConfig->url_base."/service/wakeprops.php?id=$id";
-			else
-				echo $FinneganCiscoConfig->url_base."/service/wakes.php";
-		?></URL>
-		</SoftKeyItem>
+<SoftKeyItem>
+<Name>No</Name>
+<Position>4</Position>
+<URL><? 
+	if($PHONE_MODEL == "CP-7912G")
+		echo $FinneganCiscoConfig->url_base."/service/wakeprops.php?id=$id";
+	else
+		echo $FinneganCiscoConfig->url_base."/service/wakes.php";
+?></URL>
+</SoftKeyItem>
 
-		</CiscoIPPhoneText>
+</CiscoIPPhoneText>
 <?
 	}
 } else {
