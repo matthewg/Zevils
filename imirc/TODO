@@ -1,3 +1,4 @@
+Multiple buddies at once in add_buddy/remove_buddy
 savebuddies/loadbuddies for buddylist backup
 Add support for Undernet P10 protocol
 Optional minimal libfaim - for password changes and such?????
