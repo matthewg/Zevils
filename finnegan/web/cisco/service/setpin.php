@@ -3,7 +3,7 @@
 $cisco = 1;
 require "../../include/finnegan.inc";
 
-if($_REQUEST["pin"]) {
+if(isset($_REQUEST["pin"])) {
 	$pin = $_REQUEST["pin"];
 	if(pin_syntax_check($pin)) {
 		cisco_error("Invalid PIN", "Please enter a valid PIN of up to four digits.");

@@ -2,6 +2,9 @@
 
 header("Content-type: text/xml");
 ob_start();
+db_start();
+
+$extension = "92896";
 
 function cisco_error($title, $msg) { _cisco_text($title, $msg, "error"); }
 function cisco_message($title, $msg, $url = "index.xml") { _cisco_text($title, $msg, "message", $url); }

@@ -7,9 +7,10 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 	global $BRANDEIS_DAYS;
 	global $HOLIDAYS;
 	global $extension;
+	global $path;
 
 	if(!isset($BRANDEIS_DAYS)) {
-		eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file('../etc/brancal.inc'))));
+		eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file("$path/../etc/brancal.inc"))));
 	}
 
 
@@ -49,11 +50,13 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 	 * function at once, to avoid race conditions.
 	 */
 
-	$fp = fopen(".lock", "w+");
+	$fp = fopen("$path/.lock", "w+");
 	if(!$fp || !flock($fp, LOCK_EX)) {
 		echo $TEMPLATE["global"]["lock_error"];
 		return 0;
 	}
+
+	if(!$id) $id = "0";
 
 	//finepoch: (weekday-1) * 86400 + hours*60*60 + minutes*60
 

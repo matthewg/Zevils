@@ -72,10 +72,6 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type) {
 	}
 
 	if(!$id) {
-		printf("INSERT INTO wakes (%s) VALUES (%s)",
-			implode(", ", $cols),
-			implode(", ", $values));
-
 		if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
 			implode(", ", $cols),
 			implode(", ", $values)
