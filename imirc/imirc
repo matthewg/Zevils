@@ -1183,73 +1183,17 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
 		} elsif ($cmd eq "savebuddies") {
 			my $fmtoscar = 1;
-			my($config, $message, $group, $buddy, %groups, $filename);
+			my($filename, $message);
 
 			unless($dccip) {
 				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file.", "", "", $screenname));
 			} else {
 				$fmtoscar = 0 if $param and lc($param) eq "toc";
 
+				my $config = export_buddylist($oscar, $fmtoscar);
 				if($fmtoscar) {
-					$config =
-"Config {
- version 1
-}
-User {
- screenName $screenname\n";
-					if($oscar->profile) {
-						$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
-						$config .= "  dataLength ".length($oscar->profile)."\n";
-						my $mimeprofile = encode_base64($oscar->profile, "");
-						while($mimeprofile) {
-							$config .= "  dataBlob ".substr($mimeprofile, 0, 64, "")."\n";
-						}
-						$config .= " }\n";
-					}
-					$config .= "}\nBuddy {\n list {\n";
-
-					foreach $group (sort $oscar->groups) {
-						$config .= "  $group {\n";
-						foreach $buddy(sort $oscar->buddies($group)) {
-							$config .= "   \"$buddy\"";
-							if(my $comment = $oscar->buddy($buddy, $group)->{comment}) {
-								$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }\n   }";
-							}
-							$config .= "\n";
-						}
-						$config .= "  }\n";
-					}
-					$config .= " }\n}\nPrivacy {\n";
-					$config .= " allowList " . join(" ", $oscar->get_permitlist) . "\n";
-					$config .= " blockList " . join(" ", $oscar->get_denylist) . "\n";
-					$config .= " pref ";
-					if($oscar->visibility == 1) {
-						$config .= "AllowAll";
-					} elsif($oscar->visibility == 2) {
-						$config .= "DenyAll";
-					} elsif($oscar->visibility == 3) {
-						$config .= "AllowSome";
-					} elsif($oscar->visibility == 4) {
-						$config .= "DenySome";
-					} elsif($oscar->visibility == 5) {
-						$config .= "AllowBuddies";
-					}
-					$config .= "\n}\n";
 					$filename = "$screenname.blt";
 				} else {
-					$config = "m ".0+$oscar->visibility()."\n";
-					foreach $group(sort $oscar->groups) {
-						$config .= "g $group\n";
-						foreach $buddy(sort $oscar->buddies($group)) {
-							$config .= "b $buddy\n";
-						}
-					}
-					foreach $buddy(sort $oscar->get_permitlist) {
-						$config .= "p $buddy\n";
-					}
-					foreach $buddy(sort $oscar->get_denylist) {
-						$config .= "d $buddy\n";
-					}
 					$filename = "$screenname.txt";
 				}
 
@@ -3003,4 +2947,72 @@ sub set_blocking($$) {
 		$flags |= O_NONBLOCK;
 	}
 	fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for upstream: $!";
+}
+
+sub export_buddylist($;$) {
+	my($oscar, $fmtoscar) = @_;
+	my($config, $message, $group, $buddy, %groups, $filename);
+
+	if($fmtoscar) {
+		$config =
+"Config {
+ version 1
+}
+User {
+ screenName $screenname\n";
+		if($oscar->profile) {
+			$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
+			$config .= "  dataLength ".length($oscar->profile)."\n";
+			my $mimeprofile = encode_base64($oscar->profile, "");
+			while($mimeprofile) {
+				$config .= "  dataBlob ".substr($mimeprofile, 0, 64, "")."\n";
+			}
+			$config .= " }\n";
+		}
+		$config .= "}\nBuddy {\n list {\n";
+
+		foreach $group (sort $oscar->groups) {
+			$config .= "  $group {\n";
+			foreach $buddy(sort $oscar->buddies($group)) {
+				$config .= "   \"$buddy\"";
+				if(my $comment = $oscar->buddy($buddy, $group)->{comment}) {
+					$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }\n   }";
+				}
+				$config .= "\n";
+			}
+			$config .= "  }\n";
+		}
+		$config .= " }\n}\nPrivacy {\n";
+		$config .= " allowList " . join(" ", $oscar->get_permitlist) . "\n";
+		$config .= " blockList " . join(" ", $oscar->get_denylist) . "\n";
+		$config .= " pref ";
+		if($oscar->visibility == 1) {
+			$config .= "AllowAll";
+		} elsif($oscar->visibility == 2) {
+			$config .= "DenyAll";
+		} elsif($oscar->visibility == 3) {
+			$config .= "AllowSome";
+		} elsif($oscar->visibility == 4) {
+			$config .= "DenySome";
+		} elsif($oscar->visibility == 5) {
+			$config .= "AllowBuddies";
+		}
+		$config .= "\n}\n";
+	} else {
+		$config = "m ".0+$oscar->visibility()."\n";
+		foreach $group(sort $oscar->groups) {
+			$config .= "g $group\n";
+			foreach $buddy(sort $oscar->buddies($group)) {
+				$config .= "b $buddy\n";
+			}
+		}
+		foreach $buddy(sort $oscar->get_permitlist) {
+			$config .= "p $buddy\n";
+		}
+		foreach $buddy(sort $oscar->get_denylist) {
+			$config .= "d $buddy\n";
+		}
+	}
+
+	return $config;
 }
