@@ -1,5 +1,4 @@
 Real Soon Now/First Priority:
-	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
 	  every signon in documentation/help message. - only if server-side-saves disabled
