@@ -2112,7 +2112,7 @@ sub do_signoff($$;$) {
 	foreach $xnick(keys %nicks) {
 		next if normalize $xnick eq normalize $usnick or not $screenname;
 		delete $nicks{$xnick}{$screenname}; 
-		irc_send(irc_quit("$prefix$xnick", "I signed off of AIM (do_signoff)")) unless haskeys($nicks{$xnick}) > 1;
+		irc_send(irc_quit("$prefix$xnick", "I signed off of AIM (do_signoff)")) unless haskeys($nicks{$xnick});
 	}
 
 	if($screenname and $aim_connections{$nick}{screennames}{$screenname}{inchan}) {
@@ -2211,7 +2211,7 @@ sub irc_topic($$$) {
 
 # Reply to a PING
 sub irc_pong() {
-	return "PING $us\r\n";
+	return "PONG $us\r\n";
 }
 
 # Leave IRC
