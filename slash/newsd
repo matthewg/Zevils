@@ -28,6 +28,12 @@ $version = "0.99";
 
 sub debug { return; } # warn "$_[0]\n"; }
 
+
+sub BEGIN {
+	require File::Basename;
+	push @INC, File::Basename::dirname($0);
+}
+
 sub dispver {
 	print "newsd: Netnews Enhancing the Web-based Slash Daemon.\n";
 	print "Version: $version\n";
