@@ -11,7 +11,7 @@ if($prompt == "time") {
 } else if($prompt == "ampm") {
 	cisco_message("Help", "Select 'AM' or 'PM'.", $prevurl);
 } else if($prompt == "message") {
-	cisco_message("Help", "Select the message you would like to hear when your alarm goes off.", $prevurl);
+	cisco_message("Help", "Select the message you would like to hear when your alarm goes off.  You can listen to the messages on the Finnegan web site, under 'Statistics'.", $prevurl);
 } else if($prompt == "type") {
 	cisco_message("Help", "One-time alarms go off once, on a particular day.  You can set them up to a year in advance.  Recurring alarms go off every day, on days of the week that you select (e.g. 'every Monday and Wednesday'.)", $prevurl);
 } else if($prompt == "date") {
