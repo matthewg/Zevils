@@ -255,8 +255,8 @@ while(1) {
 			my $yesterday = ($weekday - 1) % 8;
 
 			if($row->{cal_type} eq "Brandeis") {
-				$weekday = $finnegan::BRANDEIS_DAYS->{$date} if $finnegan::BRANDEIS_DAYS->{$date};
-				$yesterday = $finnegan::BRANDEIS_DAYS->{$yesterday_date} if $finnegan::BRANDEIS_DAYS->{$yesterday_date};
+				$weekday = $Finnegan::Calendar::BRANDEIS_DAYS->{$date} if $Finnegan::Calendar::BRANDEIS_DAYS->{$date};
+				$yesterday = $Finnegan::Calendar::BRANDEIS_DAYS->{$yesterday_date} if $Finnegan::Calendar::BRANDEIS_DAYS->{$yesterday_date};
 			}
 
 			my %wake_days = map { $daymap{$_} => 1 } split(/,/, $row->{weekdays});
@@ -279,9 +279,9 @@ while(1) {
 				$go_today = 0;
 			}
 
-			$go_today = 0 if $row->{cal_type} eq "Brandeis" and $Finnegan::Config::NO_CLASSES->{$date};
-			$go_today = 0 if $row->{cal_type} eq "holidays" and $Finnegan::Config::HOLIDAYS->{$date};
-			log_debug("After date check, status: $go_today");
+			$go_today = 0 if $row->{cal_type} eq "Brandeis" and $Finnegan::Calendar::NO_CLASSES->{$date};
+			$go_today = 0 if $row->{cal_type} eq "holidays" and $Finnegan::Calendar::HOLIDAYS->{$date};
+			log_debug("After date check (date=$date), status: $go_today");
 
 			if(!$go_today) {
 				$row->{time} =~ /(\d+):(\d+)/;

@@ -1,5 +1,5 @@
 #__PERLONLY_START__
-package finnegan;
+package Finnegan::Calendar;
 
 sub array { return {@_}; }
 #__PERLONLY_END__
