@@ -391,7 +391,7 @@ sub signon($$&;&) {
 	return -1 if $err;
 	if($@) {
 		alarm 0;
-		croak unless $@ eq "alarm\n";
+		#croak unless $@ eq "alarm\n";
 		if($alarm) {
 			$err = "connect timed out";
 			return -1;
