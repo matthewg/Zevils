@@ -2100,14 +2100,14 @@ sub oscar_buddylist_error($$$) {
 	my($oscar, $error, $what) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	irc_send(irc_privmsg($usnick, $nick, "Error $error occured while trying to $what on your buddylist.", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "Error $error occured while $what on your buddylist.", "", "", $screenname));
 }
 
 sub oscar_buddylist_ok($) {
 	my($oscar) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	irc_send(irc_privmsg($usnick, $nick, "Your buddylist was successfully modified.", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 }
 
 sub oscar_log($$$) {
