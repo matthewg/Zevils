@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 
 # DCC states
@@ -102,6 +102,8 @@ $version = $VERSION = '1.5 $Revision$';
 #Defaults
 $prefix = "AIM-";
 $usnick = "AIMServ";
+$chatchan = "#aimchat-";
+$nickchan = "#aimirc-";
 $us = "aimserv.your.irc.net";
 $them = "127.0.0.1";
 $themport = 6667;
@@ -265,6 +267,8 @@ sub loadconf() {
 		"dcc:i" => \$dcc,
 		"shortcircuit:i" => \$shortcircuit,
 		"numeric=s" => \$numeric,
+		"chatchan=s" => \$chatchan,
+		"nickchan=s" => \$nickchan,
 	);
 
 	if(!$errors) {
@@ -656,7 +660,7 @@ sub process_irc_message($) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
-	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+?) +\S+ +:(\S+)/i)) {
+	} elsif(!/#aimirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +:(\S+)/i)) {
 		my $screenname = new Net::OSCAR::Screenname $1;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d;
@@ -683,7 +687,7 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the imchan command."));
 		}
-	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
+	} elsif(/^JOIN +.?$chatchan(\d+)/i or /^SJOIN +\d+ +$chatchan(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d; #Only needed for Hybrid?
@@ -706,14 +710,14 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_mode($usnick, chatchan($chat), "+o $nick"));
 		}
-	} elsif(/^INVITE +(\S+) +:?#aimchat-(\d+)/i) {
+	} elsif(/^INVITE +(\S+) +:?$chatchan(\d+)/i) {
 		my $recipient = noprefix($1);
 		my $chat = $2;
 		my $topic = $chats{$chat}->{name};
 
 		$topic =~ s/^{.+?} //;
 		$chats{$chat}->{obj}->invite($recipient, "Please come to $topic.") if $chats{$chat}->{obj};
-	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
+	} elsif(/^MODE +$chatchan(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
 		my ($mode, $parms, @matches, @modes, @params, @tparams, $params, $modestring, $modechar, $modeparm, $modetype, $status);
@@ -774,16 +778,16 @@ sub process_irc_message($) {
 		#debug_print("Mode parse final: $modestring", "errors", 3);
 
 		irc_send(irc_mode($usnick, chatchan($chat), $modestring)) if $modestring;
-	} elsif(/^TOPIC +#aimchat-(\d+)/i) {
+	} elsif(/^TOPIC +$chatchan(\d+)/i) {
 		irc_send(irc_error($nick, 505, "Cannot change topic in AIM chat channels."));
 		irc_send(irc_topic($usnick, chatchan($1), $chats{$1}->{name}));
-	} elsif(/^KICK +#aimchat-(\d+) +(\S+)/i) {
+	} elsif(/^KICK +$chatchan(\d+) +(\S+)/i) {
 		irc_send(irc_error($nick, 503, "Cannot kick users from AIM chat channels."));
 		irc_send(irc_join($2, chatchan($1)));
 		if($2 eq $usnick) {
 			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, chatchan($1), "+o $usnick"));
 		}
-	} elsif(/^PART +#aimchat-(\d+)/i) {
+	} elsif(/^PART +$chatchan(\d+)/i) {
 		my $chat = $1;
 		if(exists $aim_connections->{$nick}->{screennames}->{$chats{$1}->{screenname}}) {
 			debug_print("$nick left aimchat $1 (".$chats{$1}->{name}.").", "chat", 1);
@@ -798,7 +802,7 @@ sub process_irc_message($) {
 				delete $chats{$1};
 			}
 		}
-	} elsif(!/#aimirc-debug/i and /^PART +#aimirc-(\S+)/i) {
+	} elsif(!/#aimirc-debug/i and /^PART +$nickchan(\S+)/i) {
 		my $screenname = $1;
 		my $dude;
 
@@ -810,7 +814,7 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_part($usnick, nickchan($screenname)));
 		}
-	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +#aimirc-(\S+) +:?(.+)/i)) {
+	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra);
 
 		$screenname = $sndata = "";
@@ -998,7 +1002,7 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname", "", "", $screenname));
 			} else {
 				my @buddies = split(/,\s*/, $param);
-				map { irc_send(irc_part("$prefix" . normalize $_, "#aimirc-$screenname", "Removed from buddylist.")) if delete $nicks->{normalize $_}->{$screenname} and $sndata->{inchan} } @buddies;
+				map { irc_send(irc_part("$prefix" . normalize $_, nickchan($screenname), "Removed from buddylist.")) if delete $nicks->{normalize $_}->{$screenname} and $sndata->{inchan} } @buddies;
 				my %rembuds = ();
 				foreach my $buddy(@buddies) {
 					my $currgroup = $oscar->findbuddy($buddy);
@@ -1254,7 +1258,7 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "help") {
 			my $foo = ":$usnick PRIVMSG $nick";
-			$foo = ":$usnick PRIVMSG #aimirc-$screenname" if $sndata->{inchan};
+			$foo = ":$usnick PRIVMSG ".nickchan($screenname) if $sndata->{inchan};
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
 				irc_send("$foo :signon [--loglevel loglevel] screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
@@ -1302,7 +1306,7 @@ sub process_irc_message($) {
 				irc_send("$foo :Note on join_exchange: The default exchange is 4.  However, many AIM chats (including most/all listed in AOL's 'Hot Chats' use exchange 5.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :To invite someone into a chat, use the IRC INVITE command on their AIM- screenname.\r\n", 1);
-				irc_send("$foo :Example: /invite AIM-SomeDude #aimchat-1234\r\n", 1);
+				irc_send("$foo :Example: /invite AIM-SomeDude ${chatchan}1234\r\n", 1);
 				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
 				irc_send("$foo :loglevel newlevel - Sets the logging level for your connection.  newlevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
@@ -1315,14 +1319,14 @@ sub process_irc_message($) {
 				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
-				irc_send("$foo :imchan (on|off) - If set to on, incoming IMs for your screenname will appear in #aimirc-YourScreenName\r\n", 1);
+				irc_send("$foo :imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
 					irc_send("$foo :newnick nick - Create a new nickname on irc.\r\n", 1);
 					irc_send("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 1 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n", 1);
 					irc_send("$foo :showlevels - List all debugging channels and their levels.\r\n", 1);
-					irc_send("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n", 1);
+                                        irc_send("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n", 1);
 					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to Toc.pm or aimirc without having to do a full restart.\r\n", 1);
 					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n", 1);
 					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
@@ -1402,7 +1406,7 @@ sub process_irc_message($) {
 					$sndata->{inchan} = 3;
 				}
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "You must join ".normalize("#aimirc-$screenname")." to use this feature.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "You must join ".nickchan($screenname)." to use this feature.", "", "", $screenname));
 			}
 		} elsif($cmd eq "reorder_groups") {
 			if(!$param) {
@@ -1528,7 +1532,7 @@ sub process_irc_message($) {
 			} else {
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
-		} elsif ($recipient =~ /^#aimchat-(\d+)$/) {
+		} elsif ($recipient =~ /^$chatchan(\d+)$/) {
 			
 			if($chats{$1} and $chats{$1}->{obj}) {
 				$chats{$1}->{obj}->chat_send($msg); 
