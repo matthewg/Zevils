@@ -13,9 +13,10 @@ Thanks to:
 	Marko Asplund <aspa@hip.fi> for IO::Socket:SSL and help with same
 	geniusj (Chan reaping fix, Hybrid kick fix, #aimirc-screenname idea)
 	IpAddress (Syntax error fallthrough, Debugging)
-	VBScript (Debugging, Several ideas)
+	VBScript (Debugging, Several ideas, Moral Support, Lots More)
 	Brendan Bowden (Debugging)
 	Jayson (Debugging)
 	vsync (#aimirc-screenname reaping fix, IM send reap fix)
 	jeff@cepheid.org (ircd 2.10.3p2 support)
 	Mark Rutherford (Bahamut IRCd support)
+	Scott Timo (Debugging Assistance)
