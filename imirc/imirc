@@ -3082,6 +3082,8 @@ sub loadbuddies($$$) {
 				foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
 					#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
 					next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
+					next unless $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote};
+					next unless $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
 					$bnotes{$buddy} = join(" ", @{$data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString}});
 				}
 			} else {
@@ -3592,8 +3594,6 @@ sub oscar_cfgparse($) {
 			push @{$ptr->{$key}}, @parts;
 		}
 	}
-
-	irc_send(irc_privmsg($usnick, "matthewg", Data::Dumper::Dumper($data)));
 
 	return $data;
 }
