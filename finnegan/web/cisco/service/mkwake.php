@@ -2,9 +2,11 @@
 
 $cisco = 1;
 require "../../include/finnegan.inc";
+require "../../include/mkwake-funcs.inc";
 
 $weekdays = array("Mon" => "", "Tue" => "", "Wed" => "", "Thu" => "", "Fri" => "", "Sat" => "", "Sun" => "");
 
+// Initialize variables for editing an existing wake
 if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUEST["id"])) {
 	$id = $_REQUEST["id"];
 	$result = @mysql_query("SELECT * FROM wakes WHERE extension='$extension' AND wake_id=$id");
@@ -29,7 +31,8 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 	$id = "";
 }
 
-$prompt = isset($_REQUEST["prompt"]) ? $_REQUEST["prompt"] : "time";
+// Grab variables from query string
+$prompt = isset($_REQUEST["prompt"]) ? $_REQUEST["prompt"] : "init";
 $time = isset($_REQUEST["time"]) ? $_REQUEST["time"] : "";
 $ampm = isset($_REQUEST["ampm"]) ? $_REQUEST["ampm"] : "";
 $message = isset($_REQUEST["message"]) ? $_REQUEST["message"] : "";
@@ -46,6 +49,7 @@ $cal_type = isset($_REQUEST["cal_type"]) ? $_REQUEST["cal_type"] : "";
 
 $title = "";
 
+// Do error-checking on whichever setting we're up to
 if($prompt == "time" && $time) {
 	if(!preg_match('/^(\d\d?)(\d\d)$/', $time, $matches)) {
 		$title = "Invalid Time";
@@ -108,8 +112,59 @@ if($prompt == "time" && $time) {
 	}
 }
 
+
+// Database INSERT/UPDATE time?
+if($prompt == "done") {
+	$error = "";
+	$weekday_map = array("Sun" => 1, "Mon" => 2, "Tue" => 3, "Wed" => 4, "Thu" => 5, "Fri" => 6, "Sat" => 7);
+
+	if(preg_match('/^(\d\d?):?(\d\d)$/', $time, $matches))
+		$time = "$matches[1]:$matches[2]";
+	else
+		$error = "Invalid Time";
+	if($ampm != "AM" && $ampm != "PM") $error = "Invalid Time";
+	$time = time_to_sql($time, $ampm);
+
+	if(!preg_match('/^\d+$/', $message)) $error = "Invalid Message";
+
+	if(preg_match('/^(\d\d?)\\/(\d\d)$/', $date, $matches))
+		$date = date_to_sql("$matches[1]/$matches[2]", $time);
+	else
+		$error = "Invalid Date";
+
+	if($cal_type != "Brandeis" && $cal_type != "holidays" && $cal_type != "normal") $error = "Invalid Calendar Type";
+
+	if($error) {
+		$title = $error;
+		$prompt = "time";
+	} else {
+		if($type == "one-time") {
+			if(!is_time_free($id, $time, "", "", $date)) $error = "Time Unavailable";
+		} else {
+			reset($weekdays);
+			$baddays = array();
+			while(list($name, $val) = each($weekdays)) {
+				if($val && !is_time_free($id, $time, $weekday_map[$name], $cal_type)) {
+					$baddays[] = $name;
+				}
+			}
+			if(sizeof($baddays) > 0) $error = "Time Unavailable on " . implode(", ", $baddays);
+		}
+
+		if($error) {
+			$title = $error;
+			$prompt = "time";
+		} else {
+			set_wake($id, $time, $message, $type, $date, $weekdays, $cal_type);
+			cisco_message("Alarm Created", "Your alarm was created.", "wakes.php");
+		}
+	}
+}
+
+
+
 if(!$title) {
-	if($prompt == "time")
+	if($prompt == "time" || $prompt == "init")
 		$title = "Enter Time";
 	else if($prompt == "ampm")
 		$title = "AM or PM?";
@@ -270,10 +325,7 @@ if($prompt == "time") {
 <URL><?echo "$url;cal_type=normal" ?></URL>
 </MenuItem>
 
-<? } else if($prompt == "done") {
-	
-}
-?>
+<? } ?>
 
 <SoftKeyItem>
 <Name>Help</Name>
