@@ -579,7 +579,6 @@ sub add_deny($$;$) {
 	debug_print(_hnick($handle) . " is adding $nick to deny list", "buddies", 1);
 	sflap_do($handle, "toc_add_deny $nick");
 	delete $config{_hnick($handle)}->{permit}{$nick};
-	delete $config{_hnick($handle)}->{Buddies}{$nick};
 	$config{_hnick($handle)}->{deny}{$nick} = 1;
 	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
@@ -698,10 +697,12 @@ sub set_config($$) {
 	$config{_hnick($handle)} = $config;
 
 	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
+	sflap_do($handle, "toc_add_permit");
+	sflap_do($handle, "tocc_add_deny");
 	if($config->{permtype} == 3) {
-		sflap_do($handle, "toc_add_permit");
+		sflap_do($handle, "toc_add_permit " . join(" ", @{$config{_hnick($handle)}->{permit}}));
 	} elsif($config->{permtype} == 4) {
-		sflap_do($handle, "toc_add_deny");
+		sflap_do($handle, "toc_add_deny " . join(" ", @{$config{_hnick($handle)}->{deny}}));
 	}
 }
 
