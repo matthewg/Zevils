@@ -875,6 +875,8 @@ sub process_irc_message($) {
 				$days = int($hours / 24);
 				$hours -= $days*24;
 				irc_send(irc_privmsg($usnick, $nick, sprintf("Up $days day(s), %02d:%02d:%02d", $hours, $minutes, $seconds)));
+			} elsif($param eq "version") {
+				irc_send(irc_privmsg($usnick, $nick, "IMIRC $version"));
 			}
 		} elsif($cmd eq "signon") {
 			unless($param and $extra) {
