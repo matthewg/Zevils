@@ -1947,7 +1947,7 @@ sub irc_send($;$) {
 			substr($msg, 0, $rv) = "";
 			undef $rv;
 			$! = EAGAIN;
-		} elsif(!defined($rv) && $! != EAGAIN) {
+		} elsif(!defined($rv)) {
 			die "Couldn't write to IRC: $!";
 		}
 	}
