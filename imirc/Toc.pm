@@ -592,7 +592,7 @@ If allow_web_searches is true, directory info can be retrieved over the web, not
 
 sub set_directory($%) {
 	my($handle, %info) = @_;
-	my($msg, $elem);
+	my $msg;
 
 	$msg = quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{state}, $info{country}, $info{allow_web_searches} ? "Y" : ""));
 	$msg = "toc_set_dir $msg";
