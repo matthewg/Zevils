@@ -187,11 +187,11 @@ sub selectForm
 	$sql.=" WHERE $where " if $where;
 	$sql.="	ORDER BY name";
 	my $c=$dbh->prepare($sql);
-	$c->execute();
-	while(my ($code,$name)=$c->fetchrow()) {
+	$c->execute() if $c;
+	while($c and my ($code,$name)=$c->fetchrow()) {
 		print "<OPTION value=\"$code\">$name\n" unless $code eq $thiscode;
 	}
-	$c->finish();
+	$c->finish() if $c;
 	print "</SELECT>\n";
 }
 
