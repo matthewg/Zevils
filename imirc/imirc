@@ -425,8 +425,6 @@ sub mainloop() {
 		connect_to_irc();
 		$imircdebug = 0;
 
-		print "usnick == $usnick\n";
-
 		irc_send(irc_newnick($usnick)) or die "Couldn't make usnick $usnick: $!\n";
 		$nicks->{$usnick}->{$usnick} = -1;
 		irc_send(irc_mode($usnick, $usnick, "-i"));
@@ -626,7 +624,6 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
-	print "$input\n";
 	return $input;
 }
 
@@ -3182,6 +3179,7 @@ sub update_usercount() {
 
 sub rm_nick_user($$) {
 	my($nick, $user) = (noprefix(shift), shift);
+	return if $nick eq $usnick or $nick eq $oldnick;
 	delete $nicks->{$nick}->{$user};
 
 	my $ircname = $irc_connections->{$user};
