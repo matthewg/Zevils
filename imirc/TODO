@@ -1,3 +1,6 @@
+Unclassified:
+	Write a TOC server and a set of stress tests and regression tests.
+
 In Progress:
 	Multiple buddies at once in add_buddy/remove_buddy
 	Minimize "flashing"
