@@ -1,17 +1,8 @@
 <?
 
 $TEMPLATE["docs"] = array(
-	"title" => "Finnegan: Help",
-	"start" => <<<END
-<ul class="navigation">
-<li><a href="wakes.php">View Alarms</a></li>
-<li><a href="mkwake.php">Create New Alarm</a></li>
-<li><a href="setpin.php">Change PIN or Log Out</a></li>
-</ul>
-<h3>Documentation</h3>
-END
-,
-
+	"title" => "Help",
+	"start" => "",
 	"script" => "",
 	"head" => "",
 	"end" => "",

@@ -1,17 +1,8 @@
 <?
 
 $TEMPLATE["setpin"] = array(
-	"title" => "Finnegan: Change PIN or Log Out",
-	"start" => <<<END
-<ul class="navigation">
-<li><a href="wakes.php">View Wake-up Alarms</a></li>
-<li><a href="mkwake.php">Create New Alarm</a></li>
-<li><a href="docs.php">Help With Finnegan</a></li>
-</ul>
-<h3>Change PIN or Log Out</h3>
-END
-,
-
+	"title" => "Change PIN or Log Out",
+	"start" => "",
 	"script" => "",
 	"head" => "",
 	"end" => "",

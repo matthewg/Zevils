@@ -1,3 +1,49 @@
+body {
+	background: #FFFFFF url(img/left.gif) repeat-y;
+	margin: 0;
+	padding: 0;
+}
+#top {
+	background: #CCCCCC;
+	margin: 0;
+	padding: 3px 8px 3px 3px;
+	text-align: right;
+	font: .7em Georgia, "Times New Roman", Times, serif;
+	color: #333333;
+}
+#left {
+	position: absolute;
+	width: 90px;
+}
+#right {
+	position: absolute;
+	left: 90px;
+}
+#main {
+	font: .9em Georgia, "Times New Roman", Times, serif;
+	color: #333333;
+	padding-right: 8px;
+}
+#right .title {
+	padding-top: 20px;
+}
+#right hr.top {
+	size: 1px;
+	height: 0px;
+	border-width: 1px 0 0 0;
+	border-bottom-style: solid;
+	border-bottom-color:  #4C4C4C;
+	margin: 0px;
+}
+#navigation {
+	float: right;
+	border: 1px solid #4C4C4C;
+	padding: 3px;
+	margin-left: 4px;
+	margin-bottom: 4px;
+	list-style-type: none;
+}
+
 table {
 	border-collapse: collapse;
 	border: thick outset

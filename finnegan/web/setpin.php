@@ -4,7 +4,7 @@ $page = "setpin";
 require "include/finnegan.inc";
 page_start();
 
-if(try_auth()) redirect("login.php");
+if(!$auth_ok) redirect("login.php");
 
 if(isset($_POST["op"])) {
 	$op = $_POST["op"];

@@ -222,11 +222,45 @@ function date_to_sql($user_date, $sql_time) {
 function page_start() {
 	global $TEMPLATE;
 	global $page;
+	global $auth_ok;
+	global $extension;
 
 	ob_start();
-	echo preg_replace(array("/__PAGE_SCRIPT__/", "/__PAGE_HEAD__/", "/__PAGE_TITLE__/"), array($TEMPLATE[$page]["script"], $TEMPLATE[$page]["head"], $TEMPLATE[$page]["title"]), $TEMPLATE["global"]["start"]);
-	echo $TEMPLATE[$page]["start"];
 	db_start();
+	try_auth();
+
+	$logged_in = "";
+	$menu = "";
+	$pages = array(array("Introduction", "index"), array("Help", "docs"));
+	$time = date("g:ia");
+	if($auth_ok) {
+		$logged_in = preg_replace("/__EXTENSION__/", $extension, $TEMPLATE["global"]["logged_in"]);
+		$pages[] = array("View Alarms", "wakes");
+		$pages[] = array("New Alarm", "mkwake");
+		$pages[] = array("Change PIN", "setpin");
+		$pages[] = array("Log Out", "setpin");
+	} else {
+		$logged_in = $TEMPLATE["global"]["not_logged_in"];
+		$pages[] = array("Log In", "login");
+		$pages[] = array("Register", "login");
+		$pages[] = array("Forgot PIN", "login");
+	}
+	$pages[] = array("Legal Info", "legal");
+	for($i = 0; $i < count($pages); $i++) {
+		list($name, $url) = $pages[$i];
+		if($url == $page) {
+			$menu .= preg_replace("/__TEXT__/", $name, $TEMPLATE["global"]["nav_menu_item_current"]);
+		} else {
+			$menu .= preg_replace(array("/__TEXT__/", "/__URL__/"), array($name, $url.".php"), $TEMPLATE["global"]["nav_menu_item"]);
+		}
+	}
+
+	echo preg_replace(
+		array("/__PAGE_SCRIPT__/", "/__PAGE_HEAD__/", "/__PAGE_TITLE__/", "/__LOGGED_IN__/", "/__TIME__/", "/__NAV_MENU__/"),
+		array($TEMPLATE[$page]["script"], $TEMPLATE[$page]["head"], $TEMPLATE[$page]["title"], $logged_in, $time, $menu),
+		$TEMPLATE["global"]["start"]
+	);
+	echo $TEMPLATE[$page]["start"];
 }
 
 function page_end() {
@@ -246,7 +280,11 @@ function try_auth() {
 	global $extension;
 	global $pin;
 	global $savepin;
+	global $auth_ok;
+	global $auth_error;
 
+	$auth_ok = 0;
+	$auth_error = "";
 	$extension_ok = 0;
 	$extension = "";
 	$pin = "";
@@ -265,14 +303,16 @@ function try_auth() {
 		setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 		$extension_error = extension_check($extension);
 		if($extension_error) {
+			$auth_error = $extension_error;
 			return $extension_error;
 		} else {
 			$extension_ok = 1;
 			$pin_error = pin_check($extension, $pin);
 			if($pin_error) {
+				$auth_error = $pin_error;
 				return $pin_error;
 			} else {
-				$extension_ok = 1;
+				$auth_ok = 1;
 
 				if($savepin) {
 					setcookie("finnegan-pin", $pin, time()+60*60*24*365);
@@ -285,6 +325,7 @@ function try_auth() {
 			}
 		}
 	} else {
+		$auth_error = "no_extension";
 		return "no_extension";
 	}
 }

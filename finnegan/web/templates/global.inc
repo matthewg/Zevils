@@ -7,10 +7,11 @@ $TEMPLATE = array();
 
 $TEMPLATE["global"] = array(
 	"start" => <<<END
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
-<html>
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>__PAGE_TITLE__</title>
+<title>Finnegan: __PAGE_TITLE__</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <style type="text/css" media="screen">
 	@import url(finnegan.css);
@@ -57,13 +58,32 @@ __PAGE_SCRIPT__
 </script>
 </head>
 <body>
-<h1>Finnegan</h1>
-<h2>Brandeis wake-up calls, sponsored by the Student Union and the Computer Operators Group</h2>
+<div id="top">__LOGGED_IN__ &bull; System Time: <strong>__TIME__</strong></div>
+<div id="left"><a href="/"><img src="img/wallphone.png" alt="Wall Phone" width="90" height="265" border="0" /></a></div>
+<div id="right"> 
+  <div class="title">
+  <!-- <img src="img/6wake.png" alt="x6WAKE" width="138" height="23" style="padding-bottom: 8px" /> -->
+  <img src="img/tagline.png" alt="Finnegan Wake-up Call Service" width="287" height="20" style="padding-top: 8px" />
+  <hr class="top" />
+  <!-- <img src="img/tagline.png" alt="Finnegan Wake-up Call Service" width="287" height="20" style="padding-top: 8px" /> -->
+  </div>
+  <div id="main">
+  <div id="navigation">
+	__NAV_MENU__
+  </div>
+  <h3>__PAGE_TITLE__</h3>
 END
 ,
 
+	"logged_in" => "Logged in as x<strong>__EXTENSION__</strong>",
+	"not_logged_in" => "Not logged in",
+	"nav_menu_item_current" => "<li><strong>__TEXT__</strong></li>",
+	"nav_menu_item" => "<li><a href=\"__URL__\">__TEXT__</a></li>",
+
+
 	"end" => <<<END
-<p><small>(c)2004 <a href="http://www.zevils.com/">Matthew Sachs</a> and <a href="http://union.brandeis.edu/">the Brandeis Student Union</a>.  <a href="legal.php">Legal Information</a></small></p>
+	</div>
+</div>
 </body>
 </html>
 END

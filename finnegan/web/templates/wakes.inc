@@ -1,14 +1,8 @@
 <?
 
 $TEMPLATE["wakes"] = array(
-	"title" => "Finnegan: Alarms",
+	"title" => "Alarms",
 	"start" => <<<END
-<ul class="navigation">
-<li><a href="mkwake.php">Create Alarm</a></li>
-<li><a href="setpin.php">Set PIN or Log Out</a></li>
-<li><a href="docs.php">Help With Finnegan</a></li>
-</ul>
-<h3>Alarms</h3>
 <form method="post" action="wakes.php">
 END
 ,

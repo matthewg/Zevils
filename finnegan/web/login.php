@@ -4,8 +4,7 @@ $page = "login";
 require "include/finnegan.inc";
 page_start();
 
-$auth_error = try_auth();
-if(!$auth_error) {
+if($auth_ok) {
 	redirect("wakes.php");
 } else if($pin && $auth_error != "no_extension") {
 	if(isset($TEMPLATE["login"][$auth_error])) {

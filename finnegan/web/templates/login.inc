@@ -1,15 +1,8 @@
 <?
 
 $TEMPLATE["login"] = array(
-	"title" => "Finnegan: Log In",
-	"start" => <<<END
-<ul class="navigation">
-<li><a href="docs.php">Help With Finnegan</a></li>
-</ul>
-<h3>Log In</h3>
-END
-,
-
+	"title" => "Log In",
+	"start" => "",
 	"script" => "",
 	"head" => "",
 	"end" => "",

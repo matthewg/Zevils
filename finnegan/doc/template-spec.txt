@@ -8,7 +8,13 @@ Templates are in $FINNEGAN/web/templates/$page.inc
 Global template items (global):
 	start: Top of the entire page.
 		PAGE_TITLE: Title of the page
+		NAV_MENU: Navigation menu items
+		EXTENSION
+		TIME
 	end: End of the entire page.
+
+	nav_menu_item_current
+	nav_menu_item
 
 	db_error: Database error.
 		ERROR: Error message
@@ -25,13 +31,7 @@ Every page has:
 	end: Bottom of entire page, within body
 
 Front page (index) items:
-	anonymous_menu
-	authenticated_menu
-	authenticated: Will be inserted into body iff user is authenticated
-		EXTENSION: User's extension
-	body:
-		MENU: Text of either index_anonymous_menu or index_authenticated_menu
-		AUTHENTICATED: index_authenticated iff applicable, otherwise empty
+	body
 
 Login screen (login) items:
 	pin_error: Incorrect PIN.
@@ -178,4 +178,4 @@ Documentation items (docs):
 	body_end
 
 Legal information (legal):
-	Nothing particular.
+	body

@@ -5,7 +5,7 @@ require "include/finnegan.inc";
 require "include/mkwake-funcs.inc";
 page_start();
 
-if(try_auth()) redirect("login.php");
+if(!$auth_ok) redirect("login.php");
 
 if(isset($_REQUEST["id"])) {
 	$id = preg_replace('/[^0-9]/', "", $_REQUEST["id"]);

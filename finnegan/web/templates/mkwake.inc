@@ -1,23 +1,14 @@
 <?
 
 $TEMPLATE["mkwake"] = array(
-	"title" => "Finnegan: Create/Edit Alarm",
-	"start" => <<<END
-<ul class="navigation">
-<li><a href="wakes.php">View Alarms</a></li>
-<li><a href="setpin.php">Change PIN or Log Out</a></li>
-<li><a href="docs.php">Help With Finnegan</a></li>
-</ul>
-END
-,
+	"title" => "Create/Edit Alarm",
+	"start" => "",
 	"new_start" => <<<END
-<h3>Create Alarm</h3>
 <form method="post" action="mkwake.php">
 END
 ,
 
 	"edit_start" => <<<END
-<h3>Edit Alarm</h3>
 <form method="post" action="mkwake.php">
 <input type="hidden" name="id" value="__ID__" />
 END
@@ -29,10 +20,10 @@ var user_entered_date = false;
 //Automatically set the date based on the time, to either today (if {today,enteredtime} is in future) or tomorrow
 //...unless the user has entered some other date
 function timechanged() {
-	var datefield = document.mkwake.date;
-	var thetime = document.mkwake.time.value;
+	var datefield = getobj("date");
+	var thetime = getobj("time");
 	var curdate = new Date();
-	var timebits = (new String(thetime)).split(":");
+	var timebits = (new String(thetime.value)).split(":");
 	var hours;
 	var minutes;
 	var enteredtime;
@@ -43,9 +34,9 @@ function timechanged() {
 	if(timebits.length == 2) { //We have an h:mm
 		hours = parseInt(timebits[0]);
 		minutes = parseInt(timebits[1]);
-		if(document.mkwake.ampm[0].checked) { //AM
+		if(getobj("am_opt").checked) { //AM
 			if(hours == "12") hours = 0;
-		} else if(document.mkwake.ampm[1].checked) { //PM
+		} else if(getobj("pm_opt").checked) { //PM
 			if(hours != "12") hours = parseInt(hours) + 12;
 		} else {
 			return;
@@ -58,12 +49,12 @@ function timechanged() {
 			curdate = new Date(curdate.getTime() + 1000*60*60*24); // Make 'curdate' tomorrow - getTime() is in milliseconds
 		}
 
-		document.mkwake.date.value = (curdate.getMonth()+1) + "/" + curdate.getDate();
+		datefield.value = (curdate.getMonth()+1) + "/" + curdate.getDate();
 	}
 }
 
 function datechanged() {
-	if(document.mkwake.date.value == "") {
+	if(getobj("date").value == "") {
 		user_entered_date = false;
 	} else {
 		user_entered_date = true;
@@ -100,9 +91,9 @@ END
 	"form" => <<<END
 <p>
 1. Enter a time for the wake-up call.<br />
-Time (h:mm): <input type="text" name="time" size="6" maxlength="5" value="__TIME__" onchange="timechanged()" /><br />
-<input type="radio" name="ampm" value="AM" __AM__ onchange="timechanged()" onclick="timechanged()" /> AM<br />
-<input type="radio" name="ampm" value="PM" __PM__ onchange="timechanged()" onclick="timechanged()" /> PM<br />
+Time (h:mm): <input type="text" name="time" id="time" size="6" maxlength="5" value="__TIME__" onchange="timechanged()" /><br />
+<input type="radio" name="ampm" id="am_opt" value="AM" __AM__ onchange="timechanged()" onclick="timechanged()" /> AM<br />
+<input type="radio" name="ampm" id="pm_opt" value="PM" __PM__ onchange="timechanged()" onclick="timechanged()" /> PM<br />
 </p><p>
 2. Select a wake-up message.  This is the message you will hear when you pick up your wake-up call.<br />
 Messages:
@@ -110,7 +101,7 @@ Messages:
 __MESSAGE_LINKS__
 </ol><p>
 <span id="messagespan">Message:</span>
-<select name="message">
+<select name="message" id="message">
 __MESSAGE_OPTIONS__
 </select>
 </p><p id="typesel">
@@ -118,8 +109,8 @@ __MESSAGE_OPTIONS__
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
 every time it's a particular day or days of the week, at a particular for time.  For instance, you could
 set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br />
-<input type="radio" name="type" onclick="hide('recur'); show('onetime');" value="one-time" __ONETIME__ /> One-time
-<input type="radio" name="type" onclick="hide('onetime'); show('recur');" value="recur" __RECUR__ /> Recurring
+<input type="radio" name="type" id="onetime_opt" onclick="hide('recur'); show('onetime');" value="one-time" __ONETIME__ /> One-time
+<input type="radio" name="type" id="recur_opt" onclick="hide('onetime'); show('recur');" value="recur" __RECUR__ /> Recurring
 </p><div id="onetime"><p>
 4a. <strong>Skip this step for recurring wake-up calls.</strong> Enter the date, in month/day format,
 that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
@@ -175,11 +166,11 @@ Calendar Type: <select name="cal_type">
 </p>
 <script type="text/javascript">
 //<!--
-if(!document.mkwake.type[0].checked) hide("onetime");
-if(!document.mkwake.type[1].checked) hide("recur");
-if(document.mkwake.date.value != "") user_entered_date = true;
+if(!getobj("onetime_opt").checked) hide("onetime");
+if(!getobj("recur_opt").checked) hide("recur");
+if(getobj("date").value != "") user_entered_date = true;
 getobj("messagespan").onclick = function() {
-	message = document.mkwake.message;
+	message = getobj("message");
 	message.options[message.options.length] = new Option('Secret Message', '0', false, true);
 };
 // -->
