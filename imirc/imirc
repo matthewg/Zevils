@@ -836,7 +836,7 @@ sub process_irc_message($) {
 				}
 				if($modechar eq "o" and $modeparm eq $usnick) {
 					if($modetype eq "+") {
-						irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, chatchan($chat), "+o $usnick"));
+						irc_send(irc_mode(IsTS() ? $us : $usnick, chatchan($chat), "+o $usnick"));
 					}
 				} elsif($modechar eq "o" and $aim_connections->{$modeparm} and $modetype eq "-") {
 					#Do nothing
@@ -878,7 +878,7 @@ sub process_irc_message($) {
 		irc_send(irc_error($nick, 503, "Cannot kick users from AIM chat channels."));
 		irc_send(irc_join($2, chatchan($1)));
 		if($2 eq $usnick) {
-			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, chatchan($1), "+o $usnick"));
+			irc_send(irc_mode(IsTS() ? $us : $usnick, chatchan($1), "+o $usnick"));
 		}
 	} elsif(/^PART +$chatchan(\d+)/i) {
 		my $chat = $1;
@@ -2493,11 +2493,11 @@ sub do_signoff($$;$) {
 sub irc_mode($$$) {
 	my($who, $chan, $modes, $modestr) = @_;
 
-	return if $who eq $us and ($servermode eq "ts" or $servermode eq "bahamut") and $modes eq "+o $usnick";
+	return if $who eq $us and IsTS() and $modes eq "+o $usnick";
 	$modestr = "";
 	$modestr = ":$who " unless $who eq $us;
 	$modestr .= "MODE $chan $modes";
-	$modestr .= " " . time if $servermode ne "ts" and $who eq $us;
+	$modestr .= " " . time if !IsTS() and $who eq $us;
 	$modestr .= "\r\n";
 	return $modestr;
 }
@@ -2527,7 +2527,7 @@ sub irc_join($$) {
 
 	# TS requires we use SJOIN when creating a channel
 	# $usnick will always be the first one in.
-	if($servermode eq "ts" or $servermode eq "bahamut") {
+	if(IsTS()) {
 		$chants->{$channel} ||= time;
 		$user = "\@$user" if $user eq $usnick;
 		$ret .= ":$us SJOIN $chants->{$channel} $channel + :$user\r\n";
@@ -3525,4 +3525,10 @@ sub checkstats() {
 	sleep 20 if $servermode eq "p0210" and $ignoreuhosts;
 	@qlines = ();
 	irc_send(irc_stats($usnick, "Q")) if $require_qlines;
+}
+
+# server uses a TS protocol
+sub IsTS() {
+	return 1 if $servermode eq "ts" or $servermode eq "bahamut" or $servermode eq "dancer";
+	return 0;
 }
