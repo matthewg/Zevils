@@ -159,7 +159,7 @@ Version $version
 
 Usage: mp3index [-f URL] [-h URL] [-o OUTPUT] [-d DATFILE] [-l FORMAT_FILE] 
 		[-p mp3play URL] [-O1 OPTIONS] [-n] [-k] [-N] [-A pat]
-		[-@ M3U_FILE]... [FILES]
+		[-U M3U_FILE]... [FILES]
 
 You can use either the short or long forms with one or two dashes in
 whatever combination you want.  However, you can't combine options as in
@@ -265,12 +265,15 @@ mp3index -fh.
 
 	-v, --verbose			Show status information.
 
-	-\@, --m3u=M3U_FILE		Get a list of MPEG audio files to index
+	-U,--m3u=M3U_FILE		Get a list of MPEG audio files to index
 					from M3U_FILE.  If M3U_FILE is "-",
-					standard input will be used.
+					standard input will be used.  This
+					option may be specified more than
+					once, in which case multiple M3U
+					files will be used.
 
 	FILES are the MPEG audio files to index.  You must either specify
-	one or more FILES or use the -\@ option.
+	one or more FILES or use the --m3u option.
 
 	See the included README file for more information.
 EOF
@@ -304,7 +307,7 @@ $errors = &GetOptions("version|V" => \&dispver,
 "noparse|N" => \$noparse,
 "alternatepat|A=s" => \$altpat,
 "help|usage" => \&help,
-"m3u|\@=s\@" => \@m3u_files,
+"m3u|U=s\@" => \@m3u_files,
 );
 
 #"format|layout|l=s@" => \@FMTFILE,
@@ -319,7 +322,7 @@ $FMTFILE ||= "-";
 
 if(!$ARGV[0] and !@m3u_files) {
 	print "You must pass at least one MPEG audio file as a command-line argument!\n";
-	print "(Or use the -\@ option.)\n";
+	print "(Or use the --m3u option.)\n";
 	exit 1;
 }
 
