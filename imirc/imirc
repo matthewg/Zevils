@@ -2369,14 +2369,13 @@ sub timestuff($) {
 }
 
 # Signoff all screennames for a particular IRCnick
-sub do_signoff_all($;$) {
-	my ($nnick, $already_off, $screenname, $nick) = @_;
+sub do_signoff_all($) {
+	my ($nnick, $screenname, $nick) = @_;
 
 	foreach $screenname(keys %{$aim_connections->{$nnick}->{screennames}}) {
-		$aim_connections->{$nnick}->{screennames}->{$screenname}->{oscar}->signoff() unless $already_off;
-		do_signoff($nnick, $aim_connections->{$nnick}->{screennames}->{$screenname}->{oscar}, 1);
+		do_signoff($nnick, $aim_connections->{$nnick}->{screennames}->{$screenname}->{oscar});
 	}
-	irc_send(irc_privmsg($usnick, $nick, "All connections signed off of AOL Instant Messenger.")) unless $already_off;
+	irc_send(irc_privmsg($usnick, $nick, "All connections signed off of AOL Instant Messenger."));
 	delete $aim_connections->{$nnick};
 }
 
