@@ -5768,17 +5768,19 @@ sub set_logprop
 # <LJFUNC>
 # name: LJ::load_log_props2
 # des: Loads the values from the logprop2 table for a journal entry
-# args: db?, jjournalid, itemsref, propsref
+# args: db?, jjournalid, itemsref, propsref, opt?
 # des-db: optional database handle
 # des-jjournalid: ID of journal whose items to retrieve properties for
 # des-itemsref: reference to list of itemids to retrieve properties for
 # des-propsref: reference to hash where properties will be stored
+# des-opt: optional hashref, currently can contain 'memcache_only'
+#          to only retrieve data from memcache
 # </LJFUNC>
 sub load_log_props2
 {
     my $db = isdb($_[0]) ? shift @_ : undef;
 
-    my ($jjournalid, $itemsref, $propsref) = @_;
+    my ($jjournalid, $itemsref, $propsref, $opt) = @_;
     my $journalid = want_userid($jjournalid);
     return unless ref $hashref eq "HASH";
     
@@ -5814,6 +5816,7 @@ sub load_log_props2
     }
 
     return unless %needprops || %needrc;
+    return if $opt->{'memcache_only'};
 
     unless ($db) {
         my $u = LJ::load_userid($journalid);
