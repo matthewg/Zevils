@@ -1,5 +1,12 @@
 #!/usr/bin/perl
 
+sub BEGIN {
+        require File::Basename;
+        my $self = $ENV{SCRIPT_FILENAME} || $0;
+        push @INC, File::Basename::dirname($self);                
+        push @INC, File::Basenane::dirname("$self/..");
+}
+
 my $r = Apache->request unless $ENV{SLASH_UID};
 
 use DBI;

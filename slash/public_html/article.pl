@@ -2,6 +2,13 @@
 
 my $r = Apache->request if $ENV{SCRIPT_NAME};
 
+sub BEGIN {
+        require File::Basename;
+        my $self = $ENV{SCRIPT_FILENAME} || $0;
+        push @INC, File::Basename::dirname($self);                
+        push @INC, File::Basenane::dirname("$self/..");
+}
+
 use strict;
 use Slash;
 
