@@ -553,7 +553,7 @@ sub irc_newnick($) {
 	$nick = new Net::OSCAR::Screenname $nick;
 	debug_print("Shall we create $nick?", "nicks", 2);
 	return if haskeys($nicks->{noprefix($nick)});
-	$shortnick = new Net::OSCAR::Screenname ircify($nick, 1);
+	$shortnick = new Net::OSCAR::Screenname ircify($nick);
 	$nicks->{noprefix($nick)} = $oscarprime->buddyhash();
 	$nicks->{noprefix($nick)}->{$usnick} = time;
 	debug_print("\tCreating $nick (normalized ". normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
@@ -685,7 +685,7 @@ sub process_irc_message($) {
 				irc_send(irc_join(ircify($prefix.$dude), $chan));
 				irc_send(irc_mode($usnick, $chan, "+v $prefix$dude")) if $oscar->buddy($dude);
 			}
-			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the imchan command."));
+			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the set imchan command."));
 		}
 	} elsif(/^JOIN +.?$chatchan(\d+)/i or /^SJOIN +\d+ +$chatchan(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
@@ -1319,7 +1319,9 @@ sub process_irc_message($) {
 				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
-				irc_send("$foo :imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
+			} elsif($param eq "set") {
+				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
+				irc_send("$foo :set nicklen (limit) - If limit is non-zero, any AIM user that talks to you who has a nickname which, including the $prefix, is longer than the limit, you will receive a warning containing the full nickname of the sender.  If limit is zero, this feature will be disabled (except for the server-level nicklen limit.)  This setting is preserved across signoffs (that is, if you sign off and later sign back on, this setting will be preserved.  Sega DreamCast users will probably want to set a nicklen of 9.\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
@@ -1371,6 +1373,7 @@ sub process_irc_message($) {
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
 				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
+				irc_send("$foo :\tset - various settings you can change\r\n", 1);
 				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
@@ -1396,17 +1399,32 @@ sub process_irc_message($) {
 			foreach my $tmpscreenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 				irc_send(irc_privmsg($usnick, $nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->screenname, "", "", $screenname));
 			}
-		} elsif($cmd eq "imchan") {
-			if($sndata->{inchan}) {
-				if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
-					irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will now appear in this channel.", "", "", $screenname));
-					$sndata->{inchan} = 2;
+		} elsif($cmd eq "set") {
+			$cmd = $param;
+			($param, $extra) = split(/\s+/, $extra);
+			if($cmd eq "imchan") {
+				if($sndata->{inchan}) {
+					if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
+						irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will now appear in this channel.", "", "", $screenname));
+						$sndata->{inchan} = 2;
+					} else {
+						irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will no longer appear in this channel, even if you send someone an IM through this channel.", "", "", $screenname));
+						$sndata->{inchan} = 3;
+					}
 				} else {
-					irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will no longer appear in this channel, even if you send someone an IM through this channel.", "", "", $screenname));
-					$sndata->{inchan} = 3;
+					irc_send(irc_privmsg($usnick, $nick, "You must join ".nickchan($screenname)." to use this feature.", "", "", $screenname));
+				}
+			} elsif($cmd eq "nicklen") {
+				if($param == 0) {
+					delete $oscar->get_app_data()->{0x0201};
+					delete $sndata->{nicklen};
+					$oscar->commit_buddylist;
+				} else {
+					$oscar->get_app_data()->{0x0201} = $sndata->{nicklen} = $param;
+					$oscar->commit_buddylist;
 				}
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "You must join ".nickchan($screenname)." to use this feature.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "Unknown preference.", "", "", $screenname));
 			}
 		} elsif($cmd eq "reorder_groups") {
 			if(!$param) {
@@ -1936,6 +1954,11 @@ sub oscar_signon_done($) {
 		}
 	}
 	irc_send(irc_privmsg($usnick, $nick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname)) if $pouncecount > 0;
+
+	if(exists($oscar->get_app_data()->{0x0201})) {
+		$sndata->{nicklen} = $oscar->get_app_data()->{0x0201};
+		irc_send(irc_privmsg($usnick, $nick, "Your maximum nick length has been set to $sndata->{nicklen}.  Use the 'set nicklen' command to change it.", "", "", $screenname));
+	}
 
 	if($oscar->profile) {
 		irc_send(irc_privmsg($usnick, $nick, "You profile has been set.", "", "", $screenname));
