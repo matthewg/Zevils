@@ -5782,7 +5782,7 @@ sub load_log_props2
 
     my ($jjournalid, $itemsref, $propsref, $opt) = @_;
     my $journalid = want_userid($jjournalid);
-    return unless ref $hashref eq "HASH";
+    return unless ref $propsref eq "HASH";
     
     my %needprops;
     my %needrc;
@@ -5792,8 +5792,8 @@ sub load_log_props2
         my $id = $_+0;
         $needprops{$id} = 1;
         $needrc{$id} = 1;
-        push @memkeys, [$userid, "logprop:$userid:$id"];
-        push @memkeys, [$userid, "rp:$userid:$id"];
+        push @memkeys, [$userid, "logprop:$journalid:$id"];
+        push @memkeys, [$userid, "rp:$journalid:$id"];
     }
     return unless %needprops || %needrc;
 
