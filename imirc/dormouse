@@ -15,9 +15,9 @@ $Toc::SERVER = 1;
 
 my($sock, $pid, $screenname);
 
-$pid = fork;
-exit unless $pid == 0;
-POSIX::setsid();
+#$pid = fork;
+#exit unless $pid == 0;
+#POSIX::setsid();
 
 $sock = IO::Socket::INET->new(LocalPort => 5000, Listen => 5) or die "Couldn't sock: $@\n";
 
@@ -29,48 +29,42 @@ if(not -f "$dir/.chatseq") {
 	close CHATSEQ;
 }
 
+sub touch($) {
+	my $file = shift;
+	return if -f $file;
+	open(FILE, ">$file");
+	close FILE;
+}
+
 sub chatseq() {
-        while(-f "$dir/,chatseq.lock") { select(undef, undef, undef, 0.01); }
-        touch("$dir/.chatseq.lock");
+	while(-f "$dir/,chatseq.lock") { select(undef, undef, undef, 0.01); }
+	touch("$dir/.chatseq.lock");
+	my $chatseq = 0;
 
-        open(CHATSEQ, "$dir/.chatseq");
-        my $chatseq = <CHATSEQ> or "0";
-        close CHATSEQ;
+	if(open(CHATSEQ, "$dir/.chatseq")) {
+		$chatseq = <CHATSEQ>;
+		close CHATSEQ;
+	}
+	$chatseq ||= 0;
 
-        $chatseq++;
-        open(CHATSEQ, ">$dir/.chatseq");
-        print CHATSEQ $chatseq;
-        close CHATSEQ;
+	$chatseq++;
+	open(CHATSEQ, ">$dir/.chatseq");
+	print CHATSEQ $chatseq;
+	close CHATSEQ;
 
-        unlink("$dir/.chatseq.lock");
-        return $chatseq;
+	unlink("$dir/.chatseq.lock");
+	return $chatseq;
 }
 
 
-sub END { $server->close if $server; $toc->close if $toc; }
-
-sub unquote($) {
-	my $msg = shift;
-	$msg =~ s/\\\\/\\/g;
-	$msg =~ s/\\\$/\$/g; $msg =~ s/\\\[/\[/g; $msg =~ s/\\]/]/g;
-	$msg =~ s/\\\(/\(/g; $msg =~ s/\\\)/\)/g; $msg =~ s/\\\#/\#/g;
-	$msg =~ s/\\\{/\{/g; $msg =~ s/\\\}/\}/g; $msg =~ s/\\\"/\"/g;
-	$msg =~ s/\\\'/\'/g; $msg =~ s/\\\`/\`/g;
-	return $msg;
-}
+sub END { $sock->close if $sock; }
 
 sub unroast_password($) {
-        my($pass, $roast, $rp) = shift;
+	my($pass, $roast, $rp) = shift;
 
-	# foo => 0x32060c
-
-        $roast = "Tic/Toc";
-        $pos = 0;
-        $rp = "";
-        #for($x = 0; ($x < 150) && ($x < length($pass)); $x++) {
-        #        substr($rp, $pos, 1) = sprintf("%02x", ord(substr($pass, $x, 1)) ^ ord(substr($roast, $x % length($roast), 1)));
-        #        $pos += length(sprintf("%02x", ord(substr($pass, $x, 1)) ^ ord(substr($roast, $x % length($roast), 1))));
-        #}
+	$roast = "Tic/Toc";
+	my $pos = 0;
+	$rp = "";
 
 	substr($pass, 0, 2) = "";
 	for(my $x = 0; ($x < 150) && $pass; $x++) {
@@ -78,7 +72,7 @@ sub unroast_password($) {
 		$rp .= chr($byte ^ ord(substr($roast, $x % length($roast), 1)));
 	}
 
-        return $rp;
+	return $rp;
 }
 
 $oscarprime = Net::OSCAR->new();
@@ -90,16 +84,42 @@ $oscarprime->set_callback_chat_joined(\&chat_joined);
 $oscarprime->set_callback_chat_buddy_in(\&chat_buddy_in);
 $oscarprime->set_callback_chat_buddy_out(\&chat_buddy_out);
 $oscarprime->set_callback_chat_im_in(\&chat_im_in);
-$oscarprime->set_callback_chat_invite(\&chat_invite);
+$oscarprime->set_callback_chat_invite(\&oscar_chat_invite);
 $oscarprime->set_callback_buddy_info(\&buddy_info);
-$oscarprime->set_callback_evil(\&evil);
+$oscarprime->set_callback_evil(\&oscar_evil);
 $oscarprime->set_callback_chat_closed(\&chat_closed);
 $oscarprime->set_callback_admin_error(\&admin_error);
 $oscarprime->set_callback_admin_ok(\&admin_ok);
 $oscarprime->set_callback_rate_alert(\&rate_alert);
 $oscarprime->set_callback_signon_done(\&signon_done);
-#$oscarprime->debug(255);
+$oscarprime->debug(255);
 
+# Be aware of "quoted parameters", unescaping, etc.
+sub toc_split($) {
+	my @params = ();
+	my $param = "";
+	my $input = shift;
+	my $inquote = 0;
+
+	while($input) {
+		my $char = substr($input, 0, 1, "");
+		if($char eq "\\") {
+			$param .= substr($input, 0, 1, "");
+		} elsif($char eq " " and not $inquote) {
+			$input =~ s/^\s*//;
+			push @params, $param;
+			$param = "";
+		} elsif(not $inquote and ($char eq "\"" or $char eq "(" or $char eq "{" or $char eq "[")) {
+			$inquote = 1;
+		} elsif($inquote and ($char eq "\"" or $char eq ")" or $char eq "}" or $char eq "]")) {
+			$inquote = 0;
+		} else {
+			$param .= $char;
+		}
+	}
+	push @params, $param;
+	return @params;
+}
 
 while(my $toc = $sock->accept) {
 	my($line, $message, $command, @params, $person, $flags, $screenname, $oscar);
@@ -114,6 +134,7 @@ while(my $toc = $sock->accept) {
 	${*$toc}{'net_toc_username'} = 'temp';
 
 	$toc->read($line, 10);
+	print STDERR "Got $line\n";
 	die unless $line eq "FLAPON\r\n\r\n";
 
 	$flags = 0;
@@ -129,20 +150,24 @@ while(my $toc = $sock->accept) {
 	
 
 	$message = sflap_get($toc, 1);
-	if($msg !~ /TOC2/) {
+	if($message !~ /TOC2/) {
 		sflap_do($toc, "ERROR:989:Your client is too old.  You must use a client which supports the TOC2 protocol.");
 		$toc->close();
 		exit 1;
 	}
         # $msg = quote("toc_signon login.oscar.aol.com 5190 $username  " . roast_password($password) . " english ") . "\"QuickBuddy\"";
-	@params = toc_split($msg);
-	my $password = unroast_password($params[5]);
+	@params = toc_split($message);
+	my $password = unroast_password($params[4]);
 
 	$oscar = $oscarprime->clone();
 	$tocs{normalize($screenname)} = $toc;
 	$oscar->signon($screenname, $password);
 
 	while(1) {
+		if(!$toc->fileno) {
+			$oscar->signoff;
+			last;
+		}
 		my $rin = '';
 		vec($rin, $toc->fileno, 1) = 1;
 		foreach my $connection($oscar->connections) {
@@ -154,15 +179,14 @@ while(my $toc = $sock->accept) {
 		$oscar->process_connections(\$rin, \$win, \$ein);
 		next unless vec($rin, $toc->fileno, 1);
 		($command, @params) = toc_split(sflap_get($toc, 1));
+		next unless $command;
 		process_toc_command($toc, $oscar, $command, @params);
 	}
+
+	0;
 }
 
-# Be aware of "quoted parameters", unescaping, etc.
-sub toc_split($) {
-	my @params = 
-
-sub process_toc_command($$$@) {
+sub process_toc_command {
 	my($toc, $oscar, $command, @params) = @_;
 
 	if($command eq "toc_signon") {
@@ -170,26 +194,95 @@ sub process_toc_command($$$@) {
 	} elsif($command eq "toc_init_done") {
 		# ignore
 	} elsif($command eq "toc_send_im") {
-		my $who = shift @params;
 		my $away = 0;
 		if($params[-1] eq "away") {
 			pop @params;
 			$away = 1;
 		}
-		my $message = join(" ", @params);
-		$oscar->send_im($params[0],
-
+		print STDERR "Sending $params[1] to $params[0].\n";
+		$oscar->send_im($params[0], $params[1], $away);
+	} elsif($command eq "toc_add_buddy") {
+		$oscar->add_buddy(shift @params, @params);
+	} elsif($command eq "toc_remove_buddy") {
+		$oscar->remove_buddy(shift @params, @params);
+	} elsif($command eq "toc_set_config") {
+		#Ignore
+	} elsif($command eq "toc_evil") {
+		my $anon = ($params[1] eq "norm") ? 0 : 1;
+		$oscar->evil($params[0], $anon);
+	} elsif($command eq "toc_add_permit") {
+		$oscar->add_permit(@params);
+	} elsif($command eq "toc_add_deny") {
+		$oscar->add_deny(@params);
+	} elsif($command eq "toc_set_permit_mode") {
+		$oscar->set_visibility($params[0]);
+	} elsif($command eq "toc_chat_join") {
+		$oscar->chat_join($params[1], $params[0]);
+	} elsif($command eq "toc_chat_send") {
+		$chats{$params[0]}->chat_send($params[1]);
+	} elsif($command eq "toc_chat_whisper") {
+		$oscar->send_im($params[1], $params[2]);
+	} elsif($command eq "toc_chat_evil") {
+		my $anon = ($params[2] eq "norm") ? 0 : 1;
+		$oscar->evil($params[1], $anon);
+	} elsif($command eq "toc_chat_invite") {
+		my $chat = shift @params;
+		my $message = shift @params;
+		foreach my $buddy(@params) {
+			$chats{$chat}->invite($buddy, $message);
+		}
+	} elsif($command eq "toc_chat_leave") {
+		$chats{$params[0]}->part;
+		delete $chats{$params[0]};
+	} elsif($command eq "toc_chat_accept") {
+		print STDERR "Accepting invite for $chats{$params[0]} ($params[0])\n";
+		$oscar->chat_accept($chats{$params[0]});
+	} elsif($command eq "toc_get_info") {
+		$oscar->get_info($params[0]);
+	} elsif($command eq "toc_get_away") {
+		$oscar->get_away($params[0]);
+	} elsif($command eq "toc_set_info") {
+		$oscar->set_profile($params[0]);
+	} elsif($command eq "toc_set_away") {
+		$params[0] ||= "";
+		$oscar->set_away($params[0]);
+	} elsif($command eq "toc_set_dir") {
+		#Unimplemented
+	} elsif($command eq "toc_get_dir") {
+		#Unimplemented
+	} elsif($command eq "toc_dir_search") {
+		#Unimplemented
+	} elsif($command eq "toc_set_idle") {
+		$oscar->set_idle($params[0]);
+	} elsif($command eq "toc_set_caps") {
+		#Unimplemented
+	} elsif($command eq "toc_rvous_propose") {
+		#Unimplemented
+	} elsif($command eq "toc_rvous_accept") {
+		#Unimplemented
+	} elsif($command eq "toc_rvous_cancel") {
+		#Unimplemented
+	} elsif($command eq "toc_format_nickname") {
+		$oscar->format_screenname($params[0]);
+	} elsif($command eq "toc_change_passwd") {
+		$oscar->change_password($params[0], $params[1]);
+	} elsif($command eq "toc_change_email") {
+		$oscar->change_email($params[0]);
+	} elsif($command eq "toc_confirm_account") {
+		$oscar->confirm_account($params[0]);
+	}
 }
 
 sub Toc::debug_print($$$) {
 	my($text, $type, $level) = @_;
-	#print STDERR "($level, $type) $text";
+	print STDERR "($level, $type) $text";
 }
 
 sub buddy_info_string($) {
 	my $buddat = shift;
 	my $string = "";
 
+	$buddat->{idle} ||= 0;
 	$string .= join(":", int($buddat->{evil}), $buddat->{onsince}, $buddat->{idle});
 	$string .= ":";
 	$string .= $buddat->{aol} ? "A" : " ";
@@ -210,11 +303,12 @@ sub buddy_info_string($) {
 
 sub error($$$$$$$$;$) {
 	my($oscar, $connection, $error, $errno, $url, $reqdata, $family, $subtype, $fatal) = @_;
-	$error = "{$reqdata} $error" if $reqdata;
+	my $toc = $tocs{normalize($oscar->screenname)};
+	$error = "($reqdata) $error" if $reqdata;
+	sflap_do($toc, "ERROR:$error");
 	if($fatal) {
-		die "Fatal error in ".$connection->{description}.": $error\n";
-	} else {
-		print STDERR "$error\n";
+		$oscar->close;
+		
 	}
 }
 
@@ -229,7 +323,7 @@ sub signon_done($) {
 	my $config = "m " . $oscar->visibility . "\n";
 	
 	foreach my $group($oscar->groups) {
-		next unless $group eq "permit" or $group eq "deny";
+		next if $group eq "permit" or $group eq "deny";
 		$config .= "g $group\n";
 		foreach my $buddy($oscar->buddies($group)) {
 			$config .= "b $buddy\n";
@@ -250,7 +344,7 @@ sub rate_alert($$$) {
 	my $toc = $tocs{normalize($oscar->screenname)};
 
 	$clear /= 1000;
-	sflap_do($toc, "ERROR:903") if $level >= RATE_LIMIT:
+	sflap_do($toc, "ERROR:903") if $level >= RATE_LIMIT;
 }
 
 sub admin_error($$$$) {
@@ -308,7 +402,9 @@ sub chat_buddy_in($$$$) {
 	my($screenname, $chat, $buddat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	sflap_do($toc, join(":", "CHAT_UPDATE_BUDDY", $chat->{dormouse_id}, "T", $screenname);
+	$chat->{dormouse_id} = $chats{$chat->url};
+	print "Got chat ".$chat->{dormouse_id}." for ".$chat->url."\n";
+	sflap_do($toc, join(":", "CHAT_UPDATE_BUDDY", $chat->{dormouse_id}, "T", $screenname));
 }
 
 sub buddy_out($$$) {
@@ -324,7 +420,7 @@ sub chat_buddy_out($$$) {
 	my($screenname, $chat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	sflap_do($toc, join(":", "CHAT_UPDATE_BUDDY", $chat->{dormouse_id}, "T", $screenname);
+	sflap_do($toc, join(":", "CHAT_UPDATE_BUDDY", $chat->{dormouse_id}, "F", $screenname));
 }
 
 sub im_in($$$) {
@@ -346,13 +442,15 @@ sub chat_im_in($$$$) {
 	sflap_do($toc, "CHAT_IN:".$chat->{dormouse_id}.":$who:F:$what");
 }
 
-sub chat_invite($$$$$) {
+sub oscar_chat_invite($$$$$) {
 	my $oscar = shift;
 	my($from, $msg, $chat, $chaturl) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
 	my $chatseq = chatseq();
 	$chats{$chaturl} = $chatseq;
+	$chats{$chatseq} = $chaturl;
+	print STDERR "Invited to $chaturl ($chatseq)\n";
 	sflap_do($toc, "CHAT_INVITE:$chat:$chatseq:$from:$msg");
 }
 
@@ -361,14 +459,21 @@ sub chat_joined($$$) {
 	my($name, $chat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	sflap_do($toc, "CHAT_JOIN:".$chat->{dormouse_id}.":$name");
+	my $chatno = $chats{$chat->url};
+	$chatno ||= chatseq();
+	$chat->{dormouse_id} = $chatno;
+	sflap_do($toc, "CHAT_JOIN:$chatno:$name");
+	$chats{$chatno} = $chat;
+	$chats{$chat->url} = $chatno;
+	print STDERR "Setting chat $chatno to ".$chat->url."\n";
 }
 
-sub evil($$$) {
+sub oscar_evil($$$) {
 	my $oscar = shift;
 	my($newevil, $enemy) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
+	$enemy ||= "";
 	sflap_do($toc, "EVILED:$newevil:$enemy");
 }
 
@@ -377,150 +482,15 @@ sub buddy_info($$$$) {
 	my($screenname, $buddat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	my $string = "INFO:$screenname:";
-	$string .= buddy_info_string($buddat);
-	$buddat->{profile} ||= "";
-	$buddat->{awaymsg} ||= "";
-	$string .= ":".$buddat->{profile};
-	$string .= ":".$buddat->{awaymsg};
+	my $string = "";
+	if(!$buddat->{awaymsg}) {
+		$string = "INFO:$screenname:";
+		$string .= buddy_info_string($buddat);
+		$buddat->{profile} ||= "";
+		$string .= ":".$buddat->{profile};
+	} else {
+		$string = "AWAY:$screenname:".$buddat->{awaymsg};
+	}
 
 	sflap_do($toc, $string);
 }
-
-
-	while(1) {
-		foreach $person(keys %queue) {
-			putmsg($person, undef);
-		}
-		select(undef, undef, undef, 0.1);
-
-		if(-f "$dir/$screenname") {
-			sflap_do($toc, getmsg());
-		}
-
-		$message = sflap_get($toc);
-		if($message eq "-1" and $! != EAGAIN) {
-			toc_signoff;
-			die "Client died: $!\n";
-		} elsif($message eq "-1" or $message =~ /^\s*$/) {
-			next;
-		} else {
-			#print "We got $message!\n";
-		}
-
-		for($i = length($message) - 1; $i >= 0; $i--) {
-			substr($message, $i, 1, "") if substr($message, $i, 1) eq chr(0);
-		}
-		dbtie;
-		my @new = ();
-		push(@new, $+) while $message =~ m{
-			"([^\"\\]*(?:\\.[^\"\\]*)*)"\s?  # groups the phrase inside the quotes
-			| ([^ ]+)\s?
-			| \s
-		}gx;
-		push(@new, undef) if substr($message,-1,1) eq ' ';
-
-		($command, @params) = map { unquote($_) } @new;
-		#print "command=$command.\n";
-		if($command eq "toc_init_done") {
-			print "toc{people}{$screenname}?\n";
-			$toc{people}{$screenname}{on} = 1;
-			print Data::Dumper::Dumper($toc{people}{$screenname}), "\n";
-			tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: O");
-		} elsif($command eq "toc_send_im") {
-			my($who, $message) = @params;
-			print "toc{people}{$who}?\n";
-			print Data::Dumper::Dumper($toc{people}{$who}), "\n";
-			if(exists $toc{people}{$who}{on}) {
-				putmsg($who, "IM_IN:$screenname:F:$message");
-			} else {
-				putmsg($screenname, "ERROR:901:$who");
-			}
-		} elsif($command eq "toc_add_buddy") {
-			foreach $person(@params) {
-				$toc{people}{$screenname}{buddies}{$person} = 1;
-				if(exists($toc{people}{$person}{on})) {
-					putmsg($screenname, "UPDATE_BUDDY:$person:T:0:".time.":0: O");
-				}
-			}
-		} elsif($command eq "toc_remove_buddy") {
-			foreach $person(@params) {
-				delete $toc{people}{$screenname}{buddies}{$person};
-			}
-		} elsif($command eq "toc_set_config") {
-		} elsif($command eq "toc_evil") {
-		} elsif($command eq "toc_add_permit") {
-		} elsif($command eq "toc_add_deny") {
-		} elsif($command eq "toc_chat_join") {
-			my $chat = chatseq();
-			$toc{chats}{$params[1]}{$screenname} = $chat;
-			$toc{people}{$screenname}{chats}{$chat} = $params[1];
-			putmsg($screenname, "CHAT_JOIN:$chat:".$params[1]);
-			putmsg($screenname, "CHAT_UPDATE_BUDDY:$chat:T:".join(":", keys %{$toc{chats}{$params[1]}}));
-			foreach $person(keys %{$toc{chats}{$params[1]}}) {
-				next if $person eq $screenname;
-				$chat = $toc{chats}{$params[1]}{$person};
-				putmsg($person, "CHAT_UPDATE_BUDDY:$chat:T:$screenname");
-			}
-		} elsif($command eq "toc_chat_send") {
-			my $chat = $params[0];
-			$message = $params[1];
-			my $chatname = $toc{people}{$screenname}{chats}{$chat};
-			foreach $person(keys %{$toc{chats}{$chatname}}) {
-				putmsg($person, "CHAT_IN:".$toc{chats}{$chatname}{$person}.":$screenname:F:$message");
-			}
-		} elsif($command eq "toc_chat_whisper") {
-			my $chat = $params[0];
-			$person = $params[1];
-			$message = $params[2];
-			my $chatname = $toc{people}{$screenname}{chats}{$chat};
-			putmsg($person, "CHAT_IN".$toc{chatname}{$person}.":$screenname:T:$message");
-		} elsif($command eq "toc_chat_evil") {
-		} elsif($command eq "toc_chat_invite") {
-			my $chat = shift @params;
-			$message = shift @params;
-			my $chatname = $toc{people}{$screenname}{chats}{$chat};
-			foreach $person(@params) {
-				$chat = chatseq();
-				$toc{people}{$person}{invites}{$chat} = $chatname;
-				putmsg($person, "CHAT_INVITE:$chatname:$chat:$screenname:$message");
-			}
-		} elsif($command eq "toc_chat_leave") {
-			leavechat($params[0]);
-		} elsif($command eq "toc_chat_accept") {
-			my $chat = shift @params;
-			my $chatname = $toc{people}{$screenname}{invites}{$chat};
-
-			$toc{chats}{$chatname}{$screenname} = $chat;
-			$toc{people}{$screenname}{chats}{$chat} = $chatname;
-			putmsg($screenname, "CHAT_JOIN:$chat:$chatname");
-			putmsg($screenname, "CHAT_UPDATE_BUDDY:$chat:T:".join(":", keys %{$toc{chats}{$chatname}}));
-
-			foreach $person(keys %{$toc{chats}{$chatname}}) {
-				next if $person eq $screenname;
-				$chat = $toc{chats}{$chatname}{$person};
-				putmsg($person, "CHAT_UPDATE_BUDDY:$chat:T:$screenname");
-			}
-		} elsif($command eq "toc_get_info") {
-		} elsif($command eq "toc_set_info") {
-		} elsif($command eq "toc_set_away") {
-			if($params[0]) {
-				tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: OU");
-			} else {
-				tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: O");
-			}
-		} elsif($command eq "toc_get_dir") {
-		} elsif($command eq "toc_set_dir") {
-		} elsif($command eq "toc_dir_search") {
-		} elsif($command eq "toc_set_idle") {
-		} elsif($command eq "toc_set_caps") {
-		} elsif($command eq "toc_rvous_propose") {
-		} elsif($command eq "toc_rvous_accept") {
-		} elsif($command eq "toc_rvous_cancel") {
-		} elsif($command eq "toc_format_nickname") {
-		} elsif($command eq "toc_change_passwd") {
-		}
-
-		dbuntie;
-	}
-

@@ -27,7 +27,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password set_pause get_pause);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password set_pause get_pause change_email confirm_accoutn get_away);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '1.2';
 
@@ -96,6 +96,32 @@ sub change_password($$$) {
 	my($handle, $oldpass, $newpass, $msg) = @_;
 	$msg = "toc_change_passwd \"" . quote($oldpass) . "\" \"" . quote($newpass) . "\"";
 	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item change_email(HANDLE, NEW_EMAIL)
+
+Change the user's email address.
+
+=cut
+
+sub change_email($$) {
+	my($handle, $newmail) = @_;
+	my $msg = "toc_change_email \"" . quote($newmail) . "\"";
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item confirm_account(HANDLE)
+
+Confirms the user's account.
+
+=cut
+
+sub confirm_account($) {
+	sflap_do(shift, "toc_confirm_account");
 }
 
 =pod
@@ -429,7 +455,7 @@ sub signon($$;$&) {
 	debug_print("$username has sent the signon packet", "signon", 2);
 
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
-	$msg = quote("toc_signon login.oscar.aol.com 5190 $username  " . roast_password($password) . " english ") . "\"QuickBuddy\"";
+	$msg = quote("toc_signon login.oscar.aol.com 5190 $username  " . roast_password($password) . " english ") . "\"aimirc TOC2\"";
 	# $msg = quote("toc_signon zevils.com 1234 $username  " . roast_password($password) . " english ") . "\"AIMIRC:\\\$Rev" . "ision: ${VERSION} \\\$\"";
 	sflap_put($socket, sflap_encode($msg, 0, 1)) or do {
 		debug_print("$username had an error while trying to toc_signon: $@", "signon", 1);
@@ -550,9 +576,24 @@ sub set_away($;$) {
 
 =pod
 
+=item get_away(HANDLE, NICK)
+
+Tell TOC that you want the away message for NICK.  Only works with TOC2 servers.
+Generates an INFO reply.
+
+=cut
+
+sub get_away($$) {
+	sflap_do(shift, "toc_get_away ".shift);
+}
+
+=pod
+
 =item get_info(HANDLE, NICK)
 
 Tell TOC that you want the info for NICK.  TOC will give you a URL to go to to get the info.
+
+TOC2 servers will instead send an INFO reply.
 
 =cut
 
@@ -681,7 +722,7 @@ sub add_buddy($$;$$) {
 	$group ||= "Buddies";
 	debug_print(_hnick($handle) . " is adding $nickstring to buddylist", "buddies", 1);
 	delete $config{_hnick($handle)}->{deny}{$nick};
-	sflap_do($handle, "toc_add_buddy $nickstring");
+	sflap_do($handle, "toc_add_buddy $group $nickstring");
 	foreach $nick(@$nicks) {
 		$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
 		$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
@@ -703,8 +744,9 @@ sub remove_buddy($$) {
 	$nicks = [$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from the buddylist", "buddies", 1);
-	sflap_do($handle, "toc_remove_buddy $nickstring");
 	foreach $nick(@$nicks) {
+		$nick = normalize($nick);
+		sflap_do($handle, "toc_remove_buddy ".$config{_hnick($handle)}->{Buddies}{$nick}{group}. " $nick");
 		delete $config{_hnick($handle)}->{Buddies}{$nick};
 	}
 	set_config($handle, $config{_hnick($handle)});
@@ -730,7 +772,6 @@ sub add_permit($$;$) {
 		delete $config{_hnick($handle)}->{deny}{$nick};
 		$config{_hnick($handle)}->{permit}{$nick} = 1;
 	}
-	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 =pod
@@ -747,10 +788,10 @@ sub remove_permit($$) {
 	$nicks = [$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from permit list", "buddies", 1);
+	sflap_do($handle, "toc_remove_permit $nickstring");
 	foreach $nick(@$nicks) {
 		delete $config{_hnick($handle)}->{permit}{$nick};
 	}
-	set_config($handle, $config{_hnick($handle)});
 }
 
 =pod
@@ -773,7 +814,6 @@ sub add_deny($$;$) {
 		delete $config{_hnick($handle)}->{permit}{$nick};
 		$config{_hnick($handle)}->{deny}{$nick} = 1;
 	}
-	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 
@@ -789,10 +829,10 @@ sub remove_deny($$) {
 	$nicks = [$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from deny list", "buddies", 1);
+	sflap_do($handle, "toc_remove_deny $nickstring");
 	foreach $nick(@$nicks) {
 		delete $config{_hnick($handle)}->{deny}{$nick};
 	}
-	set_config($handle, $config{_hnick($handle)});
 }
 
 =pod
@@ -847,8 +887,7 @@ sub permtype($;$) {
 	my($handle, $permtype) = @_;
 	if($permtype) {
 		$config{_hnick($handle)}->{permtype} = $permtype;
-		set_config($handle, $config{_hnick($handle)});
-		_setup($handle);
+		sflap_do($handle, "toc_set_permit_mode $permtype");
 		return $permtype;
 	} else {
 		return $config{_hnick($handle)}->{permtype} || 4;
@@ -904,22 +943,6 @@ sub normalize($) {
 	return lc($temp);
 }
 
-=pod
-
-=item set_config(HANDLE, CONFIG)
-
-Sets configuration from the config-hash (in the format that you get from get_config) CONFIG.
-You shouldn't need to call this unless you are directly accessing the config-hash.
-In all other cases, it is called automatically when needed.  Returns the result of sflap_do.
-
-=cut
-
-sub set_config($$) {
-	my($handle, $config) = @_;
-	$config{_hnick($handle)} = $config;
-
-	sflap_put($handle, sflap_encode("toc_set_config {" . quote(conf2str($config)) . "}", 0, 1));
-}
 sub _setup($) { 
 	my $handle = shift;
 	my($ppl, $msg, $buddy, $config);
@@ -1082,7 +1105,7 @@ sub sflap_encode($;$$) {
 	my($msg, $signon, $noquote) = @_;
 	my($ret, $so);
 	$signon ||= 0;
-	$msg = quote $msg unless $noquote;
+	$msg = quote $msg unless $noquote or $Toc::SERVER;
 
 	#We set the true sequence number in sflap_put.
 
