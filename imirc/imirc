@@ -26,6 +26,19 @@ EOF
 use strict;
 use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
+# DCC states
+# Iff state & 1, it's a SEND.
+# Iff state & 2, we care about if the socket is ready for writing.
+use constant DCC_STATE_SEND => 1;
+use constant DCC_STATE_WRITE => 2;
+
+use constant DCC_STATE_SEND_LISTEN => DCC_STATE_SEND | DCC_STATE_WRITE | (1<<2);
+use constant DCC_STATE_SEND_READY => DCC_STATE_SEND | DCC_STATE_WRITE | (2<<2);
+use constant DCC_STATE_SEND_NEEDACK => DCC_STATE_SEND | (3<<2);
+use constant DCC_STATE_GET_CONNECT => DCC_STATE_WRITE | 1<<2;
+use constant DCC_STATE_GET_READY => 2<<2;
+use constant DCC_STATE_GET_SENDACK => DCC_STATE_WRITE | (3<<2);
+
 $starttime = time;
 
 $| = 1;
@@ -69,6 +82,7 @@ use Carp;
 use Getopt::Long;
 use File::Basename;
 use FormatAIMIRC;
+use Symbol;
 
 $Carp::Verbose = 1;
 
@@ -396,10 +410,10 @@ sub mainloop() {
 
 			vec($rin, $upstream->fileno, 1) = 1;
 			foreach my $dcc(@dccqueue) {
-				if($dcc->{need} eq "read") {
-					vec($rin, $dcc->{socket}->fileno, 1) = 1;
+				if($dcc->{state} | DCC_STATE_WRITE) {
+					vec($win, fileno $dcc->{socket}, 1) = 1;
 				} else {
-					vec($win, $dcc->{socket}->fileno, 1) = 1;
+					vec($rin, fileno $dcc->{socket}, 1) = 1;
 				}
 			}
 
@@ -432,22 +446,15 @@ sub mainloop() {
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
 				my $dcc = $dccqueue[$i];
-				if($currtime - $dcc->{dcctime} > 3600) {
-					my($us, $them);
-					if($dcc->{direction} eq "SEND") {
-						$us = $dcc->{from};
-						$them = $dcc->{to};
-					} else {
-						$them = $dcc->{from};
-						$us = $dcc->{to};
-					}
-					irc_send(irc_privmsg($us, $them, "DCC connection timed out.", "", "", $dcc->{screenname}));
+				if($currtime - $dcc->{time} > 3600) {
+					irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection timed out.", "", "", $dcc->{screenname}));
+					close $dcc->{socket};
 					splice(@dccqueue, $i, 1);
 				}
-				if($dcc->{need} eq "read") {
-					next unless vec($rin, $dcc->{socket}->fileno, 1);
+				if($dcc->{state} | DCC_STATE_WRITE) {
+					next unless vec($win, fileno $dcc->{socket}, 1);
 				} else {
-					next unless vec($win, $dcc->{socket}->fileno, 1);
+					next unless vec($rin, fileno $dcc->{socket}, 1);
 				}
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
@@ -1570,7 +1577,8 @@ User {
 			my($dcc, $i);
 			for($i = 0; $i <= $#dccqueue; $i++) {
 				$dcc = $dccqueue[$i];
-				if($dcc->{direction} eq "SEND" and $dcc->{to} eq $nick) {
+				$dcc->{for} = $newnick;
+				if($dcc->{state} | DCC_STATE_SEND and $dcc->{to} eq $nick) {
 					$dccqueue[$i]->{to} = $newnick;
 				} elsif($dcc->{from} eq $nick) {
 					$dccqueue[$i]->{from} = $newnick;
@@ -1581,14 +1589,12 @@ User {
 		delete $irc_away->{$nick};
 
 		my($dcc, $i);
-		for($i = 0; $i <= $#dccqueue; $i++) {
+		for($i = $#dccqueue; $i >= 0; $i--) {
 			$dcc = $dccqueue[$i];
-			debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}.  Put $dcc->{put}, got $dcc->{got}", "DCC", 2);
-			next unless $dcc->{direction} eq "SEND" and $dcc->{put} == -1 and $dcc->{to} eq $nick;
-			debug_print("Closing DCC listen socket for transfer to $nick", "DCC", 1);
-			$dcc->{socket}->close;
+			next unless $dcc->{for} eq $nick;
+			debug_print("Closing DCC socket for transfer to $nick", "DCC", 1);
+			close $dcc->{socket};
 			splice(@dccqueue, $i, 1);
-			$i--;
 		}
 		do_signoff_all($nick) if $aim_connections->{$nick};
 	} elsif(/^PING/) {
@@ -2465,20 +2471,12 @@ sub process_ctcp($$$$) {
 			($cmd, $args) = split(/ /, $args, 2);
 			if($cmd eq "REJECT") {
 				my($dcc, $i);
-				for($i = 0; $i <= $#dccqueue; $i++) {
+				for($i = $#dccqueue; $i >= 0; $i--) {
 					$dcc = $dccqueue[$i];
-					debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}", "DCC", 2);
-					if($dcc->{direction} eq "SEND" and $dcc->{to} eq $from) {
-						debug_print("$from rejected our DCC.", "DCC", 1);
-						$dccqueue[$i]->{socket}->close if $dcc->{socket};
-						splice(@dccqueue, $i, 1);
-						$i--;
-					} elsif(normalize $dcc->{from} eq $from) {
-						debug_print("$from rejected our DCC.", "DCC", 1);
-							$dccqueue[$i]->{socket}->close if $dcc->{socket};
-						splice(@dccqueue, $i, 1);
-						$i--;
-					}
+					next unless $dcc->{for} eq $from;
+					debug_print("$from rejected our DCC.", "DCC", 1);
+					close $dccqueue[$i]->{socket} if $dcc->{socket};
+					splice(@dccqueue, $i, 1);
 				}
 			} elsif($cmd eq "SEND") {
 				$args =~ /(.+)\s+(\d+)\s+(\d+)\s+(\d+)/; #Handles spaces in filename
@@ -2503,7 +2501,20 @@ sub process_ctcp($$$$) {
 						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $!"));
 						next CTCP;
 					}
-					push @dccqueue, {screenname => $screenname, socket => $socket, size => $filesize, what => $dccget{$from}, from => new Net::OSCAR::Screenname $from, to => new Net::OSCAR::Screenname $to, got => 0, direction => "GET", buff => "", need => "read", dcctime => time};
+					push @dccqueue, {
+						screenname => $screenname,
+						from => new Net::OSCAR::Screenname $from,
+						to => new Net::OSCAR::Screenname $to,
+						for => new Net::OSCAR::Screenname $from,
+						socket => $socket,
+						time => time,
+						size => $filesize,
+						what => "",
+						desc => $dccget{$from},
+						state => DCC_STATE_GET_CONNECT,
+						sent => 0,
+						received => 0,
+					};
 					delete $dccget{$from};
 					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename.", "", "", $screenname));
 				}
@@ -2680,8 +2691,20 @@ sub irc_dcc($$$$$$) {
 			return "";
 		}
 
-		#We set {put} to -1 to indicate that the client hasn't connected yet.
-		push @dccqueue, {screenname => $screenname, starttime => time, socket => $socket, size => length($what), what => $why, from => new Net::OSCAR::Screenname $from, to => new Net::OSCAR::Screenname $to, put => -1, direction => "SEND", buff => $what, need => "write", dcctime => time};
+		push @dccqueue, {
+			screenname => new Net::OSCAR::Screenname $screenname,
+			from => new Net::OSCAR::Screenname $from,
+			to => new Net::OSCAR::Screenname $to,
+			for => new Net::OSCAR::Screenname $to,
+			socket => $socket,
+			time => time,
+			size => length($what),
+			what => $what,
+			desc => $why,
+			state => DCC_STATE_SEND_LISTEN,
+			sent => 0,
+			received => 0
+		};
 		debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
 	}
@@ -2757,100 +2780,112 @@ sub process_dcc($$) {
 	my $dcc = shift;
 	my $time = shift; # Avoid numerous calls to time(2)
 
-	$dcc->{dcctime} = $time;
+	$dcc->{time} = $time;
 
 	my $screenname = $dcc->{screenname};
 	my $buff;
 	my $rv = undef;
 
-	if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
-		my $bufflen = $dcc->{needack} ? (4 - length($dcc->{ackbuff})) : 2048;
-		$buff = ' ' x $bufflen;
-		$rv = $dcc->{socket}->sysread($buff, $bufflen); #DCC seems to like 2k chunks - but we're nonblocking, so we'll deal with whatever we get
-		if (!defined($rv)) {
+	if($dcc->{state} == DCC_STATE_SEND_LISTEN) {
+		my $newsocket = gensym;
+		accept $dcc->{socket}, $newsocket;
+		close $dcc->{socket};
+		$dcc->{socket} = $newsocket;
+		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
+		$dcc->{state} = DCC_STATE_SEND_READY;
+		return 1;
+	} elsif($dcc->{state} == DCC_STATE_SEND_READY) {
+		my $send = $dcc->{send} % 2048;
+		$send = 2048 - $send;
+		my $buff = substr($dcc->{what}, 0, $send);
+		my $rv = syswrite $dcc->{socket}, $buff, $send;
+		if(!defined($rv)) {
 			if($! == EAGAIN) {
 				return 1; # Why did select tell us we were ready, though?
 			} else {
-				irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!", "", "", $screenname));
-				$dcc->{socket}->close;
-				return 0;
-			}
-		}
-
-		if(exists($dcc->{needack})) {
-			$dcc->{ackbuff} .= $buff;
-			if(length($dcc->{ackbuff}) >= 4) {
-				delete $dcc->{needack};
-				$dcc->{need} = "write";
-				($dcc->{got}) = unpack("N", substr($dcc->{ackbuff}, 0, 4, ""));
-				debug_print("ACK received - client got $dcc->{got} of $dcc->{size} (we put $dcc->{put})", "DCC", 3);
-			}
-
-			if($dcc->{got} == $dcc->{size}) {
-				debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
-				$dcc->{socket}->close;
-				irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
+				close $dcc->{socket};
 				return 0;
 			}
 		} else {
-			$dcc->{buff} .= $buff;
-			$dcc->{got} += $rv;
-			debug_print("DCC got $rv bytes ($dcc->{got} of $dcc->{size})", "DCC", 2);
+			substr($buff, 0, $rv) = "";
+			$dcc->{sent} += $rv;
+			$dcc->{state} = DCC_STATE_SEND_NEEDACK if $dcc->{sent} % 2048 == 0;
+		}
+	} elsif($dcc->{state} == DCC_STATE_SEND_NEEDACK) {
+		my $buff;
+		my $rv = sysread $dcc->{socket}, $buff, 4;
+		if(!defined($rv)) {
+			if($! == EAGAIN) {
+				return 1; # Why did select tell us we were ready, though?
+			} else {
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
+				close $dcc->{socket};
+				return 0;
+			}
+		} else {
+			($dcc->{received}) = unpack("N", $buff);
+			debug_print("ACK received - client got $dcc->{received} of $dcc->{size} (we put $dcc->{sent})", "DCC", 3);
+			$dcc->{state} = DCC_STATE_SEND_READY if $dcc->{sent} == $dcc->{received};
 
-			$dcc->{socket}->print(pack("N", $dcc->{got})) if(($dcc->{got} % 2048) == 0 or $dcc->{got} == $dcc->{size}); # Every 2048 bytes, write number of bytes received
-
-			if($dcc->{got} == $dcc->{size}) {
-				debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
-				debug_print($dcc->{buff}, "DCC", 3);
-				$dcc->{socket}->close;
-				irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed.", "", "", $screenname));
-				if(loadbuddies($aim_connections->{$dcc->{from}}->{screennames}->{$dcc->{screenname}}->{oscar}, $dcc->{buff})) {
-					irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded.", "", "", $screenname));
-				} else {
-					irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?", "", "", $screenname));
-				}
-				return 0; # Remove this connection from the DCC pending list
+			if($dcc->{received} == $dcc->{size}) {
+				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+				close $dcc->{socket};
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
+				return 0;
 			}
 		}
-	} elsif($dcc->{direction} eq "SEND") {
-		if($dcc->{put} == -1) {
-			$rv = $dcc->{socket}->accept;
-			if(defined $rv) {
-				$dcc->{put} = 0;
-				$dcc->{socket}->close;
-				delete $dcc->{socket};
-				$dcc->{socket} = $rv;
+	} elsif($dcc->{state} == DCC_STATE_GET_CONNECT) {
+		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
+		$dcc->{state} = DCC_STATE_GET_READY;
+		return 1;
+	} elsif($dcc->{state} == DCC_STATE_GET_READY) {
+		my $buff;
+		my $rv = sysread $dcc->{socket}, $buff, 2048;
+		if(!defined($rv)) {
+			if($! == EAGAIN) {
+				return 1; # Why did select tell us we were ready, though?
+			} else {
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
+				close $dcc->{socket};
+				return 0;
+			}
+		} else {
+			$dcc->{what} .= $buff;
+			$dcc->{received} += $rv;
+			$dcc->{state} = DCC_STATE_GET_SENDACK if $dcc->{received} % 2048 == 0;
+			return 1;
+		}
+	} elsif($dcc->{state} == DCC_STATE_GET_SENDACK) {
+		my $rv = syswrite $dcc->{socket}, pack("N", $dcc->{received}), 4;
+		if(!defined($rv)) {
+			if($! == EAGAIN) {
 				return 1;
-			} elsif($! and $! != EAGAIN) {
-				irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-				$dcc->{socket}->close;
+			} else {
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection dropped: $!", "", "", $screenname));
+				close $dcc->{socket};
 				return 0;
 			}
 		} else {
-			if($dcc->{put} < $dcc->{size}) {
-				$buff = substr($dcc->{buff}, 0, 2048);
-				$rv = $dcc->{socket}->syswrite($buff, length $buff);
-				if (!defined($rv)) {
-					if($! == EAGAIN) {
-						return 1; # Then why did select tell us we were ready?
-					} else {
-						irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-						$dcc->{socket}->close;
-						return 0;
-					}
-				}
-				$dcc->{put} += $rv;
-				substr($buff, 0, $rv) = "";
-				debug_print("DCC put $rv bytes ($dcc->{put} of $dcc->{size})", "DCC", 2);
-			}
+			$dcc->{state} = DCC_STATE_GET_READY if $dcc->{received} % 2048 != 0;
 
-			if(($dcc->{put} % 2048) == 0 or $dcc->{put} == $dcc->{size}) {
-				$dcc->{needack} = 1;
-				$dcc->{need} = "read";
+			if($dcc->{received} == $dcc->{size}) {
+				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+				close $dcc->{socket};
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
+				if(loadbuddies($aim_connections->{$dcc->{for}}->{screennames}->{$screenname}->{oscar}, $dcc->{what})) {
+					irc_send(irc_privmsg($usnick, $dcc->{for}, "Buddylist loaded.", "", "", $screenname));
+				} else {
+					irc_send(irc_privmsg($usnick, $dcc->{for}, "Could not load buddylist.", "", "", $screenname));
+				}
+				return 0;
 			}
 
 			return 1;
 		}
+	} else {
+		irc_send(irc_privmsg($usnick, $dcc->{for}, "Unknown state $dcc->{state}!  Please email matthewg\@zevils.com.", "", "", $screenname));
+		return 0;
 	}
 }
 
