@@ -34,10 +34,10 @@ if(isset($_REQUEST["id"])) {
 <Name>No</Name>
 <Position>4</Position>
 <URL><? 
-	if($PHONE_MODEL == "CP-7912G")
+	//if($PHONE_MODEL == "CP-7912G")
 		echo $FinneganCiscoConfig->url_base."/service/wakeprops.php?id=$id";
-	else
-		echo $FinneganCiscoConfig->url_base."/service/wakes.php";
+	//else
+	//	echo $FinneganCiscoConfig->url_base."/service/wakes.php";
 ?></URL>
 </SoftKeyItem>
 
