@@ -323,6 +323,7 @@ sub main() {
 
 		$server->close();;  #buh-bye
 	} else { #inetd == 1
+		$client_ip = getpeername(STDIN);
 		got_client(STDIN);
 	}
 }
@@ -336,12 +337,11 @@ sub nntp_put(@) {
 sub findblog($) {
 	my $group = lc(shift);
 
-	$group =~ s/^<(.+)>/$1/;
-
+	do_log("findblog($group):", LOG_DEBUG);
 	my($blog) = grep {
 		my $pos = index($group, lc($_->root));
-		$pos != -1 and # It is in the string...
-		  $pos + length($_->root) == length($group); # At the end
+		do_log("\tindex($group, ", $_->root, ") == $pos", LOG_DEBUG);
+		$pos == 0; # It is at the beginning of the string
 	} values %blogs;
 	return $blog;
 }
@@ -350,10 +350,8 @@ sub got_client(*) {
 	my($client, $currmsg, $currgroup, $user);
 	$client = qualify_to_ref(shift, caller);
 
-	# Unless inetd, we already have set this
-	#(undef, $client_ip) = sockaddr_in(getpeername(CLIENT));
-	#do_log("Client IP: $client_ip", LOG_INFO);
-	#$client_ip = inet_ntoa(gethostbyaddr($client_ip, AF_INET));
+	(undef, $client_ip) = sockaddr_in($client_ip);
+	$client_ip = inet_ntoa($client_ip);
 
 	select $client;
 	$| = 1; # Auto-flush the output.
@@ -377,19 +375,20 @@ sub got_client(*) {
 			if (/^article$/ || /^body$/ || /^head$/ || /^stat$/) {
 				my ($msgnum, $msgid);
 
-				if ($params[0] and $params[0] !~ /\<.+\>/) {
+				if (!$params[0] or $params[0] !~ /\<.+\>/) {
 					if(!$currgroup) { #Client tried to use a message number while no group was selected
 						nntp_put("412 Not in a newsgroup");
 						last SWITCH;
 					} else {
-						$currmsg = $params[0];
+						$currmsg = $params[0] if $params[0];
 						$msgid = $blog->num2id($currgroup, $currmsg) if $blog;
 						if(!$msgid) {
 							nntp_put(ERR_NOARTICLE);
 							next;
 						}
 					}
-				} else {
+				} elsif($params[0]) {
+					$msgid = $params[0];
 					if(!($blog = findblog($msgid))) {
 						nntp_put(ERR_NOARTICLE);
 						next;
@@ -414,14 +413,15 @@ sub got_client(*) {
 				my($result, $body, %headers) = $blog->article($command, $msgid);
 
 				if($result) {
-					nntp_put("$response $msgnum $msgid article retrieved - $resptext\n");
+					nntp_put("$response $msgnum $msgid article retrieved - $resptext");
 					if($command eq "head" or $command eq "article") {
-						nntp_put("$_: ", $headers{lc($_)}) foreach map { s/^(.)/\U$1/; s/-(.)/-\U$1/; $_; } map { lc($_) } keys %headers;
+						nntp_put("$_: ", $headers{lc($_)}) foreach map { s/^(.)/\U$1/; s/-(.)/-\U$1/g; $_; } map { lc($_) } keys %headers;
 						nntp_put("") if $command eq "article";
 					}
 					if($command eq "body" or $command eq "article") {
 						$body =~ s/^\.$/../m;
 						$body =~ s/(?!\r)\n/\r\n/g;
+						$body =~ s/[\r\n]{1,2}$//;
 						nntp_put($body);
 						nntp_put(".");
 					}
@@ -443,7 +443,7 @@ sub got_client(*) {
 					my($first, $last, $num) = $blog->groupstats($group);
 					$currmsg = $first;
 					nntp_put("211 $num $first $last $group group selected");
-					do_log("Okay, current group is now $params[0]\n", LOG_DEBUG);
+					do_log("Okay, current group is now $group\n", LOG_DEBUG);
 				}
 				next;
 			} elsif (/^help$/) {
@@ -462,7 +462,7 @@ sub got_client(*) {
 				} elsif(!$currmsg) {
 					nntp_put("420 no current article has been selected");
 				} else {
-					my $newmsg = ($params[0] eq "next") ? ($currmsg + 1) : ($currmsg - 1);
+					my $newmsg = (/^next/) ? ($currmsg + 1) : ($currmsg - 1);
 					my $msgid = $blog->num2id($currgroup, $newmsg);
 					if(!$msgid) {
 						if($params[0] eq "next") {
@@ -471,7 +471,7 @@ sub got_client(*) {
 							nntp_put("422 no previous article in this group");
 						}
 					} else {
-						nntp_put("223 $currmsg <$msgid> article retrieved - request text separately");
+						nntp_put("223 $currmsg $msgid article retrieved - request text separately");
 						$currmsg = $newmsg;
 					}
 				}
@@ -494,8 +494,6 @@ sub got_client(*) {
 
 					foreach $blog (values %blogs) {
 						my %groups = $blog->groups();
-
-						print Data::Dumper::Dumper(\%groups);
 
 						while(my($group, $desc) = each(%groups)) {
 							nntp_put("$group   $desc");

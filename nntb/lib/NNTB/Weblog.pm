@@ -211,7 +211,7 @@ sub groupname($@) {
 	my($self, @groupparts) = @_;
 	my $input = join(".", @groupparts);
 	foreach my $group(@groupparts) {
-		$group =~ tr! .*?\\/,!_______!;
+		$group =~ tr! .*?\\,!______!;
 		$group =~ s/^!/_/;
 	}
 	my $group = join(".", @groupparts);
@@ -264,7 +264,7 @@ to that of Debian Weekly News.
 sub html2txt($$) {
 	my($self, $html) = @_;
 
-	my $tree = HTML::TreeBuilder->new->parse($html);
+	my $tree = HTML::TreeBuilder->new_from_content($html);
 	my $linkcount = 0;
 	my @footlinks;
 
@@ -333,8 +333,6 @@ sub html2txt($$) {
 			]]
 		);
 	}
-
-	#print $tree->dump();
 
 	return HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($tree);
 }

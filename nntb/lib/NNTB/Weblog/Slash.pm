@@ -95,7 +95,7 @@ sub num2id($$$) {
 	} elsif($type eq "story") {
 		$idtype = "comment";
 		$idid = $self->{slash_db}->sqlSelect("cid", "comments",
-			"sid=".$self->{slash_db}->sqlQuote($id).
+			"sid=".$self->{slash_db}->getStory($id, 'discussion').
 			" AND nntp_cnum=$msgnum") or return undef;
 	} elsif($type eq "journal" or $type eq "journals") {
 		$idtype = "journal";
@@ -108,7 +108,8 @@ sub num2id($$$) {
 				" AND nntp_cnum=$msgnum");
 		} else {
 			my $journal_obj = getObject("Slash::Journal");
-			return undef unless $journal_obj->get($idid);
+			return undef unless $journal_obj->get($msgnum);
+			$idid = $msgnum;
 		}
 
 		if(!$idid) {
@@ -119,7 +120,7 @@ sub num2id($$$) {
 					$self->{slash_db}->getUserUID($id)
 				).
 				" AND journals.discussion = comments.sid".
-				" AND comments.nntp_cnum = $id");
+				" AND comments.nntp_cnum = $msgnum");
 			return undef unless $idid;
 		}
 	}
@@ -143,7 +144,7 @@ sub parsegroup($$) {#
 	my @ret;
 
 	$ret[1] = $groupparts[0]; # text/html
-	if(@groupparts == 2) { #{text,html}.stories
+	if(@groupparts == 2 and lc($groupparts[1]) eq "stories") { #{text,html}.stories
 		return "frontpage" unless wantarray;
 		$ret[2] = "frontpage";
 	} elsif(lc($groupparts[1]) eq "stories") {
@@ -275,6 +276,7 @@ sub articles($$;$) {
 
 	my %ret;
 	my($id, $format, $grouptype) = $self->parsegroup($group);
+
 	if($grouptype eq "frontpage" or $grouptype eq "section") {
 		my $sect = "";
 		$sect = "_section" if $grouptype eq "section";
@@ -398,21 +400,38 @@ sub article($$$;@) {
 		}
 	} elsif($msgtype eq "comment") {
 		my $comment = $self->{slash_db}->getComment($id) or return undef;
-		$body = $comment->{comment} . "<p>-- <br>$comment->{signature}";
+
+		# Ick, is this really the name of the function to do this?
+		$body = $self->{slash_db}->_getCommentTextOld($id);
+
 		$uid = $comment->{uid};
 		$date = $comment->{date};
 
 		if($type eq "head" or $type eq "article") {
-			my($section, $sid) = $self->{slash_db}->getDiscussion($comment->{sid}, ['section', 'sid']);
+			my $discussion = $self->{slash_db}->getDiscussion($comment->{sid});
+
+			my($section, $sid) = ($discussion->{section}, $discussion->{sid});
 			my $secid = $self->{slash_db}->getSection($section, 'id');
-			my $group = "$self->{root}." . $self->groupname($format, "stories", "${section}_$secid.$sid");
+			my($jid, $journal_nick, $journal_uid);
+			if(!$sid) {
+				$jid = $self->{slash_db}->sqlSelect("id", "journals", "discussion=$comment->{sid}");
+				my $journal_obj = getObject("Slash::Journal");
+				my $journal = $journal_obj->get($jid);
+				$journal_uid = $journal->{uid};
+				$journal_nick = $self->{slash_db}->getUser($journal_uid, 'nickname');
+			}
+
+			my $group = "$self->{root}." . $self->groupname($format, ($sid ? "stories" : "journals"), ($sid ? ("${section}_$secid", $sid) : ($journal_nick."_".$journal_uid)));
 
 			$headers{subject} = $comment->{subject};
 			$headers{newsgroups} = $group;
 			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $group:$comment->{nntp_cnum}";
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/comments.pl?sid=$comment->{sid}&cid=$comment->{cid}";
 			$headers{"x-slash-score"} = $comment->{points};
-			$headers{"x-slash-mod-reason"} = (split(/|/, $self->{slash_db}->getVar("reasons", "value")))[$comment->{reason}];
+
+			#if($comment->{reason}) {
+				$headers{"x-slash-mod-reason"} = (split(/\|/, $self->{slash_db}->getVar("reasons", "value")))[$comment->{reason}];
+			#}
 
 			my @references = ();
 			while($comment->{pid}) {
@@ -424,7 +443,7 @@ sub article($$$;@) {
 			my $journal = $self->{slash_db}->sqlSelect("discussion", "journals", "discussion = $comment->{sid}");
 			unshift @references, $self->form_msgid($journal, $format, "journal") if $journal;
 
-			$headers{references} = join(" ", @references);
+			$headers{references} = join(" ", @references) if @references;
 		}
 	} elsif($msgtype eq "journal") {
 		my $journal_obj = getObject("Slash::Journal") or return fail("500 Couldn't get Slash::Journal");
@@ -464,6 +483,7 @@ sub article($$$;@) {
 
 	if($type ne "head" or $get_headers{lines} or $get_headers{bytes}) {
 		$body = $self->html2txt($body) if $format eq "text";
+		$self->log("Body: $body", LOG_DEBUG);
 		my @lines = split(/\n/, $body);
 		$headers{lines} = scalar @lines;
 		$headers{bytes} = length($body);
@@ -675,7 +695,7 @@ sub is_group($$) {
 		$self->log("section $section, ID $sectid", LOG_DEBUG);
 		return 0 unless $section;
 
-		my($section_data) = grep { $_->{id} == $sectid } $self->{slash_db}->getSections();
+		my($section_data) = grep { $_->{id} == $sectid } values %{$self->{slash_db}->getSections()};
 
 		return 0 unless $section_data;
 		return 0 unless lc($self->groupname($section_data->{section})) eq $section;
