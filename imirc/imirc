@@ -3436,7 +3436,7 @@ sub send_im($$$$) {
 
 	irc_send(irc_newnick($prefix.$target));
 	$nicks->{$target}->{$screenname} = time unless $nicks->{$target}->{$screenname} == -1;
-	debug_print("$screenname -> $target: $msg", "im", 2);
+	debug_print("$screenname -> $target: $msg", "IM", 2);
 	if($irc_connections->{$target} and $aim_connections->{$irc_connections->{$target}} and $shortcircuit) {
 		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, ($notice ? "<!-- NOTICE -->" : "") . txt2html($msg));
 	} else {
