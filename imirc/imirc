@@ -391,11 +391,10 @@ sub mainloop() {
 
 			vec($rin, $upstream->fileno, 1) = 1;
 			foreach my $dcc(@dccqueue) {
-				if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
+				if($dcc->{need} eq "read") {
 					vec($rin, $dcc->{socket}->fileno, 1) = 1;
 				} else {
-					vec($win, $dcc->{socket}->fileno, 1) = 1 if $dcc->{put} != -1;
-					vec($win, $dcc->{ssocket}->fileno, 1) = 1 if $dcc->{put} == -1;
+					vec($win, $dcc->{socket}->fileno, 1) = 1;
 				}
 			}
 
@@ -428,14 +427,22 @@ sub mainloop() {
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
 				my $dcc = $dccqueue[$i];
-				if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
+				if($currtime - $dcc->{dcctime} > 3600) {
+					my($us, $them);
+					if($dcc->{direction} eq "SEND") {
+						$us = $dcc->{from};
+						$them = $dcc->{to};
+					} else {
+						$them = $dcc->{from};
+						$us = $dcc->{to};
+					}
+					irc_send(irc_privmsg($us, $them, "DCC connection timed out.", "", "", $dcc->{screenname}));
+					splice(@dccqueue, $i, 1);
+				}
+				if($dcc->{need} eq "read") {
 					next unless vec($rin, $dcc->{socket}->fileno, 1);
 				} else {
-					if($dcc->{put} == -1) {
-						next unless vec($win, $dcc->{ssocket}->fileno, 1);
-					} else {
-						next unless vec($win, $dcc->{socket}->fileno, 1);
-					}
+					next unless vec($win, $dcc->{socket}->fileno, 1);
 				}
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
@@ -670,7 +677,7 @@ sub process_irc_message($) {
 		my $topic = $chats{$chat}->{name};
 
 		$topic =~ s/^{.+?} //;
-		$chats{$chat}->{obj}->invite($recipient, "Please come to $topic.");
+		$chats{$chat}->{obj}->invite($recipient, "Please come to $topic.") if $chats{$chat}->{obj};
 	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
@@ -1171,14 +1178,15 @@ User {
 					$config .= "}\nBuddy {\n list {\n";
 
 					foreach $group (sort $oscar->groups) {
-						$config .= "  $group";
+						$config .= "  $group {\n";
 						foreach $buddy(sort $oscar->buddies($group)) {
 							$config .= "   \"$buddy\"";
 							if(my $comment = $oscar->buddy($buddy, $group)->{comment}) {
 								$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }   }";
 							}
+							$config .= "\n";
 						}
-						$config .= "\n";
+						$config .= "  }\n";
 					}
 					$config .= " }\n}\nPrivacy {\n";
 					$config .= " allowList " . join(" ", $oscar->get_permitlist) . "\n";
@@ -1525,22 +1533,22 @@ User {
 	} elsif(/^NICK +(\S+)/) { #Nick change
 		my $newnick = "";
 		if($aim_connections->{$nick}) {
-			$newnick = $1;
+			$newnick = new Net::OSCAR::Screenname $1;
 			foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 				$irc_connections->{$screenname} = $newnick;
 			}
 			$aim_connections->{$newnick} = $aim_connections->{$nick};
 			$aim_connections->{$newnick}->{nick} = $newnick;
 			delete $aim_connections->{$nick};
-		}
 
-		my($dcc, $i);
-		for($i = 0; $i <= $#dccqueue; $i++) {
-			$dcc = $dccqueue[$i];
-			if($dcc->{direction} eq "SEND" and normalize $dcc->{to} eq $nick) {
-				$dccqueue[$i]->{to} = normalize($newnick);
-			} elsif(normalize $dcc->{from} eq $nick) {
-				$dccqueue[$i]->{from} = normalize($newnick);
+			my($dcc, $i);
+			for($i = 0; $i <= $#dccqueue; $i++) {
+				$dcc = $dccqueue[$i];
+				if($dcc->{direction} eq "SEND" and $dcc->{to} eq $nick) {
+					$dccqueue[$i]->{to} = $newnick;
+				} elsif($dcc->{from} eq $nick) {
+					$dccqueue[$i]->{from} = $newnick;
+				}
 			}
 		}
 	} elsif(/^QUIT/) {
@@ -1550,9 +1558,9 @@ User {
 		for($i = 0; $i <= $#dccqueue; $i++) {
 			$dcc = $dccqueue[$i];
 			debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}.  Put $dcc->{put}, got $dcc->{got}", "DCC", 2);
-			next unless $dcc->{direction} eq "SEND" and $dcc->{put} == -1 and normalize $dcc->{to} eq normalize $nick;
+			next unless $dcc->{direction} eq "SEND" and $dcc->{put} == -1 and $dcc->{to} eq $nick;
 			debug_print("Closing DCC listen socket for transfer to $nick", "DCC", 1);
-			$dcc->{ssocket}->close;
+			$dcc->{socket}->close;
 			splice(@dccqueue, $i, 1);
 			$i--;
 		}
@@ -2431,10 +2439,9 @@ sub process_ctcp($$$$) {
 				for($i = 0; $i <= $#dccqueue; $i++) {
 					$dcc = $dccqueue[$i];
 					debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}", "DCC", 2);
-					if($dcc->{direction} eq "SEND" and normalize $dcc->{to} eq $from) {
+					if($dcc->{direction} eq "SEND" and $dcc->{to} eq $from) {
 						debug_print("$from rejected our DCC.", "DCC", 1);
 						$dccqueue[$i]->{socket}->close if $dcc->{socket};
-						$dccqueue[$i]->{ssocket}->close if $dcc->{ssocket};
 						splice(@dccqueue, $i, 1);
 						$i--;
 					} elsif(normalize $dcc->{from} eq $from) {
@@ -2458,24 +2465,16 @@ sub process_ctcp($$$$) {
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
 				} else {
-					$SIG{ALRM} = sub { die "connection timed out\n"; };
-					eval {
-						alarm 5;
-						$socket = IO::Socket::INET->new(
-							PeerAddr => $ipaddr,
-							PeerPort => $port
-						);
-						alarm 0;
-					} ;
-					unless(!$@ and $socket) {
-						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $@"));
-						next CTCP;
-					}
+					socket($socket, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 					$flags = 0;
 					fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
 					$flags |= O_NONBLOCK;
-					fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";
-					push @dccqueue, {screenname => $screenname, socket => $socket, size => $filesize, what => $dccget{$from}, from => $from, to => $to, got => 0, direction => "GET", buff => ""};
+					fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";					
+					if(!connect($socket, sockaddr_in($port, inet_aton($ipaddr))) and $! != EINPROGRESS) {
+						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $!"));
+						next CTCP;
+					}
+					push @dccqueue, {screenname => $screenname, socket => $socket, size => $filesize, what => $dccget{$from}, from => new Net::OSCAR::Screenname $from, to => new Net::OSCAR::Screenname $to, got => 0, direction => "GET", buff => "", need => "read", dcctime => time};
 					delete $dccget{$from};
 					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename.", "", "", $screenname));
 				}
@@ -2653,7 +2652,7 @@ sub irc_dcc($$$$$$) {
 		}
 
 		#We set {put} to -1 to indicate that the client hasn't connected yet.
-		push @dccqueue, {screenname => $screenname, starttime => time, ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
+		push @dccqueue, {screenname => $screenname, starttime => time, socket => $socket, size => length($what), what => $why, from => new Net::OSCAR::Screenname $from, to => new Net::OSCAR::Screenname $to, put => -1, direction => "SEND", buff => $what, need => "write", dcctime => time};
 		debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
 	}
@@ -2728,6 +2727,8 @@ sub process_dcc($$) {
 	my $dcc = shift;
 	my $time = shift; # Avoid numerous calls to time(2)
 
+	$dcc->{dcctime} = $time;
+
 	my $screenname = $dcc->{screenname};
 	my $buff;
 	my $rv = undef;
@@ -2750,6 +2751,7 @@ sub process_dcc($$) {
 			$dcc->{ackbuff} .= $buff;
 			if(length($dcc->{ackbuff}) >= 4) {
 				delete $dcc->{needack};
+				$dcc->{need} = "write";
 				($dcc->{got}) = unpack("N", substr($dcc->{ackbuff}, 0, 4, ""));
 				debug_print("ACK received - client got $dcc->{got} of $dcc->{size} (we put $dcc->{put})", "DCC", 3);
 			}
@@ -2782,31 +2784,17 @@ sub process_dcc($$) {
 		}
 	} elsif($dcc->{direction} eq "SEND") {
 		if($dcc->{put} == -1) {
-			undef $rv;
-			my($rin, $ein) = ('', undef, '');
-			vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
-			$ein = $rin;
-			#Anyone trying to connect to us?
-			if(!select($rin, undef, $ein, 0.01)) {
-				if($time - $dcc->{starttime} > 60*10) {
-					irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out.", "", "", $screenname));
-					$dcc->{ssocket}->close;
-					return 0;
-				}
+			$rv = $dcc->{socket}->accept;
+			if(defined $rv) {
+				$dcc->{put} = 0;
+				$dcc->{socket}->close;
+				delete $dcc->{socket};
+				$dcc->{socket} = $rv;
 				return 1;
-			} else {
-				$rv = $dcc->{ssocket}->accept;
-				if(defined $rv) {
-					$dcc->{socket} = $rv;
-					$dcc->{put} = 0;
-					$dcc->{ssocket}->close;
-					delete $dcc->{ssocket};
-					return 1;
-				} elsif($! and $! != EAGAIN) {
-					irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-					$dcc->{ssocket}->close;
-					return 0;
-				}
+			} elsif($! and $! != EAGAIN) {
+				irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
+				$dcc->{socket}->close;
+				return 0;
 			}
 		} else {
 			if($dcc->{put} < $dcc->{size}) {
@@ -2828,6 +2816,7 @@ sub process_dcc($$) {
 
 			if(($dcc->{put} % 2048) == 0 or $dcc->{put} == $dcc->{size}) {
 				$dcc->{needack} = 1;
+				$dcc->{need} = "read";
 			}
 
 			return 1;
@@ -2848,4 +2837,9 @@ sub send_im($$$) {
 		$oscar->send_im($target, $msg) if $oscar;
 	}
 	$nicks->{$target}->{$screenname} = time if $nicks->{$target}->{$screenname} != -1;
+}
+
+sub mkchan($$) {
+	my($prefix, $suffix) = @_;
+	return new Net::OSCAR::Screenname "#". ircify("$prefix-$suffix");
 }
