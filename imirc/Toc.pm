@@ -45,8 +45,8 @@ Call this when you get a toc CONFIG message.
 sub update_config($$) {
 	my($handle, $conf) = @_;
 	
-	(undef, $config{_hnick($handle)}) = str2conf($conf);
-	
+	$config{_hnick($handle)} = str2conf($conf);
+	_setup($handle);
 }
 
 =pod
@@ -911,18 +911,18 @@ sub _setup($) {
 
 	$msg = "toc_add_buddy";
 	foreach $buddy(keys %{$config->{Buddies}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
-	sflap_do($handle, $msg);
+	sflap_do($handle, $msg) unless $msg eq "toc_add_buddy";
 
 	if($config{_hnick($handle)}->{permtype} != 2) {
 		$msg = "toc_add_permit";
 		foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
-		sflap_do($handle, $msg);
+		sflap_do($handle, $msg) unless $msg eq "toc_add_permit";
 	}
 
 	if($config{_hnick($handle)}->{permtype} != 1) {
 		$msg = "toc_add_deny";
 		foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
-		sflap_do($handle, $msg);
+		sflap_do($handle, $msg) unless $msg eq "toc_add_deny";
 	}
 
 	if($config{_hnick($handle)}->{permtype} == 3 or $config{_hnick($handle)}->{permtype} == 1) {
