@@ -1,24 +1,5 @@
 <?
 
-eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file('../etc/brancal.inc'))));
-
-// seed with microseconds
-function make_seed() {
-    list($usec, $sec) = explode(' ', microtime());
-    return (float) $sec + ((float) $usec * 100000);
-}
-srand(make_seed());
-
-function get_dbh() {
-	global $FinneganConfig;
-	$dbh = @mysql_connect($FinneganConfig->db["host"], $FinneganConfig->db["user"], $FinneganConfig->db["password"]);
-	if(!$dbh) return $dbh;
-
-	if(!@mysql_select_db($FinneganConfig->db["database"], $dbh)) return "";
-
-	return $dbh;
-}
-
 function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $FinneganConfig;
 	global $TEMPLATE;
@@ -26,6 +7,11 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 	global $BRANDEIS_DAYS;
 	global $HOLIDAYS;
 	global $extension;
+
+	if(!isset($BRANDEIS_DAYS)) {
+		eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file('../etc/brancal.inc'))));
+	}
+
 
 	#echo "****CHECKING $weekday*****<br>\n";
 
@@ -65,7 +51,7 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 
 	$fp = fopen(".lock", "w+");
 	if(!$fp || !flock($fp, LOCK_EX)) {
-		echo $TEMPLATE["lock_error"];
+		echo $TEMPLATE["global"]["lock_error"];
 		return 0;
 	}
 
@@ -216,262 +202,6 @@ function _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_s
 	#echo "<tt>=======</tt><br />\n";
 
 	return $ret;
-}
-
-function db_error() {
-	global $TEMPLATE;
-	echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);
-	do_end();
-}
-
-function log_ext($extension, $event, $result, $data = "") {
-	if(!$data || $result == "success")
-		$data = "NULL";
-	else
-		$data = "'$data'";
-
-	if(!mysql_query(sprintf(
-	   "INSERT INTO log_ext (extension, event, result, data, start_time, end_time, ip) VALUES ('%s', '%s', '%s', %s, NOW(), NOW(), '%s')",
-	                          $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
-}
-
-function log_wake($wake_id, $extension, $event, $result, $data = "") {
-	if(!$data || $result == "success")
-		$data = "NULL";
-	else
-		$data = "'$data'";
-
-	if(!mysql_query(sprintf(
-	   "INSERT INTO log_wake (wake_id, extension, event, result, data, start_time, end_time, ip) VALUES ('%s', '%s', '%s', '%s', %s, NOW(), NOW(), '%s')",
-	                          $wake_id, $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
-}
-
-function extension_ok($extension) {
-	global $TEMPLATE;
-	global $FinneganConfig;
-	if(!preg_match("/".$FinneganConfig->extension_regex."/", $extension)) {
-		echo $TEMPLATE["extension_invalid"];
-		return 0;
-	} else if(in_array($extension, $FinneganConfig->forbidden_extensions)) {
-		echo $TEMPLATE["extension_forbidden"];
-		return 0;
-	} else {
-		return 1;
-	}
-}
-
-function pin_ok($extension, $pin, $newpin = 0) {
-	global $TEMPLATE;
-	global $FinneganConfig;
-	global $extension_ok;
-
-	$ok = 0;
-	$error = "";
-
-	if($pin && !preg_match("/".$FinneganConfig->pin_regex."/", $pin)) {
-		if($newpin) {
-			echo $TEMPLATE["pin_set_new_invalid"];
-			return 0;
-		} else {
-			echo $TEMPLATE["pin_invalid"];
-			$error = "pin_invalid";
-		}
-	} else {
-		if($newpin) {
-			return 1;
-		}
-
-		$result = mysql_query(sprintf("SELECT pin FROM prefs WHERE extension='%s'", $extension));
-		if(!$result) db_error();
-
-		$row = mysql_fetch_array($result, MYSQL_NUM);
-		if(!$row || !$row[0]) {
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600", 
-					getenv("REMOTE_ADDR")));
-			if(!$result) db_error();
-			$log_row = mysql_fetch_row($result);
-
-			echo $TEMPLATE["viewcalls_start_noext"];
-			if($log_row[0] >= 3) {
-				echo $TEMPLATE["too_many_newpins"];
-				log_ext($extension, "getwakes", "failure", "too_many_newpins");
-			} else {
-				$pin = "";
-				for($i = 0; $i < 4; $i++) $pin .= rand(0, 9);
-				if(!$row) {
-					if(!mysql_query("INSERT INTO prefs (extension, pin, forgot_pin) VALUES ('$extension', '$pin', 1)")) db_error();
-				} else {
-					if(!mysql_query("UPDATE prefs SET pin='$pin', forgot_pin=1 WHERE extension='$extension'")) db_error();
-				}
-
-				echo $TEMPLATE["no_pin"];
-				if($FinneganConfig->nocalls) echo "<p>(But since we're not making calls, I'll just tell you that the PIN is $pin.)</p>\n";
-				log_ext($extension, "auth", "failure", "gen_pin");
-			}
-			$extension_ok = 0;
-			return 0;
-		} else {
-			if(!$pin) {
-				echo $TEMPLATE["pin_invalid"];
-				return 0;
-			}
-
-			$goodpin = $row[0];
-
-			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
-					$extension, getenv("REMOTE_ADDR")));
-			if(!$result) db_error();
-
-			$count = 0;
-			$lockout = 0;
-			while($row = mysql_fetch_array($result, MYSQL_NUM)) {
-				if($row[0] >= 3) {
-					$count++;
-					if($row[1] == $extension && $row[2] == getenv("REMOTE_ADDR")) {
-						$lockout = 2;
-						break;
-					}
-				} else if($row[0] == 2) {
-					$lockout = 1;
-				}
-			}
-
-			if($count > 1) $lockout = 2;
-
-			if($lockout == 2) {
-				echo $TEMPLATE["pin_bruteforce"];
-				$error = "pin_bruteforce";
-			} else if($pin != $goodpin) {
-				if($lockout) echo $TEMPLATE["pin_bruteforce_warn"];
-				echo $TEMPLATE["pin_error"];
-				$error = "pin_error";
-			} else {
-				$ok = 1;
-			}
-		}
-	}
-
-	log_ext($extension, "auth", $ok ? "success" : "failure", $error);
-
-	return $ok;
-}
-
-// 22:00:04 -> ("10:00", "PM")
-function time_to_user($sql_time) {
-	if(!preg_match('/^(\d\d):(\d\d):\d\d$/', $sql_time, $matches)) return "";
-	$hours = $matches[1];
-	$minutes = $matches[2];
-	if($hours == 0) {
-		return array(sprintf("%d:%02d", 12, $minutes), "AM");
-	} else if($hours < 12) {
-		return array(sprintf("%d:%02d", $hours, $minutes), "AM");
-	} else if($hours == 12) {
-		return array(sprintf("%d:%02d", $hours, $minutes), "PM");
-	} else if($hours < 24) {
-		$hours -= 12;
-		return array(sprintf("%d:%02d", $hours, $minutes), "PM");
-	} else if($hours == 24) { //24:00:00
-		return array("12:00", "AM");
-	} else {
-		return array("", "");
-	}
-}
-
-// (10:00, 'PM') -> 22:00:00
-function time_to_sql($user_time, $ampm) {
-	if(!preg_match('/^(\d?\d):(\d\d)$/', $user_time, $matches)) return "";
-	if($ampm != "AM" && $ampm != "PM") return "";
-	$hours = $matches[1];
-	$minutes = $matches[2];
-	if($hours == 12 && $ampm == "AM") {
-		return "00:$minutes:00";
-	} else if($hours < 12 && $ampm == "AM") {
-		return "$hours:$minutes:00";
-	} else if($hours == 12 && $ampm == "PM") {
-		return "$hours:$minutes:00";
-	} else if($hours < 12 && $ampm == "PM") {
-		$hours += 12;
-		return "$hours:$minutes:00";
-	} else { //hours > 12
-		return "";
-	}
-}
-
-// YYYY-01-02 -> ("3/20")
-function date_to_user($sql_date) {
-	global $months;
-	if(!preg_match('/^\d\d\d\d-(\d\d)-(\d\d)$/', $sql_date, $matches)) return "";
-	$month = 0+$matches[1];
-	$day = $matches[2];
-	return "$month/$day";
-}
-
-// ("Jan", 2) -> YYYY-01-02
-function date_to_sql($user_date, $sql_time) {
-	global $inv_months;
-	if(!preg_match('/^(\d{1,2})\/(\d\d)$/', $user_date, $matches)) return "";
-	if($matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) return "";
-
-	$year = strftime("%Y");
-	$cur_time = time() - 60*60*24; //Fudge factor
-	$sql_time = preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
-	$user_time = mktime($time_matches[1], $time_matches[2], 0, $matches[1], $matches[2], $year);
-	if($cur_time > $user_time) $year++;
-	
-	return sprintf("%04d-%02d-%02d", $year, $matches[1], $matches[2]);
-}
-
-function do_end() {
-	global $TEMPLATE;
-	global $page;
-	global $extension_ok;
-
-	if($extension_ok) {
-		echo $TEMPLATE[$page."_end"];
-	} else {
-		echo $TEMPLATE["viewcalls_end_noext"];
-	}
-	echo $TEMPLATE["page_end"];
-	exit;
-}
-
-function check_extension_pin() {
-	global $extension_ok;
-	global $extension;
-	global $pin;
-	global $savepin;
-
-	$extension_ok = 0;
-	$extension = "";
-	$pin = "";
-	$savepin = 0;
-
-	if(isset($_COOKIE["finnegan-extension"])) $extension = $_COOKIE["finnegan-extension"];
-	if(isset($_POST["extension"])) $extension = $_POST["extension"];
-
-	if(isset($_COOKIE["finnegan-pin"])) $pin = $_COOKIE["finnegan-pin"];
-	if(isset($_POST["pin"])) $pin = $_POST["pin"];
-
-	if(isset($_COOKIE["finnegan-savepin"]) && $_COOKIE["finnegan-savepin"] == 1) $savepin = 1;
-	if(isset($_POST["savepin"]) && $_POST["savepin"] == 1) $savepin = 1;
-
-	if($extension) {
-		setcookie("finnegan-extension", $extension, time()+60*60*24*365);
-		if(extension_ok($extension)) {
-			if(pin_ok($extension, $pin)) {
-				$extension_ok = 1;
-
-				if($savepin) {
-					setcookie("finnegan-pin", $pin, time()+60*60*24*365);
-					setcookie("finnegan-savepin", "1", time()+60*60*24*365);
-				} else {
-					setcookie("finnegan-pin", $pin);
-				}
-			} else {
-				setcookie("finnegan-extension", $extension, time()+60*60*24*365);
-			}
-		}
-	}
 }
 
 ?>

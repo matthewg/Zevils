@@ -66,7 +66,7 @@ takes up a potential phone line not just for the time of the call, but for sever
 after the call.  The four different types of wake-up calls (one-time wake-up calls, and three different
 calendars for recurring wake-up calls) add additional complications, since recurring calls that take
 place on a Monday on the Brandeis calendar will sometimes be on a Monday on the other calendars,
-and will sometimes be on other days (when there's a Brandeis Monday in effect.
+and will sometimes be on other days (when there's a Brandeis Monday in effect.)
 END_FAQITEM
 ),
 
@@ -102,24 +102,19 @@ or email <a href="mailto:finnegan@brandeis.edu">finnegan@brandeis.edu</a> .
 END_FAQITEM
 ));
 
-require "finnegan-config.inc";
-require "template.inc";
+$page = "docs";
+require "include/finnegan.inc";
+page_start();
 
-echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["docs_script"], $TEMPLATE["page_start"]);
-
-echo $TEMPLATE["docs_start"];
-
-echo $TEMPLATE["docs_index_start"];
+echo $TEMPLATE["docs"]["index_start"];
 for($i = 0; $i < sizeof($faqs); $i++)
-	echo preg_replace(array("/__NAME__/", "/__NUM__/"), array($faqs[$i][0], $i+1), $TEMPLATE["docs_index_entry"]);
-echo $TEMPLATE["docs_index_end"];
+	echo preg_replace(array("/__NAME__/", "/__NUM__/"), array($faqs[$i][0], $i+1), $TEMPLATE["docs"]["index_entry"]);
+echo $TEMPLATE["docs"]["index_end"];
 
-echo $TEMPLATE["docs_body_start"];
+echo $TEMPLATE["docs"]["body_start"];
 for($i = 0; $i < sizeof($faqs); $i++)
-	echo preg_replace(array("/__NAME__/", "/__CONTENTS__/", "/__NUM__/"), array($faqs[$i][0], $faqs[$i][1], $i+1), $TEMPLATE["docs_body_entry"]);
-echo $TEMPLATE["docs_body_end"];
+	echo preg_replace(array("/__NAME__/", "/__CONTENTS__/", "/__NUM__/"), array($faqs[$i][0], $faqs[$i][1], $i+1), $TEMPLATE["docs"]["body_entry"]);
+echo $TEMPLATE["docs"]["body_end"];
 
-
-echo $TEMPLATE["docs_end"];
-echo $TEMPLATE["page_end"];
+page_end();
 ?>

@@ -1,7 +1,7 @@
 <?
-require "template.inc";
-echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["legal_script"], $TEMPLATE["page_start"]);
-echo $TEMPLATE["legal_start"];
+$page = "legal";
+require "include/finnegan.inc";
+page_start();
 ?>
 
 <p>
@@ -17,6 +17,5 @@ All content is licensed under the <a href="COPYING.txt">GNU General Public Licen
 are the private property of their owners and may not be distributed without their consent.
 </p>
 <?
-echo $TEMPLATE["legal_end"];
-echo $TEMPLATE["page_end"];
+page_end();
 ?>
