@@ -483,16 +483,17 @@ sub mainloop() {
 				}
 			}
 
-			eval {
-				local $SIG{ALRM} = sub { die "timeout\n" };
-				alarm 5;
+			undef $currtime;
+			#eval {
+			#	local $SIG{ALRM} = sub { die "timeout\n" };
+			#	alarm 5;
 				$ein = $rin | $win;
-				select($rin, $win, $ein, undef);
-			};
-			if ($@) {
-				die unless $@ =~ /timeout/; # Why don't testing for eq "timeout\n" work ???
-				goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
-			}
+				select($rin, $win, $ein, 5) or goto CLEANUP;
+			#};
+			#if ($@) {
+			#	die unless $@ =~ /timeout/; # Why don't testing for eq "timeout\n" work ???
+			#	goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
+			#}
 
 			foreach $nick(keys %$aim_connections) {
 				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
@@ -512,7 +513,9 @@ sub mainloop() {
 				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
 
-			CLEANUP: foreach $nick(keys %$aim_connections) {
+			CLEANUP:
+			$currtime ||= time;
+			foreach $nick(keys %$aim_connections) {
 				next unless $nick;
 				$connection = $aim_connections->{$nick};
 				foreach $screenname(keys %{$connection->{screennames}}) {
