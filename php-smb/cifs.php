@@ -373,7 +373,11 @@ function cifs_make_transaction(&$smb, $transact_ver, $name, $setup, $parameters,
 
 	$paramoffset = 63 + strlen($name) + strlen($setup);
 	if($transact_ver == 1) {
-		$padlength = 1;
+		if($smb["unicode"]) {
+			$padlength = 1;
+		} else {
+			$padlength = 0;
+		}
 	} else {
 		$padlength = 4 - ($paramoffset % 4);
 	}
