@@ -111,29 +111,26 @@ sub end_log_wake($$) {
 	my($result, $data) = @_;
 	if($Finnegan::Config::testmode) {
 		warn "$$: Wake completed.\n";
-	} else {
-		$log_wake_end->execute($result, $data, $log_wake_id);
-		$log_wake_id = 0;
 	}
+	$log_wake_end->execute($result, $data, $log_wake_id);
+	$log_wake_id = 0;
 }
 sub start_log_forgot_pin($$) {
 	my($extension, $phoneline) = @_;
 	if($Finnegan::Config::testmode) {
 		warn "$$: Starting forgot PIN for extension $extension on line $phoneline\n";
-	} else {
-		$log_forgot_pin_start->execute($extension, $phoneline);
-		($log_forgot_pin_id) = @{$dbh->selectcol_arrayref($get_insertid)};
-		$log_forgot_pin_start->finish;
 	}
+	$log_forgot_pin_start->execute($extension, $phoneline);
+	($log_forgot_pin_id) = @{$dbh->selectcol_arrayref($get_insertid)};
+	$log_forgot_pin_start->finish;
 }
 sub end_log_forgot_pin($$) {
 	my($result, $data) = @_;
 	if($Finnegan::Config::testmode) {
 		warn "$$: Forgot PIN completed.\n";
-	} else {
-		$log_forgot_pin_end->execute($result, $data, $log_forgot_pin_id);
-		$log_forgot_pin_id = 0;
 	}
+	$log_forgot_pin_end->execute($result, $data, $log_forgot_pin_id);
+	$log_forgot_pin_id = 0;
 }
 sub log_debug($) {
 	my $str = shift;

@@ -9,26 +9,31 @@ our $v;
 
 my($type, $extension, $timeout, $sample, $snooze_ok) = @ARGV;
 
-$SIG{ALRM} = sub {
-	$v->stop;
-	$v->expect("READY");
+sub vm_shutdown {
+	if(@_ == 1) {
+		$v->stop;
+		$v->expect("READY");
+	}
 	$v->send("ATH0");
 	$v->expect("READY");
 	$v->shutdown;
-	exit(4);
-};
+	exit(shift);
+}
+
+$SIG{ALRM} = sub {vm_shutdown(4)};
 alarm($timeout);
 
 $v = new Modem::Vgetty;
-$v->add_handler('BUSY_TONE', 'endh', sub { $v->shutdown; exit(1); });
-$v->add_handler('NO_DIAL_TONE', 'hangup', sub { $v->send("ATH0"); $v->shutdown; exit(2); });
+$v->add_handler('BUSY_TONE', 'endh', sub { vm_shutdown(1); });
+$v->add_handler('NO_DIAL_TONE', 'hangup', sub { vm_shutdown(2); });
 $v->enable_events;
 
 $v->dial($extension);
 $v->waitfor("READY");
 
 # User hangs up
-$v->add_handler('DIAL_TONE', 'hangup', sub { $v->send("ATH0"); $v->shutdown; exit(2); });
+$v->del_handler('BUSY_TONE', 'endh');
+$v->add_handler('BUSY_TONE', 'endh', sub { vm_shutdown(0); });
 
 if($type eq "wake") {
 	$v->add_handler('RECEIVED_DTMF', 'readnum', sub {
@@ -36,16 +41,10 @@ if($type eq "wake") {
 		$v->expect("READY");
 		if($snooze_ok) {
 			$v->play_and_wait("../rmd/wake/snooze-ok.rmd");
-			$v->send("ATH0");
-			$v->expect("READY");
-			$v->shutdown;
-			exit(3);
+			vm_shutdown(3, 1);
 		} else {
 			$v->play_and_wait("../rmd/wake/snooze-no.rmd");
-			$v->send("ATH0");
-			$v->expect("READY");
-			$v->shutdown;
-			exit(0);
+			vm_shutdown(0, 1);
 		}
 	});
 }
@@ -54,10 +53,4 @@ $v->play_and_wait($sample);
 $v->wait(1);
 $v->expect("READY");
 $v->play_and_wait($sample);
-$v->stop;
-$v->expect("READY");
-$v->send("ATH0");
-$v->expect("READY");
-$v->shutdown;
-
-exit(0);
+vm_shutdown(0, 1);
