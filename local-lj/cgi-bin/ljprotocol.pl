@@ -1399,7 +1399,7 @@ sub _get_events_comments
             $sth->execute($ownerid, $date);
         } elsif ($type eq "comments") {
             $sth = $dbcr->prepare("SELECT jtalkid, datepost FROM talk2 WHERE ".
-                                  "journalid=? and nodeid=? and nodetype='L' and logtime > ?");
+                                  "journalid=? and nodeid=? and nodetype='L' and datepost > ?");
             $sth->execute($ownerid, $journalid, $date);
         }
 
