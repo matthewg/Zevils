@@ -108,6 +108,7 @@ use File::Spec;
 use Fcntl;
 use FormatIMIRC;
 use Symbol;
+use Text::ParseWords;
 
 $Carp::Verbose = 1;
 
@@ -3067,7 +3068,7 @@ sub loadbuddies($$$) {
 			return 0;
 		}
 
-		my $privmode = $data->{Privacy}->{pref};
+		my $privmode = $data->{Privacy}->{pref}->[0];
 		if(lc($privmode) eq "allowall") {
 			$pmode = 1;
 		} elsif(lc($privmode) eq "denyall") {
@@ -3082,10 +3083,10 @@ sub loadbuddies($$$) {
 			$pmode = 4;
 		}
 
-		@permit = split(/\s+/, $data->{Privacy}->{allowList});
-		@deny = split(/\s+/, $data->{Privacy}->{blockList});
+		@permit = @{$data->{Privacy}->{allowList}};
+		@deny = @{$data->{Privacy}->{blockList}};
 
-		$profile = $data->{User}->{profile}->{dataBlob};
+		$profile = join("", @{$data->{User}->{profile}->{dataBlob}});
 
 		foreach my $group(keys %{$data->{Buddy}->{list}}) {
 			if(ref($data->{Buddy}->{list}->{$group})) {
@@ -3093,7 +3094,7 @@ sub loadbuddies($$$) {
 				foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
 					#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
 					next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
-					$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
+					$bnotes{$buddy} = join(" ", @{$data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString}});
 				}
 			} else {
 				@{$buddies{$group}} = ();
@@ -3587,19 +3588,18 @@ sub oscar_cfgparse($) {
 			$ptr = $ptr->{$section};
 		}
 
-	 	if(/^\s*}/) {
+		s/'/\\'/g; # quotewords thinks that ' is a quote - WinAIM doesn't
+		my(@parts) = grep {$_} quotewords(" ", 0, $_);
+
+		if($parts[-1] eq "}") {
 			pop @sections;
-		} elsif(/\s*(.+){\s*$/) {
-			my $section = $1;
-       			$section =~ s/^"//;
-        		$section =~ s/"?\s+$//;
-        		push @sections, $section;
-        		$ptr->{$section} = {};
+		} elsif($parts[-1] eq "{") {
+        		push @sections, $parts[0];
+        		$ptr->{$parts[0]} = {};
 		} else {
-			/^\s*"([^"]*)"\s*(.*)/ or
-				/^\s*([^\s]+)\s*(.*)/;
-			my($key, $value) = ($1, $2);
-			$ptr->{$key} .= $value;
+			my($key) = shift @parts;
+			$ptr->{$key} ||= [];
+			push @{$ptr->{$key}}, @parts;
 		}
 	}
 	return $data;
