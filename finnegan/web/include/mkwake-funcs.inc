@@ -16,7 +16,7 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 
 	#echo "****CHECKING $weekday*****<br>\n";
 
-	$phonelines = sizeof($FinneganConfig->phonelines) * 4;
+	$phonelines = sizeof($FinneganConfig->phonelines) * 3;
 	$seconds_per_week = 604800;
 	$wake_duration = $FinneganConfig->max_wake_duration;
 	$max_snooze = $FinneganConfig->max_snooze_count;
@@ -187,6 +187,8 @@ function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
 				if(++$wake_intervals[$i][2] >= $phonelines) {
 					echo $wake_intervals[$i][2] . " >= $phonelines<br>\n";
 					return 1;
+				} else {
+					echo $wake_intervals[$i][2] . " increased<br>\n";
 				}
 			}
 		}
