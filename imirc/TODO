@@ -1,6 +1,11 @@
 *WHY ISN'T THIS PARSED RIGHT:*
 	<blah>test<BR><test>2<BR><yoyo>3
 
+Rethink checkpointing?
+	Don't always keep everything in memory
+	Don't write unless dirty
+	Options to delete old unused data??
+
 Real Soon Now/First Priority:
 	ChanServ/AIMServ conflict
 		MODE loop detection, README.ChanServ, services patches
