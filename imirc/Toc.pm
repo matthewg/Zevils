@@ -6,7 +6,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err update_config signoff update_buddy get_config strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
+@EXPORT_OK = qw($err update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
@@ -78,14 +78,14 @@ sub get_config($) { return $config{$_[0]}{config}; }
 
 =pod
 
-=item strerror(ERRNO)
+=item aim_strerror(ERRNO)
 
 Takes a Toc error number and returns a string describing the error.
 Error messages are taken from PROTOCOL.
 
 =cut
 
-sub strerror($) {
+sub aim_strerror($) {
 	my($errno, $params) = shift;
 	if($errno == 901) {
 		return "$params not currently available";
@@ -245,8 +245,8 @@ sub signon($$;&) {
 		return -1;
 	}
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		debug_print("$username had an error after switching into SFLAP: $1 (" . strerror($1) . ")", "signon", 1);
-		$err = "Error $1: " . strerror($1);
+		debug_print("$username had an error after switching into SFLAP: $1 (" . aim_strerror($1) . ")", "signon", 1);
+		$err = "Error $1: " . aim_strerror($1);
 		return -1;
 	}
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
@@ -274,14 +274,14 @@ sub signon($$;&) {
 		return -1;
 	}
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . strerror($1);
+		$err = "Error $1: " . aim_strerror($1);
 		debug_print("$username had an error after toc_signon: $err", "signon", 1);
 		return -1;
 	}
 	$msg = sflap_get($socket);
 	return -1 if $err;
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . strerror($1);
+		$err = "Error $1: " . aim_strerror($1);
 		debug_print("$username had an error after toc_signon and get: $err", "signon", 1);
 		return -1;
 	}
@@ -837,7 +837,7 @@ instead calling set_config.  Returns the toc_set_config-format string.
 sub conf2str($\%) {
 	my($config) = @_;
 	my($msg, %config, $group, $buddy, $permtype);
-	$permtype = $config->{permtype}
+	$permtype = $config->{permtype};
 	$permtype ||= 4;
 	$msg = "m $permtype\n";
 	foreach $buddy (keys %{$config->{Buddies}}) {
