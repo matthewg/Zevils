@@ -15,6 +15,8 @@ class FinneganCiscoConfig {
 $url_base = "http://10.10.3.20/finnegan/cisco";
 $multicast_addr = "225.0.1.1";
 $multicast_port_base = 20480;
+$tftp_base = "../tmp";
+$tftp_path = "";
 
 #__PHPONLY_START__
 }
