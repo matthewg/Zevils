@@ -167,8 +167,11 @@ function date_to_user($sql_date) {
 // ("Jan", 2) -> YYYY-01-02
 function date_to_sql($user_date, $sql_time) {
 	global $inv_months;
+	echo "check 1<br>\n"; 
 	if(!preg_match('/^(\d{1,2})\/(\d\d)$/', $user_date, $matches)) return "";
+	echo "check 2<br>\n";
 	if($matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) return "";
+	echo "check 3<br>\n";
 
 	$year = strftime("%Y");
 	$cur_time = time() - 60*60*24; //Fudge factor
