@@ -268,7 +268,7 @@ Messages:
 <!-- <li><a href="messages/finnegan-pronounce.mp3">"Hello, this is Matthew Sachs, and I pronounce 'Finnegan' as 'Finnegan'.</a></li> -->
 <li><a href="messages/finnegan-standard.mp3">"This is your wake-up call."</li>
 <li><a href="messages/finnegan-shout.mp3">"WAKE UP!!"</a></li>
-<li><a href="messages/finnegan-medley.mp3">Musical Medley</a.</li>
+<li><a href="messages/finnegan-medley.mp3">Musical Medley</a></li>
 <li><a href="messages/finnegan-atomant.mp3">"Up and at 'em, Atom Ant"</a></li>
 <li><a href="messages/finnegan-sleepyhead.mp3">"Wake up, wake up you sleepy head"</a></li>
 <li><a href="messages/finnegan-destruction.mp3">"Good morning.  Destruction of the planet will commence in approximately five minutes."</a></li>
