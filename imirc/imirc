@@ -3341,6 +3341,7 @@ sub ircify($;$) {
 		$shortnick =~ tr/-#a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 	} else {
 		$shortnick =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+		$shortnick =~ tr/\@\./--/; # @mac.com -> -mac-com
 		$shortnick =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 
 		my $tail = 1;
