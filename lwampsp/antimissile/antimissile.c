@@ -47,33 +47,19 @@ SDL_Surface *screen;
 
 GLUI *glui;
 
-void do_draw_fire_a() {
-	SDL_Rect rect;
+void do_draw_fire_a(bool trajectory = true, bool clrscr = true) {
+	DrawStart(screen);
 
-	rect.x = 0;
-	rect.y = 0;
-	rect.w = WIDTH;
-	rect.h = HEIGHT;
+	if(clrscr) 
+		DrawRect(screen, 0, HEIGHT - 1, WIDTH, HEIGHT, 0, 0, 0);
 
-	SDL_LockSurface(screen);
+	DrawRect(screen, 0, 15, 15, 15, 255, 0, 0);	/* Draw A */
+	DrawRect(screen, distance, 15, 15, 15, 0, 255, 0); /* Draw B */
 
-	/* Clear the screen */
-	SDL_FillRect(screen, &rect, 0);
+	/* Draw A->B trajectory */
+	if(trajectory) DrawParabola(screen, 0, 0, deg2rad(site_a.angle), site_a.velocity, 255, 0, 0);
 
-	/* Draw a */
-	rect.y = FIX_Y(15);
-	rect.w = 15;
-	rect.h = 15;
-	SDL_FillRect(screen, &rect, SDL_MapRGB(screen->format, 255, 0, 0));
-
-	/* Draw b */
-	rect.x = (int) distance;
-	SDL_FillRect(screen, &rect, SDL_MapRGB(screen->format, 0, 255, 0));
-	
-	DrawParabola(screen, 0, 0, deg2rad(site_a.angle), site_a.velocity, 255, 0, 0);
-
-	SDL_UnlockSurface(screen);
-	SDL_UpdateRect(screen, 0, 0, 0, 0);
+	DrawEnd(screen);
 
 	controls.go->disable();
 	
@@ -133,10 +119,11 @@ void do_fire_b() {
 	controls.velocity_b->set_text(float2str(site_b.velocity));
 
 
-	SDL_LockSurface(screen);
+	DrawStart(screen);
+	do_draw_fire_a();
+	DrawRect(screen, isect_x-4, isect_y+4, 8, 8, 255, 0, 0);
 	DrawParabola(screen, distance, 0, deg2rad(site_b.angle), site_b.velocity, 0, 255, 0);
-	SDL_UnlockSurface(screen);
-	SDL_UpdateRect(screen, 0, 0, 0, 0);
+	DrawEnd(screen);
 
 	controls.go->enable();
 }
@@ -161,7 +148,6 @@ void sdl_events() {
 				if(abs((int)event.button.y - FIX_Y((int)y)) < 5) {
 					controls.panel_b->enable();
 					if(isect_x != -1) do_draw_fire_a();
-					DrawRect(screen, event.button.x-2, FIX_Y((int)y)-2, 7, 7, 255, 0, 0);
 					isect_x = event.button.x;
 					isect_y = y;
 					do_fire_b();
@@ -192,10 +178,11 @@ void clicked_fire_a(int id) {
 }
 
 void do_projectiles(double t, double *xa, double *ya, double *xb, double *yb, double Vax, double Vay, double Vbx, double Vby) {
+	DrawStart(screen);
+
 	/* Clear previous projectiles */
-	printf("Animating: (%f, %f) / (%f, %f) @ %f\n", *xa, *ya, *xb, *yb, t);
-	DrawRect(screen, (int) *xa, FIX_Y((int) *ya), 10, 10, 0, 0, 0);
-	DrawRect(screen, (int) *xb, FIX_Y((int) *yb), 10, 10, 0, 0, 0);
+	DrawRect(screen, *xa, *ya, 10, 10, 0, 0, 0);
+	DrawRect(screen, *xb, *yb, 10, 10, 0, 0, 0);
 
 	/* The -5 is to center the rectangles */
 	*xa = Vax*t - 5;
@@ -209,7 +196,7 @@ void do_projectiles(double t, double *xa, double *ya, double *xb, double *yb, do
 		(*xa >= 0) &&
 		(*xa < WIDTH)
 	)
-		DrawRect(screen, (int) *xa, FIX_Y((int) *ya), 10, 10, 255, 0, 0);
+		DrawRect(screen, (int) *xa, *ya, 10, 10, 255, 0, 0);
 	if(
 		(t - delay >= 0) &&
 		(*yb >= 0) &&
@@ -217,10 +204,13 @@ void do_projectiles(double t, double *xa, double *ya, double *xb, double *yb, do
 		(*xb >= 0) &&
 		(*xb < WIDTH)
 	)
-		DrawRect(screen, (int) *xb, FIX_Y((int) *yb), 10, 10, 0, 255, 0);
+		DrawRect(screen, (int) *xb, *yb, 10, 10, 0, 255, 0);
+
+	DrawEnd(screen);
 }
 
 void clicked_go(int id) {
+	SDL_Rect clip_rect;
 	double t = 0;
 	double Vax, Vay, Vbx, Vby, xa = 0, ya = 0, xb = 0, yb = 0;
 
@@ -233,10 +223,16 @@ void clicked_go(int id) {
 	printf("Components: %f, %f, %f, %f\n", Vax, Vay, Vbx, Vby);
 
 	/* Clear the screen, redraw the batteries */
-	DrawRect(screen, 0, 0, WIDTH, HEIGHT, 0, 0, 0);
-	DrawRect(screen, 0, FIX_Y(15), 15, 15, 255, 0, 0);
-	DrawRect(screen, (int) distance, FIX_Y(15), 15, 15, 0, 0, 255);
+	do_draw_fire_a(false);
 
+
+	/* Don't draw over A or B */
+	clip_rect.x = 0;
+	clip_rect.y = FIX_Y(HEIGHT - 1);
+	clip_rect.w = WIDTH;
+	clip_rect.h = HEIGHT - 15;
+
+	SDL_SetClipRect(screen, &clip_rect);
 	xb = distance;
 	for(t = 0; t < isect_t; t += 0.05) {
 		controls.animation_time->set_text(float2str(t));
@@ -245,8 +241,11 @@ void clicked_go(int id) {
 	}
 	controls.animation_time->set_text(float2str(isect_t));
 	do_projectiles(isect_t, &xa, &ya, &xb, &yb, Vax, Vay, Vbx, Vby);
-	printf("Drawing blast at %f,%f\n", xa, ya);
-	DrawBlast(screen, xa, ya, 30, 30, rand(), rand(), rand());
+	SDL_SetClipRect(screen, NULL);
+
+	DrawStart(screen);
+	DrawBlast(screen, xa + 5, ya - 5, 15, 0);
+	DrawEnd(screen);
 }
 
 void clicked_exit(int id) { exit(0); }

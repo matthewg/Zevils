@@ -38,24 +38,36 @@ SDL_Surface *LWA_Init(int width, int height, int bpp, Uint32 flags) {
 		fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
 		exit(1);
 	}
+
+	return screen;
 }
 
 void DrawStart(SDL_Surface *screen) {
 	SDL_LockSurface(screen);
-	updated_min_x = 0;
-	updated_min_y = 0;
-	updated_max_x = screen_width - 1;
-	updated_max_y = screen_height - 1;
+	updated_min_x = updated_min_y = updated_max_x = updated_max_y = -1;
 }
 void DrawEnd(SDL_Surface *screen) {
 	SDL_UnlockSurface(screen);
-	SDL_UpdateRect(screen, updated_min_x, FIX_Y(updated_min_y), updated_max_x - updated_min_x, updated_max_y - updated_min_y);
+
+	if(
+		(updated_min_x == -1) ||
+		(updated_min_y == -1) ||
+		(updated_max_x == -1) ||
+		(updated_max_y == -1)
+	) return;
+
+	SDL_UpdateRect(screen, updated_min_x, FIX_Y(updated_max_y), updated_max_x - updated_min_x, updated_max_y - updated_min_y);
 }
 static void update_coords(int x, int y) {
-	if(x < updated_min_x) updated_min_x = x;
-	if(x > updated_max_x) updated_max_x = x;
-	if(y < updated_min_y) updated_min_y = y;
-	if(y > updated_max_y) updated_max_y = y;
+	if(x < 0) x = 0;
+	if(x >= screen_width) x = screen_width - 1;
+	if(y < 0) y = 0;
+	if(y >= screen_height) y = screen_height - 1;
+
+	if((updated_min_x == -1) || (x < updated_min_x)) updated_min_x = x;
+	if((updated_max_x == -1) || (x > updated_max_x)) updated_max_x = x;
+	if((updated_min_y == -1) || (y < updated_min_y)) updated_min_y = y;
+	if((updated_max_y == -1) || (y > updated_max_y)) updated_max_y = y;
 }
 
 void DrawPixel(SDL_Surface *screen, int x, int y, Uint8 R, Uint8 G, Uint8 B) {
@@ -100,8 +112,8 @@ void DrawPixel(SDL_Surface *screen, int x, int y, Uint32 color) {
 void DrawRect(SDL_Surface *screen, int x, int y, int w, int h, Uint32 color) {
 	SDL_Rect rect;
 
-	update_coords(x, y);
-	update_coords(x+w, y+h);
+	update_coords(x, y-h);
+	update_coords(x+w, y);
 
 	rect.x = x;
 	rect.y = FIX_Y(y);
@@ -115,9 +127,6 @@ void DrawRect(SDL_Surface *screen, int x, int y, int w, int h, Uint8 r, Uint8 g,
 }
 
 void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double velocity, Uint32 color) {
-	double Vx = vector_x(radangle, velocity);
-	double Vy = vector_y(radangle, velocity);
-
 	/* update_coords is taken care of by DrawLine */
 
 	int prev_x = 0, prev_y = (int) parabola_x_to_y(0 - x0, radangle, velocity);
@@ -126,8 +135,9 @@ void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double v
 
 	for(x = 0; x < screen_width; x++) {
 		y = (int) parabola_x_to_y(x - x0, radangle, velocity);
-		if((y < 0) || (y >= screen_height)) continue;
 		DrawLine(screen, prev_x, prev_y, x, y, color);
+		prev_x = x;
+		prev_y = y;
 	}
 }
 void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double velocity, Uint8 r, Uint8 g, Uint8 b) {
@@ -145,8 +155,8 @@ void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint32 color)
 	update_coords(x1, y1);
 
 	for(double t = 0; t < d; t++) {
-		double x = x0 + (x1 - x0)*t/d;
-		double y = y0 + (y1 - y0)*t/d;
+		int x = (int) (x0 + (x1 - x0)*t/d);
+		int y = (int) (y0 + (y1 - y0)*t/d);
 
 		if((x >= 0) && (y >= 0) && (x < screen_width) && (y < screen_height))
 			DrawPixel(screen, x, y, color);
@@ -156,18 +166,36 @@ void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint8 r, Uint
 	DrawLine(screen, x0, y0, x1, y1, SDL_MapRGB(screen->format, r, g, b));
 }
 
-void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint32 color) {
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int radius, Uint32 color) {
 	/* update_coords is handled by DrawLine */
 
-	for(int counter = 0; counter < w; counter++) {
-		double x = x_center - w/2;
-		double y = cos(counter)*h + y_center;
-		if(color == 0) color = rand();
-		DrawLine(screen, x_center, y_center, x, y, color);
+	/* Draw random radii
+	 * We select random points along the circumference to draw to.
+	 * Point 0 is straight up of the radius, point r is straight right,
+	 * point 2r is straight down, and point 3r is straight left.
+	 */
+
+	/* curr_point += (random integer between 1 and 20) */
+	for(int curr_point = 0; curr_point < 4*radius; curr_point += 1+(int) (20.0*rand()/RAND_MAX+1.0)) {
+		/*
+			(x - x_center)^2 + (y - y_center)^2 = r^2
+			y = sqrt(r^2 - (x - x_center)^2) + y_center
+		*/
+
+		int x = x_center + ((curr_point > radius) ? (curr_point - radius) : curr_point);
+		int y = (
+				((curr_point > radius) ? -1 : 1) *
+				sqrt(
+					pow(radius, 2) -
+					pow(x - x_center, 2)
+				)
+			) + y_center;
+
+		DrawLine(screen, x_center, y_center, x, y, color ? color : rand());
 	}
 }
-void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
-	DrawBlast(screen, x_center, y_center, w, h, SDL_MapRGB(screen->format, r, g, b));
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int radius, Uint8 r, Uint8 g, Uint8 b) {
+	DrawBlast(screen, x_center, y_center, radius, SDL_MapRGB(screen->format, r, g, b));
 }
 
 char *float2str(float f) {
@@ -207,7 +235,6 @@ void LWA_MsgBox_ok(int id) {
 void LWA_MsgBox(GLUI *parent, const char *title, const char *fmt, ...) {
 	va_list ap;
 	char charbuf[32768];
-	GLUI *glui;
 	/* int x, y, glutwin; */
 
 	msgbox_parent = parent;

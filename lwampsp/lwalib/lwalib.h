@@ -30,8 +30,8 @@ void DrawParabola(SDL_Surface *screen, int x, int y, double radangle, double vel
 void DrawParabola(SDL_Surface *screen, int x, int y, double radangle, double velocity, Uint32 color);
 void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint32 color);
 void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint8 r, Uint8 g, Uint8 b);
-void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint32 color);
-void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint8 r, Uint8 g, Uint8 b);
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int radius, Uint32 color);
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int radius, Uint8 r, Uint8 g, Uint8 b);
 
 double deg2rad(double deg);
 double rad2deg(double rad);
