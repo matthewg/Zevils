@@ -2321,7 +2321,7 @@ sub manglewarn($$) {
 	irc_send(irc_privmsg($usnick, $who,
 		"\02WARNING\02: Screenname $what has been mangled to IRC nickname " . $shortnicks->{$what}))
 
-		if $shortnicks->{$what} ne $what;
+		if lc($shortnicks->{$what}) ne lc($what);
 }
 
 # Switch the default screenname for an IRCnick
