@@ -22,8 +22,8 @@ The prompts, numbers, and the "This is your wake-up call" and "WAKE UP!!" wake-u
 were recorded by <a href="http://www.zevils.com/">Matthew Sachs</a>.
 "Wake up sleepy-head" and "Up at at 'em" were recorded by Randi Sachs, Matthew's mother, and are what
 she used to say to wake Matthew up for grade school.
-The "Musical Medley" wake-up message was arranged by <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.
-If you have suggestions for new wake-up messages, post them to
+The "Musical Medley" wake-up message was arranged by <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>, who also
+recorded the planetary destruction message.  If you have suggestions for new wake-up messages, post them to
 <a href="http://my.brandeis.edu/bboard/q-and-a?topic%5fid=592&topic=Finnegan%3a%20Wake%2dup%20Call%20System">the Finnegan bboard</a>.
 END_FAQITEM
 ),

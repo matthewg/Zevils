@@ -1,6 +1,6 @@
 <?
 
-eval(implode('', file('../src/brancal.inc')));
+eval(preg_replace("/#__PERLONLY_START__(.|\\n)*#__PERLONLY_END__/", "", implode('', file('../src/brancal.inc'))));
 
 // seed with microseconds
 function make_seed() {

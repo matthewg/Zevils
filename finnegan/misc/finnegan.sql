@@ -40,8 +40,7 @@ CREATE TABLE log_wake (
 	INDEX (wake_id),
 	INDEX (event),
 	INDEX (result),
-	INDEX (start_time),
-	KEY (log_id)
+	INDEX (start_time)
 );
 
 CREATE TABLE log_ext (
@@ -55,7 +54,11 @@ CREATE TABLE log_ext (
 	INDEX (extension),
 	INDEX (event),
 	INDEX (result),
-	INDEX (time),
-	KEY (log_id)
+	INDEX (time)
 );
 
+CREATE TABLE log_daemon (
+	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	time DATETIME NOT NULL,
+	data VARCHAR(255) NOT NULL
+);

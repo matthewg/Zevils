@@ -1,19 +1,53 @@
 #!/usr/bin/perl
 
+our @phonelines = qw("usb/ttyACM0");
+our %kidmap = ();
+
 use strict;
 use warnings;
 use Modem::Vgetty;
 use POSIX;
+use DBI;
 
+my($db_host, $db_user, $db_pass, $db_database);
+my $brancal_timestamp = 0;
+require "./db-info.inc";
+
+# Daemonize
 $pid = fork;
 exit if $pid;
 die "Couldn't fork: $!" unless defined($pid);
-
 POSIX::setsid() or die "Can't start a new session: $!";
 
-my $brancal_timestamp = 0;
+$SIG{CHLD} = sub { push @phonelines, delete $kidmap{wait()}; };
 
+my $dbh = DBI->connect("DBI:mysql:database=$db_database;host=$db_host", $db_user, $db_pass);
+if(!$dbh) die "Couldn't connect to database.\n";
 
+my $get_wakes = $dbh->prepare("SELECT * FROM wakes WHERE (trigger_time = NULL OR DATE(trigger_time) < CURDATE()) AND (ISNULL(date) OR date=CURDATE()) ORDER BY time LIMIT ".(scalar(@phonelines)*2);
+
+# 1. Wait until we have a phone line available.
+# 2. Get as many wakes as we have phone lines, times two
+# 3. Check to see if we should call any now
+# 4. If so, call them
+# 5. For each free phone lines we have, if there are at least 60 seconds until the next wake, pop off a forgot_pin if there are any.
+# 6. Sleep 10 seconds
+while(1) {
+	if(!@phonelines) {
+		sleep 10;
+		next;
+	}
+
+	$ret = $get_wakes->execute();
+	if(!$ret) {
+		$dbh->execute("INSERT INTO log_daemon (time, data) VALUES (NOW(), "Couldn't get wakes: ' . $dbh->{mysql_error} . "')");
+		exit 1;
+	}
+
+	while(my $row = $get_wakes->fetchrow_hashref) {
+		
+	}
+}
 my $v = new Modem::Vgetty;
 $v->add_handler('BUSY_TONE', 'endh', sub { $v->stop; exit(0); });
 $v->add_handler('NO_DIAL_TONE', 'hangup', sub { $v->send("ATH0"); });

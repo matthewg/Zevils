@@ -1,21 +1,8 @@
-# This evil file works in both Perl and PHP.
-
-# =pod
-
-/** PHP can't see this...
-
-=cut
-
+#__PERLONLY_START__
 package finnegan;
 
 sub array { return {@_}; }
-*** PHP regains vision.
-
-=pod
-
-*/
-
-# =cut
+#__PERLONLY_END__
 
 $NO_CLASSES = array(
 		"2004-01-19" => 1, "2004-02-16" => 1, "2004-02-17" => 1, "2004-02-18" => 1, "2004-02-19" => 1, "2004-02-20" => 1, # Spring 2004

@@ -271,6 +271,7 @@ Messages:
 <li><a href="messages/finnegan-medley.mp3">Musical Medley</a.</li>
 <li><a href="messages/finnegan-atomant.mp3">"Up and at 'em, Atom Ant"</a></li>
 <li><a href="messages/finnegan-sleepyhead.mp3">"Wake up, wake up you sleepy head"</a></li>
+<li><a href="messages/finnegan-destruction.mp3">"Good morning.  Destruction of the planet will commence in approximately five minutes."</a></li>
 </ol><p>
 Message: <input type="text" name="message" size="3" maxlength="2" value="__MESSAGE__" />
 </p><p>

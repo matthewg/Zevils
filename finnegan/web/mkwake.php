@@ -79,7 +79,7 @@ if($extension_ok) {
 		else
 			$pm = "checked";
 
-		if(!isset($_POST["message"]) || !preg_match('/^\d+$/', $_POST["message"]) || $_POST["message"] > 2) {
+		if(!isset($_POST["message"]) || !preg_match('/^\d+$/', $_POST["message"]) || $_POST["message"] > 6) {
 			$error = 1;
 			echo $TEMPLATE["message_invalid"];
 		}

@@ -7,6 +7,7 @@ messages/
 	3.wav: musical medley
 	4.wav: "Up and at 'em, Atom Ant"
 	5.wav: "Wake up, wake up you sleepy head"
+	6.wav: "Destruction of the planet will commence in approximately five minutes"
 wake/
 	timeis.wav: "The time is"
 	snooze.wav: "Press any button to snooze."
