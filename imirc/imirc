@@ -362,6 +362,9 @@ sub process_irc_message {
 			$upstream->print("$foo :add_permit nick - add nick to your permit list, removing from deny list\r\n");
 			$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit list\r\n");
 			$upstream->print("$foo :join topic - create and join a new chatroom with topic set to topic\r\n");
+			$upstream->print("$foo :chat chat_id message - send message to chat chat_id\r\n");
+			$upstream->print("$foo :whisper chat_id user message - whisper to user in chat chat_id\r\n");
+			$upstream->print("$foo :chat accept_ chat_id - accept an invitation to chat chat_id\r\n");
 			$upstream->print("$foo :invite buddy1,buddy2,...,buddyn chat_id message - invite buddies into a chat\r\n");
 			$upstream->print("$foo :info nick - get info for nick\r\n");
 			$upstream->print("$foo :set_info new info - set your info\r\n");
