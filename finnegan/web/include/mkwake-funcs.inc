@@ -176,6 +176,8 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 }
 
 function _finepoch_check($wake_id, $phonelines, &$wake_intervals, $cur_intervals) {
+	global $FinneganConfig;
+
 	for($j = 0; $j < sizeof($cur_intervals); $j++) {
 		for($i = 0; $i < sizeof($wake_intervals); $i++) {
 			#echo "Does (".$cur_intervals[$j][0].", ".$cur_intervals[$j][1].") overlap (".$wake_intervals[$i][0].", ".$wake_intervals[$i][1].")?<br>\n";
