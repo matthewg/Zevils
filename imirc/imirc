@@ -468,6 +468,8 @@ sub loadconf() {
 
 sub mainloop() {
 	my(@aims, $aim, $connection, $screenname, $msg, $multinick, $i, $rv, $buff, $getrv, $rvbuff, $currtime, $nick, $sndata);
+	my($rin, $win, $ein);
+	$rin = $win = $ein = '';
 
 	unless($reload) {
 		connect_to_irc();
@@ -550,6 +552,8 @@ sub mainloop() {
 				} elsif($dcc->{direction} eq "SEND") {
 					if($dcc->{put} == -1) {
 						undef $rv;
+						vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
+						next DCC unless select($rin, $win, $ein, 0.01);
 						$rv = $dcc->{ssocket}->accept;
 						if(defined $rv) {
 							$dcc->{socket} = $rv;
@@ -1527,8 +1531,27 @@ Buddy {
 				delete $nicks{$nick}{$nnick};
 			}
 		}
+
+		my($dcc, $i);
+		for($i = 0; $i < $#dccqueue; $i++) {
+			$dcc = $dccqueue[$i];
+			if($dcc->{direction} eq "SEND" and normalize $dcc->{to} eq $nnick) {
+				$dccqueue[$i]->{to} = $newnick;
+			} elsif(normalize $dcc->{from} eq $nnick) {
+				$dccqueue[$i]->{from} = $newnick;
+			}
+		}
+
 	} elsif(/^QUIT/) {
 		delete $irc_away{$nnick};
+
+		my($dcc, $i);
+		for($i = 0; $i < $#dccqueue; $i++) {
+			$dcc = $dccqueue[$i];
+			next unless $dcc->{direction} eq "SEND" and $dcc->{put} == -1 and normalize $dcc->{to} eq $nnick;
+			splice(@dccqueue, $i, 1);
+			$i--;
+		}
 		do_signoff_all($nnick, 1) if $aim_connections{$nnick};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");

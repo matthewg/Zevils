@@ -1,3 +1,4 @@
+Preference for sending NOTICE
 *DOUBLE POUNCES MUST DIE!!*
 *Check for invalid chars in nick*
 Remove ScandanavianCase
@@ -36,6 +37,7 @@ Maybe/Third Priority:
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Write a TOC server and a set of stress tests and regression tests.
+	Hot Chats grabber
 
 Wishlist:
 	Fix #aimirc-debug reload command
