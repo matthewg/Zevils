@@ -1,5 +1,4 @@
 # REP ROLLBACK!
-# RETVAL CONUNDRUM!
 
 # Parse::ABNF
 #
