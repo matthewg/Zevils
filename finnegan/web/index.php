@@ -3,12 +3,14 @@
 require "db-connect.inc";
 require "template.inc";
 
+ob_start();
 $dbh = get_dbh();
 
 function db_error() {
 	global $TEMPLATE;
+	global $extension_ok;
 	echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);
-	do_end();
+	do_end($extension_ok);
 }
 
 function extension_ok($extension) {
@@ -28,7 +30,7 @@ function pin_ok($extension, $pin, $newpin = 0) {
 	$error = "";
 
 	if(!preg_match('/^[0-9]{0,4}$/', $pin)) {
-		if($newpin) {
+		if(!$newpin) {
 			echo $TEMPLATE["pin_invalid"];
 			$error = "pin_invalid";
 		} else {
@@ -51,22 +53,21 @@ function pin_ok($extension, $pin, $newpin = 0) {
 		} else {
 			$goodpin = $row[0];
 
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE extension='%s' AND event='getwakes' AND result='failure' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
+			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE extension='%s' AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
 					$extension));
 			if(!$result) db_error();
 			$row = mysql_fetch_array($result, MYSQL_NUM);
 			$badpin_count = $row[0];
-			if($badpin_count >= 3) {
+			if($pin && $badpin_count >= 3) {
 				echo $TEMPLATE["pin_bruteforce"];
 				$error = "pin_bruteforce";
-			} else if($badpin_count == 2) {
-				echo $TEMPLATE["pin_bruteforce_warn"];
 			}
 
 			if(!$error && $pin != $goodpin) {
 				echo $TEMPLATE["pin_error"];
 				$error = "pin_error";
-			} else {
+				if($pin && $badpin_count == 2) echo $TEMPLATE["pin_bruteforce_warn"];
+			} else if(!$error) {
 				$ok = 1;
 			}
 		}
@@ -166,6 +167,7 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	unset($_POST["pin"]);
 	setcookie("finnegan-extension", "", time()-3600);
 	setcookie("finnegan-pin", "", time()-3600);
+	setcookie("finnegan-savepin", "", time()-3600);
 
 	if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
 		$extension, "delcookie", "success", getenv("REMOTE_ADDR")))) db_error();
@@ -177,6 +179,9 @@ $pin = "";
 if(isset($_COOKIE["finnegan-pin"])) $pin = $_COOKIE["finnegan-pin"];
 if(isset($_POST["pin"])) $pin = $_POST["pin"];
 
+$savepin = 0;
+if(isset($_COOKIE["finnegan-savepin"]) && $_COOKIE["finnegan-savepin"] == 1) $savepin = 1;
+
 if($extension) {
 	if(pin_ok($extension, $pin)) {
 		$extension_ok = 1;
@@ -184,6 +189,7 @@ if($extension) {
 
 		if(isset($_POST["savepin"]) && $_POST["savepin"] == "1") {
 			setcookie("finnegan-pin", $pin, time()+60*60*24*365);
+			setcookie("finnegan-savepin", "1", time()+60*60*24*365);
 		} else {
 			setcookie("finnegan-pin", $pin);
 		}
@@ -206,7 +212,7 @@ if($extension_ok) {
 
 	if(isset($_POST["op"])) {
 		$op = $_POST["op"];
-		if($op == "Set Pin") {
+		if($op == "Set PIN") {
 			$oldpin = isset($_POST["oldpin"]) ? $_POST["oldpin"] : "";
 			$pin1 = isset($_POST["pin1"]) ? $_POST["pin1"] : "";
 			$pin2 = isset($_POST["pin2"]) ? $_POST["pin2"] : "";
@@ -220,11 +226,31 @@ if($extension_ok) {
 			} else if(!pin_ok($extension, $pin1, 1)) {
 				$error = "pin_set_new_invalid";
 			} else {
-				if(!mysql_query(sprintf("INSERT INTO prefs (extension, pin) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE pin='%s'",
-					$extension, $pin1, $pin1))) db_error();
+				$result = mysql_query(sprintf("SELECT COUNT(*) FROM prefs WHERE extension='%s'",
+						$extension));
+				if(!$result) db_error();
+
+				$row = mysql_fetch_array($result, MYSQL_NUM);
+				$has_pref = $row[0];
+
+				if($has_pref) {
+					if(!mysql_query(sprintf("UPDATE prefs SET pin='%s' WHERE extension='%s'",
+						$pin1, $extension))) db_error();
+				} else {
+					if(!mysql_query(sprintf("INSERT INTO prefs (extension, pin) VALUES ('%s', '%s')",
+						$extension, $pin1))) db_error();
+				}
+
+				if($savepin) {
+					setcookie("finnegan-pin", $pin1, time()+60*60*24*365);
+				} else {
+					setcookie("finnegan-pin", $pin1);
+				}
+
+				echo $TEMPLATE["pin_set_ok"];
 			}
 
-			if($error) {
+			if(!$error) {
 				if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
 					$extension, "setpin", "success", getenv("REMOTE_ADDR")))) db_error();
 			} else {

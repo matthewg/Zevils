@@ -144,6 +144,9 @@ td {
 	font-weight: bold;
 	color: #FF0000;
 }
+.status {
+	font-weight: bold;
+}
 .weekday-off {
 	text-decoration: line-through
 }
@@ -349,7 +352,7 @@ Please try again.
 END_PIN_SET_OLD_ERROR
 ,
 
-	"pin_set_new_msmatch" => <<<END_PIN_SET_NEW_MISMATCH
+	"pin_set_new_mismatch" => <<<END_PIN_SET_NEW_MISMATCH
 <p class="error">
 Your PIN could not be set because what you typed for "New PIN" didn't
 match what you typed for "Confirm New PIN".  Please try again.
@@ -358,7 +361,7 @@ END_PIN_SET_NEW_MISMATCH
 ,
 
 	"pin_set_ok" => <<<END_PIN_SET_OK
-<p>
+<p class="status">
 Your PIN was successfully changed.
 </p>
 END_PIN_SET_OK
