@@ -6,6 +6,7 @@ package NNTB::Weblog;
 $VERSION = '0.01';
 
 use strict;
+use warnings;
 use vars qw($VERSION);
 use Carp;
 
