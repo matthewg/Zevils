@@ -446,6 +446,11 @@ sub loadconf() {
 		$poll = new IO::Poll if $usepoll;
 	}
 
+	if($usnick eq $oldnick) {
+		print STDERR "\$usnick eq \$oldnick - ignoring \$oldnick\n";
+		undef $oldnick;
+	}
+
 	if(defined $output) {
 		close STDOUT;
 		close STDERR;
