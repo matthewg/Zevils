@@ -631,10 +631,10 @@ sub process_aim_message {
 			irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, "[continued]\t\t$line"));
 		}
 
-		if(($ar eq "") and $connection->{away} and not $connection->{away_buddies}{$inick}) {
-			$connection->{away_buddies}{$inick} = 1;
+		if(($ar eq "") and $connection->{away} and (time - $connection->{away_buddies}{$inick} > 60*5)) {
 			message($connection->{socket}, $inick, $connection->{away}, 1);
 		}
+		$connection->{away_buddies}{$inick} = time;
 		$nicks{normalize($inick)}{$connection->{nick}} = time if $nicks{normalize($inick)}{$connection->{nick}} != -1;
 	} elsif($cmd eq "UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
