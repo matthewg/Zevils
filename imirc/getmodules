@@ -1,21 +1,48 @@
 #!/usr/bin/perl
 
 sub BEGIN {
+	my $result = "";
+	my $error = "";
+	my $foundconfig = 0;
 	my $home = (getpwuid($>))[7];
 	push @INC, "$home/.cpan";
 
 	require CPAN;
-	eval {
-		require CPAN::MyConfig;
-	};
-	if($@) {
-		print STDERR "We couldn't load CPAN::MyConfig:\n";
-		print STDERR "$@\n";
+
+	foreach my $dir(@INC) {
+		next unless -d "$dir/CPAN";
+		next unless -r "$dir/CPAN/MyConfig.pm" or -r "$dir/CPAN/Config.pm";
+		my $file = -r "$dir/CPAN/MyConfig.pm" ? "MyConfig.pm" : "Config.pm";
+
+		print "Trying to get CPAN configuration from $dir/CPAN/$file.\n";
+		$INC{$file} = "$dir/CPAN/$file";
+		$result = do "$dir/CPAN/$file";
+		$error = $@;
+
+		$foundconfig = 1;
+		unless($error || !$result) {
+			print "$dir/CPAN/$file OK\n";
+			last;
+		}
+
+		$foundconfig = 0;
+		delete $INC{$file};
+		print STDERR "\nCouldn't get CPAN configuration from $dir/CPAN/$file:\n";
+		if($error) {
+			$error =~ s/^/\t/g;
+			print STDERR "$error\n";
+		} else {
+			print STDERR "\tFilename did not return true value.\n\n";
+		}
+	}
+
+	if(!$foundconfig) {
+		print STDERR "We couldn't load a CPAN configuration file.\n";
 		print STDERR "Run perl -MCPAN -e shell and try again.\n";
 		print STDERR "You should be able to take the defaults for most options.\n";
 		print STDERR "See perldoc CPAN for more information.\n";
 		exit 1;
-	}		
+	}
 }
 
 use File::Basename;
