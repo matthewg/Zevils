@@ -8,13 +8,21 @@ Templates are in $FINNEGAN/web/templates/$page.inc
 Global template items (global):
 	start: Top of the entire page.
 		PAGE_TITLE: Title of the page
+		PAGE_SCRIPT
+		PAGE_HEAD
 		NAV_MENU: Navigation menu items
-		EXTENSION
+		LOGGED_IN: Either "logged_in" or "not_logged_in", below
 		TIME
 	end: End of the entire page.
 
-	nav_menu_item_current
-	nav_menu_item
+	logged_in: Logged in as __EXTENSION__
+		EXTENSION
+	not_logged_in: Not logged in
+	nav_menu_item_current:
+		TEXT
+	nav_menu_item:
+		TEXT
+		URL
 
 	db_error: Database error.
 		ERROR: Error message
