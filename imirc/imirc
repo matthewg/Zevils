@@ -543,7 +543,7 @@ sub process_irc_message {
 			} elsif($msg =~ /^rehash/) {
 				rehash;
 			} elsif($msg =~ /^showlevels/) {
-				foreach $level(keys %debug) { irc_send(irc_privmsg("#aimirc-debug", "$level: $debug{$level}")); }
+				foreach $level(keys %debug) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "$level: $debug{$level}")); }
 			} elsif($msg =~ /^raw (\S+) (.+)/ and $1 and $2) {
 				if($1 eq "irc") {
 					irc_send("$2\r\n");
