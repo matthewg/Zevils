@@ -110,6 +110,16 @@ while(1 == 1) {
 		$connection = $aim_connections{$filenos[$aim->fileno]};
 		process_aim_message($connection);
 	}
+	@aims = $aimselect->has_error(.01);
+	foreach $aim(@aims) {
+		$connection = $aim_connections{$filenos[$aim->fileno]};
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "You have been signed off of AIM.")) if $connection;
+		delete $aim_connections{$filenos[$aim->fileno]} if $aim and $aim->fileno;
+		delete $aim_connections{$connection->{nick}} if $connection and $connection->{nick};
+		$aimselect->remove($connection);
+		signoff($connection);
+	}
+
 	if($ircselect->can_read(.01)) {
 		$_ = $upstream->getline;
 		chomp; chop;
@@ -202,7 +212,7 @@ sub process_irc_message {
 		} elsif ($cmd eq "onbuddies") {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			for $buddy(keys %{$temp{Buddies}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})")) if ($temp{Buddies}{$buddy}{online} == 1);
+				irc_send(irc_privmsg($usnick, $nick, "$buddy ($temp{Buddies}{$buddy}{group})")) if $temp{Buddies}{$buddy}{online};
 			}
 		} elsif ($cmd eq "permitlist") {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
@@ -214,6 +224,7 @@ sub process_irc_message {
 				delete $nicks{normalize($aim_connections{$nick}{aimnick})};
 				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
 				signoff($aim_connections{$nick}{socket});
+				$aimselect->remove($aim_connections{$nick}{socket});
 				delete $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick};
 				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
@@ -423,6 +434,7 @@ sub process_irc_message {
 		$filenos[$aim_connections{$2}{socket}->fileno] = $2 if $aim_connections{$2}{socket};
 	} elsif(/^:(\S+) QUIT/) {
 		signoff($aim_connections{$1}{socket});
+		$aimselect->remove($aim_connections{$1}{socket});
 		delete $aim_connections{$1};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
@@ -481,7 +493,7 @@ sub process_aim_message {
 			irc_send(irc_newnick($prefix . $inick)) unless scalar keys %{$nicks{normalize($inick)}};;
 			$nicks{normalize($inick)}{$connection->{nick}} = -1;
 		} else {
-			update_buddy($connection->{nick}, $inick, $6, $3, $4, $5, 0);
+			update_buddy($connection->{aimnick}, $inick, $6, $3, $4, $5, 0);
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has departed"));
 			delete $nicks{normalize($inick)}{$connection->{nick}};
 			delete $nicks{normalize($inick)} unless keys %{$nicks{normalize($inick)}};
