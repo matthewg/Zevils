@@ -3,8 +3,12 @@
  * Description of template items:
  *	page_start: Top of the entire page.
  *		TITLE: Title of the page
- *	viewcalls_start: Start of the 'view wake-up calls' psage.  This will be called immediately after 'page_start'.
+ *	viewcalls_start: Start of the 'view wake-up calls' page.  This will be called immediately after 'page_start'.
  *	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
+ *	mkwake_new_start: Start of the 'new wake-up call' page.
+ *	mkwake_edit_start: Start of the 'edit wake-up call' page.
+ *		ID: ID of the wake-up call being edited.
+ *	docs_start: Start of the documentation page.
  *
  *
  *  Wake-up call list.  To give the user the ability to edit their wake-up calls,
@@ -56,6 +60,9 @@
  *
  *	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
  *	viewcalls_end_noext: This is called instead of viewcalls_start if we don't know the user's extension.
+ *	mkwake_new_end: End of the 'new wake-up call' page.
+ *	mkwake_edit_end: End of the 'edit wake-up call' page.
+ *	docs_end: End of the documentation page.
  *	page_end: End of the entire page.
  *
  *	db_error: Database error.
@@ -77,7 +84,7 @@
  * Things that you must do somewhere in your template:
  *
  *	Link to take the user to the page for creating a new wake-up call. (mkwake.php)
- *		The page should post the following data to index.php:
+ *		The page should post the following data to mkwake.php:
  *			op: 'create'
  *			extension: User's extension
  *			time: Time of the wake-up call
@@ -175,6 +182,29 @@ END_VIEWCALLS_START_NOEXT
 END_VIEWCALLS_START
 ,
 
+	"mkwake_new_start" => <<<END_MKWAKE_NEW_START
+<h1><a href="docs.php">Help with Finnegan</a></h1>
+<h1><a href="index.php">View Your Wake-up Calls</a></h1>
+<form method="post" action="mkwake.php">
+<input type="hidden" name="op" value="create" />
+END_MKWAKE_NEW_START
+,
+
+	"mkwake_edit_start" => <<<END_MKWAKE_EDIT_START
+<h1><a href="docs.php">Help with Finnegan</a></h1>
+<h1><a href="index.php">View Your Wake-up Calls</a></h1>
+<form method="post" action="mkwake.php">
+<input type="hidden" name="op" value="edit" />
+<input type="hidden" name="id" value="__ID__" />
+END_MKWAKE_EDIT_START
+,
+
+	"docs_start" => <<<END_DOCS_START
+<h1><a href="index.php">View Your Wake-up Calls</a></h1>
+<h1><a href="mkwake.php">Create a New Wake-up Call</a></h1>
+END_DOCS_START
+,
+
 	"wake_list_start" => <<<END_WAKE_LIST_START
 <p>
 Your current wake-up calls are listed below.  To add a wake-up call,
@@ -239,6 +269,20 @@ END_VIEWCALLS_END
 	"viewcalls_end_noext" => <<<END_VIEWCALLS_END_NOEXT
 </form>
 END_VIEWCALLS_END_NOEXT
+,
+
+	"mkwake_edit_end" => <<<END_MKWAKE_EDIT_END
+</form>
+END_MKWAKE_EDIT_END
+,
+
+	"mkwake_new_end" => <<<END_MKWAKE_NEW_END
+</form>
+END_MKWAKE_NEW_END
+,
+
+	"docs_end" => <<<END_DOCS_END
+END_DOCS_END
 ,
 
 	"page_end" => <<<END_PAGE_END

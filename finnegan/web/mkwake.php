@@ -4,26 +4,15 @@ require "db-connect.inc";
 require "template.inc";
 require "common-funcs.inc";
 
-$page = "viewcalls";
+if(isset($_POST["id"]))
+	$page = "mkwake_edit";
+else
+	$page = "mkwake_new";
 
 ob_start();
 $dbh = get_dbh();
 
 check_extension_pin();
-
-if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
-	unset($_COOKIE["finnegan-extension"]);
-	unset($_COOKIE["finnegan-pin"]);
-	unset($_POST["extension"]);
-	unset($_POST["pin"]);
-	setcookie("finnegan-extension", "", time()-3600);
-	setcookie("finnegan-pin", "", time()-3600);
-	setcookie("finnegan-savepin", "", time()-3600);
-
-	if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, ip) VALUES ('%s', '%s', '%s', NOW(), '%s')",
-		$extension, "delcookie", "success", getenv("REMOTE_ADDR")))) db_error();
-	$extension = "";
-}
 
 echo preg_replace("/__TITLE__/",
 	"Finnegan: Wake-up Calls by the Brandeis University Student Union",
@@ -31,15 +20,14 @@ echo preg_replace("/__TITLE__/",
 );
 
 if($extension_ok) {
-	echo $TEMPLATE["viewcalls_start"];
+	echo $TEMPLATE[$page."_start"];
 
 	if(!$dbh) db_error();
 
 
-
 	if(isset($_POST["op"])) {
 		$op = $_POST["op"];
-		if($op == "Set PIN") {
+		if($op == "create") {
 			$oldpin = isset($_POST["oldpin"]) ? $_POST["oldpin"] : "";
 			$pin1 = isset($_POST["pin1"]) ? $_POST["pin1"] : "";
 			$pin2 = isset($_POST["pin2"]) ? $_POST["pin2"] : "";
@@ -103,7 +91,7 @@ if($extension_ok) {
 			$date = date_to_user($row["date"]);
 			if(!$date) {
 				echo preg_replace("/__DATE__/", $row["date"], $TEMPLATE["date_error"]);
-				do_end();
+				do_end($extension_ok);
 			}
 			echo preg_replace(
 				array("/__ID__/",
@@ -174,6 +162,7 @@ if($extension_ok) {
 } else {
 	echo $TEMPLATE["viewcalls_start_noext"];
 	echo preg_replace("/__EXTENSION__/", $extension, $TEMPLATE["get_extension"]);
+	$page = "viewcalls";
 }
 
 do_end();
