@@ -25,11 +25,6 @@ if(!$cache_stat || isset($_REQUEST["nocache"]) || $cache_stat["mtime"] < (time()
 	$users = $row[0];
 	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Active Users", $users), $TEMPLATE["statistics"]["stat"]));
 
-	$stats = mysql_query("SELECT count(*) FROM prefs");
-	$row = mysql_fetch_row($stats);
-	$users = $row[0];
-	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Registered Users", $users), $TEMPLATE["statistics"]["stat"]));
-
 	fwrite($cache, preg_replace("/__TITLE__/", "System Statistics", $TEMPLATE["statistics"]["group_end"]));
 
 
