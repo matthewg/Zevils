@@ -644,11 +644,13 @@ sub process_irc_message($) {
 	my $nnick = normalize($nick);
 
 	if($aim_connections{$nnick}) {
-		$aim_connections{$nnick}{idletime} = time;
-		if($aim_connections{$nnick}{is_idle}) {
-			$aim_connections{$nnick}{is_idle} = 0;
+		$aimnick = $aim_connections{$nnick}{aimnick};
+		Toc::debug_print("Got IRC event from $nnick.  is_idle: $aim_connections{$nnick}{screennames}{$aimnick}{is_idle}", "sflap", 1);
+		$aim_connections{$nnick}{screennames}{$aimnick}{idletime} = time;
+		if($aim_connections{$nnick}{screennames}{$aimnick}{is_idle}) {
+			$aim_connections{$nnick}{screennames}{$aimnick}{is_idle} = 0;
 			if(set_idle($aim_connections{$nnick}{socket}, 0) == -1) {
-				irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection: $err"));
+				irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection as $aim_connections{$nnick}{aimnick}: $err"));
 				do_signoff($nnick, $aim_connections{$nnick}{socket});
 			}
 		}
@@ -1555,12 +1557,13 @@ sub do_signon($$$$) {
 	}
 	if($ret[0] == 0) {
 		$aim_connections{$nnick}{nick} = $nnick;
-		$aim_connections{$nnick}{aimnick} ||= $nparam;
 		$aim_connections{$nnick}{screennames}{$nparam}{socket} = $ret[1];
 		$aim_connections{$nnick}{screennames}{$nparam}{permtype} = $ret[2]->{permtype};
 		$aim_connections{$nnick}{screennames}{$nparam}{report_idle} = $sendidle;
 		$aim_connections{$nnick}{screennames}{$nparam}{idletime} = time;
 		$aim_connections{$nnick}{screennames}{$nparam}{is_idle} = 0;
+		$aim_connections{$nnick}{aimnick} ||= $nparam;
+
 		switchnick($nnick, $nparam) if $aim_connections{$nnick}{aimnick} eq $nparam;
 		%temp = %{$ret[2]};
 
@@ -1687,6 +1690,7 @@ sub truncwarn($$) {
 
 sub switchnick($$) {
 	my($nnick, $nparam) = @_;
+	my $oldnick = $aim_connections{$nnick}{aimnick};
 
 	return 1 unless $aim_connections{$nnick}{screennames}{$nparam};
 
@@ -1742,7 +1746,7 @@ sub reap() {
 						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection for screenname $screenname: $err"));
 						do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{screennames}{$screenname}{socket});
 					} else {
-						if($aim_connections{$connection}{screennames}{$screenname}{report_idle} and not $aim_connections{$connection}{is_idle} and ($currtime - $aim_connections{$connection}{screennames}{$screenname}{idletime}) >= 360) {
+						if($aim_connections{$connection}{screennames}{$screenname}{report_idle} and not $aim_connections{$connection}{screennames}{$screenname}{is_idle} and ($currtime - $aim_connections{$connection}{screennames}{$screenname}{idletime}) >= 360) {
 							if(set_idle($aim_connections{$connection}{screennames}{$screenname}{socket}, $currtime - $aim_connections{$connection}{screennames}{$screenname}{idletime}) == -1) {
 								irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection for screenname $screenname: $err"));
 								do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{screennames}{$screenname}{socket});
@@ -1770,6 +1774,7 @@ sub do_signoff_all($;$) {
 		do_signoff($nnick, $aim_connections{$nnick}{screennames}{$screenname}{socket}, 1);
 	}
 	irc_send(irc_privmsg($usnick, $nick, "All connections signed off of AOL Instant Messenger.")) unless $already_off;
+	delete $aim_connections{$nnick};
 }
 
 sub going_down() {
