@@ -607,19 +607,19 @@ sub process_irc_message {
 						Toc::debug_print("Couldn't fork: $!", "critical_errors", 1);
 					} elsif($pid == 0) {
 						do_signon(@temp);
-						if($aim_connections{$tnick}{socket}) {
+						if($aim_connections{$nnick}{socket}) {
 							while(1 == 1) {
-								if($aim_connections{$tnick}{socket}->error) {
-									do_signoff($tnick, $aim_connections{$tnick}{socket});
+								if($aim_connections{$nnick}{socket}->error) {
+									do_signoff($tnick, $aim_connections{$nnick}{socket});
 									exit;
 								}
-								process_aim_message($aim_connections{$tnick}{socket});
+								process_aim_message($aim_connections{$nnick}{socket});
 							}
 						} else {
 							exit;
 						}
 					} else {
-						$aim_connections{$nick}{pid} = $pid;
+						$aim_connections{$nnick}{pid} = $pid;
 					}
 				} else {
 					do_signon(@temp);
@@ -894,7 +894,7 @@ sub process_irc_message {
 				if($1 eq "irc") {
 					irc_send("$2\r\n");
 				} elsif($aim_connections{$1}) {
-					sflap_put($aim_connections{$1}{socket}, sflap_encode($2, 0, 1));
+					sflap_put($aim_connections{normalize($1}){socket}, sflap_encode($2, 0, 1));
 				} else {
 					$success = 0;
 					AIMNICK: foreach $nick(keys %aim_connections) {
@@ -933,11 +933,12 @@ sub process_irc_message {
 		}
 	} elsif(/^:(\S+) NICK (\S+)/) { #Nick change
 		$nnick = normalize($1);
-		$newnick = normalize($2);
-		$aim_connections{$newnick} = $aim_connections{$nnick};
-		$aim_connections{$newnick}{nick} = $newnick;
-		delete $aim_connections{$nnick};
-		$filenos[$aim_connections{$newnick}{socket}->fileno] = $newnick if $aim_connections{$newnick}{socket};
+		if($aim_connections{$nnick}) {
+			$newnick = normalize($2);
+			$aim_connections{$newnick} = $aim_connections{$nnick};
+			$aim_connections{$newnick}{nick} = $newnick;
+			delete $aim_connections{$nnick};
+		}
 	} elsif(/^:(\S+) QUIT/) {
 		$nnick = normalize($1);
 		do_signoff($nnick, $aim_connections{$nnick}{socket});
@@ -1208,9 +1209,10 @@ EOF
 
 
 sub do_signon {
-	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags) = @_;
+	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags, $nnick) = @_;
 
 	$nparam = normalize($tparam);
+	$nnick = normalize($tnick);
 
 	# lock $aim_connections{$tnick};
 	if($verbose_signon) {
@@ -1220,33 +1222,24 @@ sub do_signon {
 	}
 	if($ret[0] == 0) {
 		{
-			$aim_connections{$tnick}{nick} = $tnick;
-			$aim_connections{$tnick}{aimnick} = $nparam;
-			$aim_connections{$tnick}{socket} = $ret[1];
-			$aim_connections{$tnick}{permtype} = $ret[2]->{permtype};
+			$aim_connections{$nnick}{nick} = $nnick;
+			$aim_connections{$nnick}{aimnick} = $nparam;
+			$aim_connections{$nnick}{socket} = $ret[1];
+			$aim_connections{$nnick}{permtype} = $ret[2]->{permtype};
 		}
 		%temp = %{$ret[2]};
 
-		{
-			lock @filenos;
-			$filenos[$aim_connections{$tnick}{socket}->fileno] = $tnick;
-		}
-		#{
-		#	lock $aimselect;
-		#	$aimselect->add($aim_connections{$tnick}{socket});
-		#}
-
-		irc_send(irc_privmsg($tusnick, $tnick, "You are now connected to AOL Instant Messenger."));
+		irc_send(irc_privmsg($tusnick, $nnick, "You are now connected to AOL Instant Messenger."));
 		{
 			lock $nicks{$nparam};
 			unless($nicks{$nparam}) {
 				irc_send(irc_newnick($prefix . $tparam));
-				$nicks{$nparam}{$tnick} = -1;
+				$nicks{$nparam}{$nnick} = -1;
 			}
 		}
 	} else {
 		lock $err;
-		irc_send(irc_privmsg($tusnick, $tnick, $err));
+		irc_send(irc_privmsg($tusnick, $nnick, $err));
 	}
 }
 
