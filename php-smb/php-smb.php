@@ -18,11 +18,16 @@ if($_REQUEST["host"]) {
 			while(list($share, $type) = each($shares)) {
 				echo "<li>$share = $type";
 				if($type == 0) {
-					cifs_connect_share($smb);
+					cifs_connect_share($smb, $share);
 					if($smb["error"]) {
 						echo " (ERROR: " . $smb["error"] . ")";
 					} else {
-						
+						$files = cifs_readdir($smb, "/");
+						echo "<ul>";
+						for($i = 0; $i < sizeof($files); $i++) {
+							echo "<li>" . $files[$i] . "</li>\n";
+						}
+						echo "</ul>\n";
 						cifs_disconnect_share($smb);
 					}
 				}

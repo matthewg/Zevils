@@ -78,6 +78,15 @@ function cifs_parse_header($packet) {
 	return $data;
 }
 
+function cifs_parse_transaction($packet) {
+	$data = cifs_parse_header($packet);
+	$data["transaction_data"] = unpack("x7/vparam_length/vparam_offset/x2/vdata_length/vdata_offset/x7", $data["data"]);
+	$data["parameters"] = substr($packet, $data["transaction_data"]["param_offset"], $data["transaction_data"]["param_length"]);
+	$data["data"] = substr($packet, $data["transaction_data"]["data_offset"], $data["transaction_data"]["data_length"]);
+
+	return $data;
+}
+
 function cifs_errcheck(&$smb) {
 	$data = netbios_get_packet($smb["sock"]);
 	$data = cifs_parse_header($data["data"]);
@@ -331,11 +340,21 @@ function cifs_connect_share(&$smb, $share) {
 	}
 }
 
-function cifs_make_transaction(&$smb, $name, $parameters, $data) {
-	$name = cifs_str2uni($smb, $name);
+//transact_ver 1 is for SMB_COM_TRANSACTION2 request.
+//transact_ver 2 is for SMB_COM_NT_TRANSACT
+function cifs_make_transaction(&$smb, $transact_ver, $name, $setup, $parameters, $data) {
+	if($transact_ver == 1) {
+		$name = cifs_str2uni($smb, $name);
+	} else {
+		$setup = pack("v", $setup);
+	}
 
-	$packet = cifs_make_header(0x25, $smb);
-	$packet .= chr(14); //parameter word count
+	if($transact_ver == 1) {
+		$packet = cifs_make_header(0x25, $smb);
+	} else {
+		$packet = cifs_make_header(0x32, $smb);
+	}
+	$packet .= chr(14 + strlen($setup)/2); //parameter word count
 	$packet .= pack("v", strlen($parameters)); //parameter byte count
 	$packet .= pack("v", strlen($data)); //data count
 	$packet .= pack("v", 1024); //max parameter count
@@ -346,77 +365,83 @@ function cifs_make_transaction(&$smb, $name, $parameters, $data) {
 	$packet .= pack("V", 0); //timeout
 	$packet .= pack("v", 0); //reserved
 
-	$paramoffset = 64 + strlen($name);
-	if($paramoffset % 2 == 1) { //pad to SHORT
-		$paramoffset++;
-		$parampadding = chr(0);
-	} else {
-		$parampadding = "";
-	}
-
+	$paramoffset = 64 + strlen($name) + strlen($setup);
 	$dataoffset = $paramoffset + strlen($parameters);
-	/*if($dataoffset % 2 == 1) { //pad to SHORT
-		$dataoffset++;
-		$datapadding = chr(0);
-	} else {*/
-		$datapadding = "";
-	//}
+	$padlength = 1;
+
 
 	$packet .= pack("v", strlen($parameters)); //parameter byte count this packet
 	$packet .= pack("v", $paramoffset); //parameter offset (from header start)
 	$packet .= pack("v", strlen($data)); //data bytes sent this buffer
 	$packet .= pack("v", $dataoffset); //data offset (from header start)
-	$packet .= chr(0); //setup count (in words)
+	$packet .= chr(strlen($setup) / 2); //setup count (in words)
 	$packet .= chr(0); //reserved
-	$packet .= pack("v", 1 + strlen($parampadding) + strlen($datapadding) + strlen($name) + strlen($parameters) + strlen($data)); //Count of data bytes
-	$packet .= chr(0) . $name . $parampadding; //Name
-	$packet .= $parameters . $datapadding;
-	$packet .= $data;
+	$packet .= $setup;
+	$packet .= pack("v", $padlength + strlen($name) + strlen($parameters) + strlen($data)); //Count of data bytes
+	$packet .= str_repeat(chr(0), $padlength);
+	$packet .= $name . $parameters . $data;
 
 	return $packet;
 }
 
 function cifs_readdir(&$smb, $path) {
-	$packet = cifs_make_header(0x32, $smb);
-	$packet .= chr(15); //parameter count
-	$packet .= pack("v", 15); //total parameter count
-	$packet .= pack("v", 0); //data count
-	$packet .= pack("v", 64); //max parameter count
-	$packet .= pack("v", 16480); //max data count
-	$packet .= chr(0); //max setup count
-	$packet .= chr(0); //reserved
-	$packet .= pack("v", 0); //flags
-	$packet .= pack("V", 0); //timeout
-	$packet .= pack("v", 0); //reserved
-	$packet .= pack("v", 15); //parameter count
-	$packet .= pack("v", 68); //parameter offset
-	$packet .= pack("v", 0); //data count
-	$packet .= pack("v", 84); //data offset
-	$packet .= chr(1); //setup count
-	$packet .= chr(0); //reserved
-	$packet .= pack("v", 1); //Subcommand: FIND_FIRST2
-
-	$extradata = pack("v", 0); //search attributes
-	$extradata .= pack("v", 0xFFFF); //maximum number of entries to return
-	$extradata .= pack("v", 0x6); //flags - close search if end reached, resume keys
-	$extradata .= pack("v", INFOLEVEL);
-	$extradata .= pack("V", 0);
+	$data = pack("v", 0x37); //search attributes - include everything
+	$data .= pack("v", 0xFFFF); //maximum number of entries to return
+	$data .= pack("v", 0x2); //flags - close search if end reached
+	$data .= pack("v", 0x103); //SMB_FIND_FILE_NAMES_INFO
+	$data .= pack("V", 0);
 	if(substr($path, strlen($path) - 1, 1) != "/") $path .= "/";
-	$extradata .= cifs_str2uni($smb, "$path*");
+	$data .= cifs_str2uni($smb, "$path*");
 
-	$packet .= pack("v", strlen($extradata)) . $extradata;
-	
+	$packet = cifs_make_transaction($smb, 2, "", 1, $data, "");
 
 	netbios_send_packet($smb["sock"], $packet);
 	$data = netbios_get_packet($smb["sock"]);
-	$data = cifs_parse_header($data["data"]);
+	$data = cifs_parse_transaction($data["data"]);
 	if($data["error_code"] != 0) {
 		$smb["error"] = cifs_strerror($data);
 		return;
 	} else {
 		$smb["error"] = "";
-		$smb["tree_id"] = $data["tree_id"];
-	}	
+	}
+
+	$files = array();
+	$searchdata = array();
+
+	while(!$searchdata["end"]) {
+		$dataoffset = 0;
+		$searchdata = unpack("vid/vcount/vend", $data["parameters"]);
+		$dirdata = $data["data"];
+
+		for($i = 0; $i < $searchdata["count"]; $i++) {
+			$dirinfo = unpack("Vnextoffset/x4/Vnamelen", substr($dirdata, $dataoffset, 12));
+			$files[] = cifs_uni2str($smb, substr($dirdata, $dataoffset+12, $dirinfo["namelen"]));
+			$dataoffset += $dirinfo["nextoffset"];
+		}
+
+		if(!$searchdata["end"]) {
+			$data = pack("v", $searchdata["id"]);
+			$data .= pack("v", 0xFFFF); //maximum number of entries to return
+			$data .= pack("v", 0x103); //SMB_FIND_FILE_NAMES_INFO
+			$data .= pack("V", 0); //Not using resume keys
+			$data .= pack("v", 0x5); //flags - close search if end reached, resume from last place
+			$data .= chr(0);
+
+			$packet = cifs_make_transaction($smb, 2, "", 2, $data, "");
+
+			netbios_send_packet($smb["sock"], $packet);
+			$data = netbios_get_packet($smb["sock"]);
+			$data = cifs_parse_transaction($data["data"]);
+			if($data["error_code"] != 0) {
+				$smb["error"] = cifs_strerror($data);
+				return;
+			} else {
+				$smb["error"] = "";
+			}
+		}
+	}
+
+	return $files;
 }
 
 function cifs_str2uni(&$smb, $str) {
@@ -430,9 +455,18 @@ function cifs_str2uni(&$smb, $str) {
 }
 
 function cifs_uni2str(&$smb, $uni) {
-	if(!$smb["unicode"]) { return substr($uni, 0, strlen($uni) - 1); }
+	if($smb["unicode"]) {
+		if(
+			ord(substr($uni, strlen($uni) - 2, 1)) == 0 &&
+			ord(substr($uni, strlen($uni) - 1, 1)) == 0
+		) $uni = substr($uni, 0, strlen($uni) - 2);
+	} else {
+		if(ord(substr($uni, strlen($uni) - 1, 1)) == 0)
+			$uni = substr($uni, 0, strlen($uni) - 1);
+	}
+	if(!$smb["unicode"]) { return $uni; }
 	$out = "";
-	for($i = 0; $i < strlen($str) - 2; $i += 2) {
+	for($i = 0; $i < strlen($uni); $i += 2) {
 		$out .= substr($uni, $i, 1);
 	}
 	return $out;
@@ -448,7 +482,7 @@ function cifs_enum_shares(&$smb) {
 	$data .= pack("v", 1); //detail level
 	$data .= pack("v", 65504); //return buffer length
 
-	$packet = cifs_make_transaction($smb, "\\PIPE\\LANMAN", $data, "");
+	$packet = cifs_make_transaction($smb, 1, "\\PIPE\\LANMAN", "", $data, "");
 
 
 	netbios_send_packet($smb["sock"], $packet);
