@@ -4279,11 +4279,11 @@ sub get_picid_from_keyword
 # returns: nonzero if successful.
 # </LJFUNC>
 sub get_timezone_name {
-    my ($u, $offsetref, $fakedref) = @_;
+    my ($u, $tzref, $fakedref) = @_;
 
     my $timezone;
 
-    $timezone = $user->{timezone} || $BML::COOKIE{'ljtimezone'};
+    $timezone = $u->{timezone} || $BML::COOKIE{'ljtimezone'};
     $$fakedref = 0;
     if(!$timezone) {
         $timezone = $LJ::DEFAULT_TIMEZONE;
