@@ -296,6 +296,8 @@ sub loadconf() {
 		exit 1;
 	}
 
+	print "usnick: $usnick\n";
+
 	# If we don't do this, all the options not set on the command line
 	# will be set to undef.
 	#
@@ -307,6 +309,7 @@ sub loadconf() {
 	)) {
 		no strict 'refs';
 		next unless defined($cfghash{$option});
+		print "Got cfgopt $option == $cfghash{$option}\n";
 		if($option eq "debuglevel") {
 			foreach my $key(keys %{$cfghash{debuglevel}}) {
 				$debuglevel{$key} = $cfghash{debuglevel}{$key};
@@ -316,6 +319,7 @@ sub loadconf() {
 		}
 	}
 
+	print "usnick: $usnick\n";
 
 
 	%temp = %ircservers; #Preserve custom ircservers
