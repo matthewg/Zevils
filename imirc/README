@@ -13,11 +13,12 @@ AOL Instant Messenger and AOL are a trademarks of America Online.
 *An IMIRC-compatible IRC server with C/N lines for IMIRC.
 	Your IRC server might not work with IMIRC.  Bahamut, Cyclone,
 	Dancer, Dragonfire, Ultimate IRCD, Undernet IRCD, TS irc servers
-	such as Hybrid, Unreal, and irc.org 2.10 and possibly 2.9 are the
-	only ones that are known to work.  It should also work with anything
-	that uses RFC-standard SERVER and USER/NICK protocols.  However, if
-	you email me or contact me on AOL Instant Messenger or IRC,  I will
-	try to help you get IMIRC working with your IRC server.
+	such as Hybrid, Unreal; TS4 servers such as PTLink; and irc.org 2.10
+	and possibly 2.9 are the only ones that are known to work.  It should
+	also work with anything that uses RFC-standard SERVER and USER/NICK
+	protocols.  Adding support for additional IRC servers is a high
+	priority, please open a bug at http://bugs.zevils.com/ if your
+	IRC server is not supported.
 
 *The following perl modules (the CPAN distribution containing the module
 is given in parentheses:)

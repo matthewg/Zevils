@@ -372,6 +372,15 @@ sub loadconf() {
 			nicklen => 9,
 			pass => "PASS $ourpass :TS\r\n",
 		},
+		ts4 => {
+			nick => "NICK _NICK_ 1 _TIME_ _MODES_ _USER_ _USER_.$us _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
+			server => "CAPAB :QS EX PTS4\r\nSERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 4 4\r\nSVSINFO _TIME_ 0\r\n",
+			uspass => 1,
+			theirpass => 1,
+			nicklen => 20,
+			pass => "PASS $ourpass :TS\r\n",
+			opermodes => "+oaA",
+		},
 		unreal => {
 			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n:_NICK_ MODE _MODES_\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
@@ -3729,7 +3738,7 @@ sub checkstats() {
 
 # server uses a TS protocol
 sub IsTS() {
-	return 1 if $servermode eq "ts" or $servermode eq "bahamut" or $servermode eq "dancer";
+	return 1 if $servermode eq "ts" or $servermode eq "ts4" or $servermode eq "bahamut" or $servermode eq "dancer";
 	return 0;
 }
 
