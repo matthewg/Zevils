@@ -87,6 +87,7 @@ use Sys::Hostname;
 use HTML::FormatText;
 use HTML::Parse;
 use IO::Handle;
+use Socket;
 use File::Basename;
 use File::Spec;
 use Cwd;
