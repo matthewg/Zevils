@@ -4,7 +4,7 @@ header("Content-type: text/xml");
 ob_start();
 db_start();
 
-$extension = "6000";
+$extension = "60000";
 
 function cisco_error($title, $msg) { _cisco_text($title, $msg, "error"); }
 function cisco_message($title, $msg, $url = "") {
