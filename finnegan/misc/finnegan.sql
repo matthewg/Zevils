@@ -14,7 +14,7 @@ CREATE TABLE wakes (
 	cal_type SET('normal', 'holidays', 'Brandeis') NULL,
 	snooze_count INT NOT NULL DEFAULT 0,
 	trigger_date DATE NULL,
-	trigger_snooze INT NOT NULL DEFAULT 0,
+	trigger_snooze INT NULL,
 	next_trigger DATETIME NULL,
 	INDEX (time),
 	INDEX (date),
