@@ -86,7 +86,7 @@ END_WAKE_LIST_START
 	"wake_list_item_once" => <<<END_WAKE_LIST_ITEM_ONCE
 <tr __DELETE_CLASS__>
 	<td><input type="checkbox" name="id[__ID__]" value="1" __DELETE__ /></td>
-	<td><a href="mkwake.php?id=__ID__;extension=__EXTENSION__">Edit</a></td>
+	<td><a href="mkwake.php?id=__ID__">Edit</a></td>
 	<td>__TIME__</td>
 	<td>__DATE__</td>
 	<td></td>
