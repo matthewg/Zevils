@@ -15,7 +15,7 @@ sub BEGIN {
 	unshift @INC, dirname($0)."/lib";
 }
 
-sub log(@) { _log("NNTB: ", @_); }
+sub do_log(@) { _log("NNTB: ", @_); }
 sub _log(@) {
 	return unless $config{loglevel} >= pop;
 	print LOG scalar(localtime), "  ", @_, "\n";
@@ -32,7 +32,7 @@ sub help() {  # If called with -h or --help
 	# Get absolute path to $0
 	my($dir, $file) = fileparse($0);
 	chdir $dir;
-	my $dirpath = cwd;
+	my $dirpath = cwd();
 	my $path = File::Spec->catfile($dirpath, $file);
 
 	print <<EOF;
@@ -121,7 +121,7 @@ sub loadconf() {
 		"version|v" => \&dispver, 
 		"help|h" => \&help,
 		"config|c=s\@" => \@conffiles,
-		"debug|d" => \$debug,
+		"debug|d" => \$config{debug},
 	);
 
 	if(@ARGV) {  # We shouldn't have any arguments left over
@@ -141,12 +141,14 @@ sub loadconf() {
 	my $foundconfig = 0;
 
 	foreach my $conffile(@conffiles) {
+		my $confversion = 0;
 		$conffile =~ s/~/$home/;
-		log("Trying to read config file $conffile", LOG_INFO);
+		do_log("Trying to read config file $conffile", LOG_INFO);
+
 		if(-d $conffile) {
 			warn "$conffile is a directory!\n";
 		} elsif(-r $conffile) {
-			log("Reading config file $conffile", LOG_INFO);
+			do_log("Reading config file $conffile", LOG_INFO);
 			$confversion = 0;
 			do $conffile;
 			die $@ if $@;
@@ -159,7 +161,7 @@ sub loadconf() {
 		} elsif(-e $conffile) {
 			warn "Couldn't read config file $conffile\n";
 		} else {
-			log("$conffile does not exist", LOG_INFO);
+			do_log("$conffile does not exist", LOG_INFO);
 		}
 	}
 
@@ -187,76 +189,79 @@ EOF
 
 	Getopt::Long::Configure("no_pass_through");
 
-	$errors = &GetOptions(
-		"inetd|i" => \$inetd, 
-		"port|p=i" => \$port, 
+	$okay = &GetOptions(
+		"inetd|i" => \$config{inetd}, 
+		"port|p=i" => \$config{port}, 
 	);
 
-	if(!$errors) {
+	if(!$okay) {
 		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
 }
 
-init();
-loadconf();
+sub main() {
 
-if (!$config{inetd}) {  #We're not using inetd
-	use Socket;
-	use POSIX;
+	init();
+	loadconf();
 
-	if(!$config{debug}) {
-		$pid = fork;
-		exit if $pid;
-		die "Couldn't fork: $!" unless defined($pid);
+	if (!$config{inetd}) {  #We're not using inetd
+		use Socket;
+		use POSIX;
+
+		if(!$config{debug}) {
+			my $pid = fork;
+			exit if $pid;
+			die "Couldn't fork: $!" unless defined($pid);
 	
-		POSIX::setsid() or die "Can't start a new session: $!";
-		sub signal_handler {
-			close SERVER; 
-			exit 1;
+			POSIX::setsid() or die "Can't start a new session: $!";
+			sub signal_handler {
+				close SERVER; 
+				exit 1;
+			}
+			$SIG{INT} = $SIG{TERM} = $SIG{HUP} = \&signal_handler; #trap fatal sigs
 		}
-		$SIG{INT} = $SIG{TERM} = $SIG{HUP} = \&signal_handler; #trap fatal sigs
-	}
 
-	#Code to restart on SIGHUP
-	sub phoenix { 
-		close CLIENT; close SERVER;	exec($0, @args);
-	}
-	$SIG{HUP} = \&phoenix;
+		#Code to restart on SIGHUP
+		sub phoenix { 
+			close CLIENT; close SERVER;	exec($0, @args);
+		}
+		$SIG{HUP} = \&phoenix;
 
-	#Without this code, we get lots of fresh victims for the ever-growing army of the undead (in other words, zombies)
-	sub REAPER {
-		1 until (-1 == waitpid(-1, WNOHANG));
+		#Without this code, we get lots of fresh victims for the ever-growing army of the undead (in other words, zombies)
+		sub REAPER {
+			1 until (-1 == waitpid(-1, WNOHANG));
+			$SIG{CHLD} = \&REAPER;
+		}
 		$SIG{CHLD} = \&REAPER;
-	}
-	$SIG{CHLD} = \&REAPER;
 
-	#Code to handle incoming connections
-	socket(SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
+		#Code to handle incoming connections
+		socket(SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 
-	setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
+		setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
 
-	$my_addr = sockaddr_in($port, INADDR_ANY);
-	bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
+		my $my_addr = sockaddr_in($config{port}, INADDR_ANY);
+		bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
 
-	listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
+		listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
 
-	while(accept(CLIENT, SERVER)) {
-		next if $pid = fork; # parent
-		die "fork: $!" unless defined $pid;
-		# we are the world, we are the children
-		close SERVER;
+		while(accept(CLIENT, SERVER)) {
+			next if my $pid = fork; # parent
+			die "fork: $!" unless defined $pid;
+			# we are the world, we are the children
+			close SERVER;
 
-		$::client_ip;
+			#$::client_ip;
+			got_client();
+
+			exit;
+		} continue { close CLIENT; }
+
+		close SERVER;  #buh-bye
+	} else { #inetd == 1
+		*CLIENT = *STDIN; # 'cuz that's what inetd does
 		got_client();
-
-		exit;
-	} continue { close CLIENT; }
-
-	close SERVER;  #buh-bye
-} else { #inetd == 1
-	*CLIENT = *STDIN; # 'cuz that's what inetd does
-	got_client();
+	}
 }
 
 sub got_client() {
@@ -266,10 +271,10 @@ sub got_client() {
 	$| = 1; # Auto-flush the output.
 	print "200 " . hostname() . " NNTB server $version ready\n";
 
-	log("Got a client\n", LOG_INFO);
+	do_log("Got a client\n", LOG_INFO);
 
 	GETLINE: while(<CLIENT>) {
-		log("Client said: $_", LOG_DEBUG);
+		do_log("Client said: $_", LOG_DEBUG);
 		chomp; #Remove trailing garbadge (ie \r\n)
 		my $text = $_;
 		my @params = split;
@@ -288,8 +293,8 @@ sub got_client() {
 					}
 				}
 
-				my($msgnum, $msgid) = parseidnum($params[0] || $currmsg);
-				log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
+				($msgnum, $msgid) = parseidnum($params[0] || $currmsg);
+				do_log("Msg-ID is $msgid, number is $msgnum\n", LOG_DEBUG);
 
 				my($response, $resptext);
 				if($command eq "article") {
@@ -317,7 +322,7 @@ sub got_client() {
 					last SWITCH;
 				}
 				changegroup($params[0]);
-				log("Okay, current group is now $params[0]\n", LOG_DEBUG);
+				do_log("Okay, current group is now $params[0]\n", LOG_DEBUG);
 				last SWITCH;
 			} elsif (/^help$/) {
 				print "100 Legal commands\n";
@@ -343,7 +348,7 @@ sub got_client() {
 					my $group;
 					foreach $group (@groups) {
 						$group =~ s/^([^ ]+).+/$1/;
-						print "$group   A $slashsite group\n";
+						print "$group   A slashsite group\n";
 					}
 					print ".\n";
 				} else {
@@ -383,7 +388,7 @@ sub got_client() {
 				print "111 " . sprintf("%4u%2u%2u%2u%2u%2u", @time) . "\n";
 				last SWITCH;
 			} elsif (/^listgroup$/) {
-				my $group = $parms[0] || $currgroup;
+				my $group = $params[0] || $currgroup;
 				unless (isgroup($group)) {
 					print "411 No such group $group\n";
 					last SWITCH;
@@ -392,22 +397,22 @@ sub got_client() {
 				getarticles($group, "00000000000000");
 				last SWITCH;
 			} elsif (/^authinfo$/) {
-				if (lc($parms[0]) eq "pass" and !$user) {
+				if (lc($params[0]) eq "pass" and !"user") {
 					print "482 USER required\n";
-				} elsif (lc($parms[0]) eq "user") {
-					$user = $parms[1];
+				} elsif (lc($params[0]) eq "user") {
+					#$user = $params[1];
 					print "381 PASS required\n";
-				} elsif (lc($parms[0]) eq "pass") {
-					if ((sqlSelect("uid", "users", "nickname=" . $dbh->quote($user) ." and passwd=" . $dbh->quote($2)))[0]) {
-						log("Client is now authenticated as $user\n", LOG_INFO); 
+				} elsif (lc($params[0]) eq "pass") {
+					#if ((sqlSelect("uid", "users", "nickname=" . $dbh->quote($user) ." and passwd=" . $dbh->quote($2)))[0]) {
+						#do_log("Client is now authenticated as $user\n", LOG_INFO); 
 						print "281 Ok\n";
-					} else {
+					#} else {
 						print "503 Authentication error\n";
 						last GETLINE;
-					}
+					#}
 				}
 			} elsif (/^xover$/) {
-				xover($parms[0]);
+				xover($params[0]);
 			} else {
 				print "501 Command syntax error\n";
 			}
@@ -415,636 +420,6 @@ sub got_client() {
 		}
 	} #No more input from client
 	return;
-}
-
-sub getgroups {
-	my (@sectiontopics, @ret, $min, $max, $section, $topic, $sectiontopic, $sidate);
-	$sidate = storydatecomp($_[0]);
-	$dbh ||= sqlConnect();
-	$t = $dbh->prepare("SELECT section, tid FROM sections, topics WHERE section != '' and tid != '' and (sections.cdate >= '$_[0]' or topics.cdate >= '$_[0]')");
-	$t->execute;
-	while (($section, $topic) = $t->fetchrow) { push @sectiontopics, "$section.$topic"; }
-	foreach $sectiontopic (@sectiontopics) {
-		$sectiontopic =~ /([^.]+)\.(.+)/;
-		$section = $1; $topic = $2;
-		($min, $max) = sqlSelect("min(snum), max(snum)", "stories", "section='$section' and tid='$topic'");
-		unless(defined $min) { #No stories
-			$min = 1; $max = 0;
-		} else {
-			$min++; $max++;
-		}
-		push @ret, "$slashsite.$section.$topic.stories.ascii $max $min n";
-		push @ret, "$slashsite.$section.$topic.stories.html $max $min n";
-		$t = $dbh->prepare("SELECT title, sid FROM stories WHERE section='$section' and tid='$topic' AND $sidate");
-		$t->execute;
-		while (($title, $sid) = $t->fetchrow) {
-			$title =~ tr/ ./_/d;
-			($min, $max) = sqlSelect("min(cid), max(cid)", "comments", "sid='$sid'");
-			unless (defined $min) {
-				$min = 1;
-				$max = 0;
-			}
-			push @ret, "$slashsite.$section.$topic.$title.ascii $max $min y";
-			push @ret, "$slashsite.$section.$topic.$title.html $max $min y";
-		}
-	}
-	return @ret;
-}
-
-sub newgroups {
-	my @list = getgroups($_[0]);
-	$list[-1] .= "\n" if $list[-1];
-	print join("\n", @list);
-	print ".\n";
-}
-
-sub getarticles { #pattern, time
-	my ($pat, $time, $group, $ctr, @pats, @nots, @groups, %mgroups, $section, $topic, $sid, $cid, $sidate) = @_;
-
-	$sidate = storydatecomp($time);
-
-	foreach $pattern (split /,/, $pat) {
-		push @nots, 0;
-		($pattern =~ s/^!//) && ($nots[-1] = 1);
-		$pattern =~ s/\./\\./g;
-		$pattern =~ s/\*/.*/g;
-		push @pats, $pattern;
-	}
-	@groups = getgroups("00000000000000");
-	foreach $group (@groups) { $group =~ s/^(\S+).+/$1/; }
-	$ctr = 0;
-	foreach $pat (@pats) {
-		unless ($nots[$ctr++]) {
-			foreach $group (@groups) {
-				$mgroups{$group} = 1 if $group =~ /$pat/i;
-			}
-		}
-	}
-	$ctr = 0;
-	foreach $group (keys %mgroups) {
-		foreach $pat (@pats) {
-			if ($nots[$ctr++]) {
-				delete $mgroups{$group} if $group =~ /$pat/i;
-			}
-		}
-	}
-	foreach $group (keys %mgroups) {
-		($section, $topic, $cid, $sid) = parsegroup($group);
-		if(lc($sid) eq "0") {
-			$t = $dbh->prepare("SELECT snum FROM stories WHERE tid='$topic' AND section='$section' AND $sidate ORDER BY snum ASC");
-			$t->execute;
-			while(($sid) = $t->fetchrow) {
-				$sid++;
-				print "$sid\n";
-			}
-		} else {
-			#Find the story
-			#MSGid-ify all comments WHERE
-			$t = $dbh->prepare("SELECT cid FROM comments WHERE sid='$sid' AND date > '$time' ORDER BY cid ASC");
-			$t->execute;
-			while(($cid) = $t->fetchrow) {
-				print "$cid\n";
-			}
-		}
-	}
-	print ".\n";
-}
-
-sub movepointer {
-	my ($section, $topic, $sid, $cid, $compchar, $xcid, $format);
-	(lc($_[0]) eq "next") ?	$compchar = "<" : $compchar = ">";
-	if(!$currgroup) {
-		print "412 no newsgroup selected\n";
-		return;
-	} elsif (!$currmsg) {
-		print "420 no current article has been selected\n";
-		return;
-	}
-
-	($section, $topic, $xcid, $sid, $format) = parsegroup($currgroup);
-	if(lc($sid) ne "0") {
-		$xcid = $currmsg;
-		$xcid = (parseid($xcid))[1];
-		($cid) = sqlSelect("cid", "stories", "sid='$sid' AND cid $compchar $xcid");
-		unless ($cid) {
-			print "42";
-			(lc($_[0]) eq "next") ? print "1 no next " : print "2 no previous ";
-			print "article in this group\n";
-			return;
-		}
-		$sid =~ tr!/!!d;
-		$currmsg = $cid;
-		print "233 $cid <" . ha($format) . "${sid}.$cid\@" . hostname() . "> article retrieved - request text seperately\n";
-	} else {
-		$xcid = slashsid($currmsg + 1);
-		($sid, $cid) = sqlSelect("sid, snum", "stories", "section='$section' AND tid='$topic' AND sid $compchar '$xcid'");
-		unless ($sid) {
-			print "42";
-			(lc($_[0]) eq "next") ? print "1 no next " : print "2 no previous ";
-			print "article in this group\n";
-			return;
-		}
-		$sid =~ tr!/!!d;
-		$currmsg = ++$cid;
-		print "233 $currmsg <" . ha($format) . "$sid\@" . hostname() . "> article retrieved - request text seperately\n";
-	}
-}
-
-sub changegroup($;$) {
-	my($group, $alttext) = @_;
-	my ($num, $first, $last, $section, $topic, $sid, $format);
-	unless (isgroup($group)) {
-		print "411 No such news group\n";
-	} else {
-		($section, $topic, $first, $sid, $format) = parsegroup($group);
-		if(lc($sid) ne "0") {
-			$dbh ||= sqlConnect;
-			($first, $last, $num) = sqlSelect("min(cid), max(cid), count(cid)", "comments", "sid=" . $dbh->quote($sid));
-			$sid =~ tr!/!!d;
-			unless(defined $first) {
-				$first = 1;
-				$last = 0;
-			}
-		} else {
-			($first, $last, $num) = sqlSelect("min(snum), max(snum), count(snum)", "stories", "tid='$topic' and section='$section'");
-			unless(defined $first) {
-				$first = 1;
-				$last = 0;
-			} else {
-				$first++; $last++;
-			}
-		}
-		$currmsg = $first;
-		$currgroup = $group;
-		print "211 ", ($alttext || "$num $first $last $group group selected"), "\n";
-	}
-}
-
-sub slashsid {
-	my $sid = shift;
-	print "slashsid got $sid... " if $debug >= 6;
-	if(substr($sid, 0, 1) ne "9") { #Y2K compliance
-			           #Note that this breaks if you have stories prior to 1990 or after 2899 ;)
-		$sid =~ s!^(...)(..)(..)(.+)$!$1/$2/$3/$4!;
-	} else { #We're in the 1990s, so two-digit year (cuz year is year-1900)
-		$sid =~ s!^(..)(..)(..)(.+)$!$1/$2/$3/$4!;
-	}
-	print "$sid\n" if $debug >= 6;
-	return $sid;
-}
-
-sub isgroup {
-	my $group = shift; my ($s, $section, $tid, $other, $t, $i, $format);
-	($s, $section, $tid, $other, $format) = split(/\./, $group);
-	($s, $t) = sqlSelect("section, tid", "sections, topics", "lower(section)=lower('$section') and lower(tid)=lower('$tid')");
-	lc($other) ne "stories" ? $i = title2sid($other) : $i = 1;
-	unless ($s && $t && $i && (lc($format) eq "html" or lc($format) eq "ascii")) {
-		return 0;
-	} else {
-		return 1;
-	}
-}
-
-sub title2sid {
-	my ($title, $sid) = shift; $title = lc($title);
-	$dbh ||= sqlConnect;
-	($sid) = sqlSelect("sid", "stories", "lower(replace(title, ' ', '_'))=" . $dbh->quote($title));
-	return $sid;
-}
-
-sub parsegroup {
-	my $group = shift;
-	my ($sid, $section, $topic, $title, $format);
-	$group =~ /^$slashsite\.([^.]+)\.([^.]+)\.(.+)\.(html|ascii)$/i;
-	($section, $topic) = ($1, $2);
-	return ($section, $topic, 0, 0, $4) if lc($3) eq "stories";
-	return ($section, $topic, $3, title2sid($3), $4);
-}
-
-sub parseid {
-	my $id = shift; my $format;
-	$id =~ tr/<>//d;
-	$id =~ s/([ah])([^\@]+)\@.+/$2/;
-	(lc($1) eq "a") ? ($format = "ascii") : ($format = "html");
-	if ($id !~ /\./) { #Story
-		return (slashsid($id), -1, $format);
-	} else { #Comment
-		$id =~ /^([^.]+)\.(.+)/;
-		return (slashsid($1), $2, $format);
-	}
-}
-
-sub getstory {
-	my ($command, $sid, $format) = @_; my ($nssid, $nstitle, $html);
-	$format = $_[3];
-	my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-
-	$sid = slashsid($sid) if $sid !~ m!/!;
-
-	debug("Getting $command for story $sid in format $format\n", 1);
-
-	$sid ||= 0;
-
-	return if lc($command) eq "stat";
-	my ($snum, $aemail, $aname, $section, $topic, $title, $dept, $intro, $body) =
-		sqlSelect("snum, email, name, stories.section, tid, title, dept, introtext, bodytext", "stories, authors", "stories.aid = authors.aid AND sid='$sid'");
-
-	debug("Selected.\n", 1);
-
-	($nssid = $sid) =~ tr!/!!d;
-
-	unless (defined $snum) {
-		print "430 no such article found\n";
-		return;
-	}
-
-	$date = sid2date($sid);
-
-	debug(warn "Sending headers?\n", 1);
-
-	if(lc($command) ne "body") {
-		print "Path: $slashsite!not-for-mail\n";
-		print "Message-ID: <" . ha($format) . "$nssid\@" . hostname() . ">\n";
-		print "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
-		print "X-URL: " . (getvars("rootdir"))[0] . "/article.pl?sid=$sid\n";
-		print "From: $aname ($aemail)\n";
-		print "Newsgroups: $slashsite.$section.$topic.stories.$format\n";
-		print "Subject: $title\n";
-		($nstitle = $title) =~ tr/ ./_/;
-		print "Followup-To: $slashsite.$section.$topic.$nstitle.$format\n";
-		$date =~ /(....)(..)(..)(..)(..)(..)/;
-		my($second, $minute, $hour, $day, $month, $year);
-		$month = $2; $month = 1 if $month <= 0;
-		$year = $1; $year = 1900 if $year < 1900;
-		($second, $minute, $hour, $day, $month, $year) = gmtime(timelocal($6, $5, $4, $3, $month - 1, $year - 1900));
-		$year += 1900;
-		print "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
-		print "X-Dept: $dept\n";
-	}
-	debug("Sending body?\n", 1);
-	print "\n" if lc($command) eq "article";
-	if (lc($command) ne "head") {
-		my $block = prepEvalBlock(getblock("nntpadvertisement"));
-		$block ||= "";
-		$body = eval $block;
-		warn "\nError:$@\n" if($@); $intro ||= ""; $body ||= "";
-		$body .= "<p>$intro<p>$body\n";
-		if (lc($format) eq "ascii") {
-			treeprint(HTML::TreeBuilder->new->parse($body));
-		} else {
-			print $body;
-		}
-	}
-	debug("Done\n", 1);
-	print ".\n";
-}
-
-sub getcomment {
-	my ($command, $sid, $cid, $format) = @_; my ($nssid, $nstitle, $url, $html);
-	my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-
-	$sid = slashsid($sid) if $sid !~ m!/!;
-	$sid ||= 0; $cid ||= 0;
-	($nssid = $sid) =~ tr!/!!d;
-
-	return if lc($command) eq "stat";
-
-	my ($pid, $email, $name, $section, $topic, $subject, $title, $date, $score, $homepage, $username, $body, $sig) =
-		sqlSelect("pid, users.fakeemail, users.realname, section, tid, subject, title, comments.date, comments.points, homepage, nickname, comment, sig", "comments, stories, users", "stories.sid = comments.sid AND comments.uid = users.uid AND comments.cid='$cid' AND comments.sid='$sid'");
-
-	unless (defined $date) {
-		print "430 no such article found\n";
-		return;
-	}
-
-	($nstitle = $title) =~ tr/ ./_/;
-	if(lc($command) ne "body") {
-		print "Path: $slashsite!not-for-mail\n";
-		print "Message-ID: <" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\n";
-		print "Content-Type: text/$format; charset=us-ascii\n" if lc($format) eq "html";
-		print "References: <" . ha($format) . "${nssid}.$pid\@" . hostname() . ">\n" if $pid;
-		$url = (getvars("rootdir"))[0] . "/comments.pl?sid=$sid";
-		$url .= "&pid=$pid#$cid" if $pid;
-		print "X-URL: $url\n";
-		print "From: $name ($email)\n";
-		print "Newsgroups: $slashsite.$section.$topic.$nstitle.$format\n";
-		print "Subject: $subject\n";
-		$date =~ /(....)-(..)-(..) (..):(..):(..)/;
-		my($second, $minute, $hour, $day, $month, $year);
-		$month = $2; $month = 1 if $month <= 0;
-		$year = $1; $year = 1900 if $year < 1900;
-		($second, $minute, $hour, $day, $month, $year) = gmtime(timelocal($6, $5, $4, $3, $month - 1, $year - 1900));
-		$year += 1900;
-		$hour = "0$hour" if length($hour) < 2;
-		$minute = "0$minute" if length($minute) < 2;
-		$second = "0$second" if length($second) < 2;
-		print "Date: $day $months[$month] $year $hour:$minute:$second GMT\n";
-		print "X-Score: $score\n";
-		print "X-Homepage: $homepage\n";
-		print "X-Username: $username\n";
-	}
-	print "\n" if lc($command) eq "article";
-	if (lc($command) ne "head") {
-		my $block = prepEvalBlock(getblock("nntpadvertisement"));
-		$block ||= "";
-		$body = (eval $block) . "<p>$body<br>\n-- <br>\n$sig\n";
-		warn "\nError:$@\n" if($@);
-		if (lc($format) eq "ascii") {
-			treeprint(HTML::TreeBuilder->new->parse($body));
-		} else {
-			print $body;
-		}
-	}
-	print ".\n";
-}
-
-sub post {
-	my($USER, $FORM, $line, $body, $uh, $ph, $head, $val, $sid, $section, $topic, $title, $pid);
-	foreach $line (@_) {
-		unless ($body) { #Process headers
-			$line =~ s/\r\n$//;
-			if ($line eq "") {
-				$body = 1; $$FORM{pid} = $pid || 0; $$FORM{posttype} ||= "exttrans";
-				if($uh) {
-					($$USER{uid}, $$USER{defaultpoints}, $$USER{aseclev}) = sqlSelect("uid, defaultpoints, seclev", "users", "nickname='$uh' and passwd='$ph'");
-					unless ($$USER{uid}) {
-						print "442 Invalid login/password\n";
-						return;
-					}
-				} elsif ($user) {
-					($$USER{uid}, $$USER{defaultpoints}, $$USER{aseclev}) = sqlSelect("uid, defaultpoints, seclev", "users", "nickname='$user'");
-				} else {
-					($$USER{uid}, $$USER{defaultpoints}, $$USER{aseclev}) = sqlSelect("uid, defaultpoints, seclev", "users", "uid=-1");
-				}
-			} else {
-				$line =~ /^([^:]+): (.+)/;
-				$head = lc($1); $val = $2;
-				if ($head eq "subject") {
-					$$FORM{postersubj} = $val;
-				} elsif ($head eq "content-type") {
-					$val =~ /html/ ? $$FORM{posttype} = "html" : $$FORM{posttype} = "exttrans";
-				} elsif ($head eq "newsgroups") {
-					($section, $topic, $title, $sid) = parsegroup($val);
-					unless ($sid) {
-						print "443 Invalid group\n";
-						return;
-					}
-					$$FORM{sid} = $sid;
-				} elsif ($head eq "references") {
-					$val =~ /^\<.([^.]+)\.([^\@]+)/;
-					($sid, $pid) = (slashsid($1), $2);
-				} elsif ($head eq "x-username" or $head eq "x-user" or $head eq "x-login") {
-					$uh = $val;
-				} elsif ($head eq "x-password") {
-					$ph = $val;
-				}
-			}
-		} else {
-			$$FORM{postercomment} .= $line;
-		}
-	}
-	unless (submitComment($FORM, $USER)) {
-		print "441 posting failed\n";
-	} else {
-		print "240 article posted ok\n";
-	}
-}
-
-sub submitComment
-{
-	my($FORM,$USER)=@_;
-
-	$$FORM{postersubj}||="No Subject Given";
-	$$FORM{postersubj}=stripByMode($$FORM{postersubj},
-		"nohtml",$$USER{aseclev},(""));
-	$$FORM{postercomment}=stripByMode($$FORM{postercomment},
-		$$FORM{posttype},$$USER{aseclev},getapptags()); 
-
-	if($$FORM{postercomment}) {  	
-		my ($maxCid)=sqlSelect("max(cid)","comments",
-			"sid=".$dbh->quote($$FORM{sid}));
-               	$maxCid+=(int(rand 25)+1);
-		$maxCid||=1;
-
-		my ($dupRows)=sqlSelect("count(*)","comments","
-			comment=".$dbh->quote($$FORM{postercomment})." 
-		 	and sid=".$dbh->quote($$FORM{sid}));
-
-		my $pts=$$USER{defaultpoints};
-		$pts=0 if $$USER{uid} < 1;
-		my $ident;
-		if($$USER{uid} > 0) {
-			$ident="newsd";
-		} else {
-			$ident="anonymous";
-		}
-
-		my $insline=("INSERT into comments values (
-                                ".$dbh->quote($$FORM{sid})." ,$maxCid,$$FORM{pid},
-                                 now(),'UNUSED','UNUSED',
-                                 '$ident','',0,
-                                 ".$dbh->quote($$FORM{postersubj}).",
-                                 ".$dbh->quote($$FORM{postercomment}).",
-                                 0,$$USER{uid},$pts,-1)");
-			
-		if($$FORM{pid}>$maxCid or $dupRows or $$FORM{sid} eq "") {
-			return 0;
-		} elsif ($$FORM{postersubj} =~ /\w{80}/  or 
-			 $$FORM{postercomment} =~ /\w{80}/) {
-				return 0;
-		} else {
-       	       		if($dbh->do($insline)) {
-				$dbh->do("update stories set 
-					commentcount=commentcount+1,
-					writestatus=1 where 
-					sid=".$dbh->quote($$FORM{sid}));
-
-				my ($tc,$mp,$cpp)=getvars(
-					"totalComments","maxPoints",
-					"commentsPerPoint");
-				$tc++;
-				$dbh->do("UPDATE vars SET value = '$tc' WHERE name = 'totalcomments'");
-
-				if(!($tc % $cpp)) {
-					$dbh->do("UPDATE users SET
-						points=points+1
-						WHERE seclev>0 and points<$mp");
-				}
-				return 1;
-			} else {
-				open ERROR,">>$rootdir/logs/commSubErr";
-				print ERROR localtime()."$DBI::errstr $insline\n";
-				close ERROR;
-				return 0;
-			}
-		}
-	}
-}
-
-sub xover {
-	my $first = shift; my ($last, $sid, $section, $topic, $subject, $email, $name, $introlen, $bodylen, $date, $from, $len, $nssid, $cid, $pid, $ref, $xref, $title, $snum, $format);
-	my($second, $minute, $hour, $day, $month, $year);
-	my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-	#Okay, this is what we need to do.
-	#$text can be a msgnum, msgnum-, or msgnum-msgnum
-	#msgnum means just that msg
-	#msgnum- means all from msgnum to last
-	#msgnum-msgnum specifies range
-
-	unless ($currgroup) {
-		print "412 No news group current selected\n";
-		return;
-	}
-
-	($section, $topic, $title, $sid, $format) = parsegroup($currgroup);
-	if(lc($sid) eq "0") {
-		$sid = "stories";
-	}
-
-	$first ||= $currmsg;
-
-	if ($first =~ /\-/) { #We want multiple msgs
-		$first =~ /^([^-]+)-(.+)?/;
-		$first = $1; $last = $2;
-		if (!$last) {
-			if($sid eq "stories") {
-				($last) = sqlSelect("max(snum)", "stories", "section='$section' and tid='$topic");
-			} else {
-				($last) = sqlSelect("max(cid)", "comments", "sid='$sid'");
-			}
-		}
-	} else { $last = $first; }
-
-	$first-- if $sid eq "stories"; $last-- if $sid eq "stories";
-	print "224 Overview information follows\n";
-
-	$dbh ||= sqlConnect();
-	if ($sid eq "stories") {
-		$t = $dbh->prepare("SELECT sid, snum, title, email, name, length(introtext), length(bodytext), sid FROM stories, authors WHERE stories.aid = authors.aid AND stories.section='$section' AND stories.tid='$topic' AND snum >= '$first' AND snum <= '$last' ORDER BY snum ASC");
-		$t->execute;
-		while(($sid, $snum, $subject, $email, $name, $introlen, $bodylen, $date) = $t->fetchrow) {
-			$snum++;
-			($nssid = $sid) =~ tr!/!!d;
-			$subject =~ tr/\t/ /;
-			($from = "$name ($email)") =~ tr/\t/ /;
-			$len = int(($introlen + $bodylen) / 80) + 1;
-			$date = sid2date($date);
-			$date =~ /(....)(..)(..)(..)(..)(..)/;
-			$month = $2; $month = 1 if $month <= 0;
-			$year = $1; $year = 1900 if $year < 1900;
-			($second, $minute, $hour, $day, $month, $year) = gmtime(timelocal($6, $5, $4, $3, $month - 1, $year - 1900));
-			$year += 1900;
-			$date = "$day $months[$month] $year $hour:$minute:$second GMT";
-			$xref = hostname() . " $slashsite.$section.$topic.stories.$format:$snum";
-			print "$snum\t$subject\t$from\t$date\t<" . ha($format) . "$nssid\@" . hostname() . ">\t\t" . int($introlen + $bodylen) . "\t$len\tXref:$xref\n";
-		}
-	} else {
-		$t = $dbh->prepare("SELECT cid, pid, subject, users.fakeemail, users.realname, length(comment), comments.date FROM comments, users WHERE comments.uid = users.uid AND comments.sid='$sid' AND cid >= '$first' AND cid <= '$last' ORDER BY cid ASC");
-		$t->execute;
-		($nssid = $sid) =~ tr!/!!d;
-		while(($cid, $pid, $subject, $email, $name, $len, $date) = $t->fetchrow) {
-			$subject =~ tr/\t/ /;
-			($from = "$name ($email)") =~ tr/\t/ /;
-			$date =~ /(....)-(..)-(..) (..):(..):(..)/;
-			$month = $2; $month = 1 if $month <= 0;
-			$year = $1; $year = 1900 if $year < 1900;
-			($second, $minute, $hour, $day, $month, $year) = gmtime(timelocal($6, $5, $4, $3, $month - 1, $year - 1900));
-			$year += 1900;
-			$hour = "0$hour" if length($hour) < 2;
-			$minute = "0$minute" if length($minute) < 2;
-			$second = "0$second" if length($second) < 2;
-			$date = "$day $months[$month] $year $hour:$minute:$second GMT";
-			$ref = "";
-			$ref = "<" . ha($format) . "${nssid}.$pid\@" . hostname() . ">" if $pid;
-			$xref = hostname() . " $slashsite.$section.$topic.$title.$format:$cid";
-			print "$cid\t$subject\t$from\t$date\t<" . ha($format) . "${nssid}.$cid\@" . hostname() . ">\t$ref\t$len\t" . int($len / 80) . "\tXref:$xref\n";
-			$pid = 0;
-		}
-	}
-	print ".\n";
-}
-
-sub parseidnum { #Take either a msgnum or msgid, return (msgnum, msgid)
-	my ($num, $id, $format);
-	if ($_[0] =~ /\</) { #ID
-		$id = shift;
-		if ($id =~ /\./) { #Comment
-			$id =~ /^\<(.)[^.]+\.(.+)/;
-			$1 eq "h" ? $format = "html" : $format = "ascii";
-			$num = $2;
-		} else { #Story
-			$id =~ /^\<(.)(.+)\>/;
-			$1 eq "h" ? $format = "html" : $format = "ascii";
-			($num) = sqlSelect("snum", "stories", "sid='" . slashsid($2) || 0 . "'");
-			$num++;
-		}
-	} else { #num
-		$num = shift;
-		if ($currgroup =~ /^$slashsite\.[^.]+\.[^.]+\.stories\.(html|ascii)$/) { #Story
-			$num ||= 0;
-			$num--;
-			($id) = sqlSelect("sid", "stories", "snum='$num'");
-			$num++;
-			$id =~ tr!/!!d;
-			$format = $1;
-			$id = "<" . ha($format) . "$id\@" . hostname() . ">";
-		} else { #Comment
-			$currgroup =~ /^$slashsite\.[^.]+\.[^.]+\.(.+)\.(html|ascii|)/;
-			$id = title2sid($1);
-			$id =~ tr!/!!d;
-			$format = $2;
-			$id = "<" . ha($format) . "$id.$num\@" . hostname() . ">";
-		}
-	}
-	return ($num, $id);
-}
-
-sub sid2date { #Takes a SID, returns date in YYYYMMDDHHMMSS format
-	my $sid = shift;
-	$sid = substr($sid, 0, index($sid, "/") + 13); #Get y?yy/mm/dd/hhmmss
-	$sid = "0$sid" if $sid =~ m!^\d\d/!; #Pad if necessary
-	$sid =~ m!^(\d\d\d)/(\d\d)/(\d\d)/(\d\d\d\d\d\d)!;
-	return 1900 + $1 . "$2$3$4";
-
-	#SIDs take the form yyy/mm/dd/hhmmssxxxxxx
-	#yyy is an unknown number of digits and is number of years since 1900
-	#mm and dd are two-digits month and day
-	#hh, mm, ss are two-digit hours, minutes, seconds
-	#there is at least one x, where x is not date-related
-}
-
-sub storydatecomp { #Takes a datetime in yyyymmddhhmmss form
-		    #Returns a SQL string to see sid >= the time
-	my $sidate = shift; my $y;
-	$sidate =~ /^(....)(..)(..)(..)(..)(..)/;
-	$y = $1; $y = 1910 if $y < 1900; #So that we get two digits
-	$sidate = $y - 1900 . "/$2/$3/$4$5$6";
-	$sidate = "0$sidate" if $sidate =~ m!^\d\d/!; #We have a two-digit year
-	return "(lpad(left(sid, locate('/', sid) + 12), length('$sidate'), '0') >= '$sidate')";
-
-	#Maybe I'd better explain that weird-looking thing that's being compared to $sidate.
-	#$sidate is a date in the form of YYYYMMDDHHMMSS.
-	#We turn it into SID form as explained in the sid2date function.
-	#Then we do the same stuff as the sid2date function, but in SQL.
-}
-
-sub ha { $_[0] =~ /^(.)/; return lc($1); }
-
-sub treeprint {
-	my $html = shift; #Modifying $html mod
-	my $linkct = 0;
-	my ($link, $elem, $node, @links);
-	foreach $node (@{$html->extract_links("a")}) { #For every <A HREF
-		($link, $elem) = @$node;
-		${$$elem{_content}}[0] .= "[$linkct]"; $linkct++; #Add the [#] to the link text
-		push @links, $link;
-	}
-	print HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($html); #Print the text
-	print "\n";
-	$linkct = 0;
-	foreach $link (@links) { #Print the link table
-		print "[$linkct] $link\n"; $linkct++;
-	}
 }
 
 sub params2time(@) {
@@ -1062,3 +437,8 @@ sub params2time(@) {
 	$year += 1900;
 	return sprintf("%04d%02d%02d%02d%02d%02d", $year, $month, $day, $hour, $minute, $second);
 }
+
+
+
+main();
+
