@@ -40,7 +40,6 @@ if(isset($_REQUEST["id"])) {
 
 		</CiscoIPPhoneText>
 <?
-	}
 } else {
 	cisco_message("Select Alarm", "Please select an alarm to view.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 }

@@ -20,7 +20,7 @@ function db_error() {
 
 	$errmsg = "Couldn't connect: " . mysql_error();
 	if($cisco) {
-		cisco_error("Database Error", $errmsg);
+		cisco_message("Database Error", $errmsg);
 	} else {
 		echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["global"]["db_error"]);
 		page_end();
