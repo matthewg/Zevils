@@ -70,6 +70,7 @@ END
 	"time_invalid" => errmsg("Please enter a valid time."),
 	"ampm_invalid" => errmsg("Please specify 'AM' or 'PM'."),
 	"message_invalid" => errmsg("Please enter a valid wake-up message number."),
+	"max_snooze_count_invalid" => errmsg("Please enter a valid maximum snooze count."),
 	"date_invalid" => errmsg("Please enter a valid date."),
 	"weekdays_invalid" => errmsg("Please select one or more days of the week."),
 	"cal_type_invalid" => errmsg("Please select a valid calendar type."),
@@ -160,6 +161,9 @@ Calendar Type: <select name="cal_type">
 <option value="normal" __CALTYPE_NORMAL__>Normal</option>
 </select>
 </p></div><p>
+6. Advanced Options (<a href="docs.php#<?echo crc32("What are the advanced options for alarms?")?>">What are these?</a>)
+Maximum snooze count: <input type="text" name="max_snooze_count" size="2" maxlength="1" value="__MAXSNOOZE__" />
+</p><p>
 <input type="submit" name="submit" value="Submit" /><br />
 </p><p>
 <input type="reset" />

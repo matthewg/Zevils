@@ -69,6 +69,15 @@ if(isset($_POST["submit"])) {
 	}
 	if(isset($_POST["message"])) $message = $_POST["message"];
 
+	if(isset($_POST["max_snooze_count"])) {
+		if(!preg_match('/^\d*$/', $_POST["max_snooze_count"])) {
+			$error = 1;
+			echo $TEMPLATE["mkwake"]["max_snooze_count_invalid"];
+		} else {
+			$max_snooze_count = $_POST["max_snooze_count"];
+		}
+	}
+
 	if($type == "one-time") {
 		if(!isset($_POST["date"]) || !preg_match('/^(\d+)\/(\d+)$/', $_POST["date"], $matches) || $matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) {
 			$error = 1;
@@ -147,7 +156,7 @@ if(isset($_POST["submit"])) {
 			if($val) $sql_weekdays[] = ucfirst($day);
 		}
 
-		set_wake($id, $sql_time, $message, $type, $date, $sql_weekdays, $_POST["cal_type"]);
+		set_wake($id, $sql_time, $message, $type, $date, $sql_weekdays, $_POST["cal_type"], $max_snooze_count);
 		redirect("wakes.php");
 	}
 } else if($id) {
@@ -172,6 +181,7 @@ if(isset($_POST["submit"])) {
 		$pm = "checked";
 
 	$message = $row["message"];
+	$max_snooze_count = $row["max_snooze_count"];
 
 	if($row["date"]) {
 		$onetime = "checked";
@@ -220,7 +230,7 @@ echo preg_replace(array(
 		"/__RECUR__/", "/__ONETIME__/",
 		"/__AM__/", "/__PM__/",
 		"/__MESSAGE_LINKS__/", "/__MESSAGE_OPTIONS__/",
-		"/__DATE__/",
+		"/__MAXSNOOZE__/", "/__DATE__/",
 		"/__MON__/", "/__TUE__/", "/__WED__/", "/__THU__/", "/__FRI__/", "/__SAT__/", "/__SUN__/",
 		"/__CALTYPE_BRANDEIS__/", "/__CALTYPE_HOLIDAYS__/", "/__CALTYPE_NORMAL__/",
 	), array(
@@ -228,7 +238,7 @@ echo preg_replace(array(
 		$recur, $onetime,
 		$am, $pm,
 		$message_links, $message_options,
-		$date,
+		isset($max_snooze_count) ? $max_snooze_count : "", $date,
 		$weekdays["mon"], $weekdays["tue"], $weekdays["wed"], $weekdays["thu"], $weekdays["fri"], $weekdays["sat"], $weekdays["sun"],
 		$caltype_brandeis, $caltype_holidays, $caltype_normal
 	), $TEMPLATE["mkwake"]["form"]

@@ -124,6 +124,7 @@ New/Edit Wake-Up Call items (mkwake):
 	time_invalid: Error for 'time' is invalid
 	ampm_invalid: Error for 'must specify AM or PM'
 	message_invalid: ...
+	max_snooze_count_invalid: ...
 	date_invalid: ...
 	weekdays_invalid: Must specify at least one weekday.
 	cal_type_invalid: ...
@@ -151,6 +152,7 @@ New/Edit Wake-Up Call items (mkwake):
 		AM: If time is in AM, 'checked'
 		PM: Ditto
 		MESSAGE: Number of the message
+		MAXSNOOZE
 		DATE
 		MON, TUE, WED, THU, FRI, SAT, SUN: If that weekday is selected, 'checked'
 		CALTYPE_BRANDEIS: If this calendar type is active, 'checked'
@@ -164,6 +166,7 @@ New/Edit Wake-Up Call items (mkwake):
 		time: Time of the wake-up call
 		ampm: 'AM' if time is 'AM', otherwise 'PM'
 		message: Number of the wake-up message the user wants
+		max_snooze_count
 		type: 'recur' or 'one-time'
 		submit: non-empty
 		One-time wake-up calls:

@@ -15,7 +15,7 @@ class FinneganConfig {
 
 # Miscellaneous settings
 $testmode = 1;
-$nocalls = 0;
+$nocalls = 1;
 $forbidden_extensions = array("62000", "62222", "63000", "63333", "65000"); # Can take /regex/ or 60000-60500
 $use_cisco = 1;
 

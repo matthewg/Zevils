@@ -32,6 +32,13 @@ Brandeis Monday.
 END_FAQITEM
 ),
 
+	array("What are the advanced options for alarms?", <<<END_FAQITEM
+<b>Maximum Snooze Count</b>: This controls how many times Finnegan will try calling you back
+if you don't answer an alarm.  For instance, setting this to 0 will stop Finnegan from
+calling you back at all.  If you set this to more than the default value, the default
+will be used instead.
+END_FAQITEM
+),
 	array("Who recorded those fabulous messages?", <<<END_FAQITEM
 The prompts, numbers, and the "This is your wake-up call" and "WAKE UP!!" wake-up messages
 were recorded by <a href="http://www.zevils.com/">Matthew Sachs</a>.
@@ -109,12 +116,12 @@ page_start();
 
 echo $TEMPLATE["docs"]["index_start"];
 for($i = 0; $i < sizeof($faqs); $i++)
-	echo preg_replace(array("/__NAME__/", "/__NUM__/"), array($faqs[$i][0], $i+1), $TEMPLATE["docs"]["index_entry"]);
+	echo preg_replace(array("/__NAME__/", "/__NUM__/"), array($faqs[$i][0], crc32($faqs[$i][0])), $TEMPLATE["docs"]["index_entry"]);
 echo $TEMPLATE["docs"]["index_end"];
 
 echo $TEMPLATE["docs"]["body_start"];
 for($i = 0; $i < sizeof($faqs); $i++)
-	echo preg_replace(array("/__NAME__/", "/__CONTENTS__/", "/__NUM__/"), array($faqs[$i][0], $faqs[$i][1], $i+1), $TEMPLATE["docs"]["body_entry"]);
+	echo preg_replace(array("/__NAME__/", "/__CONTENTS__/", "/__NUM__/"), array($faqs[$i][0], $faqs[$i][1], crc32($faqs[$i][0])), $TEMPLATE["docs"]["body_entry"]);
 echo $TEMPLATE["docs"]["body_end"];
 
 page_end();

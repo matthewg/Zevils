@@ -70,7 +70,7 @@ function get_wake($id) {
 	return mysql_fetch_assoc($result);
 }
 
-function set_wake($id, $time, $message, $type, $date, $days, $cal_type) {
+function set_wake($id, $time, $message, $type, $date, $days, $cal_type, $max_snooze_count) {
 	global $extension;
 
 	if($type == "one-time") {
@@ -80,6 +80,14 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type) {
 		$cols = array("date", "extension", "time", "message", "weekdays", "cal_type");
 		$values = array("NULL", "'$extension'", "'$time'", $message, "'".implode(",", $days)."'", "'$cal_type'");
 	}
+
+	$cols[] = "max_snooze_count";
+	if(isset($max_snooze_count)) {
+		$values[] = $max_snooze_count;
+	} else {
+		$values[] = "NULL";
+	}
+
 
 	if(!$id) {
 		if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",

@@ -95,7 +95,7 @@ $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; 
 
 
 
-our($extension_debug, $call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid);
+our($extension_debug, $call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid, $wake_maxsnooze);
 sub prepare_statements() {
 	my $callcap;
 	if($Finnegan::Config::use_cisco) {
@@ -120,6 +120,7 @@ sub prepare_statements() {
 	$log_forgot_pin_start = $dbh->prepare("INSERT INTO log_ext (extension, event, start_time, phoneline) VALUES (?, 'forgotpin', NOW(), ?)");
 	$log_forgot_pin_end = $dbh->prepare("UPDATE log_ext SET result=?, end_time=NOW(), data=? WHERE log_id=?");
 	$get_insertid = $dbh->prepare("SELECT LAST_INSERT_ID()");
+	$wake_maxsnooze = $dbh->prepare("SELECT ISNULL(max_snooze_count, $Finnegan::Config::max_snooze_count) FROM wakes WHERE wake_id = ?");
 }
 prepare_statements();
 
@@ -575,7 +576,17 @@ sub make_call($$) {
 			my $snooze_ok = 0;
 			if($type eq "wake") {
 				$timeout = $Finnegan::Config::max_wake_duration;
-				$snooze_ok = 1 if $row->{snooze_count} < $Finnegan::Config::max_snooze_count;
+
+				# Grab the user's "max snooze count" for this wake.
+				# If it's NULL, we automatically fill in the default at SELECT-time (via the ISNULL SQL function.)
+				# If they specified too many snoozes, kick them.
+				#
+				my $rv = $wake_maxsnooze->execute($row->{wake_id});
+				my $this_maxsnooze = ($wake_maxsnooze->fetchrow_arrayref())->[0];
+				$this_maxsnooze = $Finnegan::Config::max_snooze_count
+					if $this_maxsnooze > $Finnegan::Config::max_snooze_count;
+
+				$snooze_ok = 1 if $row->{snooze_count} < $this_maxsnooze;
 			} else {
 				$timeout = $Finnegan::Config::max_forgot_pin_duration;
 			}

@@ -35,6 +35,7 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 		}
 
 		$oldvalues["message"] = $wake["message"];
+		$oldvalues["max_snooze_count"] = $wake["max_snooze_count"];
 
 		$oldvalues["weekdays"] = array();
 		if($wake["weekdays"]) {
@@ -161,11 +162,23 @@ END
 END
 		)
 	), "cal_type" => array(
-		"next" => "done",
+		"next" => "advanced",
 		"prev" => "weekdays",
 		"validate" => create_function('$cal_type', <<<END
 			if(\$cal_type != "Brandeis" && \$cal_type != "holidays" && \$cal_type != "normal") {
 				return "Invalid Calendar Type";
+			} else {
+				return "";
+			}
+END
+		)
+	), "advanced" => array(
+		"next" => "done",
+		"prev" => "",
+		"values" => array("max_snooze_count"),
+		"validate" => create_function('$max_snooze_count', <<<END
+			if(isset($max_snooze_count) && !preg_match('/^[0-9]*$/', \$max_snooze_count)) {
+				return "Invalid Snooze Count";
 			} else {
 				return "";
 			}
@@ -223,25 +236,26 @@ if(isset($_REQUEST["weekdays"])) {
 
 if(!isset($prompt)) $prompt = "";
 if($prompt && $process) {
-	$dome = 1;
+	$do_me = 1;
 	$values = array($prompt);
 	if(isset($prompts[$prompt]["values"])) $values = $prompts[$prompt]["values"];
 	if(sizeof($values) == 1) {
 		$vallist = $_SESSION[$values[0]];
-		if(!$vallist) $dome = 0;
+		if(!$vallist) $do_me = 0;
 	} else {
 		$vallist = array();
 		for($i = 0; $i < sizeof($values); $i++) {
 			$vallist[$i] = $_SESSION[$values[$i]];
-			if(!$vallist[$i]) $dome = 0;
+			if(!$vallist[$i]) $do_me = 0;
 		}
 	}
 
-	if($dome) {
+	if($do_me) {
 		$title = $prompts[$prompt]["validate"]($vallist);
 		if(!$title) { //No error - advance prompt
-			$prompt = $prompts[$prompt]["next"];
-			if(!$prompt) {
+			if($prompts[$prompt]["next"]) {
+				$prompt = $prompts[$prompt]["next"];
+			} else if($prompt == "type") {
 				if($_SESSION["type"] == "one-time")
 					$prompt = $prompt_onetime_start;
 				else
@@ -252,10 +266,19 @@ if($prompt && $process) {
 } else if(!$prompt) {
 	$prompt = $prompt_start;
 }
-if($prompt != "done")
-	$prev = $prompts[$prompt]["prev"];
-else
+if($prompt != "done") {
+	if($prompts[$prompt]["prev"]) {
+		$prev = $prompts[$prompt]["prev"];
+	} else if($prompt == "advanced") {
+		if($_SESSION["type"] == "one-time") {
+			$prev = "date";
+		} else {
+			$prev = "cal_type";
+		}
+	}
+} else {
 	$prev = "";
+}
 
 
 // Database INSERT/UPDATE time?
@@ -314,7 +337,7 @@ if($prompt == "done") {
 			$title = $error;
 			$prompt = "time";
 		} else {
-			set_wake($id, $sql_time, $_SESSION["message"], $_SESSION["type"], $sql_date, $sql_weekdays, $sql_cal_type);
+			set_wake($id, $sql_time, $_SESSION["message"], $_SESSION["type"], $sql_date, $sql_weekdays, $sql_cal_type, $_SESSION["max_snooze_count"]);
 			$_SESSION = array();
 			session_destroy();
 			if($id) {
@@ -343,7 +366,10 @@ if(!$title) {
 		$title = "Select Alarm Days";
 	else if($prompt == "cal_type")
 		$title = "Select Calendar Type";
-
+	else if($prompt == "advanced")
+		$title = "Configure Adanced Options?";
+	else if($prompt == "max_snooze_count")
+		$title = "Maximum Snooze Count";
 }
 
 // Build URLs
@@ -362,7 +388,7 @@ if($prev) {
 
 // Start building the output
 
-if($prompt == "time" || $prompt == "date") {
+if($prompt == "time" || $prompt == "date" || $prompt == "advanced") {
 	$seltype = "CiscoIPPhoneInput";
 } else {
 	$seltype = "CiscoIPPhoneMenu";
@@ -486,6 +512,15 @@ if($prompt == "time") {
 
 		echo "</MenuItem>\n";
 	}
+} else if($prompt == "advanced") { ?>
+
+<InputItem>
+<DisplayName>Max Snooze Count</DisplayName>
+<QueryStringParam>max_snooze_count</QueryStringParam>
+<InputFlags>N</InputFlags>
+<DefaultValue><? if(isset($_SESSION["advanced_snooze_count"])) echo $_SESSION["advanced_snooze_count"]; ?></DefaultValue>
+</InputItem>
+
 ?>
 
 <SoftKeyItem>
