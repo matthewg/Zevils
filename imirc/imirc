@@ -347,6 +347,12 @@ sub process_irc_message {
 		} elsif ($cmd eq "add_deny") {
 			$param = lc($param);
 			add_deny($aim_connections{$nick}{socket}, $param);
+		} elsif ($cmd eq "remove_deny") {
+			$param = lc($param);
+			remove_deny($aim_connections{$nick}{socket}, $param);
+		} elsif ($cmd eq "remove_permit") {
+			$param = lc($param);
+			remove_permit($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "join") {
 			if($aim_connections{$nick}{chats}{$param} == 1) { #We're invited
 				chat_accept($aim_connections{$nick}{socket}, $param);
@@ -453,7 +459,9 @@ sub process_irc_message {
 			$upstream->print("$foo :remove_buddy nick - remove nick from your buddy list\r\n");
 			$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - warn nick, optionally anonymously\r\n");
 			$upstream->print("$foo :add_permit nick - add nick to your permit list, removing from deny list\r\n");
-			$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit list\r\n");
+			$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit and buddy lists\r\n");
+			$upstream->print("$foo :remove_permit nick - remove nick from permit list\r\n");
+			$upstream->print("$foo :remove_deny nick - remove nick from deny list\r\n");
 			$upstream->print("$foo :join topic - create and join a new chatroom with topic set to topic\r\n");
 			$upstream->print("$foo :chat chat_id message - send message to chat chat_id\r\n");
 			$upstream->print("$foo :whisper chat_id user message - whisper to user in chat chat_id\r\n");
