@@ -179,7 +179,7 @@ $weekdays_list = array("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
 if(isset($_REQUEST["weekdays"])) {
 	$_SESSION["weekdays"] = array();
 	for($i = 0; $i < sizeof($weekdays_list); $i++) {
-		if($_REQUEST["weekdays"] & 2**$i) {
+		if($_REQUEST["weekdays"] & pow(2, $i)) {
 			$_SESSION["weekdays"][$weekdays_list[$i]] = 1;
 		} else {
 			$_SESSION["weekdays"][$weekdays_list[$i]] = 0;
@@ -390,7 +390,7 @@ if($prompt == "time") {
 
 	$wd = 0;
 	for($i = 0; $i < sizeof($weekdays_list); $i++) {
-		if($_SESSION["weekdays"][$weekdays_list[$i]]) $wd |= 2**$i;
+		if($_SESSION["weekdays"][$weekdays_list[$i]]) $wd |= pow(2, $i);
 	}
 
 	for($i = 0; $i < sizeof($weekdays_list); $i++) {
@@ -413,9 +413,9 @@ if($prompt == "time") {
 		$this_wd = $wd;
 		# Reverse state of current bit
 		if($_SESSION["weekdays"][$weekday_short]) {
-			$this_wd &= ~(2**$i);
+			$this_wd &= ~pow(2, $i);
 		} else {
-			$this_wd |= 2**~i;
+			$this_wd |= pow(2, ~i);
 		}
 		echo $this_wd;
 
