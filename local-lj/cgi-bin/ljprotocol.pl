@@ -1539,10 +1539,10 @@ sub _get_events_comments
             delete $props{$id}->{'replycount'};
 
             # delete posterip for security reasons
-            next if $state eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
+            next if $props{$id}->{state} eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
             if ($type eq "comments" && 
                  ($u->{'user'} ne $jitem->{entryu} &&
-                  LJ::check_rel($jitem->{journalu}, $u, 'A')) {
+                  LJ::check_rel($jitem->{journalu}, $u, 'A'))) {
                 delete $props{$id}->{'poster_ip'};
             }
 
