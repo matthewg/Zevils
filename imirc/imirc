@@ -816,6 +816,8 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "buddylist") {
 			my(%groups, $buddy, $group);
+			my $buddies = 0;
+
 			%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
 			foreach $buddy(sort keys %{$temp{Buddies}}) {
 				push @{$groups{$temp{Buddies}{$buddy}{group}}}, $buddy;
@@ -823,10 +825,14 @@ sub process_irc_message($) {
 			foreach $group(sort keys %groups) {
 				foreach $buddy(sort @{$groups{$group}}) {
 					irc_send(irc_privmsg($usnick, $nick, "$buddy ($group)"));
+					$buddies++;
 				}
 			}
+			irc_send(irc_privmsg($usnick, $nick, "Your buddylist is empty.")) unless $buddies;
 		} elsif ($cmd eq "onbuddies") {
 			my(%groups, $buddy, $group);
+			my $onbuddies = 0;
+
 			%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
 			foreach $buddy(sort keys %{$temp{Buddies}}) {
 				push @{$groups{$temp{Buddies}{$buddy}{group}}}, $buddy if $temp{Buddies}{$buddy}{online};
@@ -834,14 +840,18 @@ sub process_irc_message($) {
 			foreach $group(sort keys %groups) {
 				foreach $buddy(sort @{$groups{$group}}) {
 					irc_send(irc_privmsg($usnick, $nick, "$buddy ($group)"));
+					$onbuddies++;
 				}
 			}
+			irc_send(irc_privmsg($usnick, $nick, "None of your buddies are online.")) unless $onbuddies;
 		} elsif ($cmd eq "permitlist") {
 			%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{permit}}))));
+			irc_send(irc_privmsg($usnick, $nick, "Your permit list is empty.")) unless haskeys $temp{permit};
 		} elsif ($cmd eq "denylist") {
 			%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{deny}}))));
+			irc_send(irc_privmsg($usnick, $nick, "Your deny list is empty.")) unless haskeys $temp{deny};
 		} elsif ($cmd eq "signoff") {
 			do_signoff($nnick, $aim_connections{$nnick}{socket}) if $aim_connections{$nnick};
 		} elsif ($cmd eq "buddyinfo") {
@@ -869,6 +879,7 @@ sub process_irc_message($) {
 				$param = lc($param);
 				$group = $extra || "Buddies";
 				add_buddy($aim_connections{$nnick}{socket}, [split(/,/, $param)], $group);
+				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated."));
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
@@ -877,6 +888,7 @@ sub process_irc_message($) {
 				$param = lc($param);
 				remove_buddy($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
 				# irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
+				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated."));
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			unless($param) {
@@ -896,6 +908,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				add_permit($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
+				irc_send(irc_privmsg($usnick, $nick, "Permit list updated."));
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
@@ -903,6 +916,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				add_deny($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
+				irc_send(irc_privmsg($usnick, $nick, "Deny list updated."));
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
@@ -910,6 +924,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				remove_deny($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
+				irc_send(irc_privmsg($usnick, $nick, "Deny list updated."));
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
@@ -917,6 +932,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				remove_permit($aim_connections{$nnick}{socket}, [split(/,/, $param)]);
+				irc_send(irc_privmsg($usnick, $nick, "Permit list updated."));
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
@@ -932,6 +948,7 @@ sub process_irc_message($) {
 			} else {
 				$aim_connections{$nnick}{permtype} = $param;
 				permtype($aim_connections{$nnick}{socket}, $param);
+				irc_send(irc_privmsg($usnick, $nick, "Permit mode set."));
 			}
 		} elsif ($cmd eq "list_permit_modes") {
 			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
@@ -966,6 +983,7 @@ sub process_irc_message($) {
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				set_info($aim_connections{$nnick}{socket}, $text);
+				irc_send(irc_privmsg($usnick, $nick, "Your buddy info has been updated."));
 			}
 		} elsif ($cmd eq "get_dir") {
 			unless($param) {
@@ -1018,12 +1036,14 @@ sub process_irc_message($) {
 				}
 				truncwarn($nick, $param);
 				$nicks{noprefix $param}{$nnick} = time;	
+				irc_send(irc_privmsg($usnick, $nick, "$param has been created on IRC."));
 			}
 		} elsif ($cmd eq "sendidle") {
 			unless($param == 0 or $param == 1) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: sendidle (0|1)"));
 			} else {
 				$aim_connections{$nnick}{report_idle} = $param;
+				irc_send(irc_privmsg($usnick, $nick, "Idle reporting changed."));
 			}
 		} elsif ($cmd eq "format_nickname") {
 			unless($param) {
@@ -1631,6 +1651,7 @@ sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
 	foreach $xnick(keys %nicks) {
+		next if $xnick eq $usnick;
 		delete $nicks{$xnick}{$nick};
 		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
