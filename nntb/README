@@ -31,7 +31,8 @@ Obtain the necessary perl modules.
 Open the nntb.conf file in a text editor.  Edit it to your satisfaction and
 then copy it to either /etc/nntb.conf or ~/.nntb .
 
-[blog-specific configuration]
+See the README file in the subdirectory for your weblog (e.g. Slash/README
+or Scoop/README) for information specific to that weblog.
 
 Run it.  initscript.
 

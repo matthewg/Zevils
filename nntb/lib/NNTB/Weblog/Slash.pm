@@ -17,7 +17,7 @@ sub new($;@) {
 	my $type = shift;
 	my $self = $type->SUPER::new;
 	my %params = @_;
-	my @params = qw(datadir slashsites slashsite must_auth);
+	my @params = qw(datadir slashsites slashsite);
 
 	(@self->{map { "slash_$_" } @params}) = delete $params{@params};
 	croak "Unknown Slash weblog options: " . join(", ", keys %params) if keys %params;
