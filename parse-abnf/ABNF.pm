@@ -311,10 +311,11 @@ use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
 
 sub new($;@) {
 	my $class = ref($_[0]) || $_[0] || "Parse::ABNF";
-	my $self = {};
+	shift;
+	my $self = { CORE_RULES };
 	bless $self, $class;
-	$self->add(CORE_RULES);
-	$self->add(@{$_[1]}) if @_ > 1;
+	$self->add(@_) if @_ > 0;
+	return $self;
 }
 
 sub add($@) {
@@ -322,7 +323,38 @@ sub add($@) {
 	my $rule;
 
 	# strip comments, whitespace / newline between rules
-		
+	$rule = join("\n", @rules);
+	$rule =~ s/;[ \t\x21-\x7E]*$//g; # strip comments
+	$rule =~ s/[\r\n]{1,2}[ \t]+/ /g; # join continued lines
+	while($rule =~ /[\r\n]{2,}/) { $rule =~ s/[\r\n]{2,}/\n/; } # remove extraneous newlines
+	$rule =~ s/[\r\n](?![^\r\n])//g; # remove trailing newlines
+	$rule =~ s/[ \t]$//g; # remove trailing whitespace from lines
+	$rule .= "\n"; # but we need a terminal newline
+
+	#print "$rule\n======\n";
+	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
+	#print Data::Dumper::Dumper($parse), "\n======\n";
+	my $inrule;
+	foreach $inrule(@$parse) {
+		my %inrule;
+		my $tmp;
+		my @elements;
+		$inrule = $inrule->{rule};
+		foreach $tmp(@$inrule) {
+			next unless ref($tmp) eq "HASH";
+			$inrule{(keys %$tmp)[0]} = (values %$tmp)[0];
+		}
+
+		#print "Got $inrule{rulename}\n";
+		#foreach $tmp(@{$inrule{elements}}) {
+		#	next unless ref($tmp) eq "HASH";
+		#	push @elements, $tmp->{rulename};
+		#}
+		#$inrule{elements} = [@elements];
+
+		#print Data::Dumper::Dumper \%inrule;
+		$self->{$inrule{rulename}} = $inrule{elements};
+	}
 }
 
 sub delete($@) {

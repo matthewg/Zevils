@@ -4,7 +4,10 @@ use Data::Dumper;
 require "ABNF.pm";
 
 #print Data::Dumper::Dumper($Parse::ABNF::ABNF), "\n";
-$rule = "rule           =  rulename defined-as elements c-nl\nfoo = bar baz\n";
-$ret = $Parse::ABNF::ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
+#$rule = "rule           =  rulename defined-as elements c-nl\nfoo = bar baz\n";
+#$ret = $Parse::ABNF::ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
 
-print Data::Dumper::Dumper($ret), "\n";
+#print Data::Dumper::Dumper($ret), "\n";
+
+$newobj = Parse::ABNF->new("foo = bar baz\nthe = quick *(brown fox) / jumped\n");
+print Data::Dumper::Dumper($newobj), "\n";
