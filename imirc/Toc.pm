@@ -106,19 +106,22 @@ Call this when you get an UPDATE_BUDDY from TOC.  It's not really necessary - it
 
 sub update_buddy($$$$$$$) {
 	my($sn, $nick, $class, $evil, $signon, $idle, $online) = @_;
+	my $nnick = normalize($nick);
 
 	if($online) {
-		$config{$sn}->{Buddies}{$nick}{class} = $class;
-		$config{$sn}->{Buddies}{$nick}{evil} = $evil;
-		$config{$sn}->{Buddies}{$nick}{signon} = $signon;
-		$config{$sn}->{Buddies}{$nick}{idle} = $idle;
+		$config{$sn}->{Buddies}{$nnick}{class} = $class;
+		$config{$sn}->{Buddies}{$nnick}{evil} = $evil;
+		$config{$sn}->{Buddies}{$nnick}{signon} = $signon;
+		$config{$sn}->{Buddies}{$nnick}{idle} = $idle;
+		$config{$sn}->{Buddies}{$nnick}{unnormalized} = $nick;
 	} else {
-		delete $config{$sn}->{Buddies}{$nick}{class};
-		delete $config{$sn}->{Buddies}{$nick}{evil};
-		delete $config{$sn}->{Buddies}{$nick}{signon};
-		delete $config{$sn}->{Buddies}{$nick}{idle};
+		delete $config{$sn}->{Buddies}{$nnick}{class};
+		delete $config{$sn}->{Buddies}{$nnick}{evil};
+		delete $config{$sn}->{Buddies}{$nnick}{signon};
+		delete $config{$sn}->{Buddies}{$nnick}{idle};
+		delete $config{$sn}->{Buddies}{$nnick}{unnormalized};
 	}
-	$config{$sn}->{Buddies}{$nick}{online} = $online;
+	$config{$sn}->{Buddies}{$nnick}{online} = $online;
 }
 
 =item get_config(NICK)
@@ -928,12 +931,12 @@ sub _setup($) {
 		sflap_do($handle, "toc_add_deny")
 	}
 
-	if(scalar keys %{$config->{permit}} and $config->{permtype} != 2) {
+	if(scalar keys %{$config->{permit}} and $config->{permtype} == 3) {
 		$msg = "toc_add_permit";
 		foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_permit";
 	}
-	if(scalar keys %{$config->{deny}} and $config->{permtype} != 1) {
+	if(scalar keys %{$config->{deny}} and $config->{permtype} == 4) {
 		$msg = "toc_add_deny";
 		foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_deny";
