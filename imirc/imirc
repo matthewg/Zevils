@@ -464,8 +464,6 @@ unless($reload) {
 	$aimircdebug = 1;
 	$longnicks{'#aimirc-debug'} = '#aimirc-debug';
 
-	irc_send(":$usnick STATS U\r\n");
-
 	while(1 == 1) {
 		exit(255) unless $upstream;
 		@aims = keys %aim_connections;
@@ -613,12 +611,6 @@ sub process_irc_message {
 	my $nick = $1;
 	my $nnick = normalize($nick);
 
-	if($ustats and not /^248 / and $ustats !~ /$us/) {
-		print STDERR "You must add a U: line for $us in your ircd.conf.  The syntax for this is probably U:$us:*:*\n";
-		print STDERR "Don't forget to rehash the IRC configuration.\n";
-		exit 255;
-	}
-
 	if($aim_connections{$nnick}) {
 		$aim_connections{$nnick}{idletime} = time;
 		if($aim_connections{$nnick}{is_idle}) {
@@ -633,8 +625,6 @@ sub process_irc_message {
 	if(/^ERROR +:(.+)/) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
-	} elsif($servermode eq "dal2" and /^248 /) {
-		$ustats .= $_;
 	} elsif(/^KILL +(\S+)/i) {
 		delete $nicks{noprefix $1};
 	} elsif(/^VERSION/i) {
@@ -664,34 +654,64 @@ sub process_irc_message {
 	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
-		#my ($mode, $param, @modes, @params, $params);
-		#my $modetype;
+		my ($mode, $parms, @matches, @modes, @params, @tparams, $params, $modestring, $modechar, $modeparm, $modetype, $status);
 
-		irc_send("504 $nick :You cannot change modes in AIM chat channels.\r\n");
+		irc_send("504 $nick :You cannot change modes in AIM chat channels.\r\n") if $aim_connections{$nnick};
 
 		$modes =~ tr/+-/-+/;
-		#Toc::debug_print("Modes: $modes", "irc", 3);
-		#$modes =~ /(.)(\S+) ?(.*)/ or Toc::debug_print("Mode parse failed.", "irc", 3);
-		#$modetype = $1;
-		#$modes = $2;
-		#$params = $3;
-		#@modes = split(/./, $modes);
-		#@params = split(/\s+/, $params);
-
-		#Toc::debug_print("Mode parse: $modetype" . join("", @modes) . " " . join(" ", @params), "irc", 3);
-
+		$modes =~ s/\s*\d+[\r\n]*$// unless $aim_connections{$nnick};
+		#Toc::debug_print("Modes: $modes", "errors", 3);
+		@matches = $modes =~ m/([-+][a-zA-Z]+)\s*/g or Toc::debug_print("Mode parse failed.", "errors", 3);
+		foreach $modestring(@matches) {
+			#Toc::debug_print("Mode parse suceeded: $modestring", "errors", 3);
+			$modetype = substr($modestring, 0, 1, "");
+			#Toc::debug_print("modetype is $modetype", "errors", 3);
+			MODE: while($modechar = substr($modestring, 0, 1, "")) {
+				#Toc::debug_print("Got modechar $modechar", "errors", 3);
+				if($modechar =~ /[vbokl]/) { #Mode takes a parm
+					$modes =~ s/(?:\s|\A)([^-+]\S*)(?:\s|\Z)/ / or next MODE;
+					$modeparm = $1;
+					#Toc::debug_print("Mode takes parm, parm is $modeparm", "errors", 3);
+				} else {
+					$modeparm = "";
+				}
+				if($modechar eq "o" and normalize($modeparm) eq normalize($usnick)) {
+					if($modetype eq "+") {
+						irc_send("MODE #aimchat-$chat +o $usnick  " . time . "\r\n");
+					}
+				} elsif($modechar eq "o" and $aim_connections{normalize($modeparm)} and $modetype eq "-") {
+					#Do nothing
+				} elsif(($modechar eq "t" or $modechar eq "s" or $modechar eq "n" or $modechar eq "i") and $modetype eq "-") {
+					#Do nothing
+				} else {
+					#Toc::debug_print("Adding to \@modes: (char => $modechar, type => $modetype, parm => $modeparm)", "errors", 3);
+					push @modes, { char => $modechar, type => $modetype, parm => $modeparm };
+				}
+			}
+		}
 		#foreach $mode(@modes) {
-		#	if(($mode eq "t" or $mode eq "s" or $mode eq "n" or $mode eq "i") and $modetype eq "-") {
-		#		$mode = "";
-		#	}
+		#	Toc::debug_print("Got mode: " . $mode->{type} . $mode->{char} . " " . $mode->{parm}, "irc", 3);
 		#}
 
-		#$modes = "";
-		#$modes = $modetype . join("", @modes) . " " . join(" ", @params) if $modes[0];
+		$modestring = "";
+		$parms = "";
+		foreach $mode(sort { $a->{type} cmp $b->{type} } @modes) {
+			if($mode->{type} eq "-" and not $status & 1) { #We have a -, modestring doesn't
+				$modestring .= "-";
+				$status |= 1;
+			} elsif($mode->{type} eq "+" and not $status & 2) { #We have a +, modestring doesn't
+				$modestring .= "+";
+				$status |= 2;
+			}
+			$modestring .= $mode->{char};
+			$parms .= " $mode->{parm}" if $mode->{parm};
+		}
 
-		$modes =~ s/\s*\d+[\r\n]*$// unless $aim_connections{$nnick};
+		$modestring .= $parms;
 
-		irc_send("MODE #aimchat-$chat $modes  " . time . "\r\n") if $modes;
+		#Toc::debug_print("Mode parse final: $modestring", "errors", 3);
+
+		irc_send(":$usnick MODE #aimchat-$chat $modestring\r\n") if $modestring;
 	} elsif(/^TOPIC +#aimchat-(\d+)/i) {
 		irc_send("505 $nick :Cannot change topic in AIM chat channels.\r\n");
 		irc_send("TOPIC #aimchat-$chat :$chattopics{$chat}\r\n");
@@ -1120,8 +1140,9 @@ sub process_aim_message {
 
 		$chattopics{$1} = $topic;
 		irc_send(":$usnick JOIN #aimchat-$1\r\n");
-		irc_send("MODE #aimchat-$1 +sinto $usnick " . time . "\r\n");
-		irc_send("TOPIC #aimchat-$1 :$topic\r\n");
+		irc_send("MODE #aimchat-$1 +o $usnick " . time . "\r\n");
+		irc_send(":$usnick MODE #aimchat-$1 +sint\r\n");
+		irc_send(":$usnick TOPIC #aimchat-$1 :$topic\r\n");
 		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$1\r\n");
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "Join IRC channel #aimchat-$1 to join AIM chat $topic.")) unless $chatinvites{$1};
 		delete $chatinvites{$1};
