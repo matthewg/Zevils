@@ -3690,7 +3690,6 @@ sub io_events($$) {
 
 	if($usepoll) {
 		if($events eq "deleted") {
-			irc_send(irc_privmsg($usnick, "matthewg", "Removing $fileno"));
 			$poll->remove($handle);
 		} elsif($events eq "read") {
 			$poll->mask($handle => POLLIN);
