@@ -2793,7 +2793,7 @@ sub process_ctcp($$$$$) {
 
 		debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
 		if($to ne $usnick and $to ne $oldnick) {
-			if(exists($aim_connections->{$from})) {
+			if($aim_connections->{$from} and $aim_connections->{$from}->{oscar}) {
 				$aim_connections->{$from}->{oscar}->send_im($to, ($notice ? "<!-- NOTICE -->" : "") . "<!-- CTCP -->$ctcp") if exists($aim_connections->{$from});
 			} else {
 				irc_send(irc_privmsg($usnick, $from, "You must be signed onto AOL Instant Messenger via IMIRC to send CTCPs to AIM users.  /msg $usnick help for details."));
