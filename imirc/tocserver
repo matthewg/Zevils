@@ -1,0 +1,259 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Toc qw(:all);
+use IO::Socket;
+use IO::Select;
+use GDBM_File;
+use Fcntl qw(:flock);
+use POSIX qw(:errno_h);
+
+use vars qw(%toc $dir $client);
+
+my($sock, $pid, $screenname);
+
+$sock = IO::Socket::INET->new(ListenPort => 5000);
+$dir = (getpwent())[7];
+
+sub dbtie() {
+	tie %toc, 'GDBM_File', "$dir/toc.db", &GDBM_WRCREAT, 0600;
+}
+
+sub dbuntie() {
+	untie %toc;
+}
+
+sub chatseq() {
+	open(CHATSEQ, "+<$dir/.chatseq");
+	flock CHATSEQ, LOCK_EX;
+	my $chatseq = <CHATSEQ>;
+	seek CHATSEQ, 0, 0; #rewind
+	print CHATSEQ $chatseq+1, "\n";
+	flock CHATSEQ, LOCK_UN;
+	close CHATSEQ;
+
+	return $chatseq;
+}
+
+sub putmsg($$) {
+	my $who = shift;
+	my $message = shift;
+
+	open(SEQNO, "+<$dir/$screenname/.seq");
+	flock SEQNO, LOCK_EX;
+	my $seqno = <SEQNO>;
+	seek SEQNO, 0, 0; #rewind
+	print SEQNO $seqno+1, "\n";
+	flock SEQNO, LOCK_UN;
+	close SEQNO;
+
+	open(MSG, ">$dir/$screenname/$seqno");
+	flock MSG, LOCK_EX;
+	print MSG $message;
+	flock MSG, LOCK_UN;
+	close MSG;
+}
+
+sub getmsg() {
+	open(SEQNO, "+<$dir/$screenname/.seq");
+	flock SEQNO, LOCK_EX;
+	my $seqno = <SEQNO>;
+	seek SEQNO, 0, 0; #rewind
+	print SEQNO $seqno-1, "\n";
+	flock SEQNO, LOCK_UN;
+	close SEQNO;
+
+	open(MSG, "$dir/$screenname/$seqno");
+	flock MSG, LOCK_EX;
+	local $/ = undef;
+	my $message = <MSG>;
+	flock MSG, LOCK_UN;
+	close MSG;
+
+	unlink "$dir/$screenname/$seqno";
+	return $message;
+}
+
+sub tellbuds($) {
+	my $message = shift;
+	my $person;
+
+	foreach $person(@{$toc{people}}) {
+		next unless exists $toc{people}{$person}{on} and exists $toc{people}{$person}{buddies}{$screenname};
+		putmsg($person, $message);
+	}
+}
+
+sub unquote($) {
+	my $msg = shift;
+	$msg =~ s/\\\\/\\/g;
+	$msg =~ s/\\\$/\$/g; $msg =~ s/\\\[/\[/g; $msg =~ s/\\]/]/g;
+	$msg =~ s/\\\(/\(/g; $msg =~ s/\\\)/\)/g; $msg =~ s/\\\#/\#/g;
+	$msg =~ s/\\\{/\{/g; $msg =~ s/\\\}/\}/g; $msg =~ s/\\\"/\"/g;
+	$msg =~ s/\\\'/\'/g; $msg =~ s/\\\`/\`/g;
+	return $msg;
+}
+
+sub leavechat($) {
+	my $chat = shift;
+	my $chatname;
+	my $person;
+
+	$chatname = $toc{people}{$screenname}{chats}{$chat};
+	foreach $person(keys %{$toc{chats}{$chatname}}) {
+		next if $person eq $screenname;
+		putmsg($person, "CHAT_UPDATE_BUDDY:".$toc{chats}{$chatname}{$person}.":F:$screenname");
+	}
+	delete $toc{chats}{$chatname}{$screenname};
+}
+
+sub toc_signoff() {
+	my $chat;
+	my $chatname;
+	my $person;
+
+	dbtie;
+
+	foreach $chat(keys %{$toc{people}{$screenname}{chats}}) {
+		leavechat($chat);
+	}
+
+	delete $toc{people}{$screenname};
+	tellbuds("UPDATE_BUDDY:$screenname:F:0:0:0:");
+	system("rm -rf $dir/$screenname");
+	dbuntie;
+}
+
+while($client = $sock->accept) {
+	my($line, $message, $command, @params, $person, $checktime);
+
+	$pid = fork();
+	die "Couldn't fork: $!" unless defined $pid;
+	if($pid == 0) {
+		$client->close;
+		next;
+	}
+
+	$line = $client->read(10);
+	die unless $line eq "FLAPON\r\n\r\n";
+	sflap_do($client, "SIGN_ON:1.0");
+	(undef, undef, undef, $screenname) = unpack("NnnZ*", sflap_get($client)); #signon packet
+	sflap_get($client); #toc_signon
+	sflap_do($client, "SIGN_ON:1.0");
+	sflap_do($client, "NICK:$screenname");
+
+	system("mkdir $dir/$screenname");
+	open(SEQNO, ">$dir/$screenname/.seq");
+	print SEQNO "0\n";
+	close SEQNO;
+
+	$checktime = time;
+	while(1) {
+		select(undef, undef, undef, 0.1);
+
+		if((stat("$dir/$screenname/.seq"))[9] > $checktime) {
+			$message = getmsg();
+			sflap_do($client, $message);
+		}
+		$checktime = time;
+
+		$message = sflap_get($client);
+		if($message eq "-1" and $! != EAGAIN) {
+			toc_signoff;
+			die "Client died: $!\n";
+		}
+
+		dbtie;
+		my @new = ();
+		push(@new, $+) while $message =~ m{
+			"([^\"\\]*(?:\\.[^\"\\]*)*)"\s?  # groups the phrase inside the quotes
+			| ([^ ]+)\s?
+			| \s
+		}gx;
+		push(@new, undef) if substr($message,-1,1) eq ' ';
+
+		($command, @params) = map { unquote($_) } @new;
+		if($command eq "toc_init_done") {
+			$toc{people}{$screenname}{on} = 1;
+			tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: O");
+		} elsif($command eq "toc_send_im") {
+			my($who, $message) = @params;
+			if(exists $toc{people}{$who}{on}) {
+				putmsg($who, "IM_IN:$screenname:F:$message");
+			} else {
+				putmsg($screenname, "ERROR:901:$who");
+			}
+		} elsif($command eq "toc_add_buddy") {
+			foreach $person(@params) {
+				$toc{people}{$screenname}{buddies}{$person} = 1;
+			}
+		} elsif($command eq "toc_remove_buddy") {
+			foreach $person(@params) {
+				delete $toc{people}{$screenname}{buddies}{$person};
+			}
+		} elsif($command eq "toc_set_config") {
+		} elsif($command eq "toc_evil") {
+		} elsif($command eq "toc_add_permit") {
+		} elsif($command eq "toc_add_deny") {
+		} elsif($command eq "toc_chat_join") {
+			my $chat = chatseq();
+			$toc{chats}{$params[1]}{$screenname} = $chat;
+			$toc{people}{$screenname}{chats}{$chat} = $params[1];
+			putmsg($screenname, "CHAT_JOIN:$chat:".$params[1]);
+			putmsg($screenname, "CHAT_UPDATE_BUDDY:$chat:T:".join(":", keys %{$toc{chats}{$params[1]}}));
+		} elsif($command eq "toc_chat_send") {
+			my $chat = $params[0];
+			$message = $params[1];
+			my $chatname = $toc{people}{$screenname}{chats}{$chat};
+			foreach $person(keys %{$toc{chats}{$chatname}}) {
+				putmsg($person, "CHAT_IN:".$toc{chatname}{$person}.":$screenname:F:$message");
+			}
+		} elsif($command eq "toc_chat_whisper") {
+			my $chat = $params[0];
+			$person = $params[1];
+			$message = $params[2];
+			my $chatname = $toc{people}{$screenname}{chats}{$chat};
+			putmsg($person, "CHAT_IN".$toc{chatname}{$person}.":$screenname:T:$message");
+		} elsif($command eq "toc_chat_evil") {
+		} elsif($command eq "toc_chat_invite") {
+			my $chat = shift @params;
+			$message = shift @params;
+			my $chatname = $toc{people}{$screenname}{chats}{$chat};
+			foreach $person(@params) {
+				$chat = chatseq;
+				$toc{people}{$person}{invites}{$chat} = $chatname;
+				putmsg($person, "CHAT_INVITE:$chatname:$chat:$screenname:$message");
+			}
+		} elsif($command eq "toc_chat_leave") {
+			leavechat($params[0]);
+		} elsif($command eq "toc_chat_accept") {
+			my $chat = shift @params;
+			my $chatname = $toc{people}{$screenname}{invites}{$chat};
+
+			$toc{chats}{$chatname}{$screenname} = $chat;
+			$toc{people}{$screenname}{chats}{$chat} = $chatname;
+			putmsg($screenname, "CHAT_JOIN:$chat:$chatname");
+			putmsg($screenname, "CHAT_UPDATE_BUDDY:$chat:T:".join(":", keys %{$toc{chats}{$chatname}}));
+		} elsif($command eq "toc_get_info") {
+		} elsif($command eq "toc_set_info") {
+		} elsif($command eq "toc_set_away") {
+			if($params[0]) {
+				tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: OU");
+			} else {
+				tellbuds("UPDATE_BUDDY:$screenname:T:0:".time.":0: O");
+			}
+		} elsif($command eq "toc_get_dir") {
+		} elsif($command eq "toc_set_dir") {
+		} elsif($command eq "toc_dir_search") {
+		} elsif($command eq "toc_set_idle") {
+		} elsif($command eq "toc_set_caps") {
+		} elsif($command eq "toc_rvous_propose") {
+		} elsif($command eq "toc_rvous_accept") {
+		} elsif($command eq "toc_rvous_cancel") {
+		} elsif($command eq "toc_format_nickname") {
+		} elsif($command eq "toc_change_passwd") {
+		}
+
+		dbuntie;
+	}
+}
