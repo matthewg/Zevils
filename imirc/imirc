@@ -126,7 +126,7 @@ $SIG{__DIE__}  = sub { croak $_[0] };
 $SIG{PIPE} = 'IGNORE';
 
 $home = (getpwuid($>))[7];
-$version = $VERSION = '1.6-CVS $Revision$';
+$version = $VERSION = '1.6';
 
 @args = @ARGV;
 
@@ -740,8 +740,11 @@ sub connect_to_irc() {
 sub irc_newnick($;$) {
 	my($nick, $modes, $user, $string, $shortnick) = @_;
 	$nick =~ tr/ //d;
+
 	$user = $nick;
 	$user =~ s/^$prefix//;
+	$user =~ tr/0-9a-zA-Z//dc;
+
 	$modes ||= "+i";
 
 	$nick = new Net::OSCAR::Screenname $nick;
