@@ -6,7 +6,8 @@ The <a href="http://www.brancog.org/">Computer Operators Group</a> (via <a href=
 provide support for Finnegan.  The system was developed, and is being maintained by,
 <a href="http://www.zevils.com/">Matthew Sachs</a>, with help from ITS, <a href="http://people.brandeis.edu/~zeno/">Danny Silverman</a>
 and <a href="http://people.brandeis.edu/~natb/">Nat Budin</a>.  Danny Silverman did the visual layout of the web site,
-and Nat Budin is the Finnegan audio engineer.
+and Nat Budin is the Finnegan audio engineer.  The idea for a wake-up call system at Brandeis
+was originally suggested by Becky Fromer.
 END_FAQITEM
 ),
 
