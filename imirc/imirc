@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 $starttime = time;
 
@@ -43,7 +43,7 @@ sub BEGIN {
 		require HTML::Parse;
 		require MIME::Base64;
 		require Net::OSCAR;
-		Net::OSCAR->import(qw(:standard normalize));
+		Net::OSCAR->import(qw(:standard :loglevels normalize));
 	};
 
 	$@ .= "We require Net::OSCAR 0.08 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.08;
@@ -90,7 +90,7 @@ $ourpass = "foo";
 $theirpass = "bar";
 $servermode = "dal2";
 $time = 60*5; #Five minutes
-$verbose_signon = 0;
+$user_loglevel = OSCAR_DBG_SIGNON;
 @default_conffiles = ("/etc/aimirc.conf", "$home/.aimirc");
 $fork = 1;
 $verbose = 0;
@@ -233,7 +233,7 @@ sub loadconf() {
 		"verbose|v" => \$verbose,
 		"debug:i" => \$debug,
 		"debuglevel=s\%" => \%debuglevel,
-		"verbose_signon:i" => \$verbose_signon,
+		"user_loglevel:i" => \$user_loglevel,
 		"sendidle:i" => \$sendidle,
 		"oscarserver=s" => \$oscarserver,
 		"oscarport=i" => \$oscarport,
@@ -326,9 +326,11 @@ sub mainloop() {
 	my($connection, $screenname, $msg, $multinick, $i, $rv, $buff, $getrv, $rvbuff, $currtime, $nick, $sndata);
 	my($rin, $win, $ein);
 	$rin = $win = $ein = '';
+	my $oscardbg = $user_loglevel;
+	$oscardbg = $debuglevel{oscar} if $debug and $debuglevel{oscar} > $user_loglevel;
 
 	$oscarprime = Net::OSCAR->new();
-	$oscarprime->debug($debuglevel{oscar}, 1) if $debug;
+	$oscarprime->loglevel($oscardbg);
 	$oscarprime->set_callback_error(\&oscar_error);
 	$oscarprime->set_callback_rate_alert(\&oscar_rate_alert);
 	$oscarprime->set_callback_admin_error(\&oscar_admin_error);
@@ -345,7 +347,7 @@ sub mainloop() {
 	$oscarprime->set_callback_evil(\&oscar_evil);
 	$oscarprime->set_callback_buddy_info(\&oscar_buddy_info);
 	$oscarprime->set_callback_signon_done(\&oscar_signon_done);
-	$oscarprime->set_callback_debug_print(\&oscar_debug_print);
+	$oscarprime->set_callback_log(\&oscar_log);
 	$oscarprime->set_callback_buddylist_error(\&oscar_buddylist_error);
 	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
 
@@ -821,13 +823,25 @@ sub process_irc_message($) {
 			}
 		} elsif($cmd eq "signon") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: signon [--loglevel loglevel] screenname password"));
 			} else {
 				if($aim_connections->{$nick}->{scrennames}->{$param}) {
 					irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "Signing on to AOL Instant Messenger..."));
-					do_signon($param, $extra, $nick);
+
+					local @ARGV = split(/\s+/, "$param $extra");
+					my $loglevel = $user_loglevel;
+					my $errors = &GetOptions(
+						"loglevel|l|d" => \$loglevel
+					);
+
+					if(!$errors) {
+						irc_send(irc_privmsg($usnick, $nick, "Invalid signon command - '/msg $usnick signon' for usage."));
+					} else {
+						my $params = {loglevel => $loglevel};
+						do_signon($param, $extra, $nick, $params);
+					}
 				}
 			}
 		} elsif ($cmd eq "buddylist") {
@@ -1241,7 +1255,8 @@ User {
 			$foo = ":$usnick PRIVMSG #aimirc-$screenname" if $sndata->{inchan};
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
-				irc_send("$foo :signon screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
+				irc_send("$foo :signon [--loglevel loglevel] screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
+				irc_send("$foo :  loglevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
 				irc_send("$foo :signoff - Sign off of AIM.\r\n", 1);
 				irc_send("$foo :add screenname - Create an IRC nickname for screenname.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
 				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
@@ -1286,6 +1301,7 @@ User {
 				irc_send("$foo :Example: /invite AIM-SomeDude #aimchat-1234\r\n", 1);
 				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
+				irc_send("$foo :loglevel newlevel - Sets the logging level for your connection.  newlevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
 				irc_send("$foo :get_profile screenname - Get profile for screenname.\r\n", 1);
 				irc_send("$foo :set_profile new profile - Set your profile.  You can use some HTML formating.\r\n", 1);
 				irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
@@ -1403,6 +1419,12 @@ User {
 			} else {
 				$oscar->set_buddy_comment($param, $extra);
 				$oscar->commit_buddylist;
+			}
+		} elsif($cmd eq "loglevel") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: loglevel newlevel", "", "", $screenname));
+			} else {
+				$oscar->loglevel($param);
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -1853,11 +1875,12 @@ sub oscar_buddylist_ok($) {
 	irc_send(irc_privmsg($usnick, $nick, "Your buddylist was successfully modified.", "", "", $screenname));
 }
 
-sub oscar_debug_print($$) {
-	my($oscar, $msg) = @_;
+sub oscar_log($$$) {
+	my($oscar, $level, $msg) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	debug_print($msg, "oscar", 1);
+	debug_print($msg, "oscar", 1) if $debug and $level >= $debuglevel{oscar};
+	irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname)) if $level >= $sndata->{loglevel};
 }
 
 sub debug_print($$$) {
@@ -2022,8 +2045,8 @@ EOF
 }
 
 # Sign on to AIM
-sub do_signon($$$) {
-	my($screenname, $password, $nick) = @_;
+sub do_signon($$$$) {
+	my($screenname, $password, $nick, $params) = @_;
 
 	my $connection = $aim_connections->{$nick};
 	$connection->{screennames} = $oscarprime->buddyhash() unless tied(%{$connection->{screennames}});
@@ -2033,6 +2056,7 @@ sub do_signon($$$) {
 	$aim_connections->{$nick}->{nick} = $nick;
 	$connection->{screennames}->{$screenname}->{oscar} = $oscar;
 	my $sndata = $connection->{screennames}->{$screenname};
+	$sndata->{loglevel} = $params->{loglevel};
 	$sndata->{report_idle} = $sendidle;
 	$sndata->{idletime} = time;
 	$sndata->{is_idle} = 0;
