@@ -702,7 +702,7 @@ sub set_config($$) {
 	if($config->{permtype} == 3) {
 		$msg = "toc_add_permit";
 		if($config{_hnick($handle)}->{permit}) {
-			foreach $ppl(@{ $config{_hnick($handle)}->{permit} }) {
+			foreach $ppl(keys %{ $config{_hnick($handle)}->{permit} }) {
 				$msg .= " $ppl";
 			}
 		}
@@ -710,7 +710,7 @@ sub set_config($$) {
 	} elsif($config->{permtype} == 4) {
 		$msg = "toc_add_deny";
 		if($config{_hnick($handle)}->{deny}) {
-			foreach $ppl(@{ $config{_hnick($handle)}->{deny} }) {
+			foreach $ppl(keys %{ $config{_hnick($handle)}->{deny} }) {
 				$msg .= " $ppl";
 			}
 		}
