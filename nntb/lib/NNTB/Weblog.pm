@@ -503,9 +503,14 @@ sub num2id($$$) { return undef; }
 
 This method is called when a client connects to the NNTP server.
 
+=item lost_client
+
+This method is called when a client disconnects from the NNTP server.
+
 =cut
 
 sub got_client($) { return 1; }
+sub lost_client($) { return 1; }
 
 =pod
 
