@@ -24,63 +24,13 @@ EOF
 ;
 
 use strict;
-use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks $profiles $pounces $buddylists %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
-
-sub loadconf();
-sub loaddat($);
-sub mainloop();
-sub connect_to_irc();
-sub going_down();
-sub do_signoff_all($;$);
-sub timestuff($);
-sub switchnick($$);
-sub irc_newnick($);
-sub noprefix($);
-sub haskeys($);
-sub irc_subparms($;$$);
-sub irc_privmsg($$$;$$$);
-sub process_irc_message($);
-sub html2txt($;$);
-sub irc_send($;$);
-sub deref($);
-sub rehash();
-sub reload();
-sub dispver();
-sub license();
-sub help();
-sub do_signon($$$);
-sub do_signoff($$;$);
-sub irc_recv(;$);
-sub manglewarn($$);
-sub irc_ctcp_quote($);
-sub irc_ctcp_unquote($);
-sub process_ctcp($$$$);
-sub irc_ctcp($$$;$);
-sub loadbuddies($$);
-sub irc_dcc($$$$$$);
-sub safename($);
-sub savedat($);
-sub num2base64($);
-sub base642num($);
-sub irc_mode($$$);
-sub irc_join($$);
-sub irc_kick($$$;$);
-sub irc_part($$;$);
-sub irc_error($$$);
-sub irc_topic($$$);
-sub irc_pong();
-sub irc_quit($;$);
-sub irc_invite($$$);
-sub ircirfy($);
-sub bounce_join($$);
-sub process_dcc($$);
-sub send_im($$$);
+use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 $starttime = time;
 
 $| = 1;
 
-sub END { going_down; }
+sub END { &going_down; }
 
 sub BEGIN {
 	require File::Basename;
@@ -91,11 +41,12 @@ sub BEGIN {
 	eval {
 		require HTML::FormatText;
 		require HTML::Parse;
+		require MIME::Base64;
 		require Net::OSCAR;
 		Net::OSCAR->import(qw(:standard normalize));
 	};
 
-	$@ .= "We require Net::OSCAR 0.07 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.07;
+	$@ .= "We require Net::OSCAR 0.08 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.08;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -147,10 +98,6 @@ $sendidle = 1;
 $oscarserver = 'login.oscar.aol.com';
 $oscarport = 5190;
 $dcc = 1;
-$savebuddies = 2;
-$saveprofiles = 2;
-$savepounces = 2;
-$directory = "$home/.aimirc.dat";
 $shortcircuit = 1;
 $numeric = num2base64(42);
 $debug = 0;
@@ -169,7 +116,7 @@ unless($reload) {
 	}
 	sub kill_handler {
 		my($connection);
-		going_down;
+		&going_down;
 		$upstream->close;
 		foreach $connection(values %$aim_connections) {
 			$connection->{oscar}->signoff if $connection->{oscar};
@@ -184,7 +131,7 @@ $SIG{CHLD} = 'IGNORE';
 #Restart on SIGHUP
 sub phoenix {
 	my($connection, $screenname);
-	going_down;
+	&going_down;
 	$upstream->close;
 	foreach $connection(values %$aim_connections) {
 		foreach $screenname(values %{$connection->{screennames}}) {
@@ -206,49 +153,6 @@ $SIG{CHLD} = \&REAPER;
 $lasttime = $checktime = time;
 $keepalive = 0;
 mainloop();
-
-sub loaddat($) {
-	my($screenname, $buddylist, $profile, $pounce, $profiles, $pounces, $who, $what) = shift;
-
-	$screenname = safename $screenname;
-
-	#Who needs subroutines when you've got copy and paste?
-	#Incidentally, this is what I mean by that "code cleanup" item in TODO
-	#But would a trillion tiny functions be any cleaner?
-	#Oh well - who reads this anyway?
-	if((-d $directory and -r $directory) or mkdir($directory, 0700)) {
-		local $/ = undef;
-		if($savebuddies and -r "$directory/buddylists/$screenname") {
-			open(BUDDYLIST, "<$directory/buddylists/$screenname");
-			$buddylists->{$screenname} = <BUDDYLIST>;
-			close BUDDYLIST;
-		}
-
-		if($saveprofiles and -r "$directory/profiles/$screenname") {
-			open(PROFILE, "<$directory/profiles/$screenname");
-			$profiles->{$screenname} = <PROFILE>;
-			close PROFILE;
-		}
-
-		if($savepounces and -r "$directory/pounces/$screenname") {
-			open(POUNCE, "<$directory/pounces/$screenname");
-			$pounces = <POUNCE>;
-			close POUNCE;
-			delete $pounces->{$screenname};
-			foreach $_(split(/\n/, $pounces)) {
-				($who, $what) = split(/\s+/, $_, 2);
-				push @{$pounces->{$screenname}}, {who => $who, what => $what};
-			}
-		}
-	} else {
-		if($savebuddies or $saveprofiles or $savepounces) {
-			print STDERR "Warning - could not create $directory: $!\n";
-			print STDERR "Fix it or we can't save buddies, profiles, or pounces to disk.\n";
-			print STDERR "(Sleeping for 5 seconds to make sure you read this...)\n";
-			sleep 5;
-		}
-	}
-}
 
 sub loadconf() {
 	my($errors, $foundconfig, $conffile, %temp, $server, $output);
@@ -335,10 +239,6 @@ sub loadconf() {
 		"oscarport=i" => \$oscarport,
 		"dccip=s" => \$dccip,
 		"dcc:i" => \$dcc,
-		"savebuddies:i" => \$savebuddies,
-		"saveprofiles:i" => \$saveprofiles,
-		"savepounces:i" => \$savepounces,
-		"directory=s" => \$directory,
 		"shortcircuit:i" => \$shortcircuit,
 		"numeric=s" => \$numeric,
 	);
@@ -446,13 +346,15 @@ sub mainloop() {
 	$oscarprime->set_callback_buddy_info(\&oscar_buddy_info);
 	$oscarprime->set_callback_signon_done(\&oscar_signon_done);
 	$oscarprime->set_callback_debug_print(\&oscar_debug_print);
+	$oscarprime->set_callback_buddylist_error(\&oscar_buddylist_error);
+	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
 
 	unless($reload) {
 		$chatseq = 0;
 		$usercount = 0;
 		$maxusers = 0;
 
-		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $profiles, $pounces, $buddylists, $irc_away, $away, $longnicks, $shortnicks) {
+		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $irc_away, $away, $longnicks, $shortnicks) {
 			$hashref = $oscarprime->buddyhash();
 		}
 
@@ -600,7 +502,7 @@ sub irc_newnick($) {
 	$user =~ s/^$prefix//;
 
 	debug_print("Shall we create $nick?", "nicks", 2);
-	return if haskeys($nicks->{noprefix $nick});
+	return if haskeys($nicks->{noprefix($nick)});
 	$shortnick = ircify($nick, 1);
 	$nicks->{noprefix($nick)} = $oscarprime->buddyhash();
 	$nicks->{noprefix($nick)}->{$usnick} = time;
@@ -926,12 +828,13 @@ sub process_irc_message($) {
 			my(%groups, $buddy, $group, $xbuddy, $evil, $line, $buddat);
 			my $buddies = 0;
 
-			foreach $group(sort $oscar->groups) {
+			foreach $group($oscar->groups) {
 				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
-				foreach $buddy(sort $oscar->buddies($group)) {
+				foreach $buddy($oscar->buddies($group)) {
 					$buddat = $oscar->buddy($buddy, $group);
 					$evil = $buddat->{evil};
 					$line = "\t$buddy";
+					$line .= " {$buddat->{comment}}" if $buddat->{comment};
 					$line .= " [online]" if $buddat->{online};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
@@ -944,14 +847,15 @@ sub process_irc_message($) {
 			my(%groups, $buddy, $group, $xbuddy, $line, $evil, $buddat);
 			my $onbuddies = 0;
 
-			foreach $group(sort $oscar->groups) {
+			foreach $group($oscar->groups) {
 				my $showedgroup = 0;
-				foreach $buddy(sort $oscar->buddies($group)) {
+				foreach $buddy($oscar->buddies($group)) {
 					irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname)) unless $showedgroup++;
 					$buddat = $oscar->buddy($buddy, $group);
 					$evil = $buddat->{evil};
 					$line = "\t$buddy";
 					next unless $buddat->{online};
+					$line .= " {$buddat->{comment}}" if $buddat->{comment};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
@@ -987,6 +891,7 @@ sub process_irc_message($) {
 					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
 					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
 					$msg .= "Idle Time: \t".($buddyconf->{idle}/60)." minutes\r\n";
+					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
 
 					$msg .= "User Class: \t";
 					$msg .= " TRIAL" if $buddyconf->{trial};
@@ -1009,15 +914,8 @@ sub process_irc_message($) {
 				my $group = $extra || "Buddies";
 				my %rembuds = ();
 				my @buddies = split(/,\s*/, $param);
-				foreach my $buddy(@buddies) {
-					my $currgroup = $oscar->findbuddy($buddy);
-					push @{$rembuds{$currgroup}}, $buddy;
-				}
-				foreach my $remgroup(keys %rembuds) {
-					$oscar->remove_buddy($remgroup, @{$rembuds{$remgroup}});
-				}
 				$oscar->add_buddy($group, @buddies);
-				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
@@ -1033,7 +931,7 @@ sub process_irc_message($) {
 				foreach my $remgroup(keys %rembuds) {
 					$oscar->remove_buddy($remgroup, @{$rembuds{$remgroup}});
 				}
-				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			unless($param) {
@@ -1053,7 +951,7 @@ sub process_irc_message($) {
 			} else {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->add_permit(@buddies);
-				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
@@ -1061,7 +959,7 @@ sub process_irc_message($) {
 			} else {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->add_deny(@buddies);
-				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
@@ -1069,7 +967,7 @@ sub process_irc_message($) {
 			} else {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->remove_deny(@buddies);
-				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
@@ -1077,7 +975,7 @@ sub process_irc_message($) {
 			} else {
 				my @buddies = split(/,\s*/, $param);
 				$oscar->remove_permit(@buddies);
-				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
@@ -1102,7 +1000,7 @@ sub process_irc_message($) {
 					irc_send(irc_privmsg($usnick, $nick, "That is not a valid permit mode.  See list_permit_modes for valid permit modes.", "", "", $screenname));
 				} else {
 					$oscar->set_visibility($param);
-					irc_send(irc_privmsg($usnick, $nick, "Permit mode set.", "", "", $screenname));
+					$oscar->commit_buddylist;
 				}
 			}
 		} elsif ($cmd eq "list_permit_modes") {
@@ -1120,8 +1018,7 @@ sub process_irc_message($) {
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				$oscar->set_info($text);
-				$profiles->{safename $screenname} = $text if $saveprofiles > 0;
-				irc_send(irc_privmsg($usnick, $nick, "Your profile has been updated.", "", "", $screenname));
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "get_dir") {
 			#unless($param) {
@@ -1214,13 +1111,13 @@ sub process_irc_message($) {
 			irc_send(irc_ctcp($usnick, $nick, "loadbuddies"));
 			irc_send(irc_privmsg($usnick, $nick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
 		} elsif ($cmd eq "savebuddies") {
-			my $fmtoscar = 0;
+			my $fmtoscar = 1;
 			my($config, $message, $group, $buddy, %groups, $filename);
 
 			unless($dccip) {
 				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file.", "", "", $screenname));
 			} else {
-				$fmtoscar = 1 if $param and lc($param) ne "toc";
+				$fmtoscar = 0 if $param and lc($param) eq "toc";
 
 				if($fmtoscar) {
 					$config =
@@ -1228,16 +1125,25 @@ sub process_irc_message($) {
  version 1
 }
 User {
- screenName $screenname
-}
-Buddy {
- list {
-";
-					#debug_print("TOC to OSCAR: config is " . Data::Dumper::Dumper(%config), "IRC", 1);
+ screenName $screenname";
+					if($oscar->profile) {
+						$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
+						$config .= "  dataLength ".length($oscar->profile)."\n";
+						my $mimeprofile = encode_base64($oscar->profile, "");
+						while($mimeprofile) {
+							$config .= "  dataBlob ".substr($mimeprofile, 0, 64, "")."\n";
+						}
+						$config .= " }\n";
+					}
+					$config .= "}\nBuddy {\n list {\n";
+
 					foreach $group (sort $oscar->groups) {
 						$config .= "  $group";
 						foreach $buddy(sort $oscar->buddies($group)) {
-							$config .= " $buddy";
+							$config .= "   \"$buddy\"";
+							if(my $comment = $oscar->buddy($buddy, $group)->{comment}) {
+								$config .= " {\n    BuddyNote {\n     NoteString $comment\n    }   }";
+							}
 						}
 						$config .= "\n";
 					}
@@ -1284,39 +1190,45 @@ Buddy {
 			}
 		} elsif ($cmd eq "add_pounce") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce screenname text", "", "", $screenname));
-			} elsif($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce buddy text", "", "", $screenname));
 			} else {
-				push @{$sndata->{pounces}}, {who => $param, what => $extra};
-				irc_send(irc_privmsg($usnick, $nick, "Pounce added.", "", "", $screenname));
-				push @{$pounces->{safename $screenname}}, {who => $param, what => $extra} if $savepounces > 0;
+				my $group = $oscar->findbuddy($param);
+				if(!defined($group)) {
+					irc_send(irc_privmsg($usnick, $nick, "You may only add pounces for people on your buddylist.", "", "", $screenname));
+				} else {
+					$oscar->get_app_data($group, $param)->{0x0200} = $extra;
+					$oscar->commit_buddylist;
+				}
 			}
 		} elsif ($cmd eq "remove_pounce") {
 			unless(defined $param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce buddy", "", "", $screenname));
 				return;
-			}
-			$param = 0 if $param eq "";
-			if($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
-			} elsif($sndata->{pounces}->[$param]) {
-				splice(@{$sndata->{pounces}}, $param, 1);
-				splice(@{$pounces->{safename $screenname}}, $param, 1) if $savepounces > 0;
-				irc_send(irc_privmsg($usnick, $nick, "Pounce deleted.", "", "", $screenname));
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces.", "", "", $screenname));
-			}
-		} elsif ($cmd eq "list_pounces") {
-			if($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
-			} else {
-				my $i = 0;
-				foreach my $pounce(@{$sndata->{pounces}}) {
-					irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}", "", "", $screenname));
-					$i++;
+				my $group = $oscar->findbuddy($param);
+				if(!defined($group)) {
+					irc_send(irc_privmsg($usnick, $nick, "You may only remove pounces for people on your buddylist.", "", "", $screenname));
+				} else {
+					delete $oscar->get_app_data($group, $param)->{0x0200};
+					$oscar->commit_buddylist;
 				}
-				irc_send(irc_privmsg($usnick, $nick, "You have no pounces.", "", "", $screenname)) if $i == 0;
+			}
+		} elsif ($cmd eq "show_pounce") {
+						unless(defined $param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce buddy", "", "", $screenname));
+				return;
+			} else {
+				my $group = $oscar->findbuddy($param);
+				if(!defined($param)) {
+					irc_send(irc_privmsg($usnick, $nick, "You may only remove pounces for people on your buddylist.", "", "", $screenname));
+				} else {
+					my $pounce = $oscar->get_app_data($group, $param)->{0x0200};
+					if($pounce) {
+						irc_send(irc_privmsg($usnick, $nick, $pounce, "", "", $screenname));
+					} else {
+						irc_send(irc_privmsg($usnick, $nick, "You do not have a pounce for that person.", "", "", $screenname));
+					}
+				}
 			}
 		} elsif ($cmd eq "help") {
 			my $foo = ":$usnick PRIVMSG $nick";
@@ -1345,8 +1257,11 @@ Buddy {
 				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
 				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
 				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
-				irc_send("$foo :savebuddies [OSCAR] - DCC SENDs you a copy of your buddylist.  By default it will be in \"TOC format\" - use the OSCAR parameter for \"OSCAR format\".\r\n", 1) if $dccip;
+				irc_send("$foo :savebuddies [TOC] - DCC SENDs you a copy of your buddylist.  By default it will be in \"OSCAR format\" - use the TOC parameter for \"TOC format\".\r\n", 1) if $dccip;
 				irc_send("$foo :loadbuddies - DCC GETs a copy of your buddylist and uses that as your new buddylist.  You must do this before sending the file.\r\n", 1);
+				irc_send("$foo :reorder_groups group1, group2, ... - Changes the order of the groups in your buddylist.\r\n", 1);
+				irc_send("$foo :reorder_groups group buddy1, buddy2, ... - Changes the order of the buddies in a group on your buddylist.\r\n", 1);
+				irc_send("$foo :set_buddy_comment buddy comment - Associate a brief comment with a buddy.  This can be something like the buddy's real name.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :Note on savebuddies\\loadbuddies: savebuddies will send you a CTCP savebuddies (loadbuddies sends CTCP loadbuddies.\r\n", 1);
 				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
@@ -1406,10 +1321,13 @@ Buddy {
 				irc_send("$foo :Your pounces will be saved when you sign off but cannot trigger unless you are signed on.\r\n", 1);
 				irc_send("$foo :When you sign on, you will be reminded if you have any untriggered pounces.\r\n", 1);
 				irc_send("$foo :Each pounce is deleted after it is triggered, so it only will happen once.\r\n", 1);
+				irc_send("$foo :You can have one pounce per buddy, and you can only hae pounces for people on your buddylist.\r\n", 1);
+				irc_send("$foo :If you delete a buddy, its pounce goes with it.", 1);
+				irc_send("$foo :\r\n", 1);
 				irc_send("$foo :Pounce commands:\r\n", 1);
-				irc_send("$foo :\tadd_pounce screenname text - Pounce on screenname with a message of text.\r\n", 1);
-				irc_send("$foo :\tremove_pounce number - Remove pounce number.  You can find the number for the pounce you wish to remove by doing a list_pounces.\r\n", 1);
-				irc_send("$foo :\tlist_pounces - List your remaining pounces.\r\n", 1);
+				irc_send("$foo :\tadd_pounce buddy text - Pounce on screenname with a message of text.\r\n", 1);
+				irc_send("$foo :\tremove_pounce buddy - Remove pounce on buddy.\r\n", 1);
+				irc_send("$foo :\tshow_pounce buddy - Shows the text of a pounce.\r\n", 1);
 			} else {
 				irc_send("$foo :aimirc $version, (c)1999-2001 Matthew Sachs.\r\n", 1);
 				irc_send("$foo :aimirc homepage: http://www.zevils.com/programs/aimirc/\r\n", 1);
@@ -1421,7 +1339,7 @@ Buddy {
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
-				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1) if $savepounces > 0;
+				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
 				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
@@ -1430,8 +1348,6 @@ Buddy {
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :You need an AOL Instant Messenger account to use aimirc.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
 			}
-		#} elsif($cmd eq "webpage") {
-		#	irc_send(irc_privmsg($usnick, $nick, html2txt(get($param), $nick))) if $param;
 		} elsif($cmd eq "switchname") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: switchname screenname", "", "", $screenname));
@@ -1460,6 +1376,27 @@ Buddy {
 				}
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must join ".normalize("#aimirc-$screenname")." to use this feature.", "", "", $screenname));
+			}
+		} elsif($cmd eq "reorder_groups") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: reorder_groups group1, group2, group3, ...", "", "", $screenname));
+			} else {
+				$oscar->reorder_groups($param, split(/(?:,|\s)\s*/, $extra));
+				$oscar->commit_buddylist;
+			}
+		} elsif($cmd eq "reorder_buddies") {
+			if(!$param and !$extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: reorder_buddies group buddy1, buddy2, buddy3, ...", "", "", $screenname));
+			} else {
+				$oscar->reorder_buddies($param, split(/(?:,|\s)\s*/, $extra));
+				$oscar->commit_buddylist;
+			}
+		} elsif($cmd eq "set_buddy_comment") {
+			if(!$param and !$extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: set_buddy_comment buddy comment", "", "", $screenname));
+			} else {
+				$oscar->set_buddy_comment($param, $extra);
+				$oscar->commit_buddylist;
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -1585,14 +1522,12 @@ sub callback_vars($) {
 	return($screenname, $nick, $sndata);
 }
 
-sub oscar_error($$$$$$$$;$) {
-	my($oscar, undef, $error, undef, $url, $reqdata, undef, undef, $fatal) = @_;
+sub oscar_error($$$$$) {
+	my($oscar, undef, $errno, $desc, $fatal) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	debug_print("Got oscar_error: $error ($fatal)", "irc", 2);
-	$error .= "[$reqdata] " if $reqdata;
-	irc_send(irc_privmsg($usnick, $nick, $error, "", "", $screenname));
-	irc_send(irc_privmsg($usnick, $nick, "See $url for moore information.", "", "", $screenname)) if $url;
+	debug_print("Got oscar_error $errno: $desc ($fatal)", "irc", 2);
+	irc_send(irc_privmsg($usnick, $nick, "Error $errno: $desc", "", "", $screenname));
 	do_signoff($nick, $oscar, 1) if $fatal;
 }
 
@@ -1649,21 +1584,17 @@ sub oscar_buddy_in($$$$) {
 			irc_send(irc_privmsg($usnick, $nick, "$buddy has arrived", "", "", $screenname));
 		}
 
-		for(my $i = scalar(@{$sndata->{pounces}}) - 1; $i >= 0; $i--) {
-			my $pounce = $sndata->{pounces}->[$i];
-			next unless normalize $pounce->{who} eq normalize($buddy);
-			my $tmp = "";;
+		my $pounce = $buddat->{data}->{0x0200};
+		if($pounce) {
+			my $tmp = "";
 			if($buddat->{aol}) {
 				$tmp = "[automated pounce] ";
 			}
-			$tmp .= $pounce->{what};
+			$tmp .= $pounce;
 			$oscar->send_im($buddy, $tmp, 1);
-			splice(@{$sndata->{pounces}}, $i, 1);
-			irc_send(irc_privmsg($usnick, $nick, "Pounce $i has been sent.", "", "", $screenname));
-		}
-
-		if($savepounces > 0) {
-			@{$pounces->{$screenname}} = @{$sndata->{pounces}};
+			delete $buddat->{data}->{0x0200};
+			$oscar->commit_buddylist;
+			irc_send(irc_privmsg($usnick, $nick, "Pounce to $buddy has been sent.", "", "", $screenname));
 		}
 	}
 
@@ -1884,22 +1815,36 @@ sub oscar_signon_done($) {
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_part($usnick, $chan));
 
-	loaddat($screenname);
 	$sndata->{ison} = 1;
 	if($irc_away->{$nick}) {
 		$oscar->set_away($irc_away->{$nick});
 	}
-	if($pounces->{safename $screenname}) {
-		@{$sndata->{pounces}} = @{$pounces->{safename $screenname}};
-		my $pouncecount = scalar @{$sndata->{pounces}};
-		irc_send(irc_privmsg($usnick, $nick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname)) if $pouncecount > 0;
+
+	my $pouncecount = 0;
+	foreach my $group($oscar->groups) {
+		foreach my $buddy($oscar->buddies($group)) {
+			$pouncecount++ if exists($oscar->get_app_data($group, $buddy)->{0x0200});
+		}
 	}
-	if($profiles->{safename $screenname}) {
-		$oscar->set_info($profiles->{safename $screenname});
+	irc_send(irc_privmsg($usnick, $nick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname)) if $pouncecount > 0;
+
+	if($oscar->profile) {
 		irc_send(irc_privmsg($usnick, $nick, "You profile has been set.", "", "", $screenname));
-	} else {
-		$oscar->set_info("I am connected to AOL Instant Messenger via <a href=\"http://www.zevils.com/programs/aimirc/\">aimirc</a>.");
 	}
+}
+
+sub oscar_buddylist_error($$$) {
+	my($oscar, $error, $what) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar);
+
+	irc_send(irc_privmsg($usnick, $nick, "Error $error occured while trying to $what on your buddylist.", "", "", $screenname));
+}
+
+sub oscar_buddylist_ok($) {
+	my($oscar) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar);
+
+	irc_send(irc_privmsg($usnick, $nick, "Your buddylist was successfully modified.", "", "", $screenname));
 }
 
 sub oscar_debug_print($$) {
@@ -2091,7 +2036,6 @@ sub do_signon($$$) {
 	$connection->{aimnick} ||= $screenname;
 	$sndata->{away_buddies} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
-	$sndata->{pounces} = [];
 	$irc_connections->{$screenname} = $nick;
 
 	switchnick($nick, $screenname) if $connection->{aimnick} eq $screenname;
@@ -2106,16 +2050,6 @@ sub do_signoff($$;$) {
 	my ($nick, $oscar, $already_off) = @_;
 
 	my $screenname = $oscar->screenname if $oscar;
-	my $safename = safename $screenname;
-	#if($safename and $savebuddies > 0) {
-	#	$buddylists{$nparam} = conf2str(%config) if haskeys $config{Buddies};
-	#}
-	savedat($screenname) if $screenname;
-	if($safename) {
-		delete $buddylists->{$safename};
-		delete $pounces->{$safename};
-		delete $profiles->{$safename};
-	}
 
 	foreach my $chat(keys %chats) {
 		next unless normalize($chats{$chat}->{screenname}) eq normalize($screenname) or not $screenname;
@@ -2377,9 +2311,6 @@ sub do_signoff_all($;$) {
 sub going_down() {
 	my ($user, @users) = (undef, keys %$aim_connections);
 
-	foreach $user(keys %$irc_connections) {
-		savedat($user);
-	}
 	foreach $user(@users) {
 		next if $aim_connections->{$user}->{notified}++;
 		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
@@ -2514,7 +2445,8 @@ sub irc_ctcp($$$;$) {
 
 sub loadbuddies($$) {
 	my($oscar, $buff) = @_;
-	my($line, $pmode, %buddies, @permit, @deny);
+	my($line, $pmode, %buddies, @permit, @deny, %bnotes);
+	my $profile = "";
 
 	if($buff !~ /^Buddy {$/m) { #TOC-style
 		my $group = "";
@@ -2535,10 +2467,11 @@ sub loadbuddies($$) {
 		}
 	} else {
 		my @sections = ();
+		my $subection = "";
+		my $buddy = "";
 		foreach $line(split(/[\r\n]+/, $buff)) {
-			my $buddy;
 
-			if($line =~ /^\s*(\S+) {\s*/) {
+			if($line =~ /^\s*(?!")(\S+) {\s*/) {
 				push @sections, $1;
 			} elsif($line =~ /^\s*}\s*$/) {
 				pop @sections;
@@ -2548,12 +2481,13 @@ sub loadbuddies($$) {
 				if(lc($sections[0]) eq "buddy" and lc($sections[1]) eq "list") {
 					if($val) {
 						my $group = $var;
-						while($val =~ s/\"(.+?)\"//g) {
+						if($val =~ /^\s*\"(.+?)\"( {)?$/) {
 							($buddy = $1) =~ tr/ //d;
 							push @{$buddies{$group}}, $buddy;
+							push @sections, "buddy";
 						}
 					}
-				} elsif(lc($sections[0] eq "Privacy")) {
+				} elsif(lc($sections[0] eq "privacy")) {
 					if(lc($var) eq "allowlist" and $val) {
 						while($val =~ s/\"(.+?)\"//g) {
 							($buddy = $1) =~ tr/ //d;
@@ -2580,14 +2514,28 @@ sub loadbuddies($$) {
 							$pmode = 4;
 						}
 					}
+				} elsif(lc($sections[0]) eq "buddy") {
+				} elsif(lc($sections[0]) eq "buddynote") {
+					if(lc($var) eq "notestring") {
+						$bnotes{$buddy} = $val;
+					}
+				} elsif(lc($sections[0]) eq "profile" and lc($sections[1]) eq "user") {
+					if(lc($var) eq "datablob") {
+						$profile .= $val;
+					}
 				}
 			}
 		}
 	}
 
+	$oscar->set_profile(decode_base64($profile)) if $profile;
+
 	$oscar->set_visibility($pmode);
 	foreach my $group(keys %buddies) {
 		$oscar->add_buddy($group, @{$buddies{$group}});
+		foreach my $buddy(grep { exists($bnotes{$_}) } @{$buddies{$group}}) {
+			$oscar->set_buddy_comment($group, $bnotes{$buddy});
+		}
 	}
 	$oscar->add_permit(@permit);
 	$oscar->add_deny(@deny);
@@ -2615,6 +2563,8 @@ sub loadbuddies($$) {
 		splice(@currbuddies, $i, 1) unless grep {normalize($_) eq normalize($currbuddies[$i])} @newbuddies;
 	}
 	$oscar->remove_deny(@currbuddies);
+
+	$oscar->commit_buddylist;
 
 	return 1;
 }
@@ -2654,56 +2604,6 @@ sub irc_dcc($$$$$$) {
 		push @dccqueue, {screenname => $screenname, starttime => time, ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
 		debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
-	}
-}
-
-# Make a screenname safe to be used in a filename.
-# This is probably not needed, but just because you're paranoid it doesn't
-# meant they're not out to get you.
-sub safename($) {
-	my($dangerous_name) = shift;
-	$dangerous_name =~ tr!<>|/\0!!d if $dangerous_name;
-	return $dangerous_name;
-}
-
-sub savedat($) {
-	my($screenname, $pounce) = shift;
-
-	$screenname = safename $screenname;
-
-	if(-d $directory and -w $directory) {
-		if($savebuddies) {
-			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
-			unlink "$directory/buddylists/$screenname";
-			if($buddylists->{$screenname}) {
-				open(BUDDYLIST, ">$directory/buddylists/$screenname");
-				print BUDDYLIST $buddylists->{$screenname};
-				close BUDDYLIST;
-			}
-		}
-		if($saveprofiles) {
-			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
-			unlink "$directory/profiles/$screenname";
-			if($profiles->{$screenname}) {
-				open(PROFILE, ">$directory/profiles/$screenname");
-				print PROFILE $profiles->{$screenname};
-				close PROFILE;
-			}
-		}
-		if($savepounces) {
-			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
-			unlink "$directory/pounces/$screenname";
-			if(ref $pounces->{$screenname} eq "ARRAY" and scalar @{$pounces->{$screenname}}) {
-				open(POUNCES, ">$directory/pounces/$screenname");
-				foreach $pounce(@{$pounces->{$screenname}}) {
-					print POUNCES "$pounce->{who} $pounce->{what}\n";
-				}
-				close POUNCES;
-			}
-		}
-	} else {
-		print STDERR "Warning!  $directory is unwritable - not saving data.\n";
-		debug_print("Warning!  $directory is unwritable - not saving data.", "errors", 1);
 	}
 }
 
