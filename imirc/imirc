@@ -1786,7 +1786,7 @@ sub oscar_buddy_in($$$$) {
 	my $inick = ircify($prefix.$buddy);
 	unless($nicks->{$buddy}->{$screenname} and $nicks->{$buddy}->{$screenname} == -1) {
 		$nicks->{$buddy}->{$screenname} = -1;
-		manglewarn($nick, $inick, $screenname);
+		manglewarn($nick, $prefix.$buddy, $screenname);
 		if($sndata->{inchan}) {
 			irc_send(irc_join($inick, nickchan($screenname)));
 			irc_send(irc_mode($usnick, nickchan($screenname), "+v $inick"));
@@ -1852,7 +1852,7 @@ sub oscar_chat_buddy_in($$$$) {
 
 	irc_send(irc_newnick($prefix.$buddy));
 	my $inick = ircify($prefix.$buddy);
-	manglewarn($nick, $inick, $screenname) unless $nicks->{$buddy}->{$screenname};
+	manglewarn($nick, $prefix.$buddy, $screenname) unless $nicks->{$buddy}->{$screenname};
 	irc_send(irc_join($inick, chatchan($chatid)));
 	$nicks->{$buddy}->{$chatchan.$chatid} = -1;
 }
@@ -1893,7 +1893,7 @@ sub oscar_im_in($$$$) {
 
 	irc_send(irc_newnick($prefix.$from));
 	unless($nicks->{$from}->{$screenname}) {
-		manglewarn($nick, $inick, $screenname);
+		manglewarn($nick, $prefix.$from, $screenname);
 		$nicks->{$from}->{$screenname} = time;
 		irc_send(irc_join($inick, nickchan($screenname))) if $sndata->{inchan};
 	}
