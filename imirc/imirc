@@ -3179,6 +3179,8 @@ sub update_usercount() {
 
 sub rm_nick_user($$) {
 	my($nick, $user) = (noprefix(shift), shift);
+
+	debug_print("$user is no longer using $nick", "nicks", 2);
 	return if $nick eq $usnick or $nick eq $oldnick;
 	delete $nicks->{$nick}->{$user};
 
