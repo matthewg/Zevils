@@ -270,8 +270,8 @@ if(!$errors) {
 		pass => "PASS $ourpass :1\r\n"
 	},
 	ircu => {
-		nick => ":$us NICK _NICK_ _UID_ _TIME_ _USER_ $us $us :AOL Instant Messenger services\r\n",
-		server => "SERVER $us 1 _TIME_ _TIME_ P09 AIM Services\r\n",
+		nick => ":$us NICK _NICK_ 1 _TIME_ _USER_ $us +i :AOL Instant Messenger services\r\n",
+		server => "SERVER $us 1 _TIME_ _TIME_ P09 :AIM Services\r\n",
 		uspass => 1,
 		theirpass => 1,
 		nicklen => 9,
@@ -314,9 +314,6 @@ if($connectmode == 0 or $connectmode == 2) {
 } else {
 	print STDERR "Not forking.\n" if $verbose;
 }
-
-$uid = "101";
-
 
 unless($reload) {
 	if($fork) {
@@ -469,7 +466,6 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
-	$input =~ s/_UID_/$uid/g and $uid++;
 	return $input;
 }
 
@@ -493,7 +489,7 @@ sub irc_newnick {
 	$nick =~ tr/ //d;
 	$user = $nick;
 	$user =~ s/^$prefix//;
-	$nicks{$nick} = 1;
+	$nicks{$nick}{$usnick} = time unless $nicks{$nick};
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
 
 	$longnicks{normalize($shortnick)} = $nick;
