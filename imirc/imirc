@@ -11,7 +11,7 @@ use HTML::Parse;
 use POSIX;
 use Toc qw(:all);
 
-$home = (getpwent)[7];
+$home = (getpwuid($>))[7];
 
 #Defaults
 $prefix = "AIM-";
