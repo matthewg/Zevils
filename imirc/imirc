@@ -1461,19 +1461,19 @@ sub process_aim_message($$$) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info."));
 		}
 	} elsif($cmd eq "CONFIG") {
-		if(!$val) {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
-			if($buddylists{safename $screenname}) {
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
-				update_config($socket, $buddylists{safename $screenname});
-			} elsif($dcc) {
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
-			}
-		} else {
+		#if(!$val) {
+		#	irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
+		#	irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
+		#	if($buddylists{safename $screenname}) {
+		#		irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+		#		update_config($socket, $buddylists{safename $screenname});
+		#	} elsif($dcc) {
+		#		irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+		#	}
+		#} else {
 			$buddylists{safename $screenname} = $val;
 			update_config($socket, $val);
-		}
+		#}
 	} elsif($cmd eq "IM_IN") {
 		my $nick;
 		$val =~ /([^:]+):(.):(.*)/;
