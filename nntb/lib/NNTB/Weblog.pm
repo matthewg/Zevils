@@ -190,7 +190,7 @@ This method returns the IP address of the currently-connected client.
 =cut
 
 sub client_ip($) {
-	return $::client_ip;
+	#return $::client_ip;
 }
 
 =pod
@@ -291,7 +291,7 @@ sub html2txt($$) {
 	# We stick these guys at the end.
 	$tree->push_content(
 		['p', 
-			map [$_, 'br'] @footlinks
+			map {[$_, 'br']} @footlinks
 		]
 	);
 
