@@ -134,7 +134,6 @@ function page_start() {
 		$logged_in = $TEMPLATE["global"]["not_logged_in"];
 		$pages[] = array("Log In", "login");
 		$pages[] = array("Register", "login");
-		$pages[] = array("Forgot PIN", "login");
 	}
 	$pages[] = array("Legal Info", "legal");
 	$pages[] = array("Statistics", "statistics");
