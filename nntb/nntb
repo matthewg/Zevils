@@ -94,6 +94,7 @@ use File::Spec;
 use Cwd;
 use Time::Local;
 use Regexp::Shellish; #0.94 isn't out yet, for now we'll get by with 0.93
+use MIME::Parser;
 
 sub init() {
 	%config = (
@@ -577,7 +578,7 @@ sub got_client(*) {
 
 					if(/^\s/) { # Continue previous header
 						s/^\s+//;
-						if($lastheader) {
+						if(!$lastheader) {
 							$error = "500 Malformed header";
 						} else {
 							$headers{lastheader} .= $_;
@@ -607,6 +608,32 @@ sub got_client(*) {
 
 				do_log("End of body", LOG_DEBUG);
 				do_log("Body: $body", LOG_DEBUG);
+
+				if($headers{'content-type'} eq "multipart/alternative") {
+					my $parser = new MIME::Parser;
+					my $message = join("\n", map { "$_: $headers{$_}" } keys %headers);
+					$message .= "\n$body\n";
+					my $entity = $parser->parse_data($message);
+
+					if(!$entity) {
+						$error = "500 Couldn't parse MIME data";
+					} else {
+						my $best_part;
+						foreach my $part ($entity->parts) {
+							if($entity->mime_type eq "text/html") {
+								$best_part = $part;
+								last;
+							}
+						}
+						($best_part) ||= grep { $_->mime_type eq "text/plain" } $entity->parts;
+						if(!$best_part) {
+							$error = "500 Couldn't find a valid MIME part";
+						} else {
+							$headers{'content-type'} = $best_part->mime_type;
+							$body = join("", $best_part->body());
+						}
+					}
+				}
 
 				if($error) {
 					nntp_put($error);
