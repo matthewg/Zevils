@@ -645,7 +645,7 @@ sub process_irc_message($) {
 
 	if($aim_connections{$nnick}) {
 		$aimnick = $aim_connections{$nnick}{aimnick};
-		Toc::debug_print("Got IRC event from $nnick.  is_idle: $aim_connections{$nnick}{screennames}{$aimnick}{is_idle}", "sflap", 1);
+		#Toc::debug_print("Got IRC event from $nnick.  is_idle: $aim_connections{$nnick}{screennames}{$aimnick}{is_idle}", "sflap", 1);
 		$aim_connections{$nnick}{screennames}{$aimnick}{idletime} = time;
 		if($aim_connections{$nnick}{screennames}{$aimnick}{is_idle}) {
 			$aim_connections{$nnick}{screennames}{$aimnick}{is_idle} = 0;
