@@ -390,7 +390,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :TS\r\n",
 		},
 		dancer => {
-			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us 0.0.0.0 :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
 			server => "CAPAB :EX DNCR SRV DE\r\nSERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 5 1 0 :_TIME_",
 			uspass => 1,
 			theirpass => 1,
