@@ -187,6 +187,9 @@ sub num2id($$$) {
 sub auth_status_ok($) {
 	my($self) = @_;
 
+	# Refresh user info
+	$self->{slash_user} = $self->{slash_db}->getUser($self->{slash_user}->{uid});
+
 	my $auth_requirements = $self->{slash_db}->getVar("nntp_force_auth", "value");
 	return 1 unless $auth_requirements;
 	return 0 if $self->{slash_user}->{uid} == $self->{slash_constants}->{anonymous_coward_uid};
@@ -199,7 +202,12 @@ sub consume_subscription($) {
 	my($self) = @_;
 
 	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
+
+	# Refresh user info
+	$self->{slash_user} = $self->{slash_db}->getUser($self->{slash_user}->{uid});
+
 	$self->log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
+
 	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_bought => ++$self->{slash_user}->{hits_bought}});
 }
 
