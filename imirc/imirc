@@ -1425,9 +1425,9 @@ sub process_irc_message($) {
 		} elsif($cmd eq "signoffall") {
 			do_signoff_all($nick);
 		} elsif($cmd eq "listnames") {
-			irc_send(irc_privmsg($usnick, $nick, "Your default screenname is " . $sndata->{formatted} . ".", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "Your default screenname is " . $sndata->{oscar}->screenname . ".", "", "", $screenname));
 			foreach my $tmpscreenname(keys %{$aim_connections->{$nick}->{screennames}}) {
-				irc_send(irc_privmsg($usnick, $nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->screenname, "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, $aim_connections->{$nick}->{screennames}->{$tmpscreenname}->{oscar}->screenname, "", "", $screenname));
 			}
 		} elsif($cmd eq "set") {
 			$cmd = $param;
