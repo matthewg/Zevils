@@ -366,11 +366,23 @@ sub root($) { return ""; }
 
 =pod
 
+=item description GROUP
+
+This method should return the description for the indicated group.
+The validity of the group will have been checked before this method
+is called.
+
+=cut
+
+sub description($$) { return undef; }
+
+=pod
+
 =item groups [TIME]
 
 This method should return a hash whose keys are the available groups and whose
-values are descriptions of those groups.  If C<TIME> is specified, only groups
-created since that time (in UNIX epoch format) should be returned.
+values are descriptions of those groups.  If C<TIME> is specified, only
+groups created since that time (in UNIX epoch format) should be returned.
 
 =cut
 

@@ -509,12 +509,22 @@ sub got_client(*) {
 					}
 					nntp_put(".");
 				} elsif(!$params[0] or lc($params[0]) eq "active") {
-					if($params[1]) { # RFC 2980 - this is a wildmat
+					if($params[1] and $params[1] =~ /[*?[]/) { # RFC 2980 - this is a wildmat
 						nntp_put("500 Command not implemented");
 					} else {
 						nntp_put("215 list of newsgroups follows");
-						foreach $blog (values %blogs) {
-							my %groups = $blog->groups();
+						my $pattern = $params[1];
+						foreach $blog ($pattern ? findblog($pattern) : values %blogs) {
+							my %groups;
+							if($pattern) {
+								if($blog->is_group($pattern)) {
+									%groups = ($pattern => $blog->description($pattern));
+								} else {
+									%groups = ();
+								}
+							} else {
+								%groups = $blog->groups();
+							}
 							foreach my $group(sort keys %groups) {
 								my($first, $last) = $blog->groupstats($group);
 								my $can_post = $blog->can_post($group) ? "y" : "n";

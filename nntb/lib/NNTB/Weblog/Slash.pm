@@ -203,6 +203,30 @@ sub consume_subscription($) {
 	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
 }
 
+sub description($$) {
+	my($self, $group) = @_;
+	my($id, $format, $type) = $self->parsegroup($group);
+
+	my $sitename = $self->{slash_db}->getVar("sitename", "value");
+	if($type eq "section") {
+		return "$sitename front page stories" unless $id;
+		return "$sitename $id stories";
+	} elsif($type eq "story") {
+		my $sid = $self->{slash_db}->sqlSelect('sid', 'stories', "discussion=$id");
+		my $story = $self->{slash_db}->getStory($sid);
+		my $topic = $self->{slash_db}->getTopic($story->{tid}, 'name');
+		return "$story->{title} ($topic)";
+	} elsif($type eq "journals") {
+		return "All $sitename journals" unless $id;
+		my $nick = $self->{slash_db}->getUser($id, 'nickname');
+		return "$sitename journals for $nick (UID $id)";
+	} elsif($type eq "journal") {
+		my $journal_obj = getObject("Slash::Journal");
+		my $journal = $journal_obj->get($id);
+		return $journal->{description};
+	}
+}
+
 sub groups($;$) {
 	my($self, $time) = @_;
 	my %ret = ();
@@ -223,8 +247,8 @@ sub groups($;$) {
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
 	my $textroot = "$self->{root}.text";
 	my $htmlroot = "$self->{root}.html";
-	$ret{"$textroot.stories"} = "$sitename front page stories in plain text";
-	$ret{"$htmlroot.stories"} = "$sitename front page stories in HTML";
+	$ret{"$textroot.stories"} = "$sitename front page stories";
+	$ret{"$htmlroot.stories"} = "$sitename front page stories";
 
 	my $sections = $self->{slash_db}->getSections();
 
@@ -232,8 +256,8 @@ sub groups($;$) {
 		next unless timeCalc($section->{nntp_ctime}, "%s") > $time;
 
 		my $group = $self->groupname("$section->{section}_$section->{id}");
-		$ret{"$textroot.stories.$group"} = "$sitename $section->{title} stories in plain text";
-		$ret{"$htmlroot.stories.$group"} = "$sitename $section->{title} stories in HTML";
+		$ret{"$textroot.stories.$group"} = "$sitename $section->{title} stories";
+		$ret{"$htmlroot.stories.$group"} = "$sitename $section->{title} stories";
 	}
 
 	# Not using cache == bad, true.
@@ -242,7 +266,7 @@ sub groups($;$) {
 	# Keep in mind that since we fork for each client, the cache wouldn't
 	#  be shared between clients.
 
-	my $stories = $self->{slash_db}->sqlSelectAllHashref(
+	my $stories =  $self->{slash_db}->sqlSelectAllHashref(
 		'discussion',
 		'discussion, tid, section, title',
 		'stories',
@@ -271,6 +295,7 @@ sub groups($;$) {
 		foreach my $juser(values %$jusers) {
 			# No getJournals...
 			my $journalgroup = $self->groupname("journals", "$juser->{nickname}_$juser->{uid}");
+
 			$ret{"$textroot.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
 			$ret{"$htmlroot.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
 
