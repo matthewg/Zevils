@@ -674,14 +674,7 @@ sub mainloop() {
 					next unless $screenname;
 					$sndata = $connection->{screennames}->{$screenname};
 					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
-					if($sndata->{ison}) {
-						if(haskeys($sndata->{away_queue}) and $currtime - $sndata->{away_time} > 5) {
-							$sndata->{away_time} = $currtime;
-							my $buddy = (keys %{$sndata->{away_queue}})[0];
-							$sndata->{oscar}->get_away($buddy);
-							delete $sndata->{away_queue}->{$buddy};
-						}
-					} else {
+					unless($sndata->{ison}) {
 						next if ($currtime - $sndata->{signontime}) <= 10;
 						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
 						do_signoff($nick, $sndata->{oscar}, 1);
@@ -2110,12 +2103,7 @@ sub oscar_buddy_in($$$$) {
 			$sndata->{away}->{$buddy} = 1;
 		}
 		if(!$away->{$buddy}) {
-			if(time - $sndata->{ison} > 30) {
-				$oscar->get_away($buddy);
-			} else {
-				irc_send(irc_away(aimnick($buddy, $screenname), "This user's away message has not yet been retrieved.  Use the get_away command to see the away message."));
-				$sndata->{away_queue}->{$buddy} = 1;
-			}
+			$oscar->get_away($buddy);
 			$away->{$buddy} = 1;
 		}
 	} else {
@@ -2675,7 +2663,6 @@ sub do_signon($$$$) {
 	$sndata->{inchan} = 0;
 	$connection->{aimnick} ||= $screenname;
 	$sndata->{away_buddies} = $oscar->buddyhash();
-	$sndata->{away_queue} = $oscar->buddyhash();
 	$sndata->{away_requested} = $oscar->buddyhash();
 	$sndata->{info_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
