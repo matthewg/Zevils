@@ -1512,7 +1512,7 @@ Buddy {
 				irc_send("$foo :\tlist_pounces - List your remaining pounces.\r\n", 1);
 			} else {
 				irc_send("$foo :aimirc $version, (c)1999-2000 Matthew Sachs.\r\n", 1);
-				irc_send("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n", 1);
+				irc_send("$foo :aimirc homepage: http://www.zevils.com/programs/aimirc/\r\n", 1);
 				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
 				irc_send("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n", 1);
