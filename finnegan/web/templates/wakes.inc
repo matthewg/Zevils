@@ -29,6 +29,7 @@ below.
 You can disable a recurring wake-up call to temporarily stop it from being sent.
 Disabled wake-up calls are shown below as shaded and italicized.
 </p>
+<h2><a href="mkwake.php">New Alarm</a></h2>
 <table rules="cols">
 <thead><tr><th></th><th></th><th>Time</th><th>Date (mm/dd)/Days</th><th>Calendar Type</th><th></th></tr></thead>
 <tbody>
