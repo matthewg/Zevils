@@ -328,9 +328,9 @@ sub html2txt($$) {
 		my $body = $tree->find_by_tag_name("body");
 		$body->push_content(['br']);
 		$body->push_content(
-			['p',
+			['p', ['blockquote', 
 				map {("$_", ['br']);} @footlinks
-			]
+			]]
 		);
 	}
 
