@@ -5,6 +5,6 @@ require "ABNF.pm";
 
 #print Data::Dumper::Dumper($Parse::ABNF::ABNF), "\n";
 $rule = "rule           =  rulename defined-as elements c-nl\nfoo = bar baz\n";
-$ret = $Parse::ABNF::ABNF->matches("rulelist", $rule, qw(rulename defined-as elements));
+$ret = $Parse::ABNF::ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
 
 print Data::Dumper::Dumper($ret), "\n";

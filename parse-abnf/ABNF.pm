@@ -409,7 +409,6 @@ sub obj($) {
 sub _matches($$$;@) {
 	my($self, $rule, $tokname, @matchrules) = @_;
 	no strict qw(vars); # We need this because $data comes from matches which the compiler doesn't know yet.
-	my $matcheddata = "";
 	
 	my $foodata = $data;
 	chomp $foodata;
@@ -437,8 +436,10 @@ sub _matches($$$;@) {
 	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata);
 	if($rule->{type} == OP_TYPE_OPS and $tokname eq $litrule) {
 		$retval = {};
-	} else {
+	} elsif($rule->{type} == OP_TYPE_OPS) {
 		$retval = [];
+	} else {
+		$retval = "";
 	}
 
 	# What, I go to the trouble of writing a parser for you and now you want me to comment it?
@@ -483,8 +484,7 @@ sub _matches($$$;@) {
 					croak "Invalid ABNF operand type: ".$rule->{type};
 				}
 				if($didmatch) {
-					push @$retval, $matchvalue if exists($matchrules{$tokname});
-					$matcheddata .= $matchvalue;
+					$retval .= $matchvalue;
 					$data = substr($data, length($matchvalue)); # Exorcise the bit that we matched from the start of $data
 				} else {
 					
@@ -537,7 +537,7 @@ sub _matches($$$;@) {
 		}
 	}
 
-	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? "(matcheddata==$matcheddata) with the following retval:".obj($retval) : "undef") ."\n";
+	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
 	$tablevel--;
 
 	if(not defined $didmatch) {
@@ -545,16 +545,10 @@ sub _matches($$$;@) {
 		return undef;
 	}
 
-	if(@matchrules) {
-		if(ref($retval) eq "HASH" and scalar keys %$retval) {
-			return $retval;
-		} elsif(ref($retval) eq "ARRAY" and scalar @$retval) {
-			return $retval;
-		}
-		return $matcheddata;
+	if($litrule eq $tokname) {
+		$retval->{$tokname} = join("", @{$retval->{$tokname}}) if ref($retval->{$tokname}) eq "ARRAY" and not grep { ref($_) } @{$retval->{$tokname}};
 	}
-
-	return 1;
+	return @matchrules ? $retval : 1;
 }
 
 
