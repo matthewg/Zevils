@@ -5,6 +5,7 @@ use warnings;
 no warnings 'once';
 use POSIX;
 use DBI;
+use Sys::Syslog;
 
 our $db_connected = 0;
 our %kidmap = (); # PID -> log_id
@@ -28,6 +29,7 @@ $SIG{HUP} = \&load_settings;
 my $brancal_timestamp = 0;
 load_settings;
 log_debug("Finnegan starting");
+openlog('finnegan', 'cons,pid', 'daemon');
 
 # Daemonize
 if(!$Finnegan::Config::testmode) {
@@ -47,6 +49,9 @@ die "Couldn't connect to database.\n" unless $dbh;
 $db_connected = 1;
 
 sub END { log_error("Finnegan going down!") if $db_connected; }
+$SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; };
+
+
 
 my $get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
 my $get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger");
@@ -89,10 +94,10 @@ sub log_debug($) {
 }
 sub log_error($) {
 	my $errstr = shift;
+       	syslog('err', $errstr);
+	$log_error->execute($errstr);
 	if($Finnegan::Config::testmode) {
 		warn "$$ - " . time() . ": $errstr\n";
-	} else {
-		$log_error->execute($errstr);
 	}
 }
 sub db_error($$) {
