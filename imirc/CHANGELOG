@@ -1,3 +1,6 @@
+Mar 26 2000, 0.95-pre91:
+	Fixed bug that prevented sending of IMs.
+
 Mar 25 2000, 0.95-pre90:
 	SSL for TOC connections
 	Chatroom channels are done
