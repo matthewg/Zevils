@@ -79,7 +79,7 @@ sub BEGIN {
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 0.57 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.57;
+	$@ .= "We require Net::OSCAR 0.58 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.58;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
