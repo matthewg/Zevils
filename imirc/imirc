@@ -464,31 +464,18 @@ sub mainloop() {
 
 			vec($rin, $upstream->fileno, 1) = 1;
 			foreach my $dcc(@dccqueue) {
-				#debug_print("(vec'ing) dccqueue has DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} (state=$dcc->{state}, fileno=".fileno($dcc->{socket}).")", "DCC", 3);
 				if($dcc->{state} & DCC_STATE_WRITE) {
 					vec($win, fileno($dcc->{socket}), 1) = 1;
 				} else {
 					vec($rin, fileno($dcc->{socket}), 1) = 1;
 				}
 			}
-			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
 
-			undef $currtime;
-			#eval {
-			#	local $SIG{ALRM} = sub { die "timeout\n" };
-			#	alarm 5;
-				$ein = $rin | $win;
-				select($rin, $win, $ein, 5) or goto CLEANUP;
-			#};
-			#if ($@) {
-			#	die unless $@ =~ /timeout/; # Why don't testing for eq "timeout\n" work ???
-			#	goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
-			#}
+			$ein = $rin | $win;
+			select($rin, $win, $ein, 5) or goto CLEANUP;
 
 			local $SIG{ALRM} = sub { confess "IMIRC got stuck?" };
 			alarm 10;
-
-			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
 
 			debug_print("Processing OSCARs...", "irc", 2);
 
@@ -566,6 +553,7 @@ sub connect_to_irc() {
 	my($flags, $in, $pass);
 
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 5) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
+	${*$upstream}{imirc_connected} = 0;
 
 	set_blocking($upstream, 0);
 
@@ -593,6 +581,8 @@ sub connect_to_irc() {
 		$pass =~ s/\s*//g if $pass;	#Remove spaces from crypted password
 		if($pass and $theirpass and ($pass ne $theirpass and $pass ne crypt($theirpass, substr($pass, 0, 2)))) { die("Upstream server gave the wrong password!\n"); }
 	}
+
+	${*$upstream}{imirc_connected} = 1;
 }
 
 # Create a new IRCnick, with mangling and anti-collide
@@ -2448,6 +2438,12 @@ sub irc_recv(;$) {
 	while(not $getbuff[0] and $! == EAGAIN and !defined($rv)) {
 		$buff = ' ' x 512;
 		$rv = $upstream->sysread($buff, 512);
+		if($rv == 0 and ${*$upstream}{imirc_connected}) {
+			${*$upstream}{imirc_gotnothing}++;
+			die "IRC server closed the connection.\n" if ${*$upstream}{imirc_gotnothing} >= 3;
+		} else {
+			${*$upstream}{imirc_gotnothing} = 0;
+		}
 		die "Couldn't read from IRC: $!" if !defined($rv) && $! != EAGAIN;
 		if($! != EAGAIN) {
 			#print STDERR "Reading from IRC...\n";
