@@ -529,8 +529,10 @@ sub mainloop() {
 					$sndata = $connection->{screennames}->{$screenname};
 					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
 					if($sndata->{ison}) {
-						if(haskeys($sndata->{away_queue})) {
+						if(haskeys($sndata->{away_queue}) and $currtime - $sndata->{away_time} > 5) {
+							$sndata->{away_time} = $currtime;
 							my $buddy = (keys %{$sndata->{away_queue}})[0];
+							irc_send(irc_privmsg($usnick, $nick, "Awaydequeueing $buddy"));
 							$sndata->{oscar}->get_away($buddy);
 							delete $sndata->{away_queue}->{$buddy};
 						}
@@ -1782,7 +1784,6 @@ sub oscar_buddy_in($$$$) {
 			$sndata->{away}->{$buddy} = 1;
 		}
 		if(!$away->{buddy}) {
-			irc_send(irc_privmsg($usnick, $nick, time " - $sndata->{ison}"));
 			if(time - $sndata->{ison} > 30) {
 				$oscar->get_away($buddy);
 			} else {
