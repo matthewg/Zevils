@@ -419,8 +419,6 @@ $SIG{CHLD} = \&REAPER;
 
 $| = 1;
 
-$timeticks = 0;
-
 unless($reload) {
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
 	do { irc_send($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
@@ -510,8 +508,7 @@ unless($reload) {
 			exit 1;
 		}
 
-		if(($timeticks % 100) == 0) { #Cleanup nicks
-			$timeticks = 1;
+		if((time % 100) == 0) { #Cleanup nicks
 			Toc::debug_print("Reaping nicks...", "nicks", 3);
 			ANICK: foreach $anick(keys %nicks) {
 				next if $anick eq $usnick;
@@ -536,8 +533,6 @@ unless($reload) {
 					Toc::debug_print("\t$anick, YOU LIVE FOR NOW.", "nicks", 3);
 				}
 			}
-		} else {
-			$timeticks++;
 		}
 	}
 }
