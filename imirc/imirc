@@ -1775,6 +1775,7 @@ sub process_aim_message($$$) {
 		Toc::debug_print("$connection->{nick} has been invited to chat $1 ($4) [$2] by $3", "chat", 2);
 		$chatinvites{$2} = $connection->{nick};
 		$chatnames{$2} = $screenname;
+		irc_send("INVITE $connection->{nick} :#aimchat-$2\r\n");
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2"));
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
