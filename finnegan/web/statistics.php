@@ -39,11 +39,11 @@ if(!$cache_stat || isset($_REQUEST["nocache"]) || $cache_stat["mtime"] < (time()
 	if($row) {
 		$wake_counts[$row[0]] = $row[1];
 	} else {
-		$wake_counts[0] = 0;
+		$wake_counts[1] = 0;
 	}
 
 	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Alarms", $wake_counts[0]+$wake_counts[1]), $TEMPLATE["statistics"]["stat"]));
-	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Active Alarms", $wake_counts[1]), $TEMPLATE["statistics"]["stat"]));
+	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Active Alarms", $wake_counts[0]), $TEMPLATE["statistics"]["stat"]));
 
 	$days = array("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
 	for($i = 0; $i < sizeof($days); $i++) {
