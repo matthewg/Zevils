@@ -581,7 +581,7 @@ sub got_client(*) {
 						if(!$lastheader) {
 							$error = "500 Malformed header";
 						} else {
-							$headers{lastheader} .= $_;
+							$headers{$lastheader} .= $_;
 						}
 					} else { # New header
 						/^([^:]*):\s*(.*)$/ or $error = "500 Malformed header";
@@ -609,7 +609,7 @@ sub got_client(*) {
 				do_log("End of body", LOG_DEBUG);
 				do_log("Body: $body", LOG_DEBUG);
 
-				if($headers{'content-type'} eq "multipart/alternative") {
+				if($headers{'content-type'} =~ /^multipart/) {
 					my $parser = new MIME::Parser;
 					my $message = join("\n", map { "$_: $headers{$_}" } keys %headers);
 					$message .= "\n$body\n";
@@ -620,7 +620,7 @@ sub got_client(*) {
 					} else {
 						my $best_part;
 						foreach my $part ($entity->parts) {
-							if($entity->mime_type eq "text/html") {
+							if($part->mime_type eq "text/html") {
 								$best_part = $part;
 								last;
 							}
@@ -630,7 +630,7 @@ sub got_client(*) {
 							$error = "500 Couldn't find a valid MIME part";
 						} else {
 							$headers{'content-type'} = $best_part->mime_type;
-							$body = join("", $best_part->body());
+							$body = join("", @{$best_part->body()});
 						}
 					}
 				}
