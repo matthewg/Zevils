@@ -539,7 +539,6 @@ sub post($$$) {
 	my $sid;
 
 	my $posttype = "comment";
-	my $cnum;
 	my $pid = 0;
 
 	if($type eq "journal") {
@@ -563,11 +562,7 @@ sub post($$$) {
 				$sid = $parent->{sid};
 			}
 		}
-
-		$cnum = $self->{slash_nntp}->next_num("journal_cnum", $self->{slash_db}->getUserUID($id));
 	} elsif($type eq "story") { # comment
-		$cnum = $self->{slash_nntp}->next_num("cnum", $id);
-
 		($pid, undef, $type) = $self->parse_msgid($head->{references});
 		if($type eq "story") {
 			return $self->fail("500 Comment posting has been disabled for that story")
@@ -600,7 +595,17 @@ sub post($$$) {
 		$subnetid =~ s/^(\d+\.\d+\.\d+)\.\d+$/$1.0/;
 		$subnetid = md5_hex($subnetid);
 
-		$self->log("Posting comment: SID=$sid, PID=$pid, CNUM=$cnum", LOG_NOTICE);
+		my $err_message;
+		filterOk('comments', 'postersubj', $subject, \$err_message)
+			or return $self->fail("500 Lameness filter encountered on subject: $err_message");
+		compressOk('comments', 'postersubj', $subject)
+			or return $self->fail("500 Compression filter encountered on subject");
+		filterOk('comments', 'postercomment', $body, \$err_message)
+			or return $self->fail("500 Lameness filter encountered on body: $err_message");
+		compressOk('comments', 'postercomment', $subject)
+			or return $self->fail("500 Compression filter encountered on body");
+
+		$self->log("Posting comment: SID=$sid, PID=$pid", LOG_NOTICE);
 
 		my $comment = {
 			sid => $sid,
@@ -610,7 +615,6 @@ sub post($$$) {
 			subject => $subject,
 			uid => $uid,
 			points => $score,
-			nntp_cnum => $cnum,
 			nntp_posttime => 'NOW()',
 			comment => $body,
 		};
@@ -656,7 +660,6 @@ sub post($$$) {
 			});
 			$journal_obj->set($jid, { discussion => $did });
 		}
-		$journal_obj->set($jid, { nntp_cnum => $cnum });
 	}
 
 	$self->consume_subscription();
