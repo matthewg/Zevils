@@ -71,7 +71,7 @@ $SIG{CHLD} = sub {
 	if($Finnegan::Config::use_cisco) {
 		log_debug("Call from PID $$ ended");
 		$phonecalls--;
-		#unlink("../tmp/$pid.wav") unless $Finnegan::Config::nocalls;
+		unlink("../tmp/$pid.wav") unless $Finnegan::Config::nocalls;
 	} else {
 		my $phoneline = $kidmap{$pid};
 		log_debug("Recovered phoneline $phoneline (PID $pid)");
