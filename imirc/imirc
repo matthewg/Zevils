@@ -1841,9 +1841,9 @@ sub oscar_im_in($$$$) {
 	$notice = 1 if $msg =~ /<!-- NOTICE -->/;
 
 	irc_send(irc_newnick($prefix.$from));
-	unless($nicks->{$inick}->{$screenname}) {
+	unless($nicks->{$from}->{$screenname}) {
 		manglewarn($nick, $inick, $screenname);
-		$nicks->{$inick}->{$screenname} = time;
+		$nicks->{$from}->{$screenname} = time;
 		irc_send(irc_join($inick, nickchan($screenname))) if $sndata->{inchan};
 	}
 
