@@ -142,7 +142,7 @@ sub signon($$;&) {
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
 	sflap_put($socket, sflap_encode($username, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
-	$msg = quote("toc_signon login.oscar.aol.com 1234 $username " . roast_password($password) . " english ") . "\"aimirc:\\\$Revision$VERSION \\\$\"";
+	$msg = quote("toc_signon login.oscar.aol.com 1234 $username " . roast_password($password) . " english ") . "\"TIK:\\\$Revision$\"";
 	sflap_put($socket, sflap_encode($msg, 0, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
 	$msg = sflap_get($socket);
