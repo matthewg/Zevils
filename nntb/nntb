@@ -205,9 +205,13 @@ EOF
 		warn "Try $0 --help if you need help.\n";
 		exit 1;
 	}
+}
 
+sub loadblogs() {
 	foreach my $blog (@{$config{blogs}}) {
 		my $package = "NNTB::Weblog::$blog->{type}";
+		delete $blog->{type};
+
 		do_log("Requiring $package...", LOG_DEBUG);
 		eval "require $package";
 		do_log("Done.", LOG_DEBUG);
@@ -216,10 +220,8 @@ EOF
 			next;
 		}
 
-		#do "/home/matthewg/pdump";
-
 		my $blog_obj;
-		eval { $blog_obj = $package->new(%config); };
+		eval { $blog_obj = $package->new(%$blog); };
 		if(!$blog_obj or $@) {
 			do_log("Couldn't create new $package object: $@", LOG_ERROR);
 			exit 1;
@@ -293,10 +295,12 @@ sub main() {
 		# Okay, time to drop privileges
 		my $uid = getpwnam($config{user}) or die "Couldn't get UID for $config{user}\n";
 		my $gid = getgrnam($config{group}) or die "Couldn't get GID for $config{group}\n";
-		$< = $> = $uid;
-		die "Couldn't change UID: $!\n" if $> != $uid;
 		$( = $) = $gid;
 		die "Couldn't change GID: $!\n" if $) != $gid;
+		$< = $> = $uid;
+		die "Couldn't change UID: $!\n" if $> != $uid;
+
+		loadblogs();
 
 		while(accept(CLIENT, SERVER)) {
 			next if my $pid = fork; # parent

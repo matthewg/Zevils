@@ -2,21 +2,24 @@ package NNTB::Weblog::Slash;
 
 # This module allows NNTB to be used with Slash - http://www.slashcode.com/
 
+use vars qw($VERSION @ISA);
 $VERSION = '0.01';
 @ISA = qw(NNTB::Weblog);
 
 use strict;
 use warnings;
-use vars qw($VERSION @ISA);
 use Carp;
 use NNTB::Common;
 use NNTB::Weblog;
 
 use Slash;
 use Slash::Constants qw(:strip);
+use Slash::Utility;
 
 sub new($;@) {
 	my $type = shift;
+	@ISA = qw(NNTB::Weblog); # Why is this necessary??
+	print STDERR "ISA: @ISA\n";
 	my $self = $type->SUPER::new(@_);
 
 	my %params = @_;
