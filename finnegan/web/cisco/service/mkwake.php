@@ -123,7 +123,7 @@ END
 					if(\$currtime > \$usertime) \$timestamp += 60*60*24;
 
 					\$_SESSION["mon"] = date("n", \$timestamp);
-					\$_SESSION["day"] = date("d", \$timestamp);						
+					\$_SESSION["day"] = date("d", \$timestamp);
 				}
 
 				return "";
