@@ -208,7 +208,7 @@ sub process_toc_command {
 		# ignore
 	} elsif($command eq "toc_send_im") {
 		my $away = 0;
-		if($params[-1] eq "away") {
+		if($params[-1] eq "auto") {
 			pop @params;
 			$away = 1;
 		}
