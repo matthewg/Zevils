@@ -48,17 +48,17 @@ $task{$me}{code} = sub {
 
 		if(!$story->{nntp_section_snum}) {
 			$values{nntp_section_snum} = $nntp->next_num("section_snum", $story->{section});
-			$values{nntp_section_posttime} = "NOW()";
+			$values{-nntp_section_posttime} = "NOW()";
 		}
 
 		if($story->{displaystatus} == 0 and !$story->{nntp_snum}) {
 			$values{nntp_snum} = $nntp->next_num("snum");
-			$values{nntp_posttime} = "NOW()";
+			$values{-nntp_posttime} = "NOW()";
 		}
 
 		next unless keys %values;
 		nntpLog("Updating story $story->{sid}");
-		$slashdb->sqlUpdate("stories", \%values, "sid=".$slashdb->sqlQuote($story->{id}));
+		$slashdb->sqlUpdate("stories", \%values, "sid=".$slashdb->sqlQuote($story->{sid}));
 		$storycount++;
 	}
 
@@ -83,7 +83,7 @@ $task{$me}{code} = sub {
 		nntpLog("Updating comment $comment->{cid} (SID $comment->{sid})");
 		$slashdb->sqlUpdate("comments", {
 			nntp_cnum => $nntp->next_num("cnum", $comment->{sid}),
-			nntp_posttime => "NOW()"
+			-nntp_posttime => "NOW()"
 		}, "cid=$comment->{cid}");
 		$commentcount++;
 	}
@@ -103,7 +103,7 @@ $task{$me}{code} = sub {
 			nntpLog("Updating journal $journal->{id} (UID $journal->{uid})");
 			$slashdb->sqlUpdate("journals", {
 				nntp_cnum => $nntp->next_num("journal_cnum", $journal->{uid}),
-				nntp_posttime => "NOW()"
+				-nntp_posttime => "NOW()"
 			}, "id=$journal->{id}");
 			$journalcount++;
 		}
@@ -124,7 +124,7 @@ $task{$me}{code} = sub {
 			nntpLog("Updating journal comment $comment->{cid} (SID $comment->{sid})");
 			$slashdb->sqlUpdate("comments", {
 				nntp_cnum => $nntp->next_num("journal_cnum", $comment->{uid}),
-				nntp_posttime => "NOW()"
+				-nntp_posttime => "NOW()"
 			}, "cid=$comment->{cid}");
 			$commentcount++;
 		}

@@ -53,9 +53,9 @@ sub next_num($$;$) {
 	} elsif($type eq "cnum") {
 		my $id = $what;
 
-		my $cnum = $self->sqlSelect("nntp_next_cnum", "stories", "sid=".$self->sqlQuote($id));
+		my $cnum = $self->sqlSelect("nntp_next_cnum", "stories", "discussion=$id");
 		return undef unless $cnum;
-		$self->sqlUpdate("stories", {nntp_next_cnum => $cnum + 1}, "sid=".$self->sqlQuote($id));
+		$self->sqlUpdate("stories", {nntp_next_cnum => $cnum + 1}, "discussion=$id");
 		return $cnum;
 	} elsif($type eq "journal_cnum") {
 		my $uid = $what;
