@@ -298,7 +298,7 @@ END_PIN_INVALID
 Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits
 long, and can only contain the digits 0 through 9.
 </p>
-END_PIN_INVALID
+END_PIN_SET_NEW_INVALID
 ,
 
 	"pin_error" => <<<END_PIN_ERROR
