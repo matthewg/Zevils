@@ -401,6 +401,8 @@ sub values($$) {
 
 # Promote an op into an OP_TYPE_OPS, encapsulating existing values a sub-ops.
 # This can even be used on ops that are alread OP_TYPE_OPS in cases like foo *bar.
+#
+# If called with parentreps, {min,max}reps will be kept by the parent instead of given to the child.
 sub promote_op($$;$) {
 	my ($self, $op, $parentreps) = @_;
 	my $newval;
@@ -409,8 +411,10 @@ sub promote_op($$;$) {
 		$newval = {
 			mode => $op->{mode},
 			type => $op->{type},
-			values => $op->{value}
+			value => $op->{value}
 		};
+		$newval->{group} = delete $op->{group} if $op->{group};
+
 		if(!$parentreps) {
 			$newval->{minreps} = $op->{minreps} if exists($op->{minreps});
 			$newval->{maxreps} = $op->{maxreps} if exists($op->{maxreps});
@@ -460,8 +464,8 @@ sub insert_value($$$$) {
 	if($self->{nextrep}) {
 		$ourrep = 1;
 		delete $self->{nextrep};
-		if($self->values($op)) {
-			$self->promote_op($op, 1);
+		if($self->values($op) or $op->{group}) {
+			$self->promote_op($op, 1) unless $op->{type} and $op->{type} == OP_TYPE_OPS;
 			my $newval = {
 				mode => OP_MODE_AGGREGATOR,
 				type => $type,
@@ -566,8 +570,8 @@ sub add_ruleparse($$$;$\@) {
 					if($self->{nextalt}) {
 						if($rule->{mode} and $rule->{mode} != OP_MODE_ALTERNATOR) { # foo / (bar baz)
 							$type = $rule->{type};
+							$self->promote_op($rule) unless $rule->{group};
 							$value = pop @{$rule->{value}};
-							$self->promote_op($rule) unless $rule->{type} == OP_TYPE_OPS;
 							my $newval = {
 								mode => OP_MODE_ALTERNATOR
 							};
@@ -582,6 +586,7 @@ sub add_ruleparse($$$;$\@) {
 
 					push @{$rule->{value}}, {};
 					$rule = $rule->{value}->[-1];
+					$rule->{group} = 1;
 
 					if($self->{nextrep}) {
 						croak "ABNF error: Repetition specified on option!" if $rulename eq "option"; # Just in case the user does something stupid like 1*[foo]
@@ -610,13 +615,13 @@ sub add_ruleparse($$$;$\@) {
 				# Consider (*foo bar).  We need to make sure bar doesn't get foo's reps.
 				# We do this by forcing foo into its own op.  scalar(@saverules) means we're
 				# inside a group or option.
-				if(scalar(@saverules) and $self->{nextrep}) {
-					$self->promote_op($rule);
-					push @{$rule->{value}}, {};
-					$self->insert_value($rule->{value}->[-1], $type, $intok);
-				} else {
+				#if(scalar(@saverules) and $self->{nextrep}) {
+				#	$self->promote_op($rule);
+				#	push @{$rule->{value}}, {};
+				#	$self->insert_value($rule->{value}->[-1], $type, $intok);
+				#} else {
 					$self->insert_value($rule, $type, $intok);
-				}
+				#}
 			} elsif($rulename eq "repeat") {
 				$intok =~ s/\s//g;
 				$self->{nextrep} = $intok;
@@ -922,7 +927,7 @@ sub _matches($$$;$$$@) {
 				} elsif($rule->{type} == OP_TYPE_CHARVAL) {
 					$didmatch = substr(lc($data), 0, length($matchvalue)) eq lc($matchvalue);
 				} else {
-					croak "Invalid ABNF operand type: ".$rule->{type};
+					confess "Invalid ABNF operand type: ".$rule->{type};
 				}
 				if($didmatch) {
 					$retval .= $matchvalue;

@@ -4,22 +4,60 @@ use strict;
 use Data::Dumper;
 use ABNF;
 
-die "Usage: abnftest rule data (give rules on standard input)\n" unless scalar @ARGV == 2;
+sub prettify {
+	my($rule, $tmp, $newrule) = shift;
+
+	$tmp = delete $rule->{type};
+	if($tmp == 1) {
+		$rule->{_type} = "OPS";
+		foreach $newrule(@{$rule->{value}}) {
+			prettify($newrule) if ref($newrule);
+		}
+	} elsif($tmp == 2) {
+		$rule->{_type} = "NUMVAL";
+	} elsif($tmp == 3) {
+		$rule->{_type} = "CHARVAL";
+	} else {
+		$rule->{_type} = "NONE";
+	}
+
+	$tmp = delete $rule->{mode};
+	if($tmp == 1) {
+		$rule->{_mode} = "ALTERNATOR";
+	} elsif($tmp == 2) {
+		$rule->{_mode} = "AGGREGATOR";
+	} else {
+		$rule->{_mode} = "SINGLETON";
+	}
+}
+
+die "Usage: abnftest rule data optree|matches (give rules on standard input)\n" unless scalar @ARGV == 3;
 
 my @rules = <STDIN>;
 my $rule = shift;
 my $data = shift;
+my $action = shift;
 my $obj = Parse::ABNF->new(@rules);
 
-#Print a version of obj without the core rules
-my $printobj = {};
-my $key;
-%$printobj = %$obj;
-foreach $key(keys %$printobj) {
-	delete $printobj->{$key} if $printobj->{$key}->{core};
-}
-warn Data::Dumper->new([$printobj])->Terse(1)->Dump(), "\n============\n";
+die "Invalid action!\n" unless $action eq "optree" or $action eq "matches";
 
-my $parse = $obj->matches($rule, $data, "*");
-die "No match!\n" unless $parse;
-$obj->printparse($parse);
+open(DATA, $data) or die "Couldn't open data: $data\n";
+$data = join("", <DATA>);
+close DATA;
+
+if($action eq "optree") {
+	#Print a version of obj without the core rules
+	my $printobj = {};
+	my $key;
+	%$printobj = %$obj;
+	foreach $key(keys %$printobj) {
+		delete $printobj->{$key} and next if $printobj->{$key}->{core};
+		prettify($printobj->{$key});
+	
+	}
+	warn Data::Dumper->new([$printobj])->Quotekeys(0)->Terse(1)->Dump(), "\n============\n";
+} elsif($action eq "matches") {
+	my $parse = $obj->matches($rule, $data, "*");
+	die "No match!\n" unless $parse;
+	$obj->printparse($parse);
+}
