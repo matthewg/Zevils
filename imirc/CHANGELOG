@@ -1,3 +1,17 @@
+Dec 29 2001, 1.5-rc1
+	*New bahamut servermode
+	*Prepend username to hostname for AIM-nicks - suppresses clone detection
+	*Looks like I've fixed the remaining crash bugs :)
+	*loadbuddies/clonebuddies now works
+	*awayqueue/get_away fixes
+	*loglevel fixes
+	*alert handling improvements
+	*ignoreuhosts/ignorehosts config options
+	*Require Net::OSCAR 0.55
+	*Updated copyright notice courtesy of AOL's lawyers
+	*Fixed persistance of non-buddylisted AIM-nicks
+	*Config processing tweaks
+
 Nov 26 2001, 1.5-pre4
 	*Many, many, _many_ bugfixes
 	*Works with 5.005 again and even 5.004 now
