@@ -537,7 +537,7 @@ sub make_call($$) {
 			close SAMPLE;
 		}
 
-		if($type eq "wake") { # Repeat it
+		if($type eq "wake" and $audio_ext eq "rmd") { # Repeat it
 			substr($all_sdata, 0, 32) = "" if $audio_ext eq "rmd";
 			print OUTSAMPLE $all_sdata;
 		}
@@ -545,7 +545,7 @@ sub make_call($$) {
 		log_debug("Done with samples.");
 
 		if($audio_ext eq "raw") {
-			system("sox -u -b -r 8000 -c 1 ../tmp/$$.raw ../tmp/$$.wav");
+			system("sox -s -w -r 8000 -c 1 ../tmp/$$.raw ../tmp/$$.wav");
 			unlink("../tmp/$$.raw");
 			$audio_ext = "wav";
 		}

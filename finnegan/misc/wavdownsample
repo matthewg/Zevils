@@ -11,5 +11,5 @@ foreach (@ARGV) {
 	print "Converting $wav to $down...\n";
 	unlink($down);
 	system("mkdir -p `dirname $down`");
-	system("sox $wav -u -b -r 8000 -c 1 $down resample");
+	system("sox $wav -s -w -r 8000 -c 1 $down resample");
 }
