@@ -22,8 +22,7 @@ if(isset($_POST["op"])) {
 	}
 }
 
-$result = mysql_query("SELECT wake_id, time, message, date, weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
-if(!$result) db_error();
+$result = get_wakes();
 
 $count = mysql_num_rows($result);
 echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wakes"]["list_start"]);

@@ -47,6 +47,19 @@ function log_wake($wake_id, $extension, $event, $result, $data = "") {
 	                          $wake_id, $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
 }
 
+function set_pin($extension, $pin) {
+	if(!mysql_query(sprintf("UPDATE prefs SET pin='%s' WHERE extension='%s'", $pin, $extension))) db_error();
+	if(!log_ext($extension, "setpin", "success")) db_error();
+}
+
+function get_wakes() {
+	global $extension;
+
+	$result = mysql_query("SELECT wake_id, time, message, date, weekdays, cal_type FROM wakes WHERE extension='$extension' ORDER BY time");
+	if(!$result) db_error();
+	return $result;
+}
+
 function extension_check($extension) {
 	global $TEMPLATE;
 	global $FinneganConfig;
