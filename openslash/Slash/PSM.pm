@@ -35,8 +35,11 @@ sub _noinherit($$$) {
 	_crapout(Slash::PSM::PSM_ERR_CRIT, 4, "PSM $class did not override the $method method!") if $class ne $shouldbe;
 }
 
-sub new($$$;$) {
-	my($psmver, $frontend, $slashsite, $conf, $psm, $capability, $cpsm, $currcape, %seencapes) = @_;
+sub new($$$$;$) {
+	my($self, $psmver, $frontend, $slashsite, $conf, $psm, $capability, $cpsm, $currcape, %seencapes, $class) = @_;
+
+	$class = ref($self) || $self;
+
 	$confdir = $conf if $conf;
 	_loadconf("$confdir/psm.conf");
 	my $obj = Slash::PSM::SlashSite->load($psmver, $frontend, $slashsite, $confdir); #Create the SlashSite object
