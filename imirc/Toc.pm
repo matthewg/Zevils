@@ -698,6 +698,11 @@ sub set_config($$) {
 	$config{_hnick($handle)} = $config;
 
 	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
+	if($config->{permtype} == 3) {
+		sflap_do($handle, "toc_add_permit");
+	} elsif($config->{permtype} == 4) {
+		sflap_do($handle, "toc_add_deny");
+	}
 }
 
 =pod

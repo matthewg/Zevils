@@ -365,7 +365,7 @@ sub process_irc_message {
 			$aim_connections{$nick}{permtype} = $param;
 			permtype($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "list_permit_modes") {
-			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit only those on permit list"));
+			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
 		} elsif ($cmd eq "chat") {
 			chat_send($aim_connections{$nick}{socket}, $param, $extra);
 		} elsif ($cmd eq "whisper") {
