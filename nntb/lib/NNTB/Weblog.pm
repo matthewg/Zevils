@@ -248,6 +248,7 @@ You can also use the following failure constants, provided by C<NNTB::Common>:
 sub fail($$) {
 	my($self, $reason) = @_;
 
+	$self->log("fail: $reason", LOG_NOTICE);
 	$self->{errstr} = $reason;
 	return;
 }

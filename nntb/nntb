@@ -505,7 +505,7 @@ sub got_client(*) {
 					}
 
 					foreach my $root (sort keys %blogs) {
-						my $blog = $blogs{$root};
+						$blog = $blogs{$root};
 						my %groups = $blog->groups();
 						if($output and %groups) { # $output iff we haven't had any success
 							nntp_put($output);
@@ -528,7 +528,10 @@ sub got_client(*) {
 					} else {
 						my $output = "215 list of newsgroups follows";
 						my $pattern = $params[1];
+						my $lastblog; # I don't *want* $blog to be local to the foreach, damnit!
+
 						foreach $blog ($pattern ? findblog($pattern) : map {$blogs{$_}} sort keys %blogs) {
+							$lastblog = $blog;
 							my %groups;
 							if($pattern) {
 								if($blog and $blog->is_group($pattern)) {
@@ -553,7 +556,7 @@ sub got_client(*) {
 							}
 						}
 						if($output) {
-							nntp_put($blog->{errstr});
+							nntp_put($lastblog->{errstr});
 						} else {
 							nntp_put(".");
 						}

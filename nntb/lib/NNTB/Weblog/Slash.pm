@@ -191,7 +191,7 @@ sub auth_status_ok($) {
 	return 1 unless $auth_requirements;
 	return 0 if $self->{slash_user}->{uid} == $self->{slash_constants}->{anonymous_coward_uid};
 	return 1 unless $auth_requirements > 1 and $self->{slash_db}->getDescriptions("plugins")->{Subscribe};
-	return 0 unless $self->{slash_user}->{hits_bought} > $self->{slash_user}->{hits_paidfor};
+	return 0 unless $self->{slash_user}->{hits_bought} < $self->{slash_user}->{hits_paidfor};
 	return 1;
 }
 
@@ -200,7 +200,7 @@ sub consume_subscription($) {
 
 	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
 	$self->log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
-	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
+	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_bought => $self->{slash_user}->{hits_bought} + 1});
 }
 
 sub description($$) {
@@ -314,7 +314,7 @@ sub groups($;$) {
 }
 
 # This neat thing updates stories.nntp_{snum,ctime}.
-# It's called from sub articles and sub groupstats (but only when checking section groups).
+# It's called from articles and groupstats (but only when checking section groups).
 # Have to be careful to avoid race conditions...
 # This lock is a bit too coarse-grained for my tastes.
 # However, except for the first time it runs, it should be fairly quick.
@@ -558,6 +558,7 @@ sub auth($$$) {
 	my($uid) = $self->{slash_db}->getUserAuthenticate($self->{slash_db}->getUserUID($user), $pass);
 	return 0 unless $uid;
 	$self->{slash_user} = $self->{slash_db}->getUser($uid);
+	return 0 unless $self->auth_status_ok(); # Check subscription
 	$self->log("User authenticated!", LOG_NOTICE);
 	return 1;
 }
