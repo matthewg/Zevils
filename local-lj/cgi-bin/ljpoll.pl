@@ -455,7 +455,7 @@ sub register
         my $sth = $dbh->prepare("INSERT INTO poll (itemid, journalid, posterid, whovote, whoview, name, anonymous) " .
                                 "VALUES (?, ?, ?, ?, ?, ?, ?)");
         $sth->execute($itemid, $popts{'journalid'}, $popts{'posterid'},
-                      $popts{'whovote'}, $popts{'whoview'}, $popts{'name'}, $popts{'anonymous}');
+                      $popts{'whovote'}, $popts{'whoview'}, $popts{'name'}, $popts{'anonymous'});
         if ($dbh->err) {
             $$error = "Database error: " . $dbh->errstr;
             return 0;
