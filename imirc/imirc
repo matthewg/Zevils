@@ -458,7 +458,7 @@ sub mainloop() {
 		irc_send(irc_newnick($usnick)) or die "Couldn't make usnick $usnick: $!\n";
 		$nicks->{$usnick}->{$usnick} = -1;
 		irc_send(irc_mode($usnick, $usnick, "-i"));
-		irc_send(irc_mode($usnick, $usnick, "+o" . ($servermode eq "p0210" ? "" : "a")));
+		irc_send(irc_mode($usnick, $usnick, "+o"));
 
 		if($oldnick) {
 			irc_send(irc_newnick($oldnick)) or die "Couldn't make oldnick $oldnick: $!\n";
