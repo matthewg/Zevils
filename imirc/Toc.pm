@@ -6,7 +6,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
@@ -599,6 +599,25 @@ Warns (aka "evils") NICK, optionally anonymously.
 sub evil($$;$) {
 	my($handle, $nick, $anon, $msg) = @_;
 	$msg = "toc_evil $nick ";
+	if($anon) {
+		$msg .= "anon";
+	} else {
+		$msg .= "norm";
+	}
+	sflap_do($handle, $msg);
+}
+
+=pod
+
+=item chat_evil(HANDLE, CHAT_ID, NICK[, ANONYMOUS?])
+
+Warns (aka "evils") NICK inside CHAT_ID, optionally anonymously.
+
+=cut
+
+sub chat_evil($$$;$) {
+	my($handle, $chat, $nick, $anon, $msg) = @_;
+	$msg = "toc_chat_evil $chat $nick ";
 	if($anon) {
 		$msg .= "anon";
 	} else {
