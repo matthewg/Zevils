@@ -77,6 +77,12 @@ what you would need:
 	Q:AIMServ:Reserved for IMIRC
 	Q:AIM-*:Reserved for IMIRC
 
+You should add a U: line for IMIRC.  If you get notices about IMIRC trying
+to use Q-lined nicknames or something of the sort, adding the U: will
+usually fix that.  Again, consult your server documentation for the exact
+syntax, but it's often something like:
+	U:imirc.your.irc.net:*:*
+
 Rehash your IRC server configuration (do the IRC /rehash command as an IRC
 operator) to have your IRC configuration changes take effect.
 
