@@ -199,7 +199,6 @@ use lib $FindBin::Bin;
 
 use IO::Handle;
 use IO::Socket;
-use IO::Select;
 use POSIX;
 use Carp;
 use Getopt::Long;
@@ -218,6 +217,8 @@ $home = (getpwuid($>))[7];
 $version = $VERSION = "0.90";
 
 @args = @ARGV;
+
+# setpriority(0, $$, 19);
 
 
 #Defaults
@@ -349,11 +350,11 @@ if(!$errors) {
 	},
 	ts => {
 		nick => "NICK _NICK_ 1 _TIME_ +i _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
-		server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 1 1 0 :_TIME_\r\n",
+		server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 3 1 0 :_TIME_\r\n",
 		uspass => 1,
 		theirpass => 1,
 		nicklen => 9,
-		pass => "PASS $ourpass TS\r\n",
+		pass => "PASS $ourpass :TS\r\n",
 	},
 );
 
@@ -442,6 +443,12 @@ $| = 1;
 
 unless($reload) {
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
+
+	$flags = '';
+	fcntl($upstream, F_GETFL, $flags) or die "Couldn't get flags for upstream: $!";
+	$flags |= O_NONBLOCK;
+	fcntl($upstream, F_SETFL, $flags) or die "Couldn't set flags for upstream: $!";
+
 	do { irc_send($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
 	irc_send(irc_subparms($ircservers{$servermode}{server})) or die "Couldn't send PASS: $!\n";
 
@@ -452,9 +459,8 @@ unless($reload) {
 
 	if($theirpass and $ircservers{$servermode}{theirpass}) {
 		while($in and ($in !~ /PASS :?(.+)/)) {
-			$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
+			$in = irc_recv();
 			chomp $in;
-			Toc::debug_print($in, "irc_connect", 1) if $in;
 			if($in =~ /^ERROR :(.+)/) {
 				print STDERR "IRC connection error: $1\n";
 				exit 1;
@@ -463,7 +469,6 @@ unless($reload) {
 			}
 		}
 
-		Toc::debug_print($in, "irc_connect", 1) if $in;
 		$in =~ s/ :1// if $in;
 		$in =~ s/ :TS// if $in;
 		$in =~ /^PASS :?(.+)/ if $in;
@@ -474,9 +479,8 @@ unless($reload) {
 
 	if($ircservers{$servermode}{EBURST}) {
 		while($in and ($in !~ /EBURST/)) {
-			$in = $upstream->getline or die "Couldn't read from IRC server: $!\n";
+			$in = irc_recv();
 			chomp $in;
-			Toc::debug_print($in, "irc_connect", 1) if $in;
 			if($in =~ /^ERROR :(.+)/) {
 				print STDERR "IRC connection error: $1\n";
 				exit 1;
@@ -492,17 +496,14 @@ unless($reload) {
 	irc_send(":$usnick MODE $usnick -i\r\n");
 	irc_send(":$usnick MODE $usnick +oa\r\n");
 
-	#$aimselect = IO::Select->new();
-	$ircselect = IO::Select->new();
-	$ircselect->add($upstream);
-
-	irc_send(":$usnick JOIN #aimirc-debug\r\n");
-	irc_send("MODE #aimirc-debug +o $usnick " . time . "\r\n");
+	irc_send(send_join($usnick, "#aimirc-debug"));
+	send_server_mode("#aimirc-debug +o $usnick");
 	irc_send(":$usnick MODE #aimirc-debug +nk $ourpass\r\n");
 	$aimircdebug = 1;
 	$longnicks{'#aimirc-debug'} = '#aimirc-debug';
 
 	while(1 == 1) {
+
 		exit(255) unless $upstream;
 		@aims = keys %aim_connections;
 		foreach $aim(@aims) {
@@ -517,22 +518,19 @@ unless($reload) {
 			}
 		}
 
-		@upstream = $ircselect->can_read(.01);
-		if($upstream[0]) {
-			$_ = $upstream->getline;
-			chomp; s/[\r\n]$//;
-			Toc::debug_print("From IRC: $_", "irc", 2);
-			process_irc_message($_);
-		}
+		select(undef, undef, undef, .01);
+		$_ = irc_recv(1);
+		process_irc_message($_) if $_;
 
-		@upstream = $ircselect->has_error(.01);
-		if($upstream[0]) {
-			print STDERR "IRC connection closed.\n";
-			exit 1;
-		}
+		#if($upstream->error or $upstream->eof) {
+		#	print STDERR "IRC connection closed: " . $upstream->error . "\n";
+		#	exit 1;
+		#}
 
-		if(((time % 100) == 0) and (time - $lasttime) >= 100) { #Cleanup nicks
-			$lasttime = time;
+		$currtime = time;
+
+		if((($currtime % 100) == 0) and ($currtime - $lasttime) >= 100) { #Cleanup nicks
+			$lasttime = $currtime;
 			Toc::debug_print("Reaping nicks...", "nicks", 3);
 			ANICK: foreach $anick(keys %nicks) {
 				next if normalize($anick) eq normalize($usnick);
@@ -545,9 +543,9 @@ unless($reload) {
 					if($nicks{$anick}{$bnick} == -1) {
 						$kill = 0;
 						Toc::debug_print("\t\t\tpermenantly.", "nicks", 3);
-					} elsif ((time - $nicks{$anick}{$bnick}) < 3600) {
+					} elsif (($currtime - $nicks{$anick}{$bnick}) < 3600) {
 						$kill = 0;
-						Toc::debug_print("\t\t\tsince " . time - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
+						Toc::debug_print("\t\t\tsince " . $currtime - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
 					}
 				}
 				if($kill == 1) {
@@ -560,7 +558,7 @@ unless($reload) {
 			}
 
 			foreach $chattimer(keys %chattimer) {
-				if((time - $chattimer{$chattimer}) >= 60) {
+				if(($currtime - $chattimer{$chattimer}) >= 60) {
 					irc_send(":$usnick PART #aimchat-$chattimer\r\n");
 				}
 			}
@@ -573,8 +571,8 @@ unless($reload) {
 							irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
 							do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
 						} else {
-							if($aim_connections{$connection}{report_idle} and not $aim_connections{$connection}{is_idle} and (time - $aim_connections{$connection}{idletime}) >= 360) {
-								if(set_idle($aim_connections{$connection}{socket}, time - $aim_connections{$connection}{idletime}) == -1) {
+							if($aim_connections{$connection}{report_idle} and not $aim_connections{$connection}{is_idle} and ($currtime - $aim_connections{$connection}{idletime}) >= 360) {
+								if(set_idle($aim_connections{$connection}{socket}, $currtime - $aim_connections{$connection}{idletime}) == -1) {
 									irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
 									do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
 								} else {
@@ -618,8 +616,10 @@ sub irc_subparms($;$$) {
 sub irc_privmsg($$$;$) {
 	my($from, $to, $msg, $prefix, $line, $ret, $text, $temp) = @_;
 
+	return unless $from and $to and $msg;
+
 	$from = substr($from, 0, $ircservers{$servermode}{nicklen});
-	if($from ne $usnick and not haskeys($nicks{noprefix $from})) {
+	if($from ne $usnick and not haskeys($nicks{noprefix($from)})) {
 		irc_send(irc_newnick($from));
 	}
 
@@ -638,20 +638,25 @@ sub irc_newnick {
 	$nick =~ tr/ //d;
 	$user = $nick;
 	$user =~ s/^$prefix//;
+
 	Toc::debug_print("Shall we create $nick?", "nicks", 2);
 	return if haskeys($nicks{noprefix $nick});
-	$nicks{noprefix $nick}{$usnick} = time;
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
+	$nicks{noprefix($shortnick)}{$usnick} = time;
 	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
-	$longnicks{normalize $shortnick} = $nick;
+	$longnicks{normalize($shortnick)} = $nick;
+	$shortnicks{noprefix($nick)} = $shortnick;
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
-	$string .= ":$nick MODE $shortnick +i\r\n";
+	$string .= ":$shortnick MODE $shortnick +i\r\n";
 	return $string;
 }
 
 sub process_irc_message {
-	s/^:(\S+)(!\S+@\S+)?\s+// or $nick = $themname;
-	my $nick = $1;
+	if(s/^:(\S+)(!\S+@\S+)?\s+//) {
+		$nick = $1;
+	} else {
+		$nick = $themname;
+	}
 	my $nnick = normalize($nick);
 
 	if($aim_connections{$nnick}) {
@@ -672,24 +677,25 @@ sub process_irc_message {
 		delete $nicks{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send("351 $nick aimirc-$VERSION. $us :aimirc\r\n");
-	} elsif(/^JOIN +.?#aimchat-(\d+)/i) {
+	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
+		$nick = $2 if $2;
+		$nnick = normalize($nick);
 
-		if($aim_connections{$nnick}) {
-			if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
-				irc_send(":$usnick JOIN #aimchat-$chat\r\n:$usk MODE #aimchat-$chat +is " . time . "\r\n");
-				irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
-				$chattimer{$chat} = time;
+		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
+			irc_send(send_join($usnick, "#aimchat-$chat"));
+			send_server_mode("#aimchat-$chat +isnto $usnick");
+			irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
+			$chattimer{$chat} = time;
+		} elsif($aim_connections{$nnick}) {
+			$chatjoined{$chat} = 1;
+			if($chatinvites{$chat}) {
+				chat_accept($aim_connections{$nnick}{socket}, $chat);
 			} else {
-				$chatjoined{$chat} = 1;
-				if($chatinvites{$chat}) {
-					chat_accept($aim_connections{$nnick}{socket}, $chat);
-				} else {
-					irc_send($chatqueue{$chat});
-					delete $chatqueue{$chat};
-				}
-				irc_send(":$usnick MODE #aimchat-$chat +o $nnick\r\n");
+				irc_send($chatqueue{$chat});
+				delete $chatqueue{$chat};
 			}
+			irc_send(":$usnick MODE #aimchat-$chat +o $nnick\r\n");
 		}
 	} elsif(/^INVITE +(\S+) +:?#aimchat-(\d+)/i) {
 		my $recipient = noprefix($1);
@@ -722,7 +728,11 @@ sub process_irc_message {
 				}
 				if($modechar eq "o" and normalize($modeparm) eq normalize($usnick)) {
 					if($modetype eq "+") {
-						irc_send("MODE #aimchat-$chat +o $usnick  " . time . "\r\n");
+						if($servermode eq "ts") {
+							irc_send("MODE #aimchat-$chat +o $usnick\r\n");
+						} else {
+							irc_send(":$usnick MODE #aimchat-$chat +o $usnick\r\n");
+						}
 					}
 				} elsif($modechar eq "o" and $aim_connections{normalize($modeparm)} and $modetype eq "-") {
 					#Do nothing
@@ -762,7 +772,14 @@ sub process_irc_message {
 		irc_send("TOPIC #aimchat-$chat :$chattopics{$chat}\r\n");
 	} elsif(/^KICK +#aimchat-(\d+) +(\S+)/i) {
 		irc_send("503 $nick :Cannot kick users from AIM chat channels.\r\n");
-		irc_send(":$2 JOIN #aimchat-$1\r\n");
+		irc_send(send_join($2, "#aimchat-$1"));
+		if(normalize($2) eq normalize($usnick)) {
+			if($servernmode eq "ts") {
+				irc_send("MODE #aimchat-$1 +o $usnick\r\n");
+			} else {
+				irc_send(":$usnick MODE #aimchat-$1 +o $usnick\r\n");
+			}
+		}
 	} elsif(/^PART +#aimchat-(\d+)/i) {
 		Toc::debug_print("$nick left aimchat $1 ($chattopics{$1}).", "chat", 1);
 		if($aim_connections{$nnick} and $chattopics{$1}) {
@@ -948,6 +965,7 @@ sub process_irc_message {
 			unless($nicks{noprefix $param}) {
 				irc_send(irc_newnick($prefix . normalize $param));
 			}
+			truncwarn($nick, $param);
 			$nicks{noprefix $param}{$nnick} = time;
 		} elsif ($cmd eq "sendidle") {
 			unless($param == 0 or $param == 1) {
@@ -958,62 +976,62 @@ sub process_irc_message {
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
-				$upstream->print("$foo :help - Show this screen.\r\n");
-				$upstream->print("$foo :signon nick pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n");
-				$upstream->print("$foo :signoff - Sign off of AIM\.r\n");
-				$upstream->print("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n");
-				$upstream->print("$foo :get_permit_mode - See your current permit mode.\r\n");
-				$upstream->print("$foo :set_permit_mode newmode - Set your permit mode.\r\n");
-				$upstream->print("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n");
+				irc_send("$foo :help - Show this screen.\r\n", 1);
+				irc_send("$foo :signon nick pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
+				irc_send("$foo :signoff - Sign off of AIM\.r\n", 1);
+				irc_send("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
+				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
+				irc_send("$foo :set_permit_mode newmode - Set your permit mode.\r\n", 1);
+				irc_send("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n", 1);
 			} elsif($param eq "buddies") {
-				$upstream->print("$foo :add_permit nick - Add nick to your permit list, removing from deny list.\r\n");
-				$upstream->print("$foo :add_deny nick - Add nick to your deny list, removing from permit list.\r\n");
-				$upstream->print("$foo :buddyinfo name - Get signon time, idle time, evil level, and user class for a buddy.\r\n");
-				$upstream->print("$foo :add_buddy nick [group] - Add nick to your buddy list.  If you give a group, buddy will be added to that group.\r\n");
-				$upstream->print("$foo :remove_buddy nick - Remove nick from your buddy list.\r\n");
-				$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - Warn nick, optionally anonymously.\r\n");
-				$upstream->print("$foo :remove_permit nick - Remove nick from permit list.\r\n");
-				$upstream->print("$foo :remove_deny nick - Remove nick from deny list.\r\n");
-				$upstream->print("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n");
-				$upstream->print("$foo :buddylist - List everyone on your buddylist.\r\n");
-				$upstream->print("$foo :permitlist - See who is on your permit list.\r\n");
-				$upstream->print("$foo :denylist - See who is on your deny list.\r\n");
+				irc_send("$foo :add_permit nick - Add nick to your permit list, removing from deny list.\r\n", 1);
+				irc_send("$foo :add_deny nick - Add nick to your deny list, removing from permit list.\r\n", 1);
+				irc_send("$foo :buddyinfo name - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
+				irc_send("$foo :add_buddy nick [group] - Add nick to your buddy list.  If you give a group, buddy will be added to that group.\r\n", 1);
+				irc_send("$foo :remove_buddy nick - Remove nick from your buddy list.\r\n", 1);
+				irc_send("$foo :evil nick [anon] (or warn nick [anon]) - Warn nick, optionally anonymously.\r\n", 1);
+				irc_send("$foo :remove_permit nick - Remove nick from permit list.\r\n", 1);
+				irc_send("$foo :remove_deny nick - Remove nick from deny list.\r\n", 1);
+				irc_send("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n", 1);
+				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
+				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
+				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
 			} elsif($param eq "chat") {
-				$upstream->print("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n");
-				$upstream->print("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n");
-				$upstream->print("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n");
+				irc_send("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n", 1);
+				irc_send("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n", 1);
+				irc_send("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n", 1);
 			} elsif($param eq "misc") {
-				$upstream->print("$foo :get_info nick - Get info for nick.\r\n");
-				$upstream->print("$foo :set_info new info - Set your info.\r\n");
-				$upstream->print("$foo :get_dir nick - Get directory info for nick.\r\n");
-				$upstream->print("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n");
-				$upstream->print("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n");
-				$upstream->print("$foo :sendidle (0|1) - Send the TOC server your idle information?\r\n");
+				irc_send("$foo :get_info nick - Get info for nick.\r\n", 1);
+				irc_send("$foo :set_info new info - Set your info.\r\n", 1);
+				irc_send("$foo :get_dir nick - Get directory info for nick.\r\n", 1);
+				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
+				irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
+				irc_send("$foo :sendidle (0|1) - Send the TOC server your idle information?\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
-					$upstream->print("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n");
-					$upstream->print("$foo :newnick nick - Create a new nickname on irc.\r\n");
-					$upstream->print("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 0 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n");
-					$upstream->print("$foo :showlevels - List all debugging channels and their levels.\r\n");
-					$upstream->print("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n");
-					$upstream->print("$foo :reload - Evaluates $0.  This should let you make almost any change to Toc.pm or aimirc without having to do a full restart.\r\n");
-					$upstream->print("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n");
-					$upstream->print("$foo :inject text - Act as though we got text from the IRC server.\r\n");
-					$upstream->print("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n");
+					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
+					irc_send("$foo :newnick nick - Create a new nickname on irc.\r\n", 1);
+					irc_send("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 1 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n", 1);
+					irc_send("$foo :showlevels - List all debugging channels and their levels.\r\n", 1);
+					irc_send("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n", 1);
+					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to Toc.pm or aimirc without having to do a full restart.\r\n", 1);
+					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n", 1);
+					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
+					irc_send("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n", 1);
 				} else {
-					$upstream->print("$foo :Debugging support is not enabled.  Edit /etc/aimirc.conf or $home/.aimirc and send SIGHUP to PID $$.\r\n");
+					irc_send("$foo :Debugging support is not enabled.  Edit /etc/aimirc.conf or $home/.aimirc and send SIGHUP to PID $$.\r\n", 1);
 				}
 			} else {
-				$upstream->print("$foo :aimirc $version, (c)2000 Matthew Sachs.\r\n");
-				$upstream->print("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n");
-				$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
-				$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
-				$upstream->print("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n");
-				$upstream->print("$foo :basics buddies chat misc\r\n");
-				$upstream->print("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n");
-				$upstream->print("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n");
-				$upstream->print("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n");
-				$upstream->print("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n");
+				irc_send("$foo :aimirc $version, (c)2000 Matthew Sachs.\r\n", 1);
+				irc_send("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n", 1);
+				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
+				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
+				irc_send("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n", 1);
+				irc_send("$foo :basics buddies chat misc\r\n", 1);
+				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
+				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
+				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
+				irc_send("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n", 1);
 			}
 		} elsif($cmd eq "webpage") {
 			irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick)));
@@ -1071,7 +1089,7 @@ sub process_irc_message {
 			chat_send($aim_connections{$nnick}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
-				$target = normalize($target);
+				$target = $longnicks{normalize($target)};
 				message($aim_connections{$nnick}{socket}, $target, $msg);
 				$nicks{noprefix $target}{$nnick} = time if $nicks{noprefix $target}{$nnick} != -1;
 			} else {
@@ -1128,6 +1146,8 @@ sub process_aim_message {
 		unless($nicks{noprefix $nnick}) {
 			irc_send(irc_newnick($prefix . $inick));
 		}
+		truncwarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
+
 		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
 		@lines = html2txt($message, $nick);
 		irc_send(irc_privmsg($prefix . $inick, $connection->{nick}, $ar . $lines[0]));
@@ -1157,15 +1177,18 @@ sub process_aim_message {
 		Toc::debug_print("$connection->{nick} UPDATE_BUDDY: $val", "buddies", 1);
 		if($2 eq "T") {
 			%temp = deref(get_config($connection->{aimnick}));
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $temp{Buddies}{$nnick}{online};
 			{
 				local $^W = 0;
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
 			}
-			update_buddy($connection->{aimnick}, $nnick, $6, $3, $4, $5, 1);
 
 			irc_send(irc_newnick($prefix . $inick)) unless haskeys($nicks{noprefix $nnick});
+			unless($temp{Buddies}{$nnick}{online}) {
+				truncwarn($connection->{nick}, $inick);
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived"));
+			}
+			update_buddy($connection->{aimnick}, $nnick, $6, $3, $4, $5, 1);
 			$nicks{noprefix $nnick}{$connection->{nick}} = -1;
 		} else {
 			update_buddy($connection->{aimnick}, $nnick, $6, $3, $4, $5, 0);
@@ -1186,8 +1209,8 @@ sub process_aim_message {
 		chomp $topic;
 
 		$chattopics{$1} = $topic;
-		irc_send(":$usnick JOIN #aimchat-$1\r\n");
-		irc_send("MODE #aimchat-$1 +o $usnick " . time . "\r\n");
+		irc_send(send_join($usnick, "#aimchat-$1"));
+		send_server_mode("#aimchat-$1 +o $usnick");
 		irc_send(":$usnick MODE #aimchat-$1 +sint\r\n");
 		irc_send(":$usnick TOPIC #aimchat-$1 :$topic\r\n");
 		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$1\r\n");
@@ -1230,15 +1253,17 @@ sub process_aim_message {
 			foreach $who(@who) {
 				next if normalize($who) eq normalize($connection->{aimnick});
 				$chats{$1}{$who} = 1;
-				irc_send(":$prefix$who JOIN #aimchat-$1\r\n");
+				irc_send(send_join("$prefix$who", "#aimchat-$1"));
+
 				$nicks{normalize($who)}{chat-$1} = 1;
 				irc_newnick($who);
+				truncwarn($connection->{nick}, $who);
 			}
 		} else {
 			foreach $who(@who) {
 				next if normalize($who) eq normalize($connection->{aimnick});
 				delete $chats{$1}{$who};
-				irc_send(":$prefix$who PART #aimchat-$1\r\n");
+				irc_send(":" . substr("$prefix$who", 0, $ircservers{$servermode}{nicklen}) . " PART #aimchat-$1\r\n");
 				delete $nicks{normalize($who)}{chat-$1};
 			}
 		}
@@ -1291,7 +1316,7 @@ sub Toc::debug_print($$$) {
 		@lines = split(/[\r\n]+/, $text);
 
 		foreach $line(@lines) {
-			$upstream->print(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n");
+			irc_send(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n", 1);
 		}
 	} else {
 		chomp $text;
@@ -1301,8 +1326,24 @@ sub Toc::debug_print($$$) {
 
 sub irc_send {
 	lock $upstream;
-	Toc::debug_print("To IRC  : $_[0]", "irc", 2);
-	$upstream->print($_[0]);
+	my ($msg, $nodbg) = @_;
+
+	return unless $msg;
+
+	Toc::debug_print("To IRC  : $msg", "irc", 2) unless $nodbg;
+	undef $rv;
+	$! = EAGAIN;
+	while(!defined($rv) && $! == EAGAIN) {
+		$rv = $upstream->syswrite($msg, length $msg);
+		if($rv != length $msg) {
+			substr($msg, 0, $rv) = "";
+			undef $rv;
+			$! = EAGAIN;
+		} elsif(!defined($rv) && $! != EAGAIN) {
+			die "Couldn't write to IRC: $!";
+		}
+	}
+	return 1;
 }
 
 sub deref($) {
@@ -1439,7 +1480,6 @@ sub do_signoff {
 
 	if(UNIVERSAL::isa($connection, "IO::Socket::INET")) {
 		delete $aim_connections{$connection->fileno};
-		#$aimselect->remove($connection) if UNIVERSAL::isa($aimselect, "IO::Select");
 		signoff($connection);
 	}
 	if($aim_connections{$nick}) {
@@ -1463,4 +1503,73 @@ sub socksub {
 			Timeout => 60,
 		);
 	}
+}
+
+sub send_server_mode($) {
+	my $mode = shift;
+
+	$mode = "MODE $mode";
+	$mode .= " " . time if $servermode ne "ts";
+	$mode .= "\r\n";
+	irc_send($mode);
+}
+
+sub send_join($$) {
+	my($user, $channel, $ret) = @_;
+
+	irc_newnick($user);
+	$user = substr($user, 0, $ircservers{$servermode}{nicklen});
+
+	if($servermode eq "ts") {
+		$user = "\@$user" if normalize($user) eq normalize($usnick);
+		$ret = "SJOIN " . time . " $channel + :$user\r\n";
+	} else {
+		$ret = ":$user JOIN $channel\r\n";
+	}
+
+	return $ret;
+}
+
+sub irc_recv() {
+	$noblock = $_[0];
+
+	undef $rv;
+	$! = EAGAIN;
+
+	while(not $getbuff[0] and $! == EAGAIN and !defined($rv)) {
+		$buff = ' ' x 512;
+		$rv = $upstream->sysread($buff, 512);
+		die "Couldn't read from IRC: $!" if !defined($rv) && $! != EAGAIN;
+		if($! != EAGAIN) {
+			#print STDERR "Reading from IRC...\n";
+			if($incbuff) {
+				$buff = "$incbuff$buff";
+				undef $incbuff;
+			}
+			unless($buff =~ /\n$/) {
+				$incbuf = substr($buff, rindex($buff, "\n") + 1, length $buff, "");
+				#print STDERR "incbuf is $incbuff\n";
+			}
+			push @getbuff, split(/[\r\n]+/, $buff);
+			#print STDERR "Getbuff is " . join("\n", @getbuff);
+			#print STDERR "\n";
+		}
+		last if $noblock;
+	}
+	$ret = shift @getbuff;
+	Toc::debug_print("From IRC: $ret", "irc", 2) if $ret;
+	#print STDERR "Returning $ret\n";
+
+	return $ret;
+}
+
+sub truncwarn($$) {
+	my($who, $what) = @_;
+
+	Carp::cluck "truncwarn $who $what\n";
+
+	irc_send(irc_privmsg($usnick, $who,
+		"\02WARNING\02: Screenname $what has been truncated to IRC nickname " . $shortnicks{noprefix $what}))
+
+		if noprefix($shortnicks{noprefix($what)}) ne normalize($what);
 }
