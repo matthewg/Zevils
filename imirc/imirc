@@ -2764,7 +2764,7 @@ sub irc_ctcp($$$;$) {
 sub loadbuddies($$$) {
 	my($oscar, $buff, $sndata) = @_;
 	my($line, $pmode, %buddies, @permit, @deny, %bnotes);
-	my($merge) = delete $sndata->{merge};
+	my($merge) = delete $sndata->{blmerge};
 	my $profile = "";
 
 	if($buff !~ /{/) { #TOC-style
