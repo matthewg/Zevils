@@ -997,13 +997,13 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, join(" ", sort @permitlist), "", "", $screenname));
 			}
 			}
-			irc_send(irc_privmsg($usnick, $nick, "[End of Permit List]"", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "[End of Permit List]", "", "", $screenname));
 		} elsif ($cmd eq "denylist") {
 			my @denylist = $oscar->get_denylist();
 			if(@denylist) {
 				irc_send(irc_privmsg($usnick, $nick, join(" ", sort @denylist), "", "", $screenname));
 			}
-			irc_send(irc_privmsg($usnick, $nick, "[End of Deny List]"", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "[End of Deny List]", "", "", $screenname));
 		} elsif ($cmd eq "signoff") {
 			do_signoff($nick, $oscar);
 		} elsif ($cmd eq "buddyinfo") {
@@ -2040,6 +2040,7 @@ sub oscar_signon_done($) {
 	irc_send(irc_privmsg($usnick, $nick, "You might want to join $chan.", "", "", $screenname));
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
+	irc_send(irc_invite($usnick, $chan, $nick));
 	irc_send(irc_part($usnick, $chan));
 
 	$sndata->{ison} = time;
