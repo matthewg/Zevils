@@ -79,7 +79,7 @@ sub prepare_statements() {
 	$update_forgotpin = $dbh->prepare("UPDATE prefs SET forgot_pin=0 WHERE extension=?");
 	$delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
 	$call_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
-	$update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(trigger_date + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
+	$update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(CURDATE() + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
 	$snooze_wake = $dbh->prepare("UPDATE wakes SET snooze_count=snooze_count+1, next_trigger=NOW() + INTERVAL 9 MINUTE WHERE wake_id=?");
 	$update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
 	$log_error = $dbh->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
