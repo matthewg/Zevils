@@ -1483,11 +1483,11 @@ sub process_irc_message($) {
 			} elsif($cmd eq "ctcp") {
 				if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
 					irc_send(irc_privmsg($usnick, $nick, "You will now be able to receive CTCPs over AIM.", "", "", $screenname));
-					delete $oscar->get_app_data()->{0x0202} if $oscar->get_app_data();
+					$oscar->get_app_data()->{0x0202} = 1 if $oscar->get_app_data();
 					$sndata->{ctcp} = 1;
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "You will no longer be able to receive CTCPs over AIM.", "", "", $screenname));
-					$oscar->get_app_data()->{0x0202} = 1 if $oscar->get_app_data();
+					delete $oscar->get_app_data()->{0x0202} if $oscar->get_app_data();
 					$sndata->{ctcp} = 0;
 				}
 				$oscar->commit_buddylist;
@@ -2109,8 +2109,8 @@ sub oscar_signon_done($) {
 	}
 
 	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0202})) {
-		$sndata->{ctcp} = 0;
-		irc_send(irc_privmsg($usnick, $nick, "You will not receive CTCPs over AIM."));
+		$sndata->{ctcp} = 1;
+		irc_send(irc_privmsg($usnick, $nick, "You can receive CTCPs over AIM."));
 	}
 
 	if($oscar->profile) {
@@ -2333,7 +2333,7 @@ sub do_signon($$$$) {
 	$sndata->{away_queue} = $oscar->buddyhash();
 	$sndata->{away_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
-	$sndata->{ctcp} = 1;
+	$sndata->{ctcp} = 0;
 	$irc_connections->{$screenname} = $nick;
 
 	switchnick($nick, $screenname) if $connection->{aimnick} eq $screenname;
