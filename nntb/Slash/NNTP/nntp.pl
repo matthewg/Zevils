@@ -55,7 +55,8 @@ $task{$me}{code} = sub {
 
 	my $commentcount = 0;
 	foreach my $comment (@$comments) {
-		$slashdb->sqlUpdate("comments", {cnum => $nntp->next_num("cnum", $comment)}, "cid=$comment");
+		my $cid = $comment->[0];
+		$slashdb->sqlUpdate("comments", {cnum => $nntp->next_num("cnum", $cid)}, "cid=$cid");
 		$commentcount++;
 	}
 
