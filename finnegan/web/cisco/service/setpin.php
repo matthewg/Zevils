@@ -21,8 +21,8 @@ if(isset($_REQUEST["pin"])) {
 } else {
 ?>
 <CiscoIPPhoneInput>
-<Title>Set PIN</Title>
-<Prompt>Enter new PIN</Prompt>
+<Title>Set Web Access PIN</Title>
+<Prompt>Enter new PIN for web access, or press "Clear" to remove your PIN and prevent web access.</Prompt>
 <URL><?echo $FinneganCiscoConfig->url_base ?>/service/setpin.php</URL>
 <InputItem>
 <DisplayName>New PIN</DisplayName>
@@ -45,8 +45,8 @@ if(isset($_REQUEST["pin"])) {
 <Position>3</Position>
 </SoftKeyItem>
 <SoftKeyItem>
-<Name>Help</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?x=<?echo htmlentities($FinneganCiscoConfig->url_base . "/service/setpin.php")?></URL>
+<Name>Clear</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/setpin.php?pin=</URL>
 <Position>4</Position>
 </SoftKeyItem>
 </CiscoIPPhoneInput>

@@ -19,7 +19,7 @@ require "../../include/finnegan.inc";
 </MenuItem>
 
 <MenuItem>
-<Name>Set PIN</Name>
+<Name>Set Web Access PIN</Name>
 <URL><?echo $FinneganCiscoConfig->url_base?>/service/setpin.php</URL>
 </MenuItem>
 
