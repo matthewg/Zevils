@@ -362,8 +362,10 @@ sub preview {
     }
     $ret .= "\n";
     
-    $ret .= "<br />Open to: <b>$poll->{'whovote'}</b>, results viewable to: <b>$poll->{'whoview'}</b>";
-    
+    $ret .= "<br />Open to: <b>$poll->{'whovote'}</b>, results viewable to: <b>$poll->{'whoview'}, results ";
+    $ret .= $poll->{'anonymous'} ? "<b>are</b>" : "are <b>not</b>";
+    $ret .= " anonymous.";
+
     # iterate through all questions
     foreach my $q (@{$poll->{'questions'}}) {
         if ($q->{'qtext'}) {
