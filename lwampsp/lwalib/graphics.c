@@ -7,10 +7,12 @@ int screen_width = 0;
 int screen_height = 0;
 
 /* Screen has upper-left as 0,0; we use lower-left */
-int FIX_Y(int y) { return screen_height - y - 1; }
+static int FIX_Y(int y) { return screen_height - y - 1; }
 
 static GLUI *msgbox_parent, *msgbox_box;
 static int glut_win;
+
+static int updated_min_x, updated_min_y, updated_max_x, updated_max_y;
 
 SDL_Surface *LWA_Init(int width, int height, int bpp, Uint32 flags) {
 	SDL_Surface *screen;
@@ -38,7 +40,23 @@ SDL_Surface *LWA_Init(int width, int height, int bpp, Uint32 flags) {
 	}
 }
 
-
+void DrawStart(SDL_Surface *screen) {
+	SDL_LockSurface(screen);
+	updated_min_x = 0;
+	updated_min_y = 0;
+	updated_max_x = screen_width - 1;
+	updated_max_y = screen_height - 1;
+}
+void DrawEnd(SDL_Surface *screen) {
+	SDL_UnlockSurface(screen);
+	SDL_UpdateRect(screen, updated_min_x, FIX_Y(updated_min_y), updated_max_x - updated_min_x, updated_max_y - updated_min_y);
+}
+static void update_coords(int x, int y) {
+	if(x < updated_min_x) updated_min_x = x;
+	if(x > updated_max_x) updated_max_x = x;
+	if(y < updated_min_y) updated_min_y = y;
+	if(y > updated_max_y) updated_max_y = y;
+}
 
 void DrawPixel(SDL_Surface *screen, int x, int y, Uint8 R, Uint8 G, Uint8 B) {
 	Uint32 color = SDL_MapRGB(screen->format, R, G, B);
@@ -47,7 +65,9 @@ void DrawPixel(SDL_Surface *screen, int x, int y, Uint8 R, Uint8 G, Uint8 B) {
 
 void DrawPixel(SDL_Surface *screen, int x, int y, Uint32 color) {
 	int bpp = screen->format->BytesPerPixel;
-	Uint8 *bufp = (Uint8 *)screen->pixels + y*screen->pitch + x * bpp;
+	Uint8 *bufp = (Uint8 *)screen->pixels + FIX_Y(y)*screen->pitch + x * bpp;
+
+	update_coords(x, y);
 
 	switch(bpp) {
 		case 1: { /* 8-bpp */
@@ -80,15 +100,15 @@ void DrawPixel(SDL_Surface *screen, int x, int y, Uint32 color) {
 void DrawRect(SDL_Surface *screen, int x, int y, int w, int h, Uint32 color) {
 	SDL_Rect rect;
 
+	update_coords(x, y);
+	update_coords(x+w, y+h);
+
 	rect.x = x;
-	rect.y = y;
+	rect.y = FIX_Y(y);
 	rect.w = w;
 	rect.h = h;
 
-	SDL_LockSurface(screen);
 	SDL_FillRect(screen, &rect, color);
-	SDL_UnlockSurface(screen);
-	SDL_UpdateRect(screen, x, y, w, h);
 }
 void DrawRect(SDL_Surface *screen, int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
 	DrawRect(screen, x, y, w, h, SDL_MapRGB(screen->format, r, g, b));
@@ -98,10 +118,16 @@ void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double v
 	double Vx = vector_x(radangle, velocity);
 	double Vy = vector_y(radangle, velocity);
 
-	for(int x = 0; x < screen_width; x++) {
-		double y = parabola_x_to_y(x - x0, radangle, velocity);
+	/* update_coords is taken care of by DrawLine */
+
+	int prev_x = 0, prev_y = (int) parabola_x_to_y(0 - x0, radangle, velocity);
+
+	int x, y;
+
+	for(x = 0; x < screen_width; x++) {
+		y = (int) parabola_x_to_y(x - x0, radangle, velocity);
 		if((y < 0) || (y >= screen_height)) continue;
-		DrawPixel(screen, x, FIX_Y((int)y), color);
+		DrawLine(screen, prev_x, prev_y, x, y, color);
 	}
 }
 void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double velocity, Uint8 r, Uint8 g, Uint8 b) {
@@ -115,9 +141,13 @@ void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint32 color)
 		pow(y1 - y0, 2)
 	);
 
+	update_coords(x0, y0);
+	update_coords(x1, y1);
+
 	for(double t = 0; t < d; t++) {
 		double x = x0 + (x1 - x0)*t/d;
 		double y = y0 + (y1 - y0)*t/d;
+
 		if((x >= 0) && (y >= 0) && (x < screen_width) && (y < screen_height))
 			DrawPixel(screen, x, y, color);
 	}
@@ -127,9 +157,12 @@ void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint8 r, Uint
 }
 
 void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint32 color) {
+	/* update_coords is handled by DrawLine */
+
 	for(int counter = 0; counter < w; counter++) {
 		double x = x_center - w/2;
 		double y = cos(counter)*h + y_center;
+		if(color == 0) color = rand();
 		DrawLine(screen, x_center, y_center, x, y, color);
 	}
 }
