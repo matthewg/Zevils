@@ -162,8 +162,7 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 		}
 
 		while($row = mysql_fetch_row($result)) {
-			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
-				echo "Conflict with wake $row[0]<br>\n";
+			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[0], $row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
 				$okay = 0;
 				break;
 			}
@@ -176,7 +175,7 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 	return $okay;
 }
 
-function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
+function _finepoch_check($wake_id, $phonelines, &$wake_intervals, $cur_intervals) {
 	for($j = 0; $j < sizeof($cur_intervals); $j++) {
 		for($i = 0; $i < sizeof($wake_intervals); $i++) {
 			#echo "Does (".$cur_intervals[$j][0].", ".$cur_intervals[$j][1].") overlap (".$wake_intervals[$i][0].", ".$wake_intervals[$i][1].")?<br>\n";
@@ -184,11 +183,9 @@ function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
 				($cur_intervals[$j][0] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1]) ||
 				($cur_intervals[$j][1] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1])
 			) {
+				echo "interval match $wake_id<br>\n";
 				if(++$wake_intervals[$i][2] >= $phonelines) {
-					echo $wake_intervals[$i][2] . " >= $phonelines<br>\n";
 					return 1;
-				} else {
-					echo $wake_intervals[$i][2] . " increased<br>\n";
 				}
 			}
 		}
