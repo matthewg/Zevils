@@ -574,20 +574,23 @@ sub post($$$) {
 	my $pid = 0;
 
 	if($type eq "journal") {
-		my $type;
-		($pid, undef, $type) = $self->parse_msgid($head->{references});
+		$journal_obj = getObject("Slash::Journal") or return $self->fail("500 Couldn't get Slash::Journal");
+		my $journal = $journal_obj->get($id) or return $self->fail("500 Couldn't find journal");
+		$sid = $journal->{discussion};
+		return $self->fail("500 Comments are not allowed on that journal") unless $sid;
 
-		if($type eq "journal") {
-			$journal_obj = getObject("Slash::Journal") or return $self->fail("500 Couldn't get Slash::Journal");
-			my $journal = $journal_obj->get($pid) or return $self->fail("500 Couldn't find journal");
-			$sid = $self->{slash_db}->getDiscussion($journal->{discussion}, 'sid');
-			return $self->fail("500 Comments are not allowed on that journal") unless $sid;
+		if($head->{references}) {
+			my $type;
+			($pid, undef, $type) = $self->parse_msgid($head->{references});
 
-			$pid = 0;
-		} else { # comment
-			my $parent = $self->{slash_db}->getComment($pid)
-				or return $self->fail("500 That comment could not be located");
-			$sid = $parent->{sid};
+			if($type eq "journal") {
+				$pid = 0;
+			} else { # comment
+				my $parent = $self->{slash_db}->getComment($pid)
+					or return $self->fail("500 That comment could not be located");
+				$parent->{sid} == $sid
+					or return $self->fail("500 That comment is not part of this journal.");
+			}
 		}
 	} elsif($type eq "story") { # comment
 		($pid, undef, $type) = $self->parse_msgid($head->{references});
@@ -635,7 +638,7 @@ sub post($$$) {
 		compressOk('comments', 'postercomment', $subject)
 			or return $self->fail("500 Compression filter encountered on body");
 
-		$self->log("Posting comment: SID=$sid, PID=$pid", LOG_NOTICE);
+		$self->log("Posting comment: SID=$sid, PID=$pid, subject=$subject", LOG_NOTICE);
 
 		my $comment = {
 			sid => $sid,
@@ -645,10 +648,9 @@ sub post($$$) {
 			subject => $subject,
 			uid => $uid,
 			points => $score,
-			nntp_posttime => 'NOW()',
-			comment => $body,
+			comment => $body
 		};
-		$self->{slash_db}->createComment($comment) or return $self->fail("500 Couldn't post comment");
+		$self->{slash_db}->createComment($comment) != -1 or return $self->fail("500 Couldn't post comment: $DBI::errstr");
 	} else {
 		$ENV{SLASH_USER} = $self->{slash_user}->{uid};
 		my $topic = $head->{"x-slash-topic"} || "journal";
