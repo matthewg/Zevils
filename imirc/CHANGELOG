@@ -1,3 +1,10 @@
+Feb 25 2002, 1.5-rc8
+	*"session opened in another location" problem fixes
+	*Added "help credits" IMServ command
+	*Some changes to CREDITS (added Scott)
+	*Typo causing spurious sender -> target: IM debug messages fixed
+	*Added experimental --hashpass option to signon
+
 Feb 18 2002, 1.5-rc7.2
 	*One more connection handling fix
 
