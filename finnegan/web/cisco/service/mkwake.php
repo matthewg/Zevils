@@ -74,7 +74,7 @@ for($i = 0; $i < sizeof($the_weekdays); $i++) {
 
 
 if($playmsg) {
-	cisco_error("Message Playing", "Playing $message...");
+	cisco_error("Message Playing", "Playing message...", "Play:".$FinneganCiscoConfig->tftp_prefix."finmsg-$message");
 }
 
 
