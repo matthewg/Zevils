@@ -1,4 +1,4 @@
-package HTML::FormatAIMIRC;
+package HTML::FormatIMIRC;
 
 use HTML::FormatText;
 @ISA = qw(HTML::FormatText);
@@ -20,7 +20,7 @@ sub AUTOLOAD {
 			#Which normally would do produce <g></g>
 			#
 			#But what about those times when you really want the closing tags?
-			#Well we store the original HTML in the FormatAIMIRC object and use that to check.
+			#Well we store the original HTML in the FormatIMIRC object and use that to check.
 
 			push @{$elem->{output}}, "</$sub>";
 		}
@@ -43,7 +43,7 @@ sub format {
 		my($node, $start, $depth) = @_;
 
 		#The check for ^[a-z] stops an odd bug.
-		#<What's> would crash aimirc without it.
+		#<What's> would crash imirc without it.
 		#It would use What's as the tag name.
 		#And that's not a valid Perl identifier...
 		#So it would die on $self->$func ($func is constructed from $tag)
@@ -119,7 +119,7 @@ sub out {
 		return;
 	}
 	
-	#open(TMP, ">>/tmp/aimirc.html.txt");
+	#open(TMP, ">>/tmp/imirc.html.txt");
 	#print TMP "out $text:\n" . Data::Dumper::Dumper($self);
 	#close TMP;
 
