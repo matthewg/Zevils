@@ -93,6 +93,7 @@ use vars qw($VERSION);
 use Carp;
 use HTML::FormatText;
 use HTML::TreeBuilder;
+use NNTB::Common;
 
 =pod
 
@@ -138,7 +139,8 @@ sub new(@) {
 	croak "Do not instantiate NNTB::Weblog directly; use one of its subclasses." if $class eq "NNTB::Weblog";
 
 	shift;
-	my $self = { };
+
+	my $self = {};
 	bless $self, $class;
 
 	my %params = @_;

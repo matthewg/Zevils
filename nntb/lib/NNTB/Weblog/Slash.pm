@@ -10,13 +10,15 @@ use warnings;
 use vars qw($VERSION @ISA);
 use Carp;
 use NNTB::Common;
+use NNTB::Weblog;
 
 use Slash;
 use Slash::Constants qw(:strip);
 
 sub new($;@) {
 	my $type = shift;
-	my $self = $type->SUPER::new;
+	my $self = $type->SUPER::new(@_);
+
 	my %params = @_;
 	my @params = qw(datadir slashsites slashsite);
 
@@ -61,7 +63,7 @@ sub root($) { return shift->{root}; }
 # $type should be either "comment", "story", "journal"
 sub form_msgid($$$$) {
 	my($self, $id, $format, $type) = @_;
-	return "<$id\@$type.$format.$self->{root}">";
+	return "<$id\@$type.$format.$self->{root}>";
 }
 
 # Parses a message ID, returning:
@@ -545,7 +547,7 @@ sub post($$$) {
 		($pid, undef, $type) = $self->parse_msgid($head->{references});
 		if($type eq "story") {
 			return fail("500 Comment posting has been disabled for that story")
-				unless $self->{slash_db}->getStory($pid, "commentstatus") == 0
+				unless $self->{slash_db}->getStory($pid, "commentstatus") == 0;
 			$sid = $self->{slash_db}->getStory($pid, "discussion");
 			$pid = 0;
 		} else {
@@ -745,5 +747,7 @@ sub groupstats($$) {
 
 	return ($first, $last, $num);
 }
+
+::do_log("Loaded NNTB::Weblog::Slash", LOG_NOTICE);
 
 1;

@@ -10,8 +10,9 @@ sub BEGIN {
 
 use strict;
 use warnings;
-use vars qw($version @args %config %blogs $client_ip);
+use vars qw($version @args %config %blogs $client_ip $confversion);
 use NNTB::Common;
+use NNTB::Weblog;
 
 $version = "0.01";
 
@@ -136,6 +137,8 @@ sub loadconf() {
 		exit 1;
 	}
 
+	$config{loglevel} = LOG_DEBUG if $config{debug};
+
 	@conffiles = @default_conffiles unless @conffiles;
 
 
@@ -144,7 +147,7 @@ sub loadconf() {
 	my $foundconfig = 0;
 
 	foreach my $conffile(@conffiles) {
-		my $confversion = 0;
+		$confversion = 0;
 		$conffile =~ s/~/$home/;
 		do_log("Trying to read config file $conffile", LOG_INFO);
 
@@ -156,7 +159,7 @@ sub loadconf() {
 			do $conffile;
 			die $@ if $@;
 			if($confversion < 1) {
-				warn "Not using config file $conffile - it is too old (\$confversion must be >= 1)\n";
+				warn "Not using config file $conffile - it is too old (\$confversion must be >= 1, it is $confversion)\n";
 				$foundconfig = -1 unless $foundconfig;
 			} else {
 				$foundconfig = 1;
@@ -188,6 +191,7 @@ EOF
 		exit 1;
 	}
 
+
 	#Now process additional command-line options
 
 	Getopt::Long::Configure("no_pass_through");
@@ -204,16 +208,19 @@ EOF
 
 	foreach my $blog (@{$config{blogs}}) {
 		my $package = "NNTB::Weblog::$blog->{type}";
+		do_log("Requiring $package...", LOG_DEBUG);
 		eval "require $package";
+		do_log("Done.", LOG_DEBUG);
 		if(!$@) {
 			do_log("Couldn't load $package: $@", LOG_ERROR);
 			next;
 		}
 
-		# Figuring out the syntax for this was fun ;)
-		my $method = $package . "->new";
-		my $blog_obj = eval "$method(\%config)";
-		if(!$blog_obj) {
+		#do "/home/matthewg/pdump";
+
+		my $blog_obj;
+		eval { $blog_obj = $package->new(%config); };
+		if(!$blog_obj or $@) {
 			do_log("Couldn't create new $package object: $@", LOG_ERROR);
 			exit 1;
 		} else {
@@ -252,6 +259,7 @@ sub main() {
 			die "Couldn't fork: $!" unless defined($pid);
 	
 			POSIX::setsid() or die "Can't start a new session: $!";
+			chdir("/");
 			sub signal_handler {
 				close SERVER; 
 				exit 1;
@@ -281,6 +289,14 @@ sub main() {
 		bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
 
 		listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
+
+		# Okay, time to drop privileges
+		my $uid = getpwnam($config{user}) or die "Couldn't get UID for $config{user}\n";
+		my $gid = getgrnam($config{group}) or die "Couldn't get GID for $config{group}\n";
+		$< = $> = $uid;
+		die "Couldn't change UID: $!\n" if $> != $uid;
+		$( = $) = $gid;
+		die "Couldn't change GID: $!\n" if $) != $gid;
 
 		while(accept(CLIENT, SERVER)) {
 			next if my $pid = fork; # parent
