@@ -20,13 +20,9 @@ $use_xml_service = 1; # We are using the XML service -- so don't generate PINs.
 
 # H.323 settings
 $h323_gateway = "10.10.0.51"; # IP to use for placing H.323 calls
-$my_ext = "92896"; # Extension which calls should appear to be from
-$my_name = "Finnegan"; # How we should be identified on caller ID
-$voicemail_ext = "20000"; # Extension which indicates that call has been forwarded to voicemail
-$call_timeout = 900; # After this many seconds, auto-snooze
-$max_wake_timeouts = 8; # After this many call timeouts, give up
-$post_timeout = 60; # After this many seconds of trying to reach the phone, auto-snooze
-$max_unreachable_count = 8; # After this many phone contact timeouts, give up
+$my_ext = ""; # Extension which calls should appear to be from -- leave blank to omit
+$my_name = "Finnegan"; # How we should be identified on caller ID -- leave blank to omit
+$voicemail_name = "Voicemail"; # Display name which indicates that call has been forwarded to voicemail
 
 # TFTP settings
 $tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
@@ -39,6 +35,13 @@ $post_password = "12345";
 # (Uni|Multi)cast settings
 $rtp_ip = "127.0.0.1";
 $rtp_port_base = 20480;
+
+# Miscellaneous timeouts
+$call_timeout = 40; # After this many seconds, auto-snooze
+$max_wake_timeouts = 8; # After this many call timeouts, give up
+$post_timeout = 60; # After this many seconds of trying to reach the phone, auto-snooze
+$max_unreachable_count = 8; # After this many phone contact timeouts, give up
+
 
 #__PHPONLY_START__
 }

@@ -51,7 +51,7 @@ void FCH::printHelp()
 			"-f <file> --file <file>       	         the name of the sound file\n"
 			"-d <destination> --dest <destination>   address of party to call; [alias@][transport$]host[:port]\n"
 			"-T <timeout> --timeout <timeout>        time to allow for placing a call, in seconds\n"
-			"-v <extension> --voicemail <extension>  extension which indicates call has been forwarded to voicemail\n"
+			"-v <string> --voicemail <string>        destination display name which indicates call has been forwarded to voicemail\n"
 			"-s <file> --snoozefile <file>           the name of the sound file to play when snooze is activated\n"
 			"-g <addr> --gatekeeper <addr>           the IP address or DNS name of the gatekeeper\n"
 			"-G <id> --gatekeeper-id <id>            gatekeeper identifier\n"

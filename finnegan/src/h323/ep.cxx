@@ -71,6 +71,8 @@ BOOL MyEndPoint::OnConnectionForwarded(H323Connection *connection,
 						const PString & forwardParty,
 						const H323SignalPDU &)
 {
+	// ***Cisco doesn't send this!  We use connection.cxx:OnReceivedSignalNotify instead!***
+
 	PTRACE(1, "Call forwarded to " << forwardParty);
 	/* if it's progConf.voicemail:
 		FCH::exitCode = 4;
@@ -103,9 +105,9 @@ bool MyEndPoint::Init()
 	//DisableH245inSetup(true);	
 		
 	// Codecs
-	SpeexNarrow3AudioCapability *speex3Cap; 
+	/*SpeexNarrow3AudioCapability *speex3Cap; 
 	SetCapability(0, 0, speex3Cap = new SpeexNarrow3AudioCapability());
-	speex3Cap->SetTxFramesInPacket(5); // For Speex, 1 frame ~ 20 milliseconds
+	speex3Cap->SetTxFramesInPacket(5); // For Speex, 1 frame ~ 20 milliseconds*/
 	H323_GSM0610Capability * gsmCap;
 	SetCapability(0, 0, gsmCap = new H323_GSM0610Capability);
 	gsmCap->SetTxFramesInPacket(4); // For GSM 06.10, 1 frame ~ 20 milliseconds 

@@ -48,22 +48,26 @@ void MyConnection::OnUserInputIndication(const H245_UserInputIndication & pdu)
 	ep->wavchannel->openWavFile(PFilePath(progConf.snoozeFile), PFile::ReadOnly, FALSE);
 }
 
-BOOL MyConnection::OnReceivedAlerting(const H323SignalPDU & pdu)
+BOOL MyConnection::OnReceivedSignalNotify(const H323SignalPDU & pdu)
 {
-	 PString se, de;
+	PString name;
+	Q931 q931;
 
-	PTRACE(1, "Source alias: " << alertingPDU->GetSourceAliases(NULL));
-	PTRACE(1, "Dest alias: " << alertingPDU->GetDestinationAlias(FALSE));
+	q931 = pdu.GetQ931();
 
-	if(alertingPDU->GetSourceE164(se))
-		PTRACE(1, "Source E164: " << se);
-	else
-		PTRACE(1, "No source E164.");
+	PTRACE(1, "Got signal notify -- call has a (new?) destination");
+	if(q931.HasIE(Q931::DisplayIE)) {
+		name = q931.GetDisplayName();
+		PTRACE(1, "Destination: " << name);
 
-	if(alertingPDU->GetDestinationE164(de))
-		PTRACE(1, "Dest E164: " << de);
-	else
-		PTRACE(1, "No dest E164.");
+		if(name == progConf.voicemail) {
+			PTRACE(1, "Call forwarded to voicemail.");
+			FCH::exitCode = 4;
+			FCH::terminationSync.Signal();
+		}
+	} else {
+		PTRACE(1, "No display name!");
+	}
 
-        return TRUE;
+	return TRUE;   
 }

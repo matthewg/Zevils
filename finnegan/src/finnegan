@@ -567,12 +567,12 @@ sub make_call($$) {
 					"--file", "../tmp/$$.$audio_ext",
 					"--dest", $row->{extension} . "@" . $Finnegan::Config::Cisco::h323_gateway,
 					"--timeout", $Finnegan::Config::Cisco::call_timeout,
-					"--voicemail", $Finnegan::Config::Cisco::voicemail_ext,
+					"--voicemail", $Finnegan::Config::Cisco::voicemail_name,
 					"--snoozefile", "$audio_dir/wake/thanks.$audio_ext",
 					"--no-gatekeeper",
-					"--user", $Finnegan::Config::Cisco::my_ext,
-					"--user", $Finnegan::Config::Cisco::my_name
 				);
+				push @command, "--user", $Finnegan::Config::Cisco::my_ext if $Finnegan::Config::Cisco::my_ext;
+				push @command, "--user", $Finnegan::Config::Cisco::my_name if $Finnegan::Config::Cisco::my_name;
 			} else {
 				@command = ("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.$audio_ext", $snooze_ok);
 			}
