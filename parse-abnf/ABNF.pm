@@ -321,7 +321,7 @@ sub add($@) {
 	my ($self, @rules) = @_;
 	my $rule;
 
-	
+	# strip comments, whitespace / newline between rules
 		
 }
 
@@ -384,7 +384,8 @@ sub matches($$$;@) {
 	push @matchrules, $rule;
 	$ret = $self->_matches($rule, $rule, @matchrules);
 	if(@matchrules and $nomatchself) {
-		return $ret->{$rule};
+		$ret = $ret->{$rule};
+		$ret = [ grep { ref($_) eq "HASH" } @$ret ];
 	} else {
 		return $ret;
 	}
@@ -418,8 +419,8 @@ sub _matches($$$;@) {
 		$litrule = $rule;
 
 	}
-		$tablevel++;
-		#warn "\t"x$tablevel . "_matches called with rule=$rule, data='$foodata'\n";
+	$tablevel++;
+	#warn "\t"x$tablevel . "_matches called with rule=$rule, data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -486,6 +487,7 @@ sub _matches($$$;@) {
 					$matcheddata .= $matchvalue;
 					$data = substr($data, length($matchvalue)); # Exorcise the bit that we matched from the start of $data
 				} else {
+					
 					undef $didmatch;
 				}
 
@@ -564,30 +566,21 @@ sub _parse_rules($$) {
 # We use this as a bootstrap for grokking ABNF syntax.
 use constant ABNF_PARSETREE => {
 	CORE_RULES,
+	newline => {
+		type => OP_TYPE_OPS,
+		mode => OP_MODE_ALTERNATOR,
+		value => [qw(CRLF CR LF)]
+	},
 	rulelist => {
 		minreps => 1,
 		maxreps => -1,
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		value => [
-			"rule", 
-			{
-				type => OP_TYPE_OPS,
-				mode => OP_MODE_AGGREGATOR,
-				value => [
-					{
-						type => OP_TYPE_OPS,
-						minreps => 0,
-						maxreps => -1,
-						value => [qw(c-wsp)]
-					}, "c-nl"
-				]
-			}
+			"rule"
 		]
 	},
-	rule => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(rulename defined-as elements),
-
-	] },
+	rule => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(rulename defined-as elements newline)] },
 	rulename => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
@@ -604,37 +597,15 @@ use constant ABNF_PARSETREE => {
 	'defined-as' => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => ["maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => ["="]}, {type => OP_TYPE_NUMVAL, minreps => 0, maxreps => 1, value => ["/"]}, "maybe-some-c-wsp"]
+		value => ["maybe-some-whitespace", {type => OP_TYPE_NUMVAL, value => ["="]}, {type => OP_TYPE_NUMVAL, minreps => 0, maxreps => 1, value => ["/"]}, "maybe-some-whitespace"]
 	},
-	elements => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(alternation maybe-some-c-wsp)] },
-	'c-wsp' => {
-		type => OP_TYPE_OPS,
-		mode => OP_MODE_ALTERNATOR,
-		value => ["WSP",
-			{type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(c-nl WSP)]}
-		]
-	},
-	'maybe-some-c-wsp' => {
+	elements => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(alternation maybe-some-whitespace)] },
+	'maybe-some-whitespace' => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_ALTERNATOR,
 		minreps => 0,
 		maxreps => -1,
-		value => [qw(c-wsp)]
-	},
-	'c-nl' => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(comment CRLF)] },
-	comment => {
-		type => OP_TYPE_OPS,
-		mode => OP_MODE_AGGREGATOR,
-		value => [
-			{type => OP_TYPE_NUMVAL, value => [";"]},
-			{
-				type => OP_TYPE_OPS,
-				mode => OP_MODE_ALTERNATOR,
-				minreps => 0,
-				maxreps => -1,
-				value => [qw(WSP VCHAR)]
-			},"CRLF"
-		]
+		value => [qw(WSP)]
 	},
 	alternation => {
 		type => OP_TYPE_OPS,
@@ -645,7 +616,7 @@ use constant ABNF_PARSETREE => {
 				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => ["maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => ["/"]}, "maybe-some-c-wsp", "concatenation"]
+				value => ["maybe-some-whitespace", {type => OP_TYPE_NUMVAL, value => ["/"]}, "maybe-some-whitespace", "concatenation"]
 			}
 		]
 	},
@@ -658,7 +629,7 @@ use constant ABNF_PARSETREE => {
 				mode => OP_MODE_AGGREGATOR,
 				minreps => 0,
 				maxreps => -1,
-				value => [qw(maybe-some-c-wsp repetition)]
+				value => [qw(maybe-some-whitespace repetition)]
 			}
 		]
 	},
@@ -710,12 +681,12 @@ use constant ABNF_PARSETREE => {
 	group => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => OP_TYPE_NUMVAL, value => ['(']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [')']}]
+		value => [{type => OP_TYPE_NUMVAL, value => ['(']}, "maybe-some-whitespace", "alternation", "maybe-some-whitespace", {type => OP_TYPE_NUMVAL, value => [')']}]
 	},
 	option => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => OP_TYPE_NUMVAL, value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [']']}]
+		value => [{type => OP_TYPE_NUMVAL, value => ['[']}, "maybe-some-whitespace", "alternation", "maybe-some-whitespace", {type => OP_TYPE_NUMVAL, value => [']']}]
 	},
 	'char-val' => {
 		type => OP_TYPE_OPS,
