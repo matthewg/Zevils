@@ -893,7 +893,7 @@ sub process_irc_message($) {
 				$hours -= $days*24;
 				irc_send(irc_privmsg($usnick, $nick, sprintf("Up $days day(s), %02d:%02d:%02d", $hours, $minutes, $seconds)));
 			} elsif($param eq "version") {
-				irc_send(irc_privmsg($usnick, $nick, "Version IMIRC $version"));
+				irc_send(irc_privmsg($usnick, $nick, "Version IMIRC $version (Net::OSCAR $Net::OSCAR::VERSION)"));
 			}
 		} elsif($cmd eq "signon") {
 			unless($param and $extra) {
