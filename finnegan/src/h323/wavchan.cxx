@@ -18,7 +18,11 @@ WavChannel::WavChannel(const PString & aFileName, H323Connection & aConnection):
 
 WavChannel::~WavChannel() 
 {
-	PTRACE(1, "Deleting WAV channel for file " << wavFile->GetName());
+	if(wavFile != NULL) {
+		PTRACE(1, "Deleting WAV channel for file " << wavFile->GetName());
+		delete wavFile;
+		wavFile = NULL;
+	}
 } 
 
 
@@ -61,7 +65,16 @@ void WavChannel::openWavFile(const PFilePath & aFileName, PFile::OpenMode mode, 
 
 BOOL WavChannel::Close() 
 {
-	return wavFile->Close();
+	BOOL ret;
+
+	if(wavFile != NULL) {
+		ret = wavFile->Close();
+		delete wavFile;
+		wavFile = NULL;
+		return ret;
+	} else {
+		return FALSE;
+	}
 } 
 
 
