@@ -425,7 +425,7 @@ sub article($$$;@) {
 			$headers{subject} = $story->{title};
 			$headers{newsgroups} = $sectiongroup;
 			$headers{newsgroups} .= ",$fpgroup" if $fpgroup;
-			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $sectiongroup:$story->{nntp_snum}";
+			$headers{xref} = $self->{slash_db}->getVar('nntp_host', 'value') . " $sectiongroup:$story->{nntp_snum}";
 			$headers{xref} .= " $fpgroup:$story->{nntp_snum}" if $fpgroup;
 			$headers{"followup-to"} = "$sectiongroup.$story->{discussion}" if $story->{discussion};
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/article.pl?sid=$story->{sid}";
@@ -464,7 +464,7 @@ sub article($$$;@) {
 
 			$headers{subject} = $comment->{subject};
 			$headers{newsgroups} = $group;
-			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $group:$comment->{cid}";
+			$headers{xref} = $self->{slash_db}->getVar('nntp_host', 'value') . " $group:$comment->{cid}";
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/comments.pl?sid=$comment->{sid}&cid=$comment->{cid}";
 			$headers{"x-slash-score"} = $comment->{points};
 
@@ -492,7 +492,7 @@ sub article($$$;@) {
 
 			$headers{subject} = $journal->{description};
 			$headers{newsgroups} = "$group,$self->{root}.$format.journals";
-			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $group:$journal->{id}";
+			$headers{xref} = $self->{slash_db}->getVar('nntp_host', 'value') . " $group:$journal->{id}";
 			$headers{"followup-to"} = "$group.$journal->{id}" if $journal->{discussion};
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/journal.pl?op=display&uid=$journal->{uid}&id=$journal->{id}";
 			$headers{"x-slash-topic"} = $self->{slash_db}->getTopic($journal->{tid}, 'name');
