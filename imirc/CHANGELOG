@@ -1,3 +1,8 @@
+Jan 23 2002, 1.5-rc5.1
+	*Document relnotes command better
+	*Print available release notes in a nicer format
+	*Don't give false positive on check for unseen relnotes
+
 Jan 23 2002, 1.5-rc5
 	*Added troubleshooting section to the README
 	*Documented potential problems coexisting with services and how to work around them
