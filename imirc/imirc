@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap $select_rd $select_wr $select_err);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap $select_rd $select_wr $select_err $bouncequeue $incbuff);
 
 # Light-blasted thing doesn't like us importing constants at run-time
 sub POLLIN {&IO::Poll::POLLIN};
@@ -501,7 +501,7 @@ sub mainloop() {
 		$usercount = 0;
 		$maxusers = 0;
 
-		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $irc_away, $away, $longnicks, $shortnicks, $nickservers, $chants) {
+		foreach my $hashref ($aim_connections, $irc_connections, $nicks, $irc_away, $away, $longnicks, $shortnicks, $nickservers, $chants, $bouncequeue) {
 			$hashref = $oscarprime->buddyhash();
 		}
 
@@ -832,60 +832,21 @@ sub process_irc_message($$) {
 		}
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
-	} elsif(!/#imirc-debug/i and (/^(JOIN) +.?($nickchan)(\S+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$nickchan(\S+?) +\S+ +: *(\S+)/i or /^(NJOIN) +($nickchan)(\S+?) +:(\S+)/i)) {
-		$chants->{$nickchan.$3} = $2 if $1 eq "SJOIN";
-		my $screenname = new Net::OSCAR::Screenname $3;
-		$screenname =~ s/,.*//;
-		$screenname =~ s/\x7.*//; # For ircd 2.10
-		$nick = $4 if $1 eq "SJOIN" or $1 eq "NJOIN";
+	} elsif(/^JOIN +(.+)/i) {
+		my $chans = $1;
+		foreach my $chan (split(/,/, $chans)) {
+			did_join($nick, $chan);
+		}
+	} elsif(/^(SJOIN) +(\d+) +(?:\d* *)(\S+?) +\S+ +: *(\S+)/i or /^(NJOIN) +(\S+?) +:(\S+)/i) {
+		my $chan = ($1 eq "SJOIN") ? $3 : $2;
+		$chants->{$chan} = $2 if $1 eq "SJOIN";
+		$nick = ($1 eq "SJOIN") ? $4 : $3;
 		$nick =~ tr/\@+//d;
-		$nick = new Net::OSCAR::Screenname $nick;
-		$oscar = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar} if $aim_connections->{$nick} and $aim_connections->{$nick}->{screennames}->{$screenname};
-		my $dude;
-
-		#print STDERR "Got $nick joining $screenname ($_)\n";
-		if(not defined $irc_connections->{$screenname} or $irc_connections->{$screenname} ne $nick or not $oscar) {
-			#print STDERR "Doing bounce_join\n";
-			bounce_join($nick, nickchan($screenname));
-		} else {
-			my $chan = nickchan($screenname);
-			delete $chantimer{$chan};
-			$aim_connections->{$nick}->{screennames}->{$screenname}->{inchan} = 1;
-			irc_send(irc_join($usnick, $chan));
-			irc_send(irc_mode($us, $chan, "+o $usnick"));
-			irc_send(irc_mode($usnick, $chan, "-o $nick"));
-			irc_send(irc_mode($usnick, $chan, "+ints"));
-			foreach $dude(keys %$nicks) {
-				next unless $nicks->{$dude}->{$screenname};
-				irc_send(irc_join(aimnick($dude, $screenname), $chan));
-				irc_send(irc_mode($usnick, $chan, "+v $prefix$dude")) if $oscar->buddy($dude);
-			}
-			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the set imchan command."));
+		if($1 eq "NJOIN") {
+			$nick =~ s/,.*//;
+			$nick =~ s/\x7.*//;
 		}
-	} elsif(/^(JOIN) +.?($chatchan)(\d+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$chatchan(\d+) +\S+ +:(\S+)/i or /^(NJOIN) +($chatchan)(\d+) +:(\S+)/i) {
-		$chants->{$chatchan.$3} = $2 if $1 eq "SJOIN";
-		my $chat = $3;
-		$nick = $4 if $1 eq "SJOIN" or $1 eq "NJOIN";
-		$nick =~ tr/\@+//d; #Only needed for Hybrid?
-		$nick = new Net::OSCAR::Screenname $nick;
-		$screenname = $aim_connections->{$nick}->{aimnick} if $aim_connections->{$nick};
-		my @screennames = keys %{$aim_connections->{$nick}->{screennames}} if $aim_connections->{$nick};
-
-		$screenname ||= "";
-		if(not $chats{$chat} or !$screenname or not grep { normalize($_) eq normalize($chats{$chat}->{screenname}) } @screennames) {
-			bounce_join($nick, chatchan($chat));
-		} else {
-			delete $chantimer{chatchan($chat)};
-			$oscar = $aim_connections->{$nick}->{screennames}->{$chats{$chat}->{screenname}}->{oscar};
-			$chats{$chat}->{joined} = 1;
-			if($chats{$chat}->{invited}) {
-				$oscar->chat_accept($chats{$chat}->{url});
-			} else {
-				irc_send($chats{$chat}->{queue});
-				delete $chats{$chat}->{queue};
-			}
-			irc_send(irc_mode($usnick, chatchan($chat), "+o $nick"));
-		}
+		did_join(new Net::OSCAR::Screenname($nick), $chan);
 	} elsif(/^INVITE +(\S+) +:?$chatchan(\d+)/i) {
 		my $recipient = noprefix($longnicks->{$1});
 		my $chat = $2;
@@ -895,12 +856,22 @@ sub process_irc_message($$) {
 
 		$topic =~ s/^{.+?} //;
 		$chats{$chat}->{obj}->invite($recipient, "Please come to $topic.") if $chats{$chat}->{obj};
-	} elsif(/^MODE +$chatchan(\d+) +:?(.+)/i) {
-		my $chat = $1;
-		my $modes = $2;
+	} elsif(/^MODE +($nickchan|$chatchan)(\S+) +:?(.+)/i) {
+		my $chantype = $1;
+		my $chanparm = $2;
+		my $chan = $1.$2;
+		my $modes = $3;
 		my ($mode, $parms, @matches, @modes, @params, @tparams, $params, $modestring, $modechar, $modeparm, $modetype, $status);
 
-		irc_send(irc_error($nick, 504, "You cannot change modes in AIM chat channels.")) if $aim_connections->{$nick};
+		if($nick eq $themname and $servermode eq "unreal") {
+			$modes =~ s/\s*(\d+)$//;
+			return if $bouncequeue->{$chan} and $modes ne "+";
+			$chants->{$chan} = $1;
+			return bounce_join(delete($bouncequeue->{$chan}), $chan) if $bouncequeue->{$chan};
+			return if $modes =~ /^&/; # TS uses this to indicate that it's bouncing the modes
+		}
+
+		irc_send(irc_error($nick, 504, "You cannot change modes in AIM ".(($chantype eq $chatchan) ? "chat" : "nick")." channels.")) if $aim_connections->{$nick};
 
 		$modes =~ tr/+-/-+/;
 		$modes =~ s/\s*\d+[\r\n]*$// unless $aim_connections->{$nick};
@@ -921,7 +892,7 @@ sub process_irc_message($$) {
 				}
 				if($modechar eq "o" and $modeparm eq $usnick) {
 					if($modetype eq "+") {
-						irc_send(irc_mode(IsTS() ? $us : $usnick, chatchan($chat), "+o $usnick"));
+						irc_send(irc_mode(IsTS() ? $us : $usnick, $chan, "+o $usnick"));
 					}
 				} elsif($modechar eq "o" and $aim_connections->{$modeparm} and $modetype eq "-") {
 					#Do nothing
@@ -955,7 +926,7 @@ sub process_irc_message($$) {
 
 		#debug_print("Mode parse final: $modestring", "errors", 3);
 
-		irc_send(irc_mode($usnick, chatchan($chat), $modestring)) if $modestring;
+		irc_send(irc_mode($usnick, $chan, $modestring)) if $modestring;
 	} elsif(/^TOPIC +$chatchan(\d+)/i) {
 		irc_send(irc_error($nick, 505, "Cannot change topic in AIM chat channels."));
 		irc_send(irc_topic($usnick, chatchan($1), $chats{$1}->{name}));
@@ -2679,6 +2650,10 @@ sub irc_join($$) {
 		$ret .= ":$us NJOIN $channel :$user\r\n";
 	} else {
 		$ret .= ":$user JOIN $channel\r\n";
+		if($servermode eq "unreal" and !$chants->{$channel}) {
+			$chants->{$channel} = time;
+			$ret .= "MODE $channel +  $chants->{$channel}\r\n";
+		}
 	}
 
 	return $ret;
@@ -2743,7 +2718,7 @@ sub irc_away($;$) {
 
 # Receive a message from IRC
 sub irc_recv(;$) {
-	my($noblock, $rv, $buff, $incbuff, $idx, $ret) = ($_[0]);
+	my($noblock, $rv, $buff, $idx, $ret) = ($_[0]);
 
 	undef $rv;
 	$! = EAGAIN;
@@ -2753,7 +2728,6 @@ sub irc_recv(;$) {
 		$rv = $upstream->sysread($buff, 512);
 		die "Couldn't read from IRC: $!" if !defined($rv) && $! != EAGAIN;
 		if(defined($rv)) {
-			#print STDERR "Reading from IRC...\n";
 			if($incbuff) {
 				$buff = $incbuff.$buff;
 				undef $incbuff;
@@ -2763,8 +2737,7 @@ sub irc_recv(;$) {
 				$incbuff = substr($buff, $idx, length($buff) - $idx, "");
 			}
 			push @getbuff, split(/[\r\n]{1,2}/, $buff) if $buff;
-			#print STDERR "Getbuff is " . join("\n", @getbuff);
-			#print STDERR "\n";
+			#print STDERR "Getbuff is " . join("\n", @getbuff) . "\n";
 		}
 		last if $noblock;
 	}
@@ -3281,6 +3254,7 @@ sub ircify($;$) {
 sub bounce_join($$) {
 	my($nick, $chan) = @_;
 
+	return $bouncequeue->{$chan} = $nick if $servermode eq "unreal" and !$chants->{$chan};
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_mode($usnick, $chan, "+isnt"));
@@ -3782,5 +3756,53 @@ sub kill_phantoms() {
 		next if grep {$_ eq $associate->session->screenname} keys %$irc_connections;
 		$associate->session->signoff;
 		io_events($handle, "deleted");
+	}
+}
+
+sub did_join($$) {
+	my($nick, $chan) = @_;
+
+	if($chan =~ /^$nickchan(\S+)/) {
+		my $screenname = new Net::OSCAR::Screenname $1;
+		my $oscar = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar} if $aim_connections->{$nick} and $aim_connections->{$nick}->{screennames}->{$screenname};
+		my $dude;
+
+		if(not defined $irc_connections->{$screenname} or $irc_connections->{$screenname} ne $nick or not $oscar) {
+			bounce_join($nick, nickchan($screenname));
+		} else {
+			my $chan = nickchan($screenname);
+			delete $chantimer{$chan};
+			$aim_connections->{$nick}->{screennames}->{$screenname}->{inchan} = 1;
+			irc_send(irc_join($usnick, $chan));
+			irc_send(irc_mode($us, $chan, "+o $usnick"));
+			irc_send(irc_mode($usnick, $chan, "-o $nick"));
+			irc_send(irc_mode($usnick, $chan, "+ints"));
+			foreach $dude(keys %$nicks) {
+				next unless $nicks->{$dude}->{$screenname};
+				irc_send(irc_join(aimnick($dude, $screenname), $chan));
+				irc_send(irc_mode($usnick, $chan, "+v $prefix$dude")) if $oscar->buddy($dude);
+			}
+			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the set imchan command."));
+		}
+	} elsif($chan =~ /^$chatchan(\d+)/) {
+		my $chat = $1;
+		my $screenname = $aim_connections->{$nick}->{aimnick} if $aim_connections->{$nick};
+		my @screennames = keys %{$aim_connections->{$nick}->{screennames}} if $aim_connections->{$nick};
+
+		$screenname ||= "";
+		if(not $chats{$chat} or !$screenname or not grep { normalize($_) eq normalize($chats{$chat}->{screenname}) } @screennames) {
+			bounce_join($nick, chatchan($chat));
+		} else {
+			delete $chantimer{chatchan($chat)};
+			my $oscar = $aim_connections->{$nick}->{screennames}->{$chats{$chat}->{screenname}}->{oscar};
+			$chats{$chat}->{joined} = 1;
+			if($chats{$chat}->{invited}) {
+				$oscar->chat_accept($chats{$chat}->{url});
+			} else {
+				irc_send($chats{$chat}->{queue});
+				delete $chats{$chat}->{queue};
+			}
+			irc_send(irc_mode($usnick, $chan, "+o $nick"));
+		}
 	}
 }
