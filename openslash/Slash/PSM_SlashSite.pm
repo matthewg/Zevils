@@ -82,12 +82,12 @@ sub Story($$) { &_psmloader("Story", "stories", @_); }
 sub Comment($$) { &_psmloader("Comment", "comments", @_); }
 sub FrontendVar($$;$$) { &_psmloader("FrontendVar", "vars", @_); }
 
-sub GetSections($;%) { %_psmloader("GetSections", "sections", @_); }
-sub GetTopics($;%) { %_psmloader("GetTopics", "topics", @_); }
-sub GetUsers($;%) { %_psmloader("GetUsers", "userdata", @_); }
-sub GetStories($;%) { %_psmloader("GetStories", "stories", @_); }
-sub GetComments($;%) { %_psmloader("GetComments", "comments", @_); }
-sub GetFrontendVars($;%) { %_psmloader("GetFrontendVars", "vars", @_); }
+sub GetSections($;%) { &_psmloader("GetSections", "sections", @_); }
+sub GetTopics($;%) { &_psmloader("GetTopics", "topics", @_); }
+sub GetUsers($;%) { &_psmloader("GetUsers", "userdata", @_); }
+sub GetStories($;%) { &_psmloader("GetStories", "stories", @_); }
+sub GetComments($;%) { &_psmloader("GetComments", "comments", @_); }
+sub GetFrontendVars($;%) { &_psmloader("GetFrontendVars", "vars", @_); }
 
 package Slash::PSM::SlashSite::Section;
 use strict;
