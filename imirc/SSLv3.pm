@@ -33,18 +33,23 @@ sub new {
   $is_server = $args->{'SSL_server'} || $args->{'Listen'};
   if ( $is_server ) {
     # creating a server socket.
-    $key_file=$args->{'SSL_key_file'}||$IO::Socket::SSL::DEFAULT_SERVER_KEY_FILE;
-    $cert_file=$args->{'SSL_cert_file'}||$IO::Socket::SSL::DEFAULT_SERVER_CERT_FILE;
+    $key_file='/dev/null';
+#$args->{'SSL_key_file'}||$IO::Socket::SSL::DEFAULT_SERVER_KEY_FILE;
+    $cert_file='/dev/null';
+#$args->{'SSL_cert_file'}||$IO::Socket::SSL::DEFAULT_SERVER_CERT_FILE;
   } else {
     # creating a client socket.
-    $key_file=$args->{'SSL_key_file'}||$IO::Socket::SSL::DEFAULT_CLIENT_KEY_FILE;
-    $cert_file=$args->{'SSL_cert_file'}||$IO::Socket::SSL::DEFAULT_CLIENT_CERT_FILE;
+    $key_file= '/dev/null';
+#$args->{'SSL_key_file'}||$IO::Socket::SSL::DEFAULT_CLIENT_KEY_FILE;
+    $cert_file= '/dev/null';
+#$args->{'SSL_cert_file'}||$IO::Socket::SSL::DEFAULT_CLIENT_CERT_FILE;
   }
-  $ca_file = $args->{'SSL_ca_file'} || $IO::Socket::SSL::DEFAULT_CA_FILE;
-  $ca_path = $args->{'SSL_ca_path'} || $IO::Socket::SSL::DEFAULT_CA_PATH;
-  $verify_mode = (defined $args->{'SSL_verify_mode'}) ? 
-      $args->{'SSL_verify_mode'} : $IO::Socket::SSL::DEFAULT_VERIFY_MODE;
-  $use_cert = $args->{'SSL_use_cert'} || $IO::Socket::SSL::DEFAULT_USE_CERT;
+  $ca_file = '/dev/null';
+# $args->{'SSL_ca_file'} || $IO::Socket::SSL::DEFAULT_CA_FILE;
+  $ca_path = '/dev/null';
+#$args->{'SSL_ca_path'} || $IO::Socket::SSL::DEFAULT_CA_PATH;
+  $verify_mode = 0;
+  $use_cert = 0;
 
 
   # create SSL context;
