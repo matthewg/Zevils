@@ -635,7 +635,7 @@ sub mainloop() {
 					$sndata = $connection->{screennames}{$screenname};
 					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
 					next if $sndata->{gotconf};
-					next if ($currtime - $sndata->{signontime}) <= 5;
+					next if ($currtime - $sndata->{signontime}) <= 10;
 					if(!$sndata->{ison}) {
 						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
 						do_signoff($nick, $sndata->{socket}, 1);
@@ -951,8 +951,11 @@ sub process_irc_message($) {
 	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +#aimirc-(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra, $connection, $screenname, $sndata, %config);
 
+		$screenname = $connection = $sndata = "";
 		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
 		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+
+		Toc::debug_print("Received IRC command from '$screenname'", "irc", 2);
 
 		$msg = process_ctcp($nnick, $usnick, $3, $screenname);
 		return unless $msg;
@@ -966,12 +969,12 @@ sub process_irc_message($) {
 		$param ||= "";
 
 		if($aim_connections{$nnick}) {
-			$connection = $aim_connections{$nnick};
-			$sndata = $connection->{screennames}{$screenname};
-			%config = deref get_config $screenname;
+			$connection = $aim_connections{$nnick} if exists $aim_connections{$nnick} and ref $aim_connections{$nnick};
+			$sndata = $connection->{screennames}{$screenname} if $connection;
+			%config = deref get_config $screenname if $screenname;
 		}
 
-		unless($connection or ($cmd eq "signon") or ($cmd eq "help")) {
+		unless($screenname or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
 			$param = normalize $param;
@@ -2183,6 +2186,7 @@ sub irc_join($$) {
 sub irc_kick($$$;$) {
 	my($from, $channel, $nick, $reason) = @_;
 
+	$nick =~ s/\@+//;
 	return ":$from KICK $channel $nick" . ($reason ? " :$reason" : "") . "\r\n";
 }
 

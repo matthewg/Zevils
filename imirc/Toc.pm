@@ -208,9 +208,8 @@ Gets an SFLAP-encoded message from HANDLE.  Returns the message.
 =cut
 
 sub sflap_get($;$) {
-	my($handle, $type, @hdr, @signon_hdr) = shift;
+	my($handle, $block, $type, @hdr, @signon_hdr) = @_;
 	my($buff, $len, $connection, $rv);
-	my($block) = shift;
 	#get 6 chars
 	$err = "Undefined handle";
 	return -1 unless $handle;
@@ -219,8 +218,8 @@ sub sflap_get($;$) {
 	#print STDERR "Block? $block\n";
 
 	eval {
-		local $SIG{ALRM} = sub { die "alarm\n" };
-		alarm 5;
+		#local $SIG{ALRM} = sub { die "alarm\n" };
+		#alarm 5;
 
 		undef $rv;
 		$! = EAGAIN;
@@ -230,11 +229,11 @@ sub sflap_get($;$) {
 			#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
 			if (!defined($rv) && $! != EAGAIN) {
 				$err = "Couldn't read: $!";
-				alarm 0;
+				#alarm 0;
 				return -1;
 			}
 			if(!defined($rv) && ($! == EAGAIN) && !$block) {
-				alarm 0;
+				#alarm 0;
 				return undef;
 			}
 		}
@@ -266,11 +265,11 @@ sub sflap_get($;$) {
 			#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
 			if (!defined($rv) && $! != EAGAIN) {
 				$err = "Couldn't read: $!";
-				alarm 0;
+				#alarm 0;
 				return -1;
 			}
 			if(!defined($rv) && ($! == EAGAIN) && !$block) {
-				alarm 0;
+				#alarm 0;
 				return undef;
 			}
 		}
@@ -280,20 +279,21 @@ sub sflap_get($;$) {
 
 		if($err) {
 			$handle->close if $handle;
-			alarm 0;
+			#alarm 0;
 			return -1;
 		}
 
-		alarm 0;
+		#alarm 0;
 	};
 
+	$err ||= $@;
 	return -1 if $err;
-	if($@) {
-		alarm 0;
-		Carp::croak($@) unless $@ eq "alarm\n";
-		$err = "sflap_get timed out";
-		return -1;
-	}
+	#if($@) {
+	#	alarm 0;
+	#	Carp::croak($@) unless $@ eq "alarm\n";
+	#	$err = "sflap_get timed out";
+	#	return -1;
+	#}
 
 	return $buff;
 }
@@ -1128,8 +1128,8 @@ sub sflap_put($$;$) {
 		return -1 unless $handle;
 		$err = undef;
 
-		local $SIG{ALRM} = sub { die "alarm\n"; };
-		alarm 5;
+		#local $SIG{ALRM} = sub { die "alarm\n"; };
+		#alarm 5;
 
 		my @hdr = unpack("CCnn", substr($msg, 0, 6));
 		if($direct) {
@@ -1175,21 +1175,22 @@ sub sflap_put($$;$) {
 				} elsif(!defined($rv) && $! != EAGAIN) {
 					$err = "Couldn't write: $!";
 					$handle->close if $handle;
-					alarm 0;
+					#alarm 0;
 					return -1;
 				}
 			}	
 		}
-		alarm 0;
+		#alarm 0;
 	};
 
+	$err ||= $@;
 	return -1 if $err;
-	if($@) {
-		alarm 0;
-		Carp::croak($@) unless $@ eq "alarm\n";
-		$err = "sflap_put timed out";
-		return -1;
-	}
+	#if($@) {
+	#	alarm 0;
+	#	Carp::croak($@) unless $@ eq "alarm\n";
+	#	$err = "sflap_put timed out";
+	#	return -1;
+	#}
 		
 	return 1;
 }	
