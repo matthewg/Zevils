@@ -25,6 +25,16 @@ will only go off up to 4 times.
 END_FAQITEM
 ),
 
+	array("Can I change my alarms from my Cisco phone?", <<<END_FAQITEM
+Yes.  The way you do this depends on which model of phone you have.  On the Cisco 7912,
+the student model, press the white "globe" icon to the right of the big up/down rocker to open
+the menu, then press 4 to select the services menu, and then press 3 to select the wakeup call
+service.  Other models of phone, such as the 7940 and 7960 which most faculty and staff have,
+pressing the globe button (on the right side of the phone, above the volume button) will
+take you directly to the service menu, from which you can select the wakeup call service.
+END_FAQITEM
+),
+
 	array("Why go to all this trouble when everyone has an alarm clock?", <<<END_FAQITEM
 You can't tell an alarm clock "Wake up up at 8AM on Mondays, Wednesdays, and Thursdays and 11:30 on Tuesdays
 and Fridays, and don't wake me up when don't have classes, and treat it like a Monday if we have a
