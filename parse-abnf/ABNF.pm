@@ -117,6 +117,8 @@ terminal values will be returned.
 
 =item matches ( RULE, DATA[, MATCHRULES] )
 
+This method can be used to simply test data against a rule, or it can parse data into its component parts.
+
 If C<DATA> doesn't match C<RULE>, returns undef.
 
 If C<DATA> I<does> match C<RULE> and the optional parameter C<MATCHRULES> is not present, C<DATA> is returned.
