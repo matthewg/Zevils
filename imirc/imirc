@@ -55,7 +55,7 @@ sub do_signoff($$;$);
 sub send_server_mode($);
 sub send_join($$);
 sub irc_recv(;$);
-sub truncwarn($$);
+sub manglewarn($$);
 sub irc_ctcp_quote($);
 sub irc_ctcp_unquote($);
 sub process_ctcp($$$);
@@ -113,7 +113,6 @@ use Carp;
 use Getopt::Long;
 use LWP::Simple;
 use File::Basename;
-use ScandanavianCase qw(lc uc);
 use FormatAIMIRC;
 
 $Carp::Verbose = 1;
@@ -553,7 +552,14 @@ sub mainloop() {
 					if($dcc->{put} == -1) {
 						undef $rv;
 						vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
-						next DCC unless select($rin, $win, $ein, 0.01);
+						if(!select($rin, $win, $ein, 0.01)) {
+							if(time - $dcc->{starttime} > 60*10) {
+								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out."));
+								$dcc->{ssocket}->close;
+								splice(@dccqueue, $i, 1);
+							}
+							next DCC;
+						}
 						$rv = $dcc->{ssocket}->accept;
 						if(defined $rv) {
 							$dcc->{socket} = $rv;
@@ -694,7 +700,7 @@ sub connect_to_irc() {
 	}
 }
 
-# Create a new IRCnick, with truncation and anti-collide
+# Create a new IRCnick, with mangling and anti-collide
 sub irc_newnick($) {
 	my($nick, $user, $string, $shortnick) = shift;
 	$nick =~ tr/ //d;
@@ -704,6 +710,15 @@ sub irc_newnick($) {
 	Toc::debug_print("Shall we create $nick?", "nicks", 2);
 	return if haskeys($nicks{noprefix $nick});
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
+
+	#Enforce RFC1459 compliance.
+	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
+	#But there's really no right thing to do in that case I suppose.
+	#That's why it deserves the adjective "pathological".
+	#
+	$shortnick =~ s/^[^a-zA-Z]+// unless $prefix; #Nicks must start with a-ZA-Z
+	$shortnick =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
+	
 	$nicks{noprefix($shortnick)}{$usnick} = time;
 	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks{normalize($shortnick)} = $nick;
@@ -1013,6 +1028,7 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname"));
 			} else {
 				$param = lc($param);
+				map { delete $nicks{normalize $_}{$nnick} } split(/,/, $param);
 				remove_buddy($connection->{socket}, [split(/,/, $param)]);
 				# irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
 				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated."));
@@ -1175,7 +1191,7 @@ sub process_irc_message($) {
 				unless($nicks{noprefix $param}) {
 					irc_send(irc_newnick($prefix . normalize $param));
 				}
-				truncwarn($nick, $param);
+				manglewarn($nick, $param);
 				$nicks{noprefix $param}{$nnick} = time;	
 				irc_send(irc_privmsg($usnick, $nick, "$param has been created on IRC."));
 			}
@@ -1533,7 +1549,7 @@ Buddy {
 		}
 
 		my($dcc, $i);
-		for($i = 0; $i < $#dccqueue; $i++) {
+		for($i = 0; $i <= $#dccqueue; $i++) {
 			$dcc = $dccqueue[$i];
 			if($dcc->{direction} eq "SEND" and normalize $dcc->{to} eq $nnick) {
 				$dccqueue[$i]->{to} = $newnick;
@@ -1546,15 +1562,20 @@ Buddy {
 		delete $irc_away{$nnick};
 
 		my($dcc, $i);
-		for($i = 0; $i < $#dccqueue; $i++) {
+		for($i = 0; $i <= $#dccqueue; $i++) {
 			$dcc = $dccqueue[$i];
+			Toc::debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}.  Put $dcc->{put}, got $dcc->{got}", "DCC", 2);
 			next unless $dcc->{direction} eq "SEND" and $dcc->{put} == -1 and normalize $dcc->{to} eq $nnick;
+			Toc::debug_print("Closing DCC listen socket for transfer to $nnick", "DCC", 1);
+			$dcc->{ssocket}->close;
 			splice(@dccqueue, $i, 1);
 			$i--;
 		}
 		do_signoff_all($nnick, 1) if $aim_connections{$nnick};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
+	} elsif(/^NOTICE +$usnick(\@\S+)? +:?(.+)/i) {
+		process_ctcp($nnick, $usnick, $2);
 	}
 }
 
@@ -1618,7 +1639,7 @@ sub process_aim_message($$$) {
 				set_away($sndata->{socket}, $irc_away{$nnick});
 			}
 			if($pounces{safename $screenname}) {
-				$sndata->{pounces} = $pounces{safename $screenname};
+				@{$sndata->{pounces}} = @{$pounces{safename $screenname}};
 				$pouncecount = scalar @{$pounces{safename $screenname}};
 				irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . "."), 2) if $pouncecount > 0;
 			}
@@ -1638,7 +1659,7 @@ sub process_aim_message($$$) {
 		unless($nicks{noprefix $nnick}) {
 			irc_send(irc_newnick($prefix . $inick));
 		}
-		truncwarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
+		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
 
 		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
 		@lines = html2txt($message, $nick);
@@ -1686,7 +1707,7 @@ sub process_aim_message($$$) {
 
 			irc_send(irc_newnick($prefix . $inick)) unless haskeys($nicks{noprefix $nnick});
 			unless($temp{Buddies}{$nnick}{online}) {
-				truncwarn($connection->{nick}, $inick);
+				manglewarn($connection->{nick}, $inick);
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
 				$i = 0;
 				map { $pouncehash{$i++} = $_ } @{$sndata->{pounces}};
@@ -1791,7 +1812,7 @@ sub process_aim_message($$$) {
 				send_join("$prefix$who", "#aimchat-$1");
 
 				$nicks{normalize($who)}{"chat-$1"} = -1;
-				truncwarn($connection->{nick}, $who);
+				manglewarn($connection->{nick}, $who);
 			}
 		} else {
 			foreach $who(@who) {
@@ -2167,12 +2188,12 @@ sub irc_recv(;$) {
 	return $ret;
 }
 
-# Warn if a screenname is being truncated due to IRC max nicklen
-sub truncwarn($$) {
+# Warn if a screenname is being mangled to work with IRC
+sub manglewarn($$) {
 	my($who, $what) = @_;
 
 	irc_send(irc_privmsg($usnick, $who,
-		"\02WARNING\02: Screenname $what has been truncated to IRC nickname " . $shortnicks{noprefix $what}))
+		"\02WARNING\02: Screenname $what has been mangled to IRC nickname " . $shortnicks{noprefix $what}))
 
 		if noprefix($shortnicks{noprefix($what)}) ne normalize($what);
 }
@@ -2328,7 +2349,7 @@ sub process_ctcp($$$) {
 	my ($delim, @ctcp, $ctcp, $cmd, $args) = (chr(001));
 	my($filename, $ipaddr, $port, $filesize, $socket, $buff, $flags);
 
-	return $message unless $message =~ /$delim/;
+	return $message unless $message =~ /$delim/; 
 
 	@ctcp = map { $_ = irc_ctcp_unquote $_; Toc::debug_print("CTCP: $_", "ctcp", 2) if $_; $_; } split(/$delim+/, $message);
 	shift @ctcp;
@@ -2344,16 +2365,36 @@ sub process_ctcp($$$) {
 		$message .= "\02ACTION\02 $args" if $cmd eq "ACTION"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
 		if($cmd eq "DCC") {
 			($cmd, $args) = split(/ /, $args, 2);
-			if($cmd eq "SEND") {
-				if(not $dccget{$from}) {
-					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time."));
-					next CTCP;
+			if($cmd eq "REJECT") {
+				my($dcc, $i);
+				for($i = 0; $i <= $#dccqueue; $i++) {
+					$dcc = $dccqueue[$i];
+					Toc::debug_print("DCC $dcc->{direction} from $dcc->{from} to $dcc->{to}", "DCC", 2);
+					if($dcc->{direction} eq "SEND" and normalize $dcc->{to} eq $from) {
+						Toc::debug_print("$from rejected our DCC.", "DCC", 1);
+						$dccqueue[$i]->{socket}->close if $dcc->{socket};
+						$dccqueue[$i]->{ssocket}->close if $dcc->{ssocket};
+						splice(@dccqueue, $i, 1);
+						$i--;
+					} elsif(normalize $dcc->{from} eq $from) {
+						Toc::debug_print("$from rejected our DCC.", "DCC", 1);
+							$dccqueue[$i]->{socket}->close if $dcc->{socket};
+						splice(@dccqueue, $i, 1);
+						$i--;
+					}
 				}
+			} elsif($cmd eq "SEND") {
 				$args =~ /(.+)\s+(\d+)\s+(\d+)\s+(\d+)/; #Handles spaces in filename
 				($filename, $ipaddr, $port, $filesize) = ($1, $2, $3, $4);
+				if(not $dccget{$from}) {
+					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time."));
+					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
+					next CTCP;
+				}
 				if($dccget{$from} eq "loadbuddies" and $filesize > 4096) {
 					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 4k."));
 					delete $dccget{$from};
+					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
 				} else {
 					eval { $socket = IO::Socket::INET->new(
@@ -2499,7 +2540,7 @@ sub irc_dcc($$$$$) {
 		}
 
 		#We set {put} to -1 to indicate that the client hasn't connected yet.
-		push @dccqueue, {ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
+		push @dccqueue, {starttime => time, ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
 		Toc::debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
 	}
