@@ -60,7 +60,6 @@ sub process_ctcp($$$$);
 sub irc_ctcp($$$;$);
 sub loadbuddies($$);
 sub irc_dcc($$$$$$);
-sub safename($);
 sub savedat($);
 sub num2base64($);
 sub base642num($);
@@ -125,7 +124,8 @@ use Carp;
 use Getopt::Long;
 use LWP::Simple;
 use File::Basename;
-use FormatAIMIRC;
+use AIMIRC::Format;
+use AIMIRC::Identifier;
 
 $Carp::Verbose = 1;
 
@@ -1940,7 +1940,7 @@ sub html2txt($;$) {
 	$parsetree->parse($msg);
 	$parsetree->eof;
 
-	$formatter = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096);
+	$formatter = new AIMIRC::Format (leftmargin => 0, rightmargin => 4096);
 	$formatter->{_original_html} = $msg; #We use this to determine whether to add a closing tag for "unknown tags"
 	$msg = $formatter->format($parsetree);
 	$parsetree->delete;
@@ -2687,15 +2687,6 @@ sub irc_dcc($$$$$$) {
 	}
 }
 
-# Make a screenname safe to be used in a filename.
-# This is probably not needed, but just because you're paranoid it doesn't
-# meant they're not out to get you.
-sub safename($) {
-	my($dangerous_name) = shift;
-	$dangerous_name =~ tr!<>|/\0!!d;
-	return $dangerous_name;
-}
-
 sub savedat($) {
 	my($screenname, $pounce) = shift;
 
@@ -2817,24 +2808,6 @@ sub got_im($$$$) {
 		$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
 }
 
-
-# Sanitize a screenname for IRC
-sub ircify($) {
-	my $screenname = shift;
-
-	#Yes, I am aware that the RFC mandates a max of 9 characters.
-	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen});
-
-	#Enforce RFC1459 compliance.
-	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
-	#But there's really no right thing to do in that case I suppose.
-	#That's why it deserves the adjective "pathological".
-	#
-	$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
-	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
-
-	return $screenname;
-}
 
 sub bounce_join($$) {
 	my($nick, $chan) = @_;
