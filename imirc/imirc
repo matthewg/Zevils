@@ -28,6 +28,12 @@ EOF
 use strict;
 use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap);
 
+# Dummy constants because we import these at run-time.
+# Without these dummies, we get errors due to the subs stricture.
+use constant POLLIN => 0;
+use constant POLLOUT => 0;
+use constant POLLERR => 0;
+use constant POLLHUP => 0;
 
 # DCC states
 # Iff state & 1, it's a SEND.
@@ -417,7 +423,7 @@ sub loadconf() {
 		eval {
 			require IO::Poll;
 			IO::Poll->import(qw(POLLIN POLLOUT POLLHUP POLLERR POLLNVAL));
-		}
+		};
 		if($@) {
 			print STDERR "Couldn't load IO::Poll - falling back to select\n";
 			print STDERR "$@\n";
@@ -558,7 +564,7 @@ sub mainloop() {
 					} elsif($target->isa("Net::OSCAR::Connection")) {
 						eval {
 							$target->process_one($events & POLLIN, $events & POLLOUT, $events & (POLLERR | POLLHUP));
-						}
+						};
 						if($@) {
 							my $screenname = $target->session->screenname;
 							my $nick = $irc_connections->{$screenname};
