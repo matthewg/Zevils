@@ -428,6 +428,8 @@ sub loadconf() {
 			print STDERR "Couldn't load IO::Poll - falling back to select\n";
 			print STDERR "$@\n";
 			$usepoll = 0;
+		} else {
+			$poll = new IO::Poll;
 		}
 	}
 
