@@ -16,7 +16,9 @@ if(isset($_POST["op"])) {
 				echo $TEMPLATE["login"]["pin_sent"];
 		}
 	}
-} else if($auth_ok) {
+}
+
+if($auth_ok) {
 	redirect("wakes.php");
 } else if($auth_error != "no_extension") {
 	if(isset($TEMPLATE["login"][$auth_error])) {
