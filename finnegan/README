@@ -1,0 +1,234 @@
+Finnegan, the Brandeis Student Union wake-up call system
+========================================================
+
+Overview and Security
+---------------------
+
+Finnegan consists of the following components:
+	1) A database to hold wake-up call information
+	2) A web page for editing this information online
+	3) A voice-response system for editing this information via phone
+	4) A daemon that runs in the background and makes wake-up calls
+
+Do we want it to work for off-campus numbers?  If so, we need to either
+get a billing number for it, or configure its extensions to not need billing
+numbers.  This creates some security issues.
+
+(Can we get UNet authentication for the online system?  If we can, 
+ callbacks aren't necessary for online entry:)   
+
+For security, it won't do anything without issuing a callback.  That is, for
+any changes entered online, it will call the user's extension and say
+"You have requested the following changes to your wake-up calls: blah blah blah.
+Press 1 to confirm these changes."  This has the disadvantage that anyone with
+access to the user's phone can modify their wake-up calls.  If that's not an
+acceptable level of security, we could let people create a PIN.  We would then
+need to add PIN management mechanisms, a way for people to reset their PIN if they
+forget it... it gets complicated.
+
+Do we want to issue callbacks for phone-submitted requests?  That is, when
+it gets an incoming call, do we want it to check the caller-ID information
+and say "Thank you for your call.  To verify your extension, the system will
+call you back.  Please hang up now." and then do a call-back?  It is possible
+to spoof caller ID information, although it isn't trivial.
+
+I think we can probably get away with believing the caller ID info for
+phone requests, and doing a call-back for web requests.  This is all assuming
+that the VoIP system, the analog bridge, and the modem will all pass CID
+information through.  If not, we'll probably need to do a "Please enter your
+five-digit extension.  *beep boop boop beep beep*  Thank you.  Please hang up,
+and the system will call you back shortly to verify your extension."
+
+Types of Wakes
+--------------
+
+("Wake" == "Wake-up call", to differentiate it from, say, a verification callback.)
+We should be able to both one-time and recurring wakes.  The user should be
+able to make a recurring wake go out on any set of days-of-week, so you
+might have one wake that goes out every {Monday, Wednesday, Thursday}, and another
+that goes out on {Tuesday, Friday}.  Wakes should be able to work on the
+standard calendar, standard calendar with no calls on national holidays,
+or Brandeis calendar (e.g. honoring days we have off, and "Brandeis Mondays".)
+The user should be able to do a one-time disable of a wake for the next ocurrence of
+a particular day-of-week.  (e.g. "Don't wake me next Tuesday.")  The user should have
+the option of having the wake do positive or negative snooze - that is, either
+"press any button to have me call back in nine minutes", or "press any button to
+*not* have me call back in nine minutes."  Maybe even "press pound star pound to
+not have me call back in nine minutes."  If we want to be fancy, we could have
+custom snooze intervals, but I don't think that's too critical.  If we're doing user
+preferences, 24-hour time would be an option, too, but again, it's not
+critical.
+
+We should have a few different choices of "wake message".  For instance:
+	1. "You have a requested a wake-up call for TIME.  [Snooze: It is now
+		TIME.] Please wake up."
+	2. "WAKE UP!!  WAKE UP!!  WAKE UP!!  It's TIME. [Snooze: You should've
+		been up at TIME!]"
+	3. "*sings* Wake up, wake up you sleepy-head.  Wake up, wake up, get out
+		of bed!  It's TIME, honey, you should get up now.  [Snooze:
+		You were supposed to get up at TIME.]"
+or something like that.  The bits in [Snooze: ...] would only be said if
+the alarm went off once and the user hit snooze (or didn't hit the right
+button to disable the alarm.)  After the message, there would be some fixed
+text:
+	"You will be called again in nine minutes unless you press a button."
+or:
+	"Press any key if you would like to be called again in nine minutes."
+and then, for recurring wakes:
+	"This is wake-up call #WAKE_ID from Finnegan, the Brandeis Student
+	 Union wake-up call system.  To deactivate this wake, dial x6WAKE."
+or for one-time wakes:
+	"This is a one-time wake-up call from Finnegan, the Brandeis Student
+	 Union wake-up call system.  Dial x6WAKE to use Finnegan."
+and then the wake message and the fixed text would repeat a fixed number of
+times, at least two.
+
+So, in summary, we have the following attributes for all wakes:
+	-Extension
+	-Time
+	-Snooze +/-
+	-Message
+One-time wakes would have the following additional attribute:
+	-Date
+Recurring wakes would have the following additional attributes:
+	-Normal Days of Week
+	-Current Days of Week (so user can do one-time disables of a particular day)
+	-Calendar Type (normal, normal w/o holidays, Brandeis)
+
+
+Prototype IVR Design
+--------------------
+
+Here's a sketch of the interactive voice recognition system, for editing
+wakes via phone.  We should have some careful timeouts to stop someone
+from tying up one of the lines, since we won't have that many of them.
+We have to consider scenarios such as someone dialing Finnegan, dropping
+their phone on the floor in such a way that one of the buttons is held down,
+and walking away.
+
+[-Global Settings-]
+	[No progress for 3 minutes: "I'm sorry, you seem to be having trouble.
+	    Dial x6???? for help with Finnegan. [-Goodbye-]"]
+	[Session lasts more than 15 minutes: Same as above.]
+	[No response to a prompt for 30 seconds: [Repeat prompt.]]
+	*: [-Main Menu-]
+
+[TIME_DESC]
+(This is how we describe the time of a wake-up call.)
+	[if single wake: "on DAY_OF_WEEK,
+	NAME_OF_MONTH DAY_OF_MONTH (e.g. 'Monday, November 24th')".  If
+	recurring wake: "on DAYS_OF_WEEK"] at TIME.  
+
+
+[-Main Menu-]
+Welcome to Finnegan, the Brandeis Student Union wake-up call system.
+[Check CID: User is off campus:]
+	We're sorry, Finnegan is only available from an on-campus extension.
+	[Go to -Goodbye-]
+To return to this menu at any time, press *. [-Main Menu-]
+To add a wake-up call, press 1. [-New Wake-]
+To review your wake-up calls, press 2. [-Edit Wakes-]
+
+[-New Wake-]
+Press 1 to add a one-time wake-up call. [-New Single Wake-]
+Press 2 to add a weekly wake-up call. [-New Recurring Wake-]
+
+[-New Single Wake-]
+Please enter the day of the month you'd like to be woken up on.
+To be woken up in the next week by day of week, press pound
+followed by the day of the week, 1 for Monday, 2 for Tuesday, etc.
+[Wait for two digits to be entered, or one digit and a bit
+ of silence (so no leading 0 is needed).]
+[-Time-]
+
+[-Time-]
+Please enter the time you'd like to be woken up on, followed
+by 1 for AM or 2 for PM.
+[Wait for five digits to be entered, or four digits and
+ a bit of silence (so no leading 0 is needed).]
+[-Time Verify-]
+
+[-Time Verify-]
+[Guess the month:
+   Assume current month.  If time would be in past, assume
+   next month.]
+I think you'd like to be woken up [TIME_DESC].
+If this is correct, press 1.
+If this is incorrect, press 3. [-New Single/Recurring Wake-]
+[Wait for 1/3.]
+
+Thank you!  Your wake-up call has been added.  You may now
+set additional options on your wake-up call, or press * to
+return to the main menu.  Press 1 if you'd like to be able to
+have a button on your phone act as a "snooze" button, so that
+if you press a button when Finnegan calls you, it will call you
+back in nine minutes.  Press 3 if you'd like Finnegan to
+automatically call you back unless you press a button.
+[Wait for 1/3.]
+
+What would you like Finnegan to say when it calls you?
+Press 1 for FIRST MESSAGE.
+Press 2 for SECOND MESSAGE.
+Press 3 for THIRD MESSAGE.
+...
+[Wait for response.]
+
+Thank you, your wake-up call has been activated.
+[-Main Menu-]
+
+[-New Recurring Wake-]
+Please enter the days of the week you'd like to be woken
+up on, followed by the pound sign.  Press 1 for Monday,
+2 for Tuesday, etc.
+[Wait for input.]
+
+Which calendar you like the wake-up call to use?
+Press 1 to use the Brandeis calendar, which honors
+   Brandeis holidays and Brandeis Mondays.
+Press 2 to use the regular calendar.
+Press 3 to use the regular calendar, with no wake-up
+   call on national holidays.
+[Wait for input.]
+[-Time-]
+
+[-Edit Wakes-]
+Enter the number of a wake-up call to edit or delete
+that call.
+[For each wake:]
+	Wake-up call NUM: "One-time"/"Recurring" call for
+	    [TIME_DESC] [if recurring: "using the CALTYPE calendar."
+	      [if days have been disabled this week: ", disabled on
+	        DISABLED_DAYS."]]
+[Wait for input.]
+[-Edit A Wake-]
+
+[-Edit A Wake-]
+To delete this wake-up call, press 1. [-Confirm Deletion-]
+[If recurring:]
+	To temporarily disable this wake-up call for a particular
+	  day, or reenable disabled days, press 2. [-Day Disable-]
+[Wait for input.]
+
+[-Confirm Deletion-]
+Are you sure you want to deflete you wake-up call for [TIME_DESC]?
+Press 1 to delete the wake-up call, or 3 to cancel.
+[Wait for 1/3.]
+
+[-Day Disable-]
+[If disabled days:]
+	This wake-up call is disabled on the following days:
+	    [DISABLED_DAYS]
+Please enter the days of the week you'd like this wake-up call
+to be temporarily disabled for, followed by the pound sign.
+Press 1 for Monday, 2 for Tuesday, etc.  The wake-up call
+will be disabled for the next time it is each of those days,
+but will be active next time.  For instance, if it is Sunday,
+and you disable a call for Monday, you will not receive that
+wake-up call tomorrow, but you will receive it next Monday.
+[Wait for input.]
+This call is now temporarily disabled for [DISABLED_DAYS].
+[-Edit A Wake-]
+
+[-Goodbye-]
+Thank you for using Finnegan!
+[Hang up.]

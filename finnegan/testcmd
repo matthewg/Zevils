@@ -1,0 +1,2 @@
+#!/bin/sh
+exec vm shell -S /usr/bin/perl -l usb/ttyACM0 /root/modemtest

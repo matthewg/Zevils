@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Modem::Vgetty;
+
+$Modem::Vgetty::testing = 1;
+my $v = new Modem::Vgetty;
+$v->add_handler('BUSY_TONE', 'endh', sub { $v->stop; exit(0); });
+$v->add_handler('NO_DIAL_TONE', 'hangup', sub { $v->send("ATH0"); });
+local $SIG{ALRM} = sub { $v->stop; };
+$v->enable_events;
+$v->autostop("ON");
+$v->dial("92896");
+$v->waitfor("READY");
+
+$v->play_and_wait("/root/samples/816pm.rmd");
+$v->shutdown;

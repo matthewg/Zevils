@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Modem::Vgetty;
+
+my $v = new Modem::Vgetty;
+$v->autostop("ON");

@@ -1,0 +1,52 @@
+Finnegan Timeslice Allocation Algorithm
+---------------------------------------
+
+Each use of a phone line requires the allocation of a timeslice
+to a call.
+
+Uses of a phone-line:
+	-Wake-up calls
+	-Verification calls ('You have scheduled a wake-up call for this
+				number at X:YY.  Press 1 to confirm.')
+
+We know when wake-up calls happen, except for snoozes.  We don't
+know when verification calls will happen.  Wake-up calls will hang up after
+110 seconds.  Verification calls will hang up after 50.  Snoozes happen between 9
+and 11 minutes after a wake-up call (snooze interval is 9 minutes), and
+are capped at 5 snoozes (you can only hit the snooze button 4 times, effectively.)
+
+The use of 110 and 50 seconds as opposed to 120/60 is to give a 10-second margin
+for dialling the number, etc.  Calls are assumed to take 120/60 seconds.
+
+finnegan will record actual data on how long things take, how many times
+snooze is activated for each call, when people try to set wakes for 
+unavailable times, etc, to see if we need to tweak things.
+
+finnegan will skew the time of something by +/- 30 seconds if it needs
+to in order to make a time available.  So, if someone has a call scheduled
+for 9:07, and you want one scheduled for 9:06, it'll turn his into 9:07:30
+and yours into 9:05:30.  The finnegan UI will only provide granularity of
+minutes (so you can set a call for 9:07, but not 9:07:01.)
+
+The number of timeslices which will be in use at any particular time t
+can be computed by:
+	sum(n=0->4): C(t-n*11*60, (t+120)-n*9*60)
+where C(a, b) is the number of calls scheduled between times a and b.
+
+Schedule for t=1000
+	(t, t+120) {i: 120}
+	(t-660, t-420) {i: 240}
+	(t-1320, t-960) {i: 360}
+	(t-1980, t-1500) {i: 480}
+	(t-2640, t-2040) {i: 600}
+
+Yeah, that interval of 600 seconds really sucks, eh?  It's because
+we don't know how long a call will take, and we're compounding that
+5 times.  So, to check if it's ok to set a call for a particular time,
+take:
+	sum(n=0->4): C(t-n*11*60, (t+120)-n*9*60)
+	sum(n=0->4): C(t+n*11*60, (t+120)+n*9*60)
+and if it's less than the number of phone lines we have, we're groovy.
+
+If we aren't groovy, 
+
