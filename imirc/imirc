@@ -1868,7 +1868,7 @@ sub oscar_chat_buddy_in($$$$) {
 	} keys %chats;
 
 	if(!$chatid) {
-		return oscar_error($oscar, undef, 0, "Couldn't find chat ", $chat->url, "/", $chat->name, ".  Please email matthewg\@zevils.com.");
+		return oscar_error($oscar, undef, 0, "Couldn't find chat ". $chat->url. "/". $chat->name. ".  Please email matthewg\@zevils.com.", 1);
 	}
 
 	irc_send(irc_newnick($prefix.$buddy));
