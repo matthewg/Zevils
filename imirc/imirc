@@ -3049,7 +3049,7 @@ sub loadbuddies($$$) {
 		}
 	} else {
 		my $data = oscar_cfgparse($buff);
-		#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, Data::Dumper::Dumper($data), "", "", $oscar->screenname));
+		irc_send(irc_privmsg($usnick, "matthewg", Data::Dumper::Dumper($data)));
 
 		if($data->{Config}->{version}->[0] != 1) {
 			irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "That isn't a valid buddylist.", "", "", $oscar->screenname));
@@ -3078,6 +3078,7 @@ sub loadbuddies($$$) {
 
 		foreach my $group(keys %{$data->{Buddy}->{list}}) {
 			if(ref($data->{Buddy}->{list}->{$group})) {
+				irc_send(irc_privmsg($usnick, "matthewg", "Doing $group"));
 				@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
 				foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
 					#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
