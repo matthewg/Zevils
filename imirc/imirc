@@ -464,7 +464,7 @@ unless($reload) {
 	irc_send(":$usnick MODE $usnick -i\r\n");
 	irc_send(":$us MODE $usnick +o\r\n");
 
-	$aimselect = IO::Select->new();
+	#$aimselect = IO::Select->new();
 	$ircselect = IO::Select->new();
 	$ircselect->add($upstream);
 
@@ -475,16 +475,24 @@ unless($reload) {
 
 	while(1 == 1) {
 		exit(255) unless $upstream;
-		@aims = $aimselect->can_read(.01);
+		#@aims = $aimselect->can_read(.01):
+		@aims = keys %aim_connections;
 		foreach $aim(@aims) {
-			$connection = $aim_connections{$filenos[$aim->fileno]};
-			process_aim_message($connection);
+			$connection = $aim_connections{$aim};
+			#$connection = $aim_connections{$filenos[$aim->fileno]};
+			$msg = sflap_get($connection->{socket});
+			if($msg == -1) {
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
+				do_signoff($connection->{nick}, $connection->{socket});
+			} elsif($msg) {
+				process_aim_message($msg);
+			}
 		}
-		@aims = $aimselect->has_error(.01);
-		foreach $aim(@aims) {
-			$connection = $aim_connections{$filenos[$aim->fileno]};
-			do_signoff($connection->{nick}, $connection);
-		}
+		#@aims = $aimselect->has_error(.01);
+		#foreach $aim(@aims) {
+		#	$connection = $aim_connections{$filenos[$aim->fileno]};
+		#	do_signoff($connection->{nick}, $connection);
+		#}
 
 		@upstream = $ircselect->can_read(.01);
 		if($upstream[0]) {
@@ -501,17 +509,28 @@ unless($reload) {
 		}
 
 		if((time % 100) == 0) { #Cleanup nicks
+			#Toc::debug_print("Reaping nicks...", "nicks", 3);
 			ANICK: foreach $anick(keys %nicks) {
-				next if $anick = $usnick;
+				next if $anick eq $usnick;
 				$kill = 1;
+				#Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
 				foreach $bnick(keys %{$nicks{$anick}}) {
+					#Toc::debug_print("\t\t$bnick was using $anick...", "nicks", 3);
 					next ANICK if $kill == 0;
-					$kill = 0 if $nicks{$anick}{$bnick} == -1;
-					$kill = 0 if (time - $nicks{$anick}{$bnick}) < 3600;
+					if($nicks{$anick}{$bnick} == -1) {
+						$kill = 0;
+						#Toc::debug_print("\t\t\tpermenantly.", "nicks", 3);
+					} elsif ((time - $nicks{$anick}{$bnick}) < 3600) {
+						$kill = 0;
+						#Toc::debug_print("\t\t\tsince " . time - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
+					}
 				}
 				if($kill == 1) {
 					delete $nicks{$anick};
 					irc_send(":$prefix$anick QUIT :$prefix$anick\r\n");
+					Toc::debug_print("\t$anick, HAVE A NICE AFTERLIFE. ($anick reaped)", "nicks", 1);
+				} else {
+					#Toc::debug_print("\t$anick, YOU LIVE FOR NOW.", "nicks", 3);
 				}
 			}
 		}
@@ -546,10 +565,11 @@ sub irc_newnick {
 	$nick =~ tr/ //d;
 	$user = $nick;
 	$user =~ s/^$prefix//;
+	Toc::debug_print("Shall we create $nick?", "nicks", 2);
 	return if $nicks{normalize($nick)};
 	$nicks{normalize($nick)}{$usnick} = time unless $nicks{normalize($nick)};
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
-
+	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks{normalize($shortnick)} = $nick;
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
 	$string .= ":$nick MODE $shortnick +i\r\n";
@@ -927,15 +947,10 @@ sub process_irc_message {
 }
 
 sub process_aim_message {
-	my ($connection) = shift;
-	my($msg, $cmd, $val, $inick, $ar);
+	my ($msg) = shift;
+	my($cmd, $val, $inick, $ar);
 	my($nnick) = normalize($connection->{nick});
 
-	$msg = sflap_get($connection->{socket});
-	if($msg eq "-1") {
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error reading: $err"));
-		return;
-	}
 	#warn "AIM got $msg for $connection->{nick}\n";
 	$msg =~ /^([^:]+):(.+)/;
 	$cmd = $1; $val = $2;
@@ -1193,7 +1208,7 @@ EOF
 
 
 sub do_signon {
-	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret) = @_;
+	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags) = @_;
 
 	$nparam = normalize($tparam);
 
@@ -1216,10 +1231,10 @@ sub do_signon {
 			lock @filenos;
 			$filenos[$aim_connections{$tnick}{socket}->fileno] = $tnick;
 		}
-		{
-			lock $aimselect;
-			$aimselect->add($aim_connections{$tnick}{socket});
-		}
+		#{
+		#	lock $aimselect;
+		#	$aimselect->add($aim_connections{$tnick}{socket});
+		#}
 
 		irc_send(irc_privmsg($tusnick, $tnick, "You are now connected to AOL Instant Messenger."));
 		{
@@ -1236,11 +1251,15 @@ sub do_signon {
 }
 
 sub do_signoff {
-	my ($nick, $connection) = @_;
+	my ($nick, $connection, $xnick) = @_;
+
+	foreach $xnick(keys %nicks) {
+		delete $nicks{$xnick}{$nick};
+	}
 
 	if(UNIVERSAL::isa($connection, "IO::Socket::INET")) {
 		delete $aim_connections{$connection->fileno};
-		$aimselect->remove($connection) if UNIVERSAL::isa($aimselect, "IO::Select");
+		#$aimselect->remove($connection) if UNIVERSAL::isa($aimselect, "IO::Select");
 		signoff($connection);
 	}
 	delete $aim_connections{$nick};
