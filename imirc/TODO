@@ -1,3 +1,14 @@
+Damn, bloody thing uses too much CPU...
+I think its these constant read attempts on the AIM connections.  Plus it has
+to set up the SIGALRM stuff too (well it doesn't /have to/ - it /does/).  Maybe
+turn off alarm for the first character, or maybe FIONREAD?  FIONREAD capability
+would need to be autodetected for portability.
+
+#aimirc-screenname DCC (loadbuddies)/multinick
+/msg #aimirc-screenname aim-somedude hey
+
+zevils.com /LIST minimum
+
 Showstoppers (absolutely must be done before 0.98):
 	ChanServ/AIMServ conflict - MODE loop detection, README.ChanServ, services patches
 	Am I using ircify in all the right places?
