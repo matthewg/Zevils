@@ -772,7 +772,7 @@ sub irc_privmsg($$$;$$$) {
 	my($from, $to, $msg, $prefix, $notice, $screenname, $line, $ret, $text, $maxlen, $temp) = @_;
 	$prefix ||= "";
 
-	return unless $from and $to and $msg;
+	return unless $from and $to and $msg ne "";
 
 	if($screenname and $from eq $usnick and exists($aim_connections->{$to}->{screennames}->{$screenname}) and $aim_connections->{$to}->{screennames}->{$screenname}->{inchan}) {
 		$to = nickchan($screenname);
