@@ -1,6 +1,5 @@
 <?
 
-require "db-connect.inc";
 require "template.inc";
 require "common-funcs.inc";
 

@@ -72,7 +72,13 @@ END_FAQITEM
 ),
 
 	array("Can I get a copy of the Finnegan source code?", <<<END_FAQITEM
-
+Yes, the Finnegan source is available under <a href="COPYING.txt">version 2 of the GNU General Public License</a>.
+Our CVS repository can be accessed as follows:
+<blockquote>
+<tt>cvs -d :pserver:anonymous@zevils.com:/home/cvs login</tt> (password is 'cvs')<br />
+<tt>cvs -z3 -d :pserver:anonymous@zevils.com:/home/cvs co finnegan</tt>
+</blockquote>
+You can also <a href="http://www.zevils.com/cgi-bin/viewcvs.cgi/finnegan/">browse the repository</a>.
 END_FAQITEM
 ),
 

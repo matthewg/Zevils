@@ -46,8 +46,51 @@ END_VIEWCALLS_START
 <li><a href="index.php">View Your Wake-up Calls</a></li>
 </ul>
 <h3>Create a New Wake-up Call</h3>
-<form method="post" action="mkwake.php">
+<form method="post" name="mkwake" action="mkwake.php">
 <input type="hidden" name="op" value="create" />
+<!--
+<script type="text/javascript">
+var browser = "";
+if(!document.all && document.getElementById) { //Netscape 6 / Mozilla
+	browser = "mozilla";
+} else if (document.all) { //IS IE 4 or 5 (or 6 beta)
+	browser = "ie";
+} else if (document.layers) { //IS NETSCAPE 4 or below
+	browser = "netscape";
+}
+
+function getobjstyle(obj) {
+	if(browser != "netscape") {
+		return obj.style;
+	} else {
+		return obj;
+	}
+}
+function getobj(objname) {
+	if(browser == "mozilla") {
+		return document.getElementById(objname);
+	} else if(browser == "ie") {
+		var theobj;
+		eval("theobj = document.all." + objname);
+		return theobj;
+	} else if(browser == "netscape") {
+		return document.layers[objname];
+	}
+}
+function showhide(objname, state) { getobjstyle(getobj(objname)).visibility = state; }
+function show(objname) { showhide(objname, "visible"); }
+function hide(objname) { showhide(objname, "hidden"); }
+
+function moveup(topobjname, botobjname) {
+	var topobj = getobj(topobjname);
+	var botobj = getobj(botobjname);
+
+	alert("first top: " + topobj.posTop + " + " + topobj.height);
+	alert("second top: " + topobj.bottom);
+	alert("third top: " + topobj.clip.bottom);
+}
+</script>
+-->
 END_MKWAKE_NEW_START
 ,
 
@@ -57,7 +100,7 @@ END_MKWAKE_NEW_START
 <li><a href="index.php">View Your Wake-up Calls</a></li>
 </ul>
 <h3>Edit a Wake-up Call</h3>
-<form method="post" action="mkwake.php">
+<form method="post" name="mkwake" action="mkwake.php">
 <input type="hidden" name="op" value="edit" />
 <input type="hidden" name="id" value="__ID__" />
 END_MKWAKE_EDIT_START
@@ -255,6 +298,16 @@ END_PIN_SENT
 	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__."),
 	"too_many_wakes" => errmsg("You have too many wake-up calls.  You may only have ten.  Try using recurring wake-up calls instead of setting one-time calls for every day, or delete some of your other wake-up calls.  If you need more wake-up calls, email <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>"),
 
+	"mkwake_message_link" => <<<END_MKWAKE_MESSAGE_LINK
+<li><a href="__URL__">__NAME__</a></li>
+END_MKWAKE_MESSAGE_LINK
+,
+
+	"mkwake_message_option" => <<<END_MKWAKE_MESSAGE_OPTION
+<option value="__NUM__" __SELECTED__>__NAME__</option>
+END_MKWAKE_MESSAGE_OPTION
+,
+
 	"mkwake_form" => <<<END_MKWAKE_FORM
 <p>
 1. Enter a time for the wake-up call.<br />
@@ -265,29 +318,25 @@ Time: <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><
 2. Select a wake-up message.  This is the message you will hear when you pick up your wake-up call.<br />
 Messages:
 </p><ol>
-<!-- <li><a href="messages/finnegan-pronounce.mp3">"Hello, this is Matthew Sachs, and I pronounce 'Finnegan' as 'Finnegan'.</a></li> -->
-<li><a href="messages/finnegan-standard.mp3">"This is your wake-up call."</li>
-<li><a href="messages/finnegan-shout.mp3">"WAKE UP!!"</a></li>
-<li><a href="messages/finnegan-medley.mp3">Musical Medley</a></li>
-<li><a href="messages/finnegan-atomant.mp3">"Up and at 'em, Atom Ant"</a></li>
-<li><a href="messages/finnegan-sleepyhead.mp3">"Wake up, wake up you sleepy head"</a></li>
-<li><a href="messages/finnegan-destruction.mp3">"Good morning.  Destruction of the planet will commence in approximately five minutes."</a></li>
+__MESSAGE_LINKS__
 </ol><p>
-Message: <input type="text" name="message" size="3" maxlength="2" value="__MESSAGE__" />
-</p><p>
+Message: <select name="message">
+__MESSAGE_OPTIONS__
+</select>
+</p><p id="typesel">
 3. Would you like this to be a one-time wake-up call or a recurring wake-up call?  A one-time wake-up call
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
 every time it's a particular day or days of the week, at a particular for time.  For instance, you could
 set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br />
 <input type="radio" name="type" value="one-time" __ONETIME__ /> One-time
 <input type="radio" name="type" value="recur" __RECUR__ /> Recurring
-</p><p>
+</p><div id="onetime"><p>
 4a. <strong>Skip this step for recurring wake-up calls.</strong> Enter the date, in month/day format,
 that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
 to specify a year; Finnegan will automatically set the wake-up call for the next time the date and time
 roll around (so if it's December, and you enter a date in January, it will go off next month.)<br />
 Date: <input type="text" name="date" size="6" maxlength="5" value="__DATE__" />
-</p><p>
+</p></div><div id="recur"><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
 would you like this wake-up call to call you on?<br />
 Standard Active Weekdays: <br />
@@ -328,27 +377,12 @@ Calendar Type: <select name="cal_type">
 <option value="holidays" __CALTYPE_HOLIDAYS__>National Holidays</option>
 <option value="normal" __CALTYPE_NORMAL__>Normal</option>
 </select>
-</p></p>
-6b. <strong>Skip this step for one-time wake-up calls.</strong> If you want
-your recurring wake-up call to skip a particular day the next time that call
-would otherwise be activated on that day, you can select a different set of
-days here.  You might want to do this if a class has been cancelled one day.
-This isn't very useful for new wake-up calls, and if you're creating a new
-wake-up call you can safely ignore it, but you can use the 'Edit'
-link to set this later.<br />
-Current Active Weekdays:<br />
-<input type="checkbox" name="mon_cur" value="1" __MON_CUR__ /> Monday<br />
-<input type="checkbox" name="tue_cur" value="1" __TUE_CUR__ /> Tuesday<br />
-<input type="checkbox" name="wed_cur" value="1" __WED_CUR__ /> Wednesday<br />
-<input type="checkbox" name="thu_cur" value="1" __THU_CUR__ /> Thursday<br />
-<input type="checkbox" name="fri_cur" value="1" __FRI_CUR__ /> Friday<br />
-<input type="checkbox" name="sat_cur" value="1" __SAT_CUR__ /> Saturday<br />
-<input type="checkbox" name="sun_cur" value="1" __SUN_CUR__ /> Sunday
-</p><p>
+</p></div><p>
 <input type="submit" name="submit" value="Submit" /><br />
 </p><p>
 <input type="reset" />
 </p>
+<!-- <script type="text/javascript">hide("onetime"); hide("recur");</script> -->
 END_MKWAKE_FORM
 ,
 

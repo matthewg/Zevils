@@ -8,7 +8,7 @@ CREATE TABLE wakes (
 	wake_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	extension CHAR(5) NOT NULL,
 	time TIME NOT NULL,
-	message INT UNSIGNED NOT NULL DEFAULT 0,
+	message INT SIGNED NOT NULL DEFAULT 0,
 	date DATE NULL,
 	std_weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cur_weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,

@@ -1,6 +1,8 @@
 <?
 
-eval(preg_replace("/#__PERLONLY_START__(.|\\n)*#__PERLONLY_END__/", "", implode('', file('../src/brancal.inc'))));
+eval(preg_replace(array("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "/hash\\(/", "/^\\\$/m"), array("", "array(", "var \$"), implode('', file('../etc/settings.inc'))));
+eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file('../etc/brancal.inc'))));
+$FinneganConfig = new FinneganConfig();
 
 // seed with microseconds
 function make_seed() {
@@ -9,7 +11,18 @@ function make_seed() {
 }
 srand(make_seed());
 
+function get_dbh() {
+	global $FinneganConfig;
+	$dbh = @mysql_connect($FinneganConfig->db["host"], $FinneganConfig->db["user"], $FinneganConfig->db["password"]);
+	if(!$dbh) return $dbh;
+
+	if(!@mysql_select_db($FinneganConfig->db["database"], $dbh)) return "";
+
+	return $dbh;
+}
+
 function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "") {
+	global $FinneganConfig;
 	global $TEMPLATE;
 	global $NO_CLASSES;
 	global $BRANDEIS_DAYS;
@@ -18,11 +31,11 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 
 	#echo "****CHECKING $weekday*****<br>\n";
 
-	$phonelines = 1;
+	$phonelines = sizeof($FinneganConfig->phonelines);
 	$seconds_per_week = 604800;
-	$wake_duration = 120;
-	$max_snooze = 4;
-	$snooze_duration = 540;
+	$wake_duration = $FinneganConfig->max_wake_duration;
+	$max_snooze = $FinneganConfig->max_snooze_count;
+	$snooze_duration = $FinneganConfig->snooze_interval;
 
 	/* This function determines if it's safe to add a wake-up call
 	 * at a particular time.  If $date isn't set, we treat one-time
@@ -91,9 +104,6 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 			$case .= " ELSE DAYOFWEEK(date) END";
 			reset($BRANDEIS_DAYS);
 
-			#echo "Doing query <tt>SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE wake_id != $id AND NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")</tt><br>\n";
-
 			$result = @mysql_query("SELECT wake_id, ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
 				"WHERE wake_id != $id AND NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")");
 		}
@@ -113,7 +123,6 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 	//Get the one-shots
 	while($row = mysql_fetch_row($result)) {
 		if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
-			#echo "Conflict with wake $row[0]<br>\n";
 			$okay = 0;
 			break;
 		}
@@ -143,7 +152,6 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
 			$query .= ")";
 
-			#echo "Doing query <tt>$query</tt><br />\n";
 			$result = @mysql_query($query);
 		} else {
 			$query = "SELECT wake_id, ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
@@ -157,7 +165,6 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 			}
 			$query .= ")";
 
-			#echo "Doing query <tt>$query</tt><br />\n";
 			$result = @mysql_query($query);
 		}
 
@@ -243,12 +250,11 @@ function log_wake($wake_id, $extension, $event, $result, $data = "") {
 
 function extension_ok($extension) {
 	global $TEMPLATE;
-	if(!preg_match('/^[69][0-9]{4}$/', $extension)) {
+	global $FinneganConfig;
+	if(!preg_match("/".$FinneganConfig->extension_regex."/", $extension)) {
 		echo $TEMPLATE["extension_invalid"];
 		return 0;
-	} else if(in_array($extension, array(
-		'62000', '62222', '63000', '63333', '65000'
-	))) {
+	} else if(in_array($extension, $FinneganConfig->forbidden_extensions)) {
 		echo $TEMPLATE["extension_forbidden"];
 		return 0;
 	} else {
@@ -258,13 +264,13 @@ function extension_ok($extension) {
 
 function pin_ok($extension, $pin, $newpin = 0) {
 	global $TEMPLATE;
+	global $FinneganConfig;
 	global $extension_ok;
 
-	if(!extension_ok($extension)) return 0;
 	$ok = 0;
 	$error = "";
 
-	if(!preg_match('/^[0-9]{0,4}$/', $pin)) {
+	if(!preg_match("/".$FinneganConfig->pin_regex."/", $pin)) {
 		if(!$newpin) {
 			echo $TEMPLATE["pin_invalid"];
 			$error = "pin_invalid";
@@ -453,17 +459,19 @@ function check_extension_pin() {
 
 	if($extension) {
 		setcookie("finnegan-extension", $extension, time()+60*60*24*365);
-		if(pin_ok($extension, $pin)) {
-			$extension_ok = 1;
+		if(extension_ok($extension)) {
+			if(pin_ok($extension, $pin)) {
+				$extension_ok = 1;
 
-			if($savepin) {
-				setcookie("finnegan-pin", $pin, time()+60*60*24*365);
-				setcookie("finnegan-savepin", "1", time()+60*60*24*365);
+				if($savepin) {
+					setcookie("finnegan-pin", $pin, time()+60*60*24*365);
+					setcookie("finnegan-savepin", "1", time()+60*60*24*365);
+				} else {
+					setcookie("finnegan-pin", $pin);
+				}
 			} else {
-				setcookie("finnegan-pin", $pin);
+				setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 			}
-		} else if(extension_ok($extension)) {
-			setcookie("finnegan-extension", $extension, time()+60*60*24*365);
 		}
 	}
 }

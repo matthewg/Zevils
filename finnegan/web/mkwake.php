@@ -1,6 +1,5 @@
 <?
 
-require "db-connect.inc";
 require "template.inc";
 require "common-funcs.inc";
 
@@ -42,7 +41,6 @@ if($extension_ok) {
 	$message = "";
 	$date = "";
 	$weekdays = array("mon" => "", "tue" => "", "wed" => "", "thu" => "", "fri" => "", "sat" => "", "sun" => "");
-	$weekdays_cur = array("mon" => "", "tue" => "", "wed" => "", "thu" => "", "fri" => "", "sat" => "", "sun" => "");
 	$caltype_brandeis = "";
 	$caltype_holidays = "";
 	$caltype_normal = "";
@@ -79,7 +77,7 @@ if($extension_ok) {
 		else
 			$pm = "checked";
 
-		if(!isset($_POST["message"]) || !preg_match('/^\d+$/', $_POST["message"]) || $_POST["message"] > 6) {
+		if(!isset($_POST["message"]) || !preg_match('/^-?\d+$/', $_POST["message"]) || $_POST["message"] < -1 || $_POST["message"] > 6) {
 			$error = 1;
 			echo $TEMPLATE["message_invalid"];
 		}
@@ -92,7 +90,7 @@ if($extension_ok) {
 			}
 			if(isset($_POST["date"])) $date = $_POST["date"];
 
-			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun", "mon_cur", "tue_cur", "wed_cur", "thu_cur", "fri_cur", "sat_cur", "sun_cur");
+			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun");
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
 				if(isset($_POST[$the_weekdays[$i]]) && $_POST[$the_weekdays[$i]]) {
 					$error = 1;
@@ -107,7 +105,6 @@ if($extension_ok) {
 			}
 
 			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun");
-			$the_weekdays_cur = $the_weekdays;
 			$weekdays_ct = 0;
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
 				if(isset($_POST[$the_weekdays[$i]]) && $_POST[$the_weekdays[$i]]) {
@@ -118,18 +115,6 @@ if($extension_ok) {
 			if(!$weekdays_ct) {
 				$error = 1;
 				echo $TEMPLATE["weekdays_invalid"];
-			}
-
-			$weekdays_cur_ct = 0;
-			for($i = 0; $i < sizeof($the_weekdays_cur); $i++) {
-				if(isset($_POST[$the_weekdays_cur[$i]."_cur"]) && $_POST[$the_weekdays_cur[$i]."_cur"]) {
-					$weekdays_cur[$the_weekdays_cur[$i]] = "checked";
-					$weekdays_cur_ct++;
-				}
-			}
-
-			if((!$weekdays_cur_ct || implode(",",$weekdays)==implode(",",$weekdays_cur)) && !$id) {
-				$weekdays_cur = $weekdays;
 			}
 
 			if(!isset($_POST["cal_type"]) || ($_POST["cal_type"] != "Brandeis" && $_POST["cal_type"] != "holidays" && $_POST["cal_type"] != "normal")) {
@@ -163,14 +148,14 @@ if($extension_ok) {
 			$sql_time = time_to_sql($time, $ampm);
 			$baddays = array();
 			if($date) {
-				if(!is_time_free(0, $sql_time, "", "", date_to_sql($date, $sql_time))) {
+				if(!is_time_free($id, $sql_time, "", "", date_to_sql($date, $sql_time))) {
 					$error = 1;
 					echo $TEMPLATE["time_unavailable_onetime"];
 				}
 			} else {
 				$weekday_names = array("", "sun", "mon", "tue", "wed", "thu", "fri", "sat");
 				for($i = 1; $i < sizeof($weekday_names); $i++) {
-					if($weekdays[$weekday_names[$i]] || $weekdays_cur[$weekday_names[$i]]) {
+					if($weekdays[$weekday_names[$i]]) {
 						if(!is_time_free($id, $sql_time, $i, $_POST["cal_type"])) {
 							$error = 1;
 							$baddays[] = ucfirst($weekday_names[$i]);
@@ -194,13 +179,8 @@ if($extension_ok) {
 					if($val) $sql_weekdays[] = ucfirst($day);
 				}
 
-				$sql_weekdays_cur = array();
-				while(list($day, $val) = each($weekdays_cur)) {
-					if($val) $sql_weekdays_cur[] = preg_replace('/_cur/', '', ucfirst($day));
-				}
-
 				$cols = array("extension", "time", "message", "std_weekdays", "cur_weekdays", "cal_type");
-				$values = array("'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".implode(",", $sql_weekdays_cur)."'", "'".$_POST["cal_type"]."'");
+				$values = array("'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".implode(",", $sql_weekdays)."'", "'".$_POST["cal_type"]."'");
 			}
 
 			if(!$id) {
@@ -277,12 +257,8 @@ if($extension_ok) {
 			$recur = "checked";
 
 			$the_weekdays = explode(",", $row["std_weekdays"]);
-			$the_weekdays_cur = explode(",", $row["cur_weekdays"]);
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
 				$weekdays[strtolower($the_weekdays[$i])] = "checked";
-			}
-			for($i = 0; $i < sizeof($the_weekdays_cur); $i++) {
-				$weekdays_cur[strtolower($the_weekdays_cur[$i])] = "checked";
 			}
 
 			if($row["cal_type"] == "normal")
@@ -294,23 +270,36 @@ if($extension_ok) {
 		}
 	}
 
+	$message_links = "";
+	$message_options = "";
+	for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
+		$msg = $FinneganConfig->messages[$i];
+		$selected = "";
+		if($msg["id"] == $message) $selected = "selected";
+		$message_links .= preg_replace(array("/__URL__/", "/__NAME__/"), array("messages/".$msg["mp3"], $msg["message"]), $TEMPLATE["mkwake_message_link"]);
+		$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array($msg["id"], $msg["message"], $selected), $TEMPLATE["mkwake_message_option"]);
+	}
+	if($message == -1)
+		$selected = "selected";
+	else
+		$selected = "";
+	$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array(-1, "Random Message", $selected), $TEMPLATE["mkwake_message_option"]);
+
 	echo preg_replace(array(
 			"/__TIME__/",
 			"/__RECUR__/", "/__ONETIME__/",
 			"/__AM__/", "/__PM__/",
-			"/__MESSAGE__/",
+			"/__MESSAGE_LINKS__/", "/__MESSAGE_OPTIONS__/",
 			"/__DATE__/",
 			"/__MON__/", "/__TUE__/", "/__WED__/", "/__THU__/", "/__FRI__/", "/__SAT__/", "/__SUN__/",
-			"/__MON_CUR__/", "/__TUE_CUR__/", "/__WED_CUR__/", "/__THU_CUR__/", "/__FRI_CUR__/", "/__SAT_CUR__/", "/__SUN_CUR__/",
 			"/__CALTYPE_BRANDEIS__/", "/__CALTYPE_HOLIDAYS__/", "/__CALTYPE_NORMAL__/",
 		), array(
 			$time,
 			$recur, $onetime,
 			$am, $pm,
-			$message,
+			$message_links, $message_options,
 			$date,
 			$weekdays["mon"], $weekdays["tue"], $weekdays["wed"], $weekdays["thu"], $weekdays["fri"], $weekdays["sat"], $weekdays["sun"],
-			$weekdays_cur["mon"], $weekdays_cur["tue"], $weekdays_cur["wed"], $weekdays_cur["thu"], $weekdays_cur["fri"], $weekdays_cur["sat"], $weekdays_cur["sun"],
 			$caltype_brandeis, $caltype_holidays, $caltype_normal
 		), $TEMPLATE["mkwake_form"]
 	);

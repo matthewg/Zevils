@@ -37,9 +37,7 @@ Main page (wake-up call list, index.php) items:
   Wake-up call list.  To give the user the ability to edit their wake-up calls,
   submit a POST request to index.php as per the method for creating wake-up calls
   below, but use op='edit' instead of op='create', and give an 'id' parameter containing
-  the wake-up call ID.  Also, for recurring wake-up calls, use parameters named 'cur_xxx'
-  where 'xxx' is mon/tue/wed/thu/fri/sat/sun to set one-time exceptions to the normal
-  schedule for the wake.  To delete wake-up calls, use a POST request with op="Delete marked wake-up calls"
+  the wake-up call ID.  To delete wake-up calls, use a POST request with op="Delete marked wake-up calls"
   and set the parameter named 'id[__ID__]' for each wake to delete.
 
 	wake_list_start: Start of a user's wake-up call list
@@ -108,8 +106,17 @@ New/Edit Wake-Up Call items (mkwake.php):
 		DAYS: Which days of the week there are conflicts with. (e.g. "Mon, Wed")
 	too_many_wakes: Your extension has too many wake-up calls.
 
+	mkwake_message_link: This is called to give a link to download each message
+		URL
+		NAME
+	mkwake_message_option: This is called to give the user a chance to select each message
+		NUM
+		SELECTED: "selected" if this is the user's current choice
+		NAME
 
 	mkwake_form: Form for user to enter a new call or edit an existing one.
+		MESSAGE_LINKS: Bunch of mkwake_message_link
+		MESSAGE_OPTIONS: Bunch of mkwake_message_option
 		TIME
 		RECUR: If wake is recurring, 'checked'
 		ONETIME: Ditto
@@ -121,7 +128,6 @@ New/Edit Wake-Up Call items (mkwake.php):
 		CALTYPE_BRANDEIS: If this calendar type is active, 'checked'
 		CALTYPE_HOLIDAYS
 		CALTYPE_NORMAL
-		XXX_CUR: Ditto, but for 'currently active' weekdays.  Only for editing existing wakes;
 
 
 	The page should post the following data to mkwake.php:
@@ -142,7 +148,6 @@ New/Edit Wake-Up Call items (mkwake.php):
 			fri: If present, this call is active on Fridays.
 			sat: If present, this call is active on Saturdays.
 			sun: If present, this call is active on Sundays.
-			xxx_cur: Set 'currently active' days of week.  Only for editing existing wakes.
 			cal_type:
 				'Brandeis': Use the Brandeis calendar for this wake.
 				'holidays': Use the American calendar for this wake, skipping national holidays.
