@@ -11,7 +11,7 @@ if(isset($_REQUEST["id"])) {
 	if(!$wake) cisco_message("Invalid Alarm", "Please select a valid alarm.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 ?>
 		<CiscoIPPhoneText>
-		<Name>Alarm Properties</Name>
+		<Title>Alarm Properties</Title>
 		<Text><? echo format_wake($wake) ?></Text>
 
 		<SoftKeyItem>
@@ -27,7 +27,7 @@ if(isset($_REQUEST["id"])) {
 		</SoftKeyItem>
 
 		<SoftKeyItem>
-		<Name><? echo $wake["disabled"] ? "Activate" : "Deactivate" ?></Name>
+		<Name>On/Off</Name>
 		<Position>3</Position>
 		<URL><? echo $FinneganCiscoConfig->url_base ?>/service/togglewake.php?id=<?echo $id?></URL>
 		</SoftKeyItem>
