@@ -13,6 +13,44 @@ $TEMPLATE = array(
 <style type="text/css" media="screen">
 	@import url(finnegan.css);
 </style>
+<script type="text/javascript">
+// <!-- 
+var browser = "";
+if(!document.all && document.getElementById) { //Netscape 6 / Mozilla
+	browser = "mozilla";
+} else if (document.all) { //IS IE 4 or 5 (or 6 beta)
+	browser = "ie";
+} else if (document.layers) { //IS NETSCAPE 4 or below
+	browser = "netscape";
+}
+
+function getobj(objname) {
+	if(browser == "mozilla") {
+		return document.getElementById(objname);
+	} else if(browser == "ie") {
+		var theobj;
+		eval("theobj = document.all." + objname);
+		return theobj;
+	} else if(browser == "netscape") {
+		return document.layers[objname];
+	}
+	return null;
+}
+
+function getobjstyle(obj) {
+	if(browser != "netscape") {
+		return obj.style;
+	} else {
+		return obj;
+	}
+}
+
+function showhide(objname, state) { getobjstyle(getobj(objname)).display = state; }
+function show(objname) { showhide(objname, "block"); }
+function hide(objname) { showhide(objname, "none"); }
+
+// -->
+</script>
 </head>
 <body>
 <h1>Finnegan</h1>
@@ -48,54 +86,6 @@ END_VIEWCALLS_START
 <h3>Create a New Wake-up Call</h3>
 <form method="post" name="mkwake" action="mkwake.php">
 <input type="hidden" name="op" value="create" />
-<script type="text/javascript">
-// <!-- 
-var browser = "";
-if(!document.all && document.getElementById) { //Netscape 6 / Mozilla
-	browser = "mozilla";
-} else if (document.all) { //IS IE 4 or 5 (or 6 beta)
-	browser = "ie";
-} else if (document.layers) { //IS NETSCAPE 4 or below
-	browser = "netscape";
-}
-
-function getobj(objname) {
-	if(browser == "mozilla") {
-		return document.getElementById(objname);
-	} else if(browser == "ie") {
-		var theobj;
-		eval("theobj = document.all." + objname);
-		return theobj;
-	} else if(browser == "netscape") {
-		return document.layers[objname];
-	}
-	return null;
-}
-
-/*
-function getobjstyle(obj) {
-	if(browser != "netscape") {
-		return obj.style;
-	} else {
-		return obj;
-	}
-}
-
-function showhide(objname, state) { getobjstyle(getobj(objname)).visibility = state; }
-function show(objname) { showhide(objname, "visible"); }
-function hide(objname) { showhide(objname, "hidden"); }
-
-function moveup(topobjname, botobjname) {
-	var topobj = getobj(topobjname);
-	var botobj = getobj(botobjname);
-
-	alert("first top: " + topobj.posTop + " + " + topobj.height);
-	alert("second top: " + topobj.bottom);
-	alert("third top: " + topobj.clip.bottom);
-}
-*/
-// -->
-</script>
 END_MKWAKE_NEW_START
 ,
 
@@ -339,8 +329,8 @@ __MESSAGE_OPTIONS__
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
 every time it's a particular day or days of the week, at a particular for time.  For instance, you could
 set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br />
-<input type="radio" name="type" value="one-time" __ONETIME__ /> One-time
-<input type="radio" name="type" value="recur" __RECUR__ /> Recurring
+<input type="radio" name="type" onclick="hide('recur'); show('onetime');" value="one-time" __ONETIME__ /> One-time
+<input type="radio" name="type" onclick="hide('onetime'); show('recur');" value="recur" __RECUR__ /> Recurring
 </p><div id="onetime"><p>
 4a. <strong>Skip this step for recurring wake-up calls.</strong> Enter the date, in month/day format,
 that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
@@ -393,7 +383,7 @@ Calendar Type: <select name="cal_type">
 </p><p>
 <input type="reset" />
 </p>
-<!-- <script type="text/javascript">hide("onetime"); hide("recur");</script> -->
+<script type="text/javascript">hide("onetime"); hide("recur");</script>
 END_MKWAKE_FORM
 ,
 
