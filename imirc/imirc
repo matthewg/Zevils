@@ -55,7 +55,7 @@ if($@) {
 	die "\n";
 }
 
-require Toc qw(:all);
+use Toc qw(:all);
 
 $SIG{__DIE__}  = sub { croak $_[0] };
 
@@ -73,6 +73,20 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#You can try something else, but I don't think the
 			#default method works.
 $time = 60*5; #Five minutes.
+
+$foundconfig = 0;
+if(-r "/etc/aimirc.conf") {
+	undef $@;
+	do "/etc/aimirc.conf";
+	die $@ if $@;
+	$foundconfig = 1;
+}
+if(-r "$home/.aimirc") {
+	undef $@;
+	do "$home/.aimirc";
+	die $@ if $@;
+	$foundconfig = 1;
+}
 
 %ircservers = (
 	dal2 => {
