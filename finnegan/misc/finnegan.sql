@@ -1,6 +1,6 @@
 CREATE TABLE prefs (
 	extension CHAR(5) NOT NULL PRIMARY KEY,
-	pin CHAR(4) NULL
+	pin VARCHAR(4) NULL
 );
 
 CREATE TABLE wakes (
@@ -27,18 +27,34 @@ CREATE TABLE wakes (
 	INDEX (extension)
 );
 
-CREATE TABLE log (
+CREATE TABLE log_wake (
 	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	wake_id INT UNSIGNED NOT NULL,
 	event ENUM('create', 'delete', 'edit', 'activate', 'verify') NOT NULL,
-	result ENUM('success', 'failure') NOT NULL,
+	result ENUM('success', 'failure') NULL,
 	start_time DATETIME NOT NULL,
 	end_time DATETIME NULL,
 	data VARCHAR(255) NULL,
-	PRIMARY KEY (wake_id, event, result, start_time),
+	PRIMARY KEY (wake_id, event, start_time),
 	INDEX (wake_id),
 	INDEX (event),
 	INDEX (result),
 	INDEX (start_time),
 	KEY (log_id)
 );
+
+CREATE TABLE log_ext (
+	log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+	extension CHAR(5) NOT NULL,
+	event ENUM('getwakes', 'setpin', 'delcookie') NOT NULL,
+	result ENUM('success', 'failure') NULL,
+	time DATETIME NOT NULL,
+	data VARCHAR(255) NULL,
+	PRIMARY KEY (extension, event, time),
+	INDEX (extension),
+	INDEX (event),
+	INDEX (result),
+	INDEX (start_time),
+	KEY (log_id)
+);
+
