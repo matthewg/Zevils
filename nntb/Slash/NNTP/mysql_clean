@@ -1,0 +1,6 @@
+update vars set value=1 where name="nntp_next_snum";
+update users set nntp_next_journal_cnum=1;
+update stories set nntp_posttime=NULL, nntp_section_posttime=NULL, nntp_next_cnum=1, nntp_section_snum=NULL, nntp_snum=NULL;
+update comments set nntp_cnum=NULL, nntp_posttime=NULL;
+update journals set nntp_cnum=NULL, nntp_posttime=NULL;
+update sections set nntp_next_snum=1, nntp_ctime=NULL;

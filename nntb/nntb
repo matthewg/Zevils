@@ -309,7 +309,8 @@ sub main() {
 		$< = $> = $uid;
 		die "Couldn't change UID: $!\n" if $> != $uid;
 
-		while(my($client, $client_ip) = $server->accept()) {
+		my $client;
+		while(($client, $client_ip) = $server->accept()) {
 			next if my $pid = fork; # parent
 			die "fork: $!" unless defined $pid;
 			# we are the world, we are the children
