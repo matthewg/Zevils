@@ -954,7 +954,6 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "buddylist") {
 			my(%groups, $buddy, $group, $xbuddy, $evil, $line, $buddat);
-			my $buddies = 0;
 
 			foreach $group($oscar->groups) {
 				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
@@ -968,13 +967,12 @@ sub process_irc_message($) {
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
-					$buddies++;
 				}
 			}
-			irc_send(irc_privmsg($usnick, $nick, "Your buddylist is empty.", "", "", $screenname)) unless $buddies;
+
+			irc_send(irc_privmsg($usnick, $nick, "[End of Buddylist]", "", "", $screenname));
 		} elsif ($cmd eq "onbuddies") {
 			my(%groups, $buddy, $group, $xbuddy, $line, $evil, $buddat);
-			my $onbuddies = 0;
 
 			foreach $group($oscar->groups) {
 				my $showedgroup = 0;
@@ -989,25 +987,23 @@ sub process_irc_message($) {
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
-					$onbuddies++;
 				}
 			}
 
-			irc_send(irc_privmsg($usnick, $nick, "None of your buddies are online.", "", "", $screenname)) unless $onbuddies;
+			irc_send(irc_privmsg($usnick, $nick, "[End of OnBuddies]", "", "", $screenname));
 		} elsif ($cmd eq "permitlist") {
 			my @permitlist = $oscar->get_permitlist();
 			if(@permitlist) {
 				irc_send(irc_privmsg($usnick, $nick, join(" ", sort @permitlist), "", "", $screenname));
-			} else {
-				irc_send(irc_privmsg($usnick, $nick, "Your permit list is empty.", "", "", $screenname));
 			}
+			}
+			irc_send(irc_privmsg($usnick, $nick, "[End of Permit List]"", "", "", $screenname));
 		} elsif ($cmd eq "denylist") {
 			my @denylist = $oscar->get_denylist();
 			if(@denylist) {
 				irc_send(irc_privmsg($usnick, $nick, join(" ", sort @denylist), "", "", $screenname));
-			} else {
-				irc_send(irc_privmsg($usnick, $nick, "Your deny list is empty.", "", "", $screenname));
 			}
+			irc_send(irc_privmsg($usnick, $nick, "[End of Deny List]"", "", "", $screenname));
 		} elsif ($cmd eq "signoff") {
 			do_signoff($nick, $oscar);
 		} elsif ($cmd eq "buddyinfo") {
