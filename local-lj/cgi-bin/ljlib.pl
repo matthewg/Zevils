@@ -5767,26 +5767,26 @@ sub set_logprop
 
 # <LJFUNC>
 # name: LJ::load_log_props2
-# class:
-# des:
-# info:
-# args: db?, uuserid, listref, hashref
-# des-:
-# returns:
+# des: Loads the values from the logprop2 table for a journal entry
+# args: db?, jjournalid, itemsref, propsref
+# des-db: optional database handle
+# des-jjournalid: ID of journal whose items to retrieve properties for
+# des-itemsref: reference to list of itemids to retrieve properties for
+# des-propsref: reference to hash where properties will be stored
 # </LJFUNC>
 sub load_log_props2
 {
     my $db = isdb($_[0]) ? shift @_ : undef;
 
-    my ($uuserid, $listref, $hashref) = @_;
-    my $userid = want_userid($uuserid);
+    my ($jjournalid, $itemsref, $propsref) = @_;
+    my $journalid = want_userid($jjournalid);
     return unless ref $hashref eq "HASH";
     
     my %needprops;
     my %needrc;
     my %rc;
     my @memkeys;
-    foreach (@$listref) {
+    foreach (@$itemsref) {
         my $id = $_+0;
         $needprops{$id} = 1;
         $needrc{$id} = 1;
@@ -5801,7 +5801,7 @@ sub load_log_props2
         if ($1 eq 'logprop') {
             next unless ref $v eq "HASH";
             delete $needprops{$3};
-            $hashref->{$3} = $v;
+            $propsref->{$3} = $v;
         }
         if ($1 eq 'rp') {
             delete $needrc{$3};
@@ -5810,13 +5810,13 @@ sub load_log_props2
     }
 
     foreach (keys %rc) {
-        $hashref->{$_}{'replycount'} = $rc{$_};
+        $propsref->{$_}{'replycount'} = $rc{$_};
     }
 
     return unless %needprops || %needrc;
 
     unless ($db) {
-        my $u = LJ::load_userid($userid);
+        my $u = LJ::load_userid($journalid);
         $db = @LJ::MEMCACHE_SERVERS ? LJ::get_cluster_master($u) :  LJ::get_cluster_reader($u);
         return unless $db;
     }
@@ -5826,22 +5826,22 @@ sub load_log_props2
         my $in = join(",", keys %needprops);
         my $sth = $db->prepare("SELECT jitemid, propid, value FROM logprop2 ".
                                  "WHERE journalid=? AND jitemid IN ($in)");
-        $sth->execute($userid);
+        $sth->execute($journalid);
         while (my ($jitemid, $propid, $value) = $sth->fetchrow_array) {
-            $hashref->{$jitemid}->{$LJ::CACHE_PROPID{'log'}->{$propid}->{'name'}} = $value;
+            $propsref->{$jitemid}->{$LJ::CACHE_PROPID{'log'}->{$propid}->{'name'}} = $value;
         }
         foreach my $id (keys %needprops) {
-            LJ::MemCache::set([$userid,"logprop:$userid:$id"], $hashref->{$id} || {});
+            LJ::MemCache::set([$journalid,"logprop:$journalid:$id"], $propsref->{$id} || {});
           }
     }
 
     if (%needrc) {
         my $in = join(",", keys %needrc);
         my $sth = $db->prepare("SELECT jitemid, replycount FROM log2 WHERE journalid=? AND jitemid IN ($in)");
-        $sth->execute($userid);
+        $sth->execute($journalid);
         while (my ($jitemid, $rc) = $sth->fetchrow_array) {
-            $hashref->{$jitemid}->{'replycount'} = $rc;
-            LJ::MemCache::add([$userid, "rp:$userid:$jitemid"], $rc);
+            $propsref->{$jitemid}->{'replycount'} = $rc;
+            LJ::MemCache::add([$journalid, "rp:$journalid:$jitemid"], $rc);
         }
     }                  
         
