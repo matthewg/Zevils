@@ -263,7 +263,7 @@ if($prompt == "done") {
 		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $date, $matches))
 			$sql_date = date_to_sql($date, $sql_time);
 		else
-			$error = "Invalid Date";
+			$error = "Invalid Date: $date";
 		$sql_cal_type = "";
 		$sql_weekdays = array();
 	} else {
