@@ -81,8 +81,6 @@ created since a particular date in order to update their list of valid groups.
 
 =head1 METHODS
 
-=over 4
-
 =cut
 
 use strict;
@@ -93,6 +91,13 @@ use HTML::FormatText;
 use HTML::TreeBuilder;
 
 =pod
+
+=head2 CONVENIENCE METHODS
+
+These methods are already implemented.  They are provided as a convenience
+to you.
+
+=over 4
 
 =item new PARAMS
 
@@ -216,8 +221,6 @@ sub fail($$) {
 This method converts HTML to plain text.  It handles links in a style similar
 to that of Debian Weekly News.
 
-You B<MAY> override this method.
-
 =cut
 
 sub html2txt($$) {
@@ -282,6 +285,16 @@ sub html2txt($$) {
 
 =pod
 
+=back
+
+=head2 COMMUNICATION METHODS
+
+These methods are how NNTB communicates with your module.  Only stubs
+for these methods are provided; if you wish to have the functionality of
+these methods, you'll need to implement them yourself.
+
+=over 4
+
 =item root
 
 This method must return the group root for this particular instantion of your
@@ -316,7 +329,8 @@ sub groups($;$) { return () ; }
 This method should return a hash whose keys are the message IDs for the
 given group and whose values are the corresponding article numbers.  If C<TIME>
 is specified, only articules posted since that time (in UNIX epoch format) should
-be returned.  Return undef if the group does not exist.
+be returned.  The validity of the group name will be verified before this method
+is called.
 
 =cut
 
@@ -377,8 +391,8 @@ sub isgroup($$) { return 0; }
 =item groupstats GROUP
 
 This method should return a list consisting of the first and last article numbers,
-followed by the number of articles, in the indicated group.  Return undef if the
-group does not exist.
+followed by the number of articles, in the indicated group.  The validity of the
+group name will be verified before this method is called.
 
 =cut
 
@@ -391,8 +405,8 @@ sub groupstats($$) { return undef; }
 =item num2id GROUP MSGNUM
 
 These methods should convert back and forth between a message ID and a message
-number in the given group.  If the group or message indicated does not exist,
-return undef.
+number in the given group.  If the message indicated does not exist, return undef.
+The validity of the group name will be verified before this method is called.
 
 =cut
 

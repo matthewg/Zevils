@@ -80,7 +80,7 @@ sub groups($;$) {
 	# slash.slashsite.{text,html}
 	#                            .stories
 	#                                    .section
-	#                                            .foo_bar_story
+	#                                            .123
 	#                            .journals.uid
 
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
@@ -89,7 +89,7 @@ sub groups($;$) {
 
 	my $sections = $self->sqlSelectAllHashref(
 		'section',
-		'section, title, ctime',
+		'id, section, title, ctime',
 		'sections',
 		"UNIX_TIMESTAMP(ctime) > $time"
 	);
@@ -98,12 +98,23 @@ sub groups($;$) {
 		$group = $self->groupname($section->{section});
 		$ret{"$self->{root}.text.stories.$group"} = "$sitename $section->{title} stories in plain text";
 		$ret{"$self->{root}.html.stories.$group"} = "$sitename $section->{title} stories in HTML";
+
+		my $stories = $self->sqlSelectAllHashref(
+			'id',
+			'id, title, topics.name AS topic',
+			'discussions, topics',
+			'discussions.id = topics.tid AND UNIX_TIMESTAMP(nntp_section_posttime) > $time AND section=$section->{id}"
+		);
+
+		foreach my $story (values %$stories) {
+			$ret{"$self->{root}.text.stories.$group.$story->{id}"} = "$story->{title} ($story->{topic})";
+			$ret{"$self->{root}.html.stories.$group.$story->{id}"} = "$story->{title} ($story->{topic})";
+		}
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
-		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid', 'GROUP BY uid')};
+		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
 		foreach my $juser(values %$jusers) {
-			next if $juser->{jdate} <= $time;
 			$ret{"$self->{root}.text.journals.$juser->{nickname}"} = "$sitename journals for $juser->{nickname}";
 		}
 	}
