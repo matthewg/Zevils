@@ -442,7 +442,7 @@ sub mainloop() {
 			#}
 
 			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
-			alarm 10;
+			alarm 3;
 
 			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
 
@@ -1939,7 +1939,7 @@ sub oscar_signon_done($) {
 	irc_send(irc_part($usnick, $chan));
 
 	$sndata->{ison} = 1;
-	update_usercount;
+	update_usercount();
 	if($irc_away->{$nick}) {
 		$oscar->set_away($irc_away->{$nick});
 	}
@@ -2235,7 +2235,7 @@ sub do_signoff($$;$) {
 			delete $aim_connections->{$nick};
 		}
 	}
-	update_usercount;
+	update_usercount();
 
 }
 
