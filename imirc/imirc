@@ -1929,9 +1929,6 @@ sub oscar_signon_done($) {
 	my($oscar) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
-	$usercount++;
-	$maxusers = $usercount if $usercount > $maxusers;
-
 	irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger as $screenname.", "", "", $screenname));
 	irc_send(irc_privmsg($usnick, $nick, "The email address registered to this account is ".$oscar->email.".  Use the change_email command if this is not your current email address.", "", "", $screenname));
 
@@ -1942,6 +1939,7 @@ sub oscar_signon_done($) {
 	irc_send(irc_part($usnick, $chan));
 
 	$sndata->{ison} = 1;
+	update_usercount;
 	if($irc_away->{$nick}) {
 		$oscar->set_away($irc_away->{$nick});
 	}
@@ -2227,7 +2225,6 @@ sub do_signoff($$;$) {
 	$oscar->signoff() unless $already_off or !$oscar;
 
 	if($aim_connections->{$nick}) {
-		$usercount-- if $aim_connections->{$nick}->{screennames}->{$screenname}->{ison};
 		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname", "", "", $screenname)) unless $already_off or not $screenname;
 		delete $aim_connections->{$nick}->{screennames}->{$screenname} if $screenname;
 		if(haskeys $aim_connections->{$nick}->{screennames}) {
@@ -2238,6 +2235,8 @@ sub do_signoff($$;$) {
 			delete $aim_connections->{$nick};
 		}
 	}
+	update_usercount;
+
 }
 
 # Send mode as if it's coming from the server
@@ -3058,4 +3057,9 @@ User {
 	}
 
 	return $config;
+}
+
+sub update_usercount() {
+	$usercount = scalar keys %$irc_connections;
+	$maxusers = $usercount if $usercount > $maxusers;
 }
