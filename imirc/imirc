@@ -780,7 +780,7 @@ sub process_irc_message($) {
 			delete $chatnames{$1};
 			delete $chatjoined{$1};
 		}
-	} elsif(/^PRIVMSG +$usnick +:?(.+)/i) { #$1 sent $2 to $usnick
+	} elsif(/^PRIVMSG +$usnick\@\S+ +:?(.+)/i) { #$1 sent $2 to $usnick
 		$msg = $1;
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
@@ -1100,6 +1100,8 @@ sub process_irc_message($) {
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
 				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
 				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :You need an AOL Instant Messenger account to use aimirc.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
 			}
 		} elsif($cmd eq "webpage") {
 			irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick))) if $param;
@@ -1123,7 +1125,7 @@ sub process_irc_message($) {
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif(/^PRIVMSG +(\S+) +:?(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
+	} elsif(/^PRIVMSG +(\S+)\@\S+ +:?(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $2;
 		$recipient = normalize($1);
 
