@@ -411,6 +411,7 @@ unless($reload) {
 	$in = "...";
 
 	$lasttime = time;
+	$keepalive = 0;
 
 	if($theirpass and $ircservers{$servermode}{theirpass}) {
 		while($in and ($in !~ /PASS :?(.+)/)) {
@@ -528,25 +529,30 @@ unless($reload) {
 			}
 
 			
-			foreach $connection(keys %aim_connections) {
-				if($aim_connections{$connection}{socket}) {
-					if(sflap_keepalive($aim_connections{$connection}{socket}) == -1) {
-						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
-						do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
-					} else {
-						if($aim_connections{$connection}{report_idle} and not $aim_connections{$connection}{is_idle} and (time - $aim_connections{$connection}{idletime}) >= 360) {
-							if(set_idle($aim_connections{$connection}{socket}, time - $aim_connections{$connection}{idletime}) == -1) {
-								irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
-								do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
-							} else {
-								$aim_connections{$connection}{is_idle} = 1;
+			if($keepalive) {
+				foreach $connection(keys %aim_connections) {
+					if($aim_connections{$connection}{socket}) {
+						if(sflap_keepalive($aim_connections{$connection}{socket}) == -1) {
+							irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
+							do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
+						} else {
+							if($aim_connections{$connection}{report_idle} and not $aim_connections{$connection}{is_idle} and (time - $aim_connections{$connection}{idletime}) >= 360) {
+								if(set_idle($aim_connections{$connection}{socket}, time - $aim_connections{$connection}{idletime}) == -1) {
+									irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
+									do_signoff($aim_connections{$connection}{nick}, $aim_connections{$connection}{socket});
+								} else {
+									$aim_connections{$connection}{is_idle} = 1;
+								}
 							}
 						}
+					} else {
+						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
+						do_signoff($aim_connections{$connection}{nick}, undef);
 					}
-				} else {
-					irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection: $err"));
-					do_signoff($aim_connections{$connection}{nick}, undef);
 				}
+				$keepalive = 0;
+			} else {
+				$keepalive = 1;
 			}
 		}
 	}
@@ -632,25 +638,27 @@ sub process_irc_message {
 	} elsif(/^JOIN +.?#aimchat-(\d+)/i) {
 		my $chat = $1;
 
-		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
-			irc_send(":$usnick JOIN #aimchat-$chat\r\n:$usk MODE #aimchat-$chat +is " . time . "\r\n");
-			irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
-			$chattimer{$chat} = time;
-		} else {
-			$chatjoined{$chat} = 1;
-			if($chatinvites{$chat}) {
-				chat_accept($aim_connections{$nnick}{socket}, $chat);
+		if($aim_connections{$nnick}) {
+			if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
+				irc_send(":$usnick JOIN #aimchat-$chat\r\n:$usk MODE #aimchat-$chat +is " . time . "\r\n");
+				irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
+				$chattimer{$chat} = time;
 			} else {
-				irc_send($chatqueue{$chat});
-				delete $chatqueue{$chat};
+				$chatjoined{$chat} = 1;
+				if($chatinvites{$chat}) {
+					chat_accept($aim_connections{$nnick}{socket}, $chat);
+				} else {
+					irc_send($chatqueue{$chat});
+					delete $chatqueue{$chat};
+				}
+				irc_send(":$usnick MODE #aimchat-$chat +o $nnick\r\n");
 			}
-			irc_send(":$usnick MODE #aimchat-$chat +o $nnick\r\n");
 		}
 	} elsif(/^INVITE +(\S+) +:?#aimchat-(\d+)/i) {
 		my $recipient = noprefix($1);
 		my $chat = $2;
 
-		chat_invite($aim_connections{$nnick}{socket}, $chat, "Please come to $chattopics{$chat}.", $recipient);
+		chat_invite($aim_connections{$nnick}{socket}, $chat, "Please come to $chattopics{$chat}.", $recipient) if $aim_connections{$nnick};
 	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
@@ -1023,7 +1031,7 @@ sub process_irc_message {
 				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
 		} elsif ($recipient =~ /^#aimchat-(\d+)$/) {
-			chat_send($aim_connections{$nnick}{socket}, $1, $msg);
+			chat_send($aim_connections{$nnick}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
 				$target = normalize($target);
@@ -1034,13 +1042,15 @@ sub process_irc_message {
 			}
 		}
 	} elsif(/^AWAY *(.*)/) {
-		if($1 =~ /:?(.*)/) {
-			$aim_connections{$nnick}{away} = $1;
-			set_away($aim_connections{$nnick}{socket}, $1);
-		} else {
-			delete $aim_connections{$nnick}{away};
-			delete $aim_connections{$nnick}{away_buddies};
-			set_away($aim_connections{$nnick}{socket});
+		if($aim_connections{$nnick}) {
+			if($1 =~ /:?(.*)/) {
+				$aim_connections{$nnick}{away} = $1;
+				set_away($aim_connections{$nnick}{socket}, $1);
+			} else {
+				delete $aim_connections{$nnick}{away};
+				delete $aim_connections{$nnick}{away_buddies};
+				set_away($aim_connections{$nnick}{socket});
+			}
 		}
 	} elsif(/^NICK +(\S+)/) { #Nick change
 		if($aim_connections{$nnick}) {
