@@ -433,7 +433,7 @@ sub process_irc_message {
 sub process_aim_message {
 	my ($connection) = shift;
 	my($msg, $cmd, $val, $inick, $ar);
-	#connection{socket, permtype, groups, thread}
+
 	$msg = sflap_get($connection->{socket});
 	if($msg eq "-1") {
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error reading: $err"));

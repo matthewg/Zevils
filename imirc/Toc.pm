@@ -857,7 +857,7 @@ sub conf2str($\%) {
 	foreach $buddy (keys %{$config->{deny}}) {
 		$msg .= "d $buddy\n";
 	}
-	$msg = "toc_set_config {" . quote($msg) . "}";
+	$msg = "toc_set_config \"" . quote($msg) . "\"";
 	#warn "$msg\n";
 	debug_print("conf2str: " . Dumper($config), "config", 2);
 	return $msg;
