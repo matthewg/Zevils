@@ -226,7 +226,7 @@ while(1) {
 				my $currsecs = $currtime[2]*60+$currtime[1];
 				my $wakesecs = $waketime[2]*60+$waketime[1];
 
-				$waketime = mktime(@waketime);
+				my $waketime = mktime(@waketime);
 				$waketime += 60*60*24 if $currsecs > $wakesecs; # Not today - tomorrow
 				@waketime = localtime($waketime);
 			}
