@@ -566,6 +566,8 @@ sub mainloop() {
 					$error = 1 if vec($eout, $handle, 1);
 				}
 
+				# If we get, say, both can_read and connection_closed, ignore the closed until we're done reading
+				$error = 0 if $read or $write;
 				io_events($handle, "deleted") if $error;
 
 				if(UNIVERSAL::isa($connection, "Net::OSCAR::Connection")) {
