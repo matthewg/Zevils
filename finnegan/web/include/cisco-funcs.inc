@@ -11,6 +11,8 @@ $extension = get_extension();
 function get_extension() {
 	global $PHONE_MODEL;
 
+	if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") return "92896";
+
 	$phonepage = implode("", @file("http://".$_SERVER["REMOTE_ADDR"]."/"));
 	if(!$phonepage) {
 		cisco_message("Invalid Extension", "Cannot find your extension: " . $_SERVER["REMOTE_ADDR"]);
