@@ -10,32 +10,31 @@ Requirements:
 	perl 5.004 or better
 	A working IRC server with C/N lines for aimirc
 		Your IRC server might not work with aimirc.  Cyclone,
-		Dragonfire, and I believe Undernet IRCD are the only ones that are
-		known to work.  It should also work with anything that uses RFC-standard
-		SERVER and USER/NICK protocols.  However, if you email me or contact me on
-		AOL Instant Messenger or IRC,  I will try to help you get aimirc working with
-		your IRC server.
+		Dragonfire, Undernet IRCD, and TS irc servers such as Hybrid
+		are the only ones that are known to work.  It should also work
+		with anything that uses RFC-standard SERVER and USER/NICK
+		protocols.  However, if you email me or contact me on AOL
+		Instant Messenger or IRC,  I will try to help you get aimirc
+		working with your IRC server.
 
 		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
 
-	The HTML-Tree and HTML-Format modules from CPAN (HTML::Parse, HTML::FormatText).
-	These are availabe from http://www.perl.com/CPAN/modules/by-module/HTML/ .
+	The HTML-Tree and HTML-Format modules from CPAN (HTML::Parse,
+	HTML::FormatText).  These are availabe from
+	http://www.perl.com/CPAN/modules/by-module/HTML/ .
 
 Installation:
 	Untar the tarball.  This creates a directory called aimirc-XX where
-XX is the version number of aimirc that you downloaded.  Open the aimirc
-file in a text editor.  Near the top of the file are several variables,
-$us, $them, $themport, $ourpass, $theirpass, and $servermode.  $us is the
-IRC server name that you want to call the aimirc server.  $them is the IP or
-hostname for the IRC server to connect to.  $themport is the port to connect
-to on the IRC server.  $ourpass and $theirpass should be set to your IRC
-server passwords.  $servermode should be the type of your server.  Currently,
-the only supported types are dal2 and dragonfire.
+XX is the version number of aimirc that you downloaded.  Open the aimirc.conf
+file in a text editor.  Edit it to your satisfaction and then copy it to either
+/etc/aimirc.conf or ~/.aimirc .  You should make sure that it is only readable
+by the user that aimirc will run as since it will contain your irc C/N
+passwords in plaintext.  This can probably be accomplished by chmod 600'ing it.
 
 	You need C/N lines for aimirc set up in your ircd.conf.  Mine look
 like this:
-	C:127.0.0.1:password:aimserv.matthewg.port.net::50
-	N:127.0.0.1:password:aimserv.matthewg.port.net::50
+	C:127.0.0.1:password:aimserv.your_irc_network.com::50
+	N:127.0.0.1:password:aimserv.your_irc_network.com::50
 
 	Now you should be able to run aimirc.
 
@@ -55,14 +54,16 @@ IMPORTANT NOTE:
 	set to 1 in the config file for this to work.
 
 	The key to this channel is the same as the value given in the config
-	file for $ourpass (that is, the password that aimirc sends to the upstream
-	IRC server.)  This isn't the greatest security in the world, as anyone in
-	#aimirc-debug can see the password of anyone signing onto AIM through your
-	aimserv, any IMs sent or received, etc.  You should almost definately set
-	up ChanServ on that channel if you have one.
+	file for $ourpass (that is, the password that aimirc sends to the
+	upstream IRC server.)  This isn't the greatest security in the world,
+	as anyone in #aimirc-debug can see the password of anyone signing onto
+	AIM through your aimserv, any IMs sent or received, etc.  You should
+	almost definately set up ChanServ on that channel if you have one.
 
-	#aimirc-debug can also be used to send a few administrative commands, such as
-	restart, to aimirc.
+	#aimirc-debug can also be used to send a few administrative commands,
+	such as restart, to aimirc.  It can also be used to execute arbitrary
+	perl code.  **MAKE SURE #aimirc-debug IS ADEQUATELY PROTECTED IF YOU
+	ABSOLUTELY MUST TURN DEBUGGING ON!!!**
 
 For more info:
 	There's a mailing list and a CVS tree.
@@ -71,6 +72,6 @@ For more info:
 Contacting the author:
 	E-Mail: matthewg@zevils.com
 	AIM: MattSachs
-	IRC: matthewg.port.net, nick matthewg
+	IRC: irc.zevils.com #aimirc
 
 aimirc: http://www.zevils.com/linux/aimirc/

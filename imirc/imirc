@@ -235,7 +235,7 @@ $verbose_signon = 0;
 $ssl = 1;
 @default_conffiles = qw(/etc/aimirc.conf $home/.aimirc);
 $fork = 1;
-$connectmode = 0;
+$connectmode = 1;
 $verbose = 0;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
@@ -369,9 +369,9 @@ if($connectmode == 0 or $connectmode == 2) {
 		print STDERR "Using fork mode\n";
 		$connectmode_fork = 1;
 	}
-} else {
-	print STDERR "Not forking.\n" if $verbose;
-}
+}# else {
+	#print STDERR "Not forking.\n" if $verbose;
+#}
 
 unless($reload) {
 	if($fork) {

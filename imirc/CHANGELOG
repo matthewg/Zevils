@@ -1,3 +1,17 @@
+Mar 12 2000, 0.95-pre0:
+	Tremendous amounts of improvements in this release.
+	Stability, bugfixes...
+	HTML-parsing has been improved and we now handle unknown HTML tags
+	correctly.  Errors are handled much more smoothly.  AIM connections
+	use nonblocking IO for greatly enhanced performance.  TS server
+	support, better Undernet server support.
+	Command-line options.
+	Nick creation and deletion improved.
+	Lots of #aimirc-debug commands added.
+	Help system split up into subcategories.
+	And did I mention bugfixes?
+
+
 Dec 31 1999, 0.80:
 	Tremendous amounts of improvements in this release.
 	Stability, bugfixes, things actually working right...
