@@ -286,6 +286,7 @@ sub sflap_get($;$) {
 
 		undef $rv;
 		$! = EAGAIN;
+		return "" unless $len;
 		while($! == EAGAIN and !defined($rv)) {
 			$buff = ' ' x $len;
 			$rv = $handle->sysread($buff, $len);

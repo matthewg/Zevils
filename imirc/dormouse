@@ -15,9 +15,9 @@ $Toc::SERVER = 1;
 
 my($sock, $pid, $screenname);
 
-#$pid = fork;
-#exit unless $pid == 0;
-#POSIX::setsid();
+$pid = fork;
+exit unless $pid == 0;
+POSIX::setsid();
 
 $sock = IO::Socket::INET->new(LocalPort => 5000, Listen => 5) or die "Couldn't sock: $@\n";
 
