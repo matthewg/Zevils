@@ -49,6 +49,10 @@ sub send_server_mode($);
 sub send_join($$);
 sub irc_recv(;$);
 sub truncwarn($$);
+sub irc_ctcp_quote($);
+sub irc_ctcp_unquote($);
+sub process_ctcp($$$);
+sub irc_ctcp($$$;$);
 
 sub END { going_down; }
 
@@ -231,6 +235,7 @@ use POSIX;
 use Carp;
 use Getopt::Long;
 use LWP::Simple;
+use File::Basename;
 use ScandanavianCase qw(lc uc);
 
 $Carp::Verbose = 1;
@@ -575,6 +580,7 @@ unless($reload) {
 	}
 }
 
+# Create a new IRCnick, with truncation and anti-collide
 sub irc_newnick($) {
 	my($nick, $user, $string, $shortnick) = shift;
 	$nick =~ tr/ //d;
@@ -593,17 +599,20 @@ sub irc_newnick($) {
 	return $string;
 }
 
+# Remove $prefix
 sub noprefix($) {
 	my $nick = shift;
 	$nick =~ s/^$prefix//i;
 	return normalize $nick;
 }
 
+# Does the hashref have any keys?
 sub haskeys($) {
 	my $hashref = shift;
 	return scalar keys %$hashref;
 }
 
+# Substitute parameters in %ircservers strings
 sub irc_subparms($;$$) {
 	my($input, $user, $nick, $time) = @_;
 	$time = time;
@@ -613,6 +622,7 @@ sub irc_subparms($;$$) {
 	return $input;
 }
 
+# Format an IRC private message - you must still irc_send it!
 sub irc_privmsg($$$;$) {
 	my($from, $to, $msg, $prefix, $line, $ret, $text, $temp) = @_;
 
@@ -633,6 +643,7 @@ sub irc_privmsg($$$;$) {
 	return $ret or $msg;
 }
 
+# Process an incoming IRC message
 sub process_irc_message($) {
 	$_ = shift;
 
@@ -781,9 +792,11 @@ sub process_irc_message($) {
 			delete $chatjoined{$1};
 		}
 	} elsif(/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i) {
-		$msg = $2;
+		$msg = process_ctcp($nnick, $usnick, $2);
+		return unless $msg;
+
 		$cmd = undef; $extra = undef; $param = undef;
-		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
+		$msg =~ /(\S+) ?(\S*)( ?.*)/ or $cmd = $msg;
 		$cmd = $1 unless $cmd; $param = $2 if $2; $extra = substr($3, 1) || "" if $3;
 		$cmd ||= $msg; #For cmds w/o param
 		#warn "Cmd: $cmd\nParam: $param: Extra: $extra\n\n";
@@ -1092,8 +1105,10 @@ sub process_irc_message($) {
 				irc_send("$foo :\tlistnames - list screennames that you are signed on as.  Also tells you your default screenname.\r\n", 1);
 				irc_send("$foo :\tswitchname screenname - switch to a new default screenname\r\n", 1);
 				irc_send("$foo :\tsignoffall - sign off all screennames\r\n", 1);
+			#} elsif($param eq "introduction") {
+			#	irc_send("$foo :
 			} else {
-				irc_send("$foo :aimirc $version, (c)2000 Matthew Sachs.\r\n", 1);
+				irc_send("$foo :aimirc $version, (c)1999-2000 Matthew Sachs.\r\n", 1);
 				irc_send("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n", 1);
 				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
@@ -1103,6 +1118,7 @@ sub process_irc_message($) {
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
+				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
 				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
@@ -1135,6 +1151,8 @@ sub process_irc_message($) {
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
+		$msg = process_ctcp($nnick, $target, $msg);
+		return unless $msg;
 
 		if($recipient eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
@@ -1210,6 +1228,11 @@ sub process_irc_message($) {
 			$aim_connections{$newnick} = $aim_connections{$nnick};
 			$aim_connections{$newnick}{nick} = $newnick;
 			delete $aim_connections{$nnick};
+			foreach $nick(keys %nicks) {
+				next unless $nicks{$nick}{$nnick};
+				$nicks{$nick}{$newnick} = $nicks{$nick}{$nnick};
+				delete $nicks{$nick}{$nnick};
+			}
 		}
 	} elsif(/^QUIT/) {
 		do_signoff_all($nnick, 1);
@@ -1218,6 +1241,7 @@ sub process_irc_message($) {
 	}
 }
 
+# Process an incoming TOC message
 sub process_aim_message($$$) {
 	my ($connection, $msg, $screenname) = @_;
 	my($cmd, $val, $inick, $ar);
@@ -1233,6 +1257,12 @@ sub process_aim_message($$$) {
 		$val =~ /([^:]+):?(.*)/;
 		Toc::debug_print("Error $1: " . aim_strerror($1, $2), "errors", 1);
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "${multinick}Error $1: " . aim_strerror($1, $2)));
+	} elsif($cmd eq "DIR_STATUS") {
+		if($val == 0) {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Directory info successfully updated."));
+		} else {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info."));
+		}
 	} elsif($cmd eq "CONFIG") {
 		update_config($socket, $msg);
 	} elsif($cmd eq "IM_IN") {
@@ -1300,7 +1330,7 @@ sub process_aim_message($$$) {
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 0);
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has departed"));
 			delete $nicks{noprefix $nnick}{$connection->{nick}};
-			unless(haskeys($nicks{noprefix $nnick})) {
+			unless(haskeys($nicks{noprefix $nnick}) > 1) {
 				irc_send(":$prefix$inick QUIT :I signed off of AIM (UPDATE_BUDDY)\r\n");
 				delete $nicks{noprefix $nnick};
 			}
@@ -1364,7 +1394,7 @@ sub process_aim_message($$$) {
 				irc_send(irc_newnick("$prefix$who"));
 				send_join("$prefix$who", "#aimchat-$1");
 
-				$nicks{normalize($who)}{"chat-$1"} = 1;
+				$nicks{normalize($who)}{"chat-$1"} = -1;
 				truncwarn($connection->{nick}, $who);
 			}
 		} else {
@@ -1404,6 +1434,7 @@ sub process_aim_message($$$) {
 	}
 }
 
+# Convert HTML into text suitable for IRC
 sub html2txt($;$) {
 	my ($msg, $nick, $parsetree, @lines, $formatter) = @_;
 	my($linkct, $link, $elem, $node) = 0;
@@ -1420,6 +1451,7 @@ sub html2txt($;$) {
 	return $msg;
 }
 
+# Debugging
 sub Toc::debug_print($$$) {
 	my($text, $type, $level) = @_;
 	my($line, @lines);
@@ -1439,6 +1471,7 @@ sub Toc::debug_print($$$) {
 	}
 }
 
+# Send something to IRC
 sub irc_send($;$) {
 	my ($msg, $nodbg) = @_;
 
@@ -1460,11 +1493,13 @@ sub irc_send($;$) {
 	return 1;
 }
 
+# Dereference a hashref
 sub deref($) {
 	my $href = shift;
 	return %$href;
 }
 
+# Reload the configuration file
 sub rehash() {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehashing..."));
 	if(-r "/etc/aimirc.conf") {
@@ -1493,6 +1528,7 @@ sub rehash() {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehash complete!"));
 }
 
+# Re-eval aimirc
 sub reload() {
 	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloading $0..."));
 	$reload = 1;
@@ -1506,6 +1542,7 @@ sub reload() {
 	}
 }
 
+# Display version information
 sub dispver() {
 	print "aimirc: IRC <-> AOL Instant Messenger gateway.\n";
 	print "AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.\n";
@@ -1515,8 +1552,10 @@ sub dispver() {
 	exit 0;
 }
 
+# Dispaly licensing info
 sub license() { print $license; exit 0; }
 
+# Display commandline help
 sub help() {
 	print <<EOF
 aimirc - IRC <-> AOL Instant Messenger gateway
@@ -1552,7 +1591,7 @@ EOF
 	exit 0;
 }
 
-
+# Sign on to AIM
 sub do_signon($$$$) {
 	my($tparam, $textra, $tusnick, $tnick, $nparam, %temp, @ret, $flags, $nnick) = @_;
 
@@ -1587,12 +1626,13 @@ sub do_signon($$$$) {
 	}
 }
 
+# Signoff a particular screenname
 sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
 	foreach $xnick(keys %nicks) {
 		delete $nicks{$xnick}{$nick};
-		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick});
+		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
 
 	delete $aim_connections{$nick}{screennames}{Toc::_hnick($connection)};
@@ -1613,6 +1653,7 @@ sub do_signoff($$;$) {
 	}
 }
 
+# We use this so we can handle both SSL and non-SSL.
 sub socksub {
 	if($ssl) {
 		SSLv3->new(
@@ -1630,6 +1671,7 @@ sub socksub {
 	}
 }
 
+# Send mode as if it's coming from the server
 sub send_server_mode($) {
 	my $mode = shift;
 
@@ -1639,6 +1681,7 @@ sub send_server_mode($) {
 	irc_send($mode);
 }
 
+# Join a channel
 sub send_join($$) {
 	my($user, $channel, $ret) = @_;
 
@@ -1655,6 +1698,7 @@ sub send_join($$) {
 	irc_send($ret);
 }
 
+# Receive a message from IRC
 sub irc_recv(;$) {
 	$noblock = $_[0];
 
@@ -1688,6 +1732,7 @@ sub irc_recv(;$) {
 	return $ret;
 }
 
+# Warn if a screenname is being truncated due to IRC max nicklen
 sub truncwarn($$) {
 	my($who, $what) = @_;
 
@@ -1697,6 +1742,7 @@ sub truncwarn($$) {
 		if noprefix($shortnicks{noprefix($what)}) ne normalize($what);
 }
 
+# Switch the default screenname for an IRCnick
 sub switchnick($$) {
 	my($nnick, $nparam) = @_;
 	my $oldnick = $aim_connections{$nnick}{aimnick};
@@ -1709,6 +1755,7 @@ sub switchnick($$) {
 	return 0;
 }
 
+# Clean up nicknames, send keepalives/idle, etc.
 sub reap() {
 	$lasttime = $currtime;
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
@@ -1718,6 +1765,7 @@ sub reap() {
 		$kill = 1;
 		Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
 		foreach $bnick(keys %{$nicks{$anick}}) {
+			next if $bnick eq $usnick;
 			Toc::debug_print("\t\t$bnick was using $anick...", "nicks", 3);
 			next ANICK if $kill == 0;
 			if($nicks{$anick}{$bnick} == -1) {
@@ -1776,6 +1824,7 @@ sub reap() {
 	}
 }
 
+# Signoff all screennames for a particular IRCnick
 sub do_signoff_all($;$) {
 	my ($nnick, $already_off) = @_;
 
@@ -1786,6 +1835,7 @@ sub do_signoff_all($;$) {
 	delete $aim_connections{$nnick};
 }
 
+# Notify signed-on users that we're going down
 sub going_down() {
 	my ($user, @users) = (undef, keys %aim_connections);
 
@@ -1794,3 +1844,81 @@ sub going_down() {
 		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
 	}
 }
+
+# Encode a message for CTCPing - you must still irc_send(":$sender PRIVMSG $target :$this")
+sub irc_ctcp_quote($) {
+	my($delim, $null) = (chr(001), chr(000));
+	my $message = shift;
+
+	$message =~ s/\\/\\\\/g;
+	$message =~ s/$delim/\\a/g;
+	$message =~ s/\n/\\\n/g;
+	$message =~ s/\r/\\\r/g;
+	$message =~ s/$null/\\$null/g;
+	$message =~ s/:/\\/g;
+	return $message;
+}
+
+# Decode an incoming CTCP
+sub irc_ctcp_unquote($) {
+	my($delim, $null) = (chr(001), chr(000));
+	my $message = shift;
+
+	$message =~ s/\\\\/\\/g;
+	$message =~ s/\\a/$delim/g;
+	$message =~ s/\\\n/\n/g;
+	$message =~ s/\\\r/\r/g;
+	$message =~ s/\\$null/$null/g;
+
+	return $message;
+}
+
+# Process an incoming IRC command for CTCPs
+sub process_ctcp($$$) {
+	my($from, $to, $message) = @_;
+	my ($delim, @ctcp, $ctcp, $cmd, $args) = (chr(001));
+	my($filename, $ipaddr, $port, $filesize);
+
+	return $message unless $message =~ /$delim/;
+
+	@ctcp = map { $_ = irc_ctcp_unquote $_; Toc::debug_print("CTCP: $_", "ctcp", 2) if $_; $_; } split(/$delim+/, $message);
+	shift @ctcp;
+	$message =~ s/$delim.*//g;
+	Toc::debug_print("After CTCP: $message", "ctcp", 2);
+
+	CTCP: foreach $ctcp(@ctcp) {
+		$ctcp =~ /^(\S+) ?(.*)$/;
+		$cmd = $1; $args = $2;
+
+		Toc::debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
+		irc_send(irc_ctcp($to, $from, $ctcp, 1)) if $cmd eq "PING";
+		$message .= "\02ACTION\02 $args" if $cmd eq "ACTION"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
+		if($cmd eq "DCC") {
+			($cmd, $args) = split(/ /, $args, 2);
+			if($cmd eq "SEND") {
+				if(not $dccget{$from}) {
+					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time."));
+					next CTCP;
+				}
+				$args =~ /(.+)\s+(\d+)\s+(\d+)\s+(\d+)/; #Handles spaces in filename
+				($filename, $ipaddr, $port, $filesize) = ($1, $2, $3, $4);
+				if($dccget{$from} eq "loadbuddies" and $filesize > 4096) {
+					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 4k."));
+					delete $dccget{$from};
+					next CTCP;
+				}
+			}
+		}
+	}
+	return $message;
+}
+
+# Like irc_privmsg
+sub irc_ctcp($$$;$) {
+	my($from, $to, $message, $reply) = @_;
+	my $delim = chr(001);
+
+	return ":$from " . ($reply ? "NOTICE" : "PRIVMSG") . " $to :$delim" . irc_ctcp_quote($message) . "$delim\r\n";
+}
+
+#Someone's sending us a file: DCC SEND filename IPaddr port filesize
