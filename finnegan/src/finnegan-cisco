@@ -7,9 +7,10 @@ use POSIX;
 use DBI;
 
 our $db_connected = 0;
+our %kidmap = (); # PID -> log_id
 
 sub log_debug($);
-sub make_call($$);
+sub activate_wake($$);
 
 sub load_settings {
 	open(SETTINGS, "../etc/settings.inc") or die "Couldn't open settings: $!\n";
@@ -36,6 +37,8 @@ if(!$Finnegan::Config::testmode) {
 	POSIX::setsid() or die "Can't start a new session: $!";
 }
 
+$SIG{CHLD} = sub { wait; };
+
 our $dbh = DBI->connect(
 	sprintf("DBI:mysql:database=%s;host=%s", $Finnegan::Config::db->{database}, $Finnegan::Config::db->{host}),
 	$Finnegan::Config::db->{user}, $Finnegan::Config::db->{password}
@@ -46,38 +49,37 @@ $db_connected = 1;
 sub END { log_error("Finnegan going down!") if $db_connected; }
 
 my $get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
-my $get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY next_trigger");
+my $get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger");
 my $delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
-my $call_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
-my $update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(trigger_date + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
+my $activate_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
+my $update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(CURDATE() + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
 my $snooze_wake = $dbh->prepare("UPDATE wakes SET snooze_count=snooze_count+1, next_trigger=NOW() + INTERVAL 9 MINUTE WHERE wake_id=?");
 my $update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
 my $log_error = $dbh->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
-my $log_wake_start = $dbh->prepare("INSERT INTO log_wake (wake_id, extension, event, start_time, phoneline) VALUES (?, ?, 'activate', NOW(), ?)");
-my $log_wake_end = $dbh->prepare("UPDATE log_wake SET result=?, end_time=NOW(), data=? WHERE log_id=?");
+my $log_wake_start = $dbh->prepare("INSERT INTO log_wake (wake_id, extension, event, start_time) VALUES (?, ?, 'activate', NOW())");
+my $log_wake_end = $dbh->prepare("UPDATE log_wake SET end_time=NOW(), result=?, data=? WHERE log_id=?");
 my $get_insertid = $dbh->prepare("SELECT LAST_INSERT_ID()");
-
-our $log_wake_id = 0;
 
 my %daymap = ("Sun" => 1, "Mon" => 2, "Tue" => 3, "Wed" => 4, "Thu" => 5, "Fri" => 6, "Sat" => 7);
 my @daymap_inv = ("", sort { $daymap{$a} <=> $daymap{$b} } keys %daymap);
 
-sub start_log_wake($$$) {
-	my($wake_id, $extension, $phoneline) = @_;
+sub log_wake_start($$) {
+	my($wake_id, $extension) = @_;
 	if($Finnegan::Config::testmode) {
-		warn "$$: Starting wake $wake_id for extension $extension on line $phoneline\n";
+		warn "$$: Starting wake $wake_id for extension $extension\n";
 	}
-	$log_wake_start->execute($wake_id, $extension, $phoneline);
-	($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
+	$log_wake_start->execute($wake_id, $extension);
+        ($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
 	$log_wake_start->finish;
+	return $log_wake_id;
 }
-sub end_log_wake($$) {
-	my($result, $data) = @_;
+sub log_wake_end($$$) {
+	my($result, $data, $log_id) = @_;
 	if($Finnegan::Config::testmode) {
-		warn "$$: Wake completed.\n";
+		warn "$$: Ending wake, log $log_wake_id\n";
 	}
-	$log_wake_end->execute($result, $data, $log_wake_id);
-	$log_wake_id = 0;
+	$log_wake_end->execute($result, $data, $log_id);
+	$log_wake_end->finish;
 }
 sub log_debug($) {
 	my $str = shift;
@@ -102,10 +104,11 @@ sub db_error($$) {
 
 # -1. Reload Brandeis calendar data, if necessary.
 # 0. Update next_trigger.  Note that we don't attempt to figure out the correct date for recurring wakes, we do that ad-hoc.
-# 1. Get any wakes where trigger_time <= now()
-# 3. Check to see if we should call any now
-# 4. If so, call them
-# 5. Sleep for 10 seconds
+# 1. Get wakes
+# 2. Check to see if we should call any now
+# 3. If so, call them
+# 4. Reap the TFTP directory
+# 5. Sleep 10 seconds
 while(1) {
 	log_debug("Checking brancal time");
 	my $bctime = (stat "../etc/brancal.inc")[9];
@@ -177,7 +180,6 @@ while(1) {
 	foreach my $row (@rows) {
 		next unless $row;
 
-		last unless scalar keys %phonelines_avail;
 		log_debug("Got " . $row->{wake_id});
 		next if $row->{unix_trigger} > time();
 
@@ -236,7 +238,7 @@ while(1) {
 			}
 		}
 
-		if(!$call_wake->execute($row->{wake_id})) {
+		if(!$activate_wake->execute($row->{wake_id})) {
 			db_error("Couldn't update trigger_date", $call_wake);
 		}
 
@@ -246,7 +248,7 @@ while(1) {
 
 
 	log_debug("Done with wakes");
-	$get_wakes->finish;
+	# REAP TFTP DIR
 
 	log_debug("Waiting...");
 	sleep 10;
@@ -256,119 +258,104 @@ sub activate_wake($) {
 	my($row) = @_;
 	log_debug("Doing wake for x".$row->{extension});
 
-	start_log_wake($row->{wake_id}, $row->{extension}, $phoneline);
+	my $log_id = log_wake_start($row->{wake_id}, $row->{extension});
 
-	my $message;
-	if($row->{message} == -1) { # Random message
-		my @messages = map { $_->{id} } @$Finnegan::Config::messages;
-		$message = $messages[int(rand(@messages))];
+	my $pid = fork();
+	if(!defined($pid)) {
+		log_error("Couldn't fork: $!");
+		log_wake_end("failure", "Couldn't fork: $!", $log_id);
+		$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+		return 1;
+	} elsif($pid) {
+		$kidmap{$pid} = $log_id;
+		log_debug("Kid is $pid (log ID $log_id)");
+		return 0;
 	} else {
-		$message = $row->{message};
-	}
+		$db_connected = 0; # Don't log "Finnegan going down!" when we exit.
 
-		if($Finnegan::Config::nocalls) {
-			log_debug("Output sample is in ../tmp/$$.rmd");
-			if($type eq "wake") {
-				if($row->{date}) {
-					log_debug("Doing delete_wake");
-					$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $snooze_wake);
-				} else {
-					log_debug("Doing update_wake");
-					$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $snooze_wake);
-				}
+		my @samples = ();
+		my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
+		$hour =~ s/^0//;
+		$minute =~ s/^0//;
+		$ampm = lc($ampm);
+
+		my $message;
+		if($row->{message} == -1) { # Random message
+			my @messages = map { $_->{id} } @$Finnegan::Config::messages;
+			$message = $messages[int(rand(@messages))];
+		} else {
+			$message = $row->{message};
+		}
+
+		@samples = (
+			"../g77-mulaw/messages/$message.ul",
+			"../g77-mulaw/wake/timeis.ul",
+			"../g77-mulaw/wake/hours/$hour.ul"
+		);
+
+		if($minute > 0) {
+			if($minute > 0 and $minute < 20) {
+				push @samples, "../g77-mulaw/wake/ten-minutes/0.ul" if $minute < 10;
+				push @samples, "../g77-mulaw/wake/one-minutes/$minute.ul";
 			} else {
-				log_debug("Doing forgot_pin");
-				$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgotpin " . $row->{extension}, $update_forgotpin);
+				$minute =~ /(.)(.)/;
+				push @samples, "../g77-mulaw/wake/ten-minutes/".($1*10).".ul";
+				push @samples, "../g77-mulaw/wake/one-minutes/$2.ul" if $2;
 			}
-			$end->("success", "done");
+		}
+
+		push @samples, "../g77-mulaw/wake/$ampm.ul";
+
+		push @samples, "../g77-mulaw/wake/snooze.ul";
+		push @samples, "../g77-mulaw/wake/edit.ul";
+
+		if(!open(OUTSAMPLE, ">", $Finnegan::Config::Cisco::tftp_base . $Finnegan::Config::Cisco::tftp_path . "/fin-$$.ul")) {
+			log_wake_end("failure", "Couldn't open output sample fin-$$.ul: $!", $log_id);
+			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+			exit 1;
+		}
+
+		local $/ = undef;
+
+		log_debug("Reading samples...");
+		foreach(@samples) {
+			log_debug("Reading sample $_");
+			if(!open(SAMPLE, $_)) {
+				log_wake_end("failure", "Couldn't open input sample $_: $!", $log_id);
+				$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+				exit 1;
+			}
+			print OUTSAMPLE <SAMPLE>;
+			close SAMPLE;
+		}
+
+		close OUTSAMPLE;
+		log_debug("Done with samples.");
+
+
+		my $failuretext = undef;
+		if($Finnegan::Config::nocalls) {
+			log_debug("Output sample is in fin-$$.ul");
+		} else {
+			if(system("./finnegan-call-cisco", $type, $row->{extension}, 10, $Finnegan::Config::Cisco::tftp_base . $Finnegan::Config::Cisco::tftp_path . "/fin-$$.ul") != 0) {
+				my $status = $? >> 8;
+
+				if($? == -1) {
+					$failuretext = "Failed to execute wake script: $!";
+				} elsif($? & 127) {
+					$failuretext = "Wake script died with signal " . ($? & 127);
+				} else {
+					$failuretext = "";
+				}
+			}
+		}
+
+
+		if(!defined($failuretext)) {
 			exit 0;
 		} else {
-			my $timeout;
-			my $snooze_ok = 0;
-			if($type eq "wake") {
-				$timeout = $Finnegan::Config::max_wake_duration - 10;
-				$snooze_ok = 1 if $row->{snooze_count} < $Finnegan::Config::max_snooze_count;
-			} else {
-				$timeout = $Finnegan::Config::max_forgot_pin_duration - 10;
-			}
-
-			if(system("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.rmd", $snooze_ok)) {
-				if($? == -1) {
-					$end->("failure", "Failed to execute VM shell: $!");
-					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-					exit 1;
-				} elsif($? & 127) {
-					$end->("failure", "VM shell died with signal " . ($? & 127));
-					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-					exit 1;
-				} else {
-					my $status = $? >> 8;
-
-					if($status == 0) { # Success
-						if($type eq "wake") {
-							if($row->{date}) {
-								$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
-							} else {
-								$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
-							}
-						} else {
-							$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgopint " . $row->{extension}, $update_forgotpin);
-						}
-						$end->("success", "done");
-						exit 0;
-					} elsif($status == 3) { # Snooze
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						$end->("success", "snooze");
-						exit 0;
-					} elsif($status == 1) { # Busy
-						$end->("failure", "busy signal");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
-					} elsif($status == 2) { # No dial tone
-						$end->("failure", "no dial tone");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
-					} elsif($status == 4) { # Timed out
-						$end->("failure", "time out - snooze");
-						if($type eq "wake") {
-							if($snooze_ok) {
-								$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-							} else {
-								if($row->{date}) {
-									$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
-								} else {
-									$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
-								}
-							}
-						}
-						exit 1;
-					} else {
-						$end->("failure", "unknown exit code $status");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
-					}
-				}
-			} else {
-				if($type eq "wake") {
-					if($row->{date}) {
-						$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
-					} else {
-						$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
-					}
-				} else {
-					$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgopint " . $row->{extension}, $update_forgotpin);
-				}
-				$end->("success", "");
-				exit 0;
-			}
+			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
+			exit 1;
 		}
 	}
 }
