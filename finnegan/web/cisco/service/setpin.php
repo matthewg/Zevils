@@ -22,7 +22,7 @@ if(isset($_REQUEST["pin"])) {
 ?>
 <CiscoIPPhoneInput>
 <Title>Set Web Access PIN</Title>
-<Prompt>Press "Clear" to prevent web access.</Prompt>
+<Prompt>"Clear" to prevent web access.</Prompt>
 <URL><?echo $FinneganCiscoConfig->url_base ?>/service/setpin.php</URL>
 <InputItem>
 <DisplayName>New PIN</DisplayName>
