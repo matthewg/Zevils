@@ -2119,9 +2119,9 @@ sub do_signoff($$;$) {
 		irc_send(irc_kick($usnick, normalize("#aimirc-$screenname"), $nick, "You have been signed off of AOL Instant Messenger."));
 	}
 
+	delete $nicks->{$screenname}->{($usnick, $screenname)} if $screenname;
 	foreach my $xnick(keys %$nicks) {
-		next if normalize $xnick eq normalize $usnick or not $screenname;
-		next unless exists $nicks->{$xnick}->{$screenname};
+		next if $xnick eq $usnick or not $screenname;
 		delete $nicks->{$xnick}->{$screenname}; 
 		irc_send(irc_quit(ircify($prefix.$xnick), "Nobody wants me anymore.")) unless haskeys($nicks->{$xnick});
 	}
