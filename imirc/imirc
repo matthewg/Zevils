@@ -858,6 +858,7 @@ sub process_irc_message($) {
 					$evil = $buddat->{evil};
 					$line = "\t$buddy";
 					$line .= " {$buddat->{comment}}" if $buddat->{comment};
+					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
 					$line .= " [online]" if $buddat->{online};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
@@ -879,6 +880,7 @@ sub process_irc_message($) {
 					$line = "\t$buddy";
 					next unless $buddat->{online};
 					$line .= " {$buddat->{comment}}" if $buddat->{comment};
+					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
@@ -929,6 +931,13 @@ sub process_irc_message($) {
 				} else {
 					irc_send(irc_privmsg($usnick, $nick,  "That person is either not on your buddy list or not signed on.", "", "", $screenname));
 				}
+			}
+		} elsif ($cmd eq "rename_group") {
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: rename_group oldgroup newgroup", "", "", $screenname));
+			} else {
+				$oscar->rename_group($param, $extra);
+				$oscar->commit_buddylist;
 			}
 		} elsif ($cmd eq "add_buddy") {
 			unless($param) {
@@ -1237,7 +1246,7 @@ User {
 				}
 			}
 		} elsif ($cmd eq "show_pounce") {
-						unless(defined $param) {
+			unless(defined $param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce buddy", "", "", $screenname));
 				return;
 			} else {
@@ -1272,6 +1281,7 @@ User {
 				irc_send("$foo :add_permit screenname[,screenname2,...,screennameN] - Add screenname (possibly multiple screenname) to your permit list, removing from deny list.\r\n", 1);
 				irc_send("$foo :add_deny screenname[,screenname2,...,screennameN] - Add nick (possibly multiple screenname) to your deny list, removing from permit list.\r\n", 1);
 				irc_send("$foo :buddyinfo screenname - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
+				irc_send("$foo :rename_group oldgroup newgroup - Rename a group\r\n", 1);
 				irc_send("$foo :add_buddy screenname[,screenname2,...,screennameN] [group] - Add screenname (possibly multiple screennames) to your buddy list.  If you give a group, the screenname will be added to that buddy group.\r\n", 1);
 				irc_send("$foo :remove_buddy screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from your buddy list.\r\n", 1);
 				irc_send("$foo :warn screenname [anon] - Warn screenname, optionally anonymously.\r\n", 1);
@@ -1420,8 +1430,13 @@ User {
 			if(!$param and !$extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: set_buddy_comment buddy comment", "", "", $screenname));
 			} else {
-				$oscar->set_buddy_comment($param, $extra);
-				$oscar->commit_buddylist;
+				my $group = $oscar->findgroup($param);
+				if($group) {
+					$oscar->set_buddy_comment($group, $param, $extra);
+					$oscar->commit_buddylist;
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, "Couldn't find that buddy.", "", "", $screenname));
+				}
 			}
 		} elsif($cmd eq "loglevel") {
 			if(!$param) {
@@ -1616,15 +1631,14 @@ sub oscar_buddy_in($$$$) {
 			irc_send(irc_privmsg($usnick, $nick, "$buddy has arrived", "", "", $screenname));
 		}
 
-		my $pounce = $buddat->{data}->{0x0200};
-		if($pounce) {
+		if(exists $buddat->{data}->{0x0200}) {
+			my($pounce) = delete $buddat->{data}->{0x0200};
 			my $tmp = "";
 			if($buddat->{aol}) {
 				$tmp = "[automated pounce] ";
 			}
 			$tmp .= $pounce;
 			$oscar->send_im($buddy, $tmp, 1);
-			delete $buddat->{data}->{0x0200};
 			$oscar->commit_buddylist;
 			irc_send(irc_privmsg($usnick, $nick, "Pounce to $buddy has been sent.", "", "", $screenname));
 		}
@@ -1855,7 +1869,8 @@ sub oscar_signon_done($) {
 	my $pouncecount = 0;
 	foreach my $group($oscar->groups) {
 		foreach my $buddy($oscar->buddies($group)) {
-			$pouncecount++ if exists($oscar->get_app_data($group, $buddy)->{0x0200});
+			my $buddat = $oscar->get_app_data($group, $buddy);
+			$pouncecount++ if $buddat and exists($buddat->{0x0200});
 		}
 	}
 	irc_send(irc_privmsg($usnick, $nick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname)) if $pouncecount > 0;
