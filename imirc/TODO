@@ -6,11 +6,14 @@ Real Soon Now:
 	savebuddies/loadbuddies for buddylist backup
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
+	Make more mention of the fact that you need to set_info after
+	  every signon in documentation/help message.
 
 Pending/Maybe:
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
+	Default set_info?
 
 Wishlist:
 	Fix #aimirc-debug reload command
