@@ -89,6 +89,8 @@ use strict;
 use warnings;
 use vars qw($VERSION);
 use Carp;
+use HTML::FormatText;
+use HTML::TreeBuilder;
 
 =pod
 
@@ -205,6 +207,75 @@ sub fail($$) {
 
 	$self->{errstr} = $reason;
 	return undef;
+}
+
+=pod
+
+=item html2txt HTML
+
+This method converts HTML to plain text.  It handles links in a style similar
+to that of Debian Weekly News.
+
+=cut
+
+sub html2txt($$) {
+	my($self, $html) = @_;
+
+	my $tree = HTML::TreeBuilder->new->parse($html);
+	my $linkcount = 0;
+	my @footlinks;
+
+	# Change this:
+	#	Some text, including <a href="url">a link</a>.
+	# To this:
+	#	Some text, including [0]{a link}.
+	#
+	#	[0] url
+
+	foreach my $node (@{$tree->extract_links("a")}) {
+		my($link, $elem) = @$node;
+
+		$link = "[$linkcount] $link";
+		my($text) = $elem->content_refs_list();
+		$$text = "[$linkcount]{$$text}";
+		$linkcount++;
+
+		while($elem and $elem->tag ne "p") { $elem = $elem->parent; }
+		if(!$elem or !$elem->parent) { # No enclosing <p> - put it at the end
+			push @footlinks, $link;
+			next;
+		}
+
+		# $elem is now the paragraph that had the link.
+		# If it is the first link of the paragraph, insert a new para next to it.
+		# Append the link to $elem's sibling.
+
+		$elem->postinsert(['p']) unless $elem->{__WEBLOG_putpara};
+		$elem->{__WEBLOG_putpara} = 1;
+
+		# Find the paragraph we want to put our link into.
+		my @elem_siblings = $elem->parent->content_list;
+		while(@elem_siblings and $elem_siblings[0] != $elem) {
+			shift @elem_siblings;
+		}
+
+		if(!@elem_siblings) { # Couldn't find it
+			push @footlinks, $link;
+			next;
+		}
+
+		$elem_siblings[0]->push_content([$link], ['br']);
+	}
+
+	# Sometimes, for whatever reason, we can't add a link where we want to.
+	# We stick these guys at the end.
+	$tree->push_content(
+		['p', 
+			map [$_, 'br'] @footlinks
+		]
+	);
+
+	return HTML::FormatText->new(leftmargin => 0, rightmargin => 75)->format($tree);
 }
 
 =pod
