@@ -126,7 +126,7 @@ you have a rule C<preference = name *WSP "=" *WSP value>, calling this method wi
 C<MATCHRULES> set to C<("name", "value")> will cause the return value to be, if C<DATA> matches the C<preference>
 rule, a hash whose keys are C<("name", "value")> and whose values are whichever bits of C<DATA> matched those rules.
 So, assuming that the C<name> and C<value> rules were set appropriately, if C<DATA> was C<"logfile = /var/log/foo.log">,
-C<< (name => "logfile", value => "/var/log/foo.log") >> would be returned.
+the return value would be C<< (name => "logfile", value => "/var/log/foo.log") >>.
 
 However, it can get more complicated than that.  Consider the following ruleset:
 
