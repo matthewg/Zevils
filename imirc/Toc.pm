@@ -409,7 +409,7 @@ Set info for the user connected to AIM via HANDLE.
 sub set_info($$) {
 	my($handle, $info) = @_;
 
-	sflap_print($handle, sflap_encode(quote("toc_set_info ") . "\"" . quote(txt2html($info)) . "\"", 0, 1));
+	sflap_put($handle, sflap_encode(quote("toc_set_info ") . "\"" . quote(txt2html($info)) . "\"", 0, 1));
 }
 
 =pod
@@ -451,7 +451,7 @@ sub set_directory($%) {
 	$msg = "toc_set_dir \"";
 	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
 	$msg .= "\"";
-	sflap_print($handle, sflap_encode($msg, 0, 1));
+	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
 =pod
@@ -470,7 +470,7 @@ sub directory_search($%) {
 	$msg = "toc_dir_search \"";
 	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
 	$msg .= "\"";
-	sflap_print($handle, sflap_encode($msg, 0, 1));
+	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
 =pod
