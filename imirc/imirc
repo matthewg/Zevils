@@ -1189,6 +1189,8 @@ Buddy {
 		} elsif ($cmd eq "add_pounce") {
 			unless($param and $extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce screenname text"));
+			} elsif($savepounces <= 0) {
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
 			} else {
 				push @{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}, {who => $param, what => $extra};
 				irc_send(irc_privmsg($usnick, $nick, "Pounce added."));
@@ -1197,6 +1199,8 @@ Buddy {
 		} elsif ($cmd eq "remove_pounce") {
 			unless(defined $param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number"));
+			} elsif($savepounces <= 0) {
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
 			} else {
 				unless(splice(@{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}, $param, 1)) {
 					splice(@{$pounces{safename $aim_connections{$nnick}{aimnick}}}, $param, 1) if $savepounces > 0;
@@ -1206,12 +1210,16 @@ Buddy {
 				}
 			}
 		} elsif ($cmd eq "list_pounces") {
-			$i = 0;
-			foreach $pounce(@{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}) {
-				irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}"));
-				$i++;
+			if($savepounces <= 0) {
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
+			} else {
+				$i = 0;
+				foreach $pounce(@{$aim_connections{$nnick}{screennames}{$aim_connections{$nnick}{aimnick}}{pounces}}) {
+					irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}"));
+					$i++;
+				}
+				irc_send(irc_privmsg($usnick, $nick, "You have no pounces.")) if $i == 0;
 			}
-			irc_send(irc_privmsg($usnick, $nick, "You have no pounces.")) if $i == 0;
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
@@ -1313,7 +1321,7 @@ Buddy {
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
-				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
+				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1) if $savepounces > 0;
 				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
