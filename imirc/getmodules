@@ -64,7 +64,7 @@ $ENV{PERL5OPT} .= " -I$dirname";
 $makeargs = "";
 $makeargs = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp INSTALLSITEMAN1DIR=/tmp INSTALLSITEMAN3DIR=/tmp" if $> != 0;
 
-foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR HTML::Tagset)) {
+foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR HTML::Tagset HTML::Entities)) {
 	install_module($mod);
 }
 
@@ -83,7 +83,7 @@ sub install_module($) {
 	my $dist = $CPAN::META->instance('CPAN::Distribution',$obj->cpan_file);
 	$dist->make;
 
-	foreach my $prereq(keys %{$dist->prereq_pm}) {
+	foreach my $prereq(($] < 5.006) ? ($dist->needs_prereq) : (keys %{$dist->prereq_pm})) {
 		my $prereq_obj = CPAN::Shell->expand('Module', $prereq);
 		install_module($prereq) unless $prereq_obj->inst_version;
 	}
