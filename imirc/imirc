@@ -438,7 +438,7 @@ sub process_irc_message {
 		delete $aim_connections{$1};
 		$filenos[$aim_connections{$2}{socket}->fileno] = $2 if $aim_connections{$2}{socket};
 	} elsif(/^:(\S+) QUIT/) {
-		delete $aim_connections{$aim_connections{$1}{socket}->fileno};
+		delete $aim_connections{$aim_connections{$1}{socket}->fileno} if $aim_connections{$1}{socket};
 		$aimselect->remove($aim_connections{$1}{socket});
 		signoff($aim_connections{$1}{socket});
 		delete $aim_connections{$1};
