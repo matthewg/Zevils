@@ -1265,7 +1265,7 @@ sub _get_events_comments
 
     my $dbr = LJ::get_db_reader();
     my $u = $flags->{'u'};
-    my $journalid = $req->{'eventid'};
+    my $journalid = $req->{'journalid'};
     my $jitem;
 
     my $uowner = $flags->{'u_owner'} || $u;
