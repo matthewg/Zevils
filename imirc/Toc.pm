@@ -400,6 +400,7 @@ sub signon($$&;&) {
 	};
 
 	$err = "Connection timed out." if $@ =~ /time(d )?out/;
+	$err ||= $@ if $@;
 	alarm 0;
 	return -1 if $err;
 	Carp::croak($@) if $@;
@@ -956,11 +957,11 @@ Returns the parsed string.
 sub parseclass($) {
 	my($class) = shift;
 	my($ret);
-	$ret = "On AOL, " if substr($class, 0, 1) eq "A";
-	$ret .= "Oscar Admin, " if substr($class, 1, 1) eq "A";
-	$ret .= "Oscar Trial, " if substr($class, 1, 1) eq "U";
-	$ret .= "Oscar, " if substr($class, 1, 1) eq "O";
-	$ret .= "Unavailable, " if substr($class, 2, 1) eq "U";
+	$ret = "AOL, " if substr($class, 0, 1) eq "A";
+	$ret .= "AOL Instant Messenger Admin, " if substr($class, 1, 1) eq "A";
+	$ret .= "AOL Instant Messenger Unconfirmed, " if substr($class, 1, 1) eq "U";
+	$ret .= "AOL Instant Messenger, " if substr($class, 1, 1) eq "O";
+	$ret .= "Away, " if substr($class, 2, 1) eq "U";
 	chop $ret; chop $ret; return $ret;
 }
 

@@ -1,45 +1,31 @@
-DCC connect timeout
-
- buddy list printf?
-buddy notes/subgroups
-
-Preference for sending NOTICE
-
-loadbuddies DCC w/ mIRC
-
-Why isn't this parsed right:
-	<blah>test<BR><test>2<BR><yoyo>3
-
-Rethink checkpointing?
-	Don't always keep everything in memory
-	Don't write unless dirty
-	Options to delete old unused data??
-
-Real Soon Now/First Priority:
-	ChanServ/AIMServ conflict
-		MODE loop detection, README.ChanServ, services patches
+Showstoppers (absolutely must be done before 0.98):
+	ChanServ/AIMServ conflict - MODE loop detection, README.ChanServ, services patches
+	Am I using ircify in all the right places?
+	Make sure we're always timing out connections, esp. DCC
+	#buddies-SCREENNAME (geniusj)
 	Undernet P10 ircd support
 
-Probably/Second Priority:
-	#buddies-SCREENNAME (geniusj)
+Pretty Important (should be done before 0.98, definately before 0.99):
+	buddy notes/subgroups
+	Preferences System
+		buddy list formatting controls
+		sending NOTICE
+	Test loadbuddies DCC w/ mIRC
 	Write a help intro/overview
-	Internationalization
+	Debugging Enhancements
+		Personal Debugging - AIMServ debug commands debug yourself
+		#aimirc-debug ability to debug a specific AIM connection
+
+Tier 1 Enhancements (before 0.99 would be nice):
+	Internationalization [maybe do only partially before 0.99]
 		Store strings in a data file (hash - probably eval'd)
 		Translate docs too?
 			Might as well.
 		Hmm, I guess I could try to do a Spanish translation...
-		Pig-latin translation!
 		set_lang command - Make it sticky
-			$directory/preferences/screenname
-				Other preferences?
 		use locale
 
-Maybe/Third Priority:
-	(#aimirc-debug or IRC or AIMServ?) stats command
-	file transfer -> DCC?
-	Handle colors as well as bold, etc.?
-	Write a TOC server and a set of stress tests and regression tests.
+Tier 2 Enhancements (quite possibly post-1.0):
+	File Transfer -> DCC
 	Hot Chats grabber
-
-Wishlist:
-	Fix #aimirc-debug reload command
+	Color support

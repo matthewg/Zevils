@@ -24,10 +24,10 @@ EOF
 ;
 
 use strict;
-use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $checkpoint $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chattimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $did_checkpoint $numeric);
+use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chattimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $numeric);
 
 sub loadconf();
-sub loaddat();
+sub loaddat($);
 sub mainloop();
 sub connect_to_irc();
 sub going_down();
@@ -52,8 +52,6 @@ sub license();
 sub help();
 sub do_signon($$$$);
 sub do_signoff($$;$);
-sub send_server_mode($);
-sub send_join($$);
 sub irc_recv(;$);
 sub manglewarn($$);
 sub irc_ctcp_quote($);
@@ -63,10 +61,20 @@ sub irc_ctcp($$$;$);
 sub loadbuddies($$);
 sub irc_dcc($$$$$);
 sub safename($);
-sub checkpoint();
+sub savedat($);
 sub num2base64($);
 sub base642num($);
 sub got_im($$$$);
+sub irc_mode($$$);
+sub irc_join($$);
+sub irc_kick($$$;$);
+sub irc_part($$;$);
+sub irc_error($$$);
+sub irc_topic($$$);
+sub irc_pong();
+sub irc_quit($;$);
+sub irc_invite($$$);
+sub ircirfy($);
 
 $| = 1;
 
@@ -154,7 +162,6 @@ $dcc = 1;
 $savebuddies = 2;
 $saveprofiles = 2;
 $savepounces = 2;
-$checkpoint = 60;
 $directory = "$home/.aimirc.dat";
 $shortcircuit = 1;
 $numeric = num2base64(42);
@@ -212,58 +219,44 @@ $lasttime = $checktime = time;
 $keepalive = 0;
 mainloop();
 
-sub loaddat() {
-	my($buddylist, $profile, $pounce, $profiles, $pounces, $who, $what);
+sub loaddat($) {
+	my($screenname, $buddylist, $profile, $pounce, $profiles, $pounces, $who, $what) = shift;
+
+	$screenname = safename $screenname;
+
 	#Who needs subroutines when you've got copy and paste?
 	#Incidentally, this is what I mean by that "code cleanup" item in TODO
 	#But would a trillion tiny functions be any cleaner?
 	#Oh well - who reads this anyway?
-
-	if(-d $directory and -r $directory) {
+	if((-d $directory and -r $directory) or mkdir($directory, 0700)) {
 		local $/ = undef;
-		if($savebuddies > 1 and -d "$directory/buddylists" and -r "$directory/buddylists") {
-			opendir(DHANDLE, "$directory/buddylists");
-			while($buddylist = readdir DHANDLE) {
-				next if $buddylist =~ /\.\.?$/; #Skip . and ..
-				open(BUDDYLIST, "<$directory/buddylists/$buddylist") or next;
-				$buddylists{basename $buddylist} = <BUDDYLIST>;
-				close BUDDYLIST;
-			}
-			close DHANDLE;
+		if($savebuddies > 1 and -r "$directory/buddylists/$screenname") {
+			open(BUDDYLIST, "<$directory/buddylists/$screenname");
+			$buddylists{$screennamet} = <BUDDYLIST>;
+			close BUDDYLIST;
 		}
-		if($saveprofiles > 1 and -d "$directory/profiles" and -r "$directory/profiles") {
-			opendir(DHANDLE, "$directory/profiles");
-			while($profile = readdir DHANDLE) {
-				next if $profile =~ /\.\.?$/; #Skip . and ..
-				open(PROFILE, "<$directory/profiles/$profile") or next;
-				$profiles{basename $profile} = <PROFILE>;
-				close BUDDYLIST;
-			}
-			closedir DHANDLE;
+
+		if($saveprofiles > 1 and -r "$directory/profiles/$screenname") {
+			open(PROFILE, "<$directory/profiles/$screenname");
+			$profiles{$screenname} = <PROFILE>;
+			close BUDDYLIST;
 		}
-		if($savepounces > 1 and -d "$directory/pounces" and -r "$directory/pounces") {
-			opendir(DHANDLE, "$directory/profiles");
-			while($pounce = readdir DHANDLE) {
-				next if $pounce =~ /\.\.?$/; #Skip . and ..
-				open(POUNCE, "<$directory/pounces/$pounce") or next;
-				$pounces = <POUNCE>;
-				close POUNCE;
-				next unless $pounces;
-				foreach $_(split(/\n/, $pounces)) {
-					($who, $what) = split(/\s+/, $_, 2);
-					push @{$pounces{basename $pounce}}, {who => $who, what => $what};
-				}
+		if($savepounces > 1 and -r "$directory/pounces/$screenname") {
+			open(POUNCE, "<$directory/pounces/$screenname");
+			$pounces = <POUNCE>;
+			close POUNCE;
+			delete $pounces{$screenname};
+			foreach $_(split(/\n/, $pounces)) {
+				($who, $what) = split(/\s+/, $_, 2);
+				push @{$pounces{$screenname}}, {who => $who, what => $what};
 			}
-			closedir DHANDLE;
 		}
 	} else {
 		if($savebuddies > 1 or $saveprofiles > 1 or $savepounces > 1) {
-			mkdir($directory, 0700) or do {
-				print STDERR "Warning - could not create $directory: $!\n";
-				print STDERR "Fix it or we can't save buddies, profiles, or pounces to disk.\n";
-				print STDERR "(Sleeping for 5 seconds to make sure you read this...)\n";
-				sleep 5;
-			};
+			print STDERR "Warning - could not create $directory: $!\n";
+			print STDERR "Fix it or we can't save buddies, profiles, or pounces to disk.\n";
+			print STDERR "(Sleeping for 5 seconds to make sure you read this...)\n";
+			sleep 5;
 		}
 	}
 }
@@ -357,7 +350,6 @@ sub loadconf() {
 		"savebuddies:i" => \$savebuddies,
 		"saveprofiles:i" => \$saveprofiles,
 		"savepounces:i" => \$savepounces,
-		"checkpoint=i" => \$checkpoint,
 		"directory=s" => \$directory,
 		"shortcircuit:i" => \$shortcircuit,
 		"numeric=s" => \$numeric,
@@ -478,12 +470,12 @@ sub mainloop() {
 		$aimircdebug = 0;
 
 		irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $!\n";
-		irc_send(":$usnick MODE $usnick -i\r\n");
-		irc_send(":$usnick MODE $usnick +oa\r\n");
+		irc_send(irc_mode($usnick, $usnick, "-i"));
+		irc_send(irc_mode($usnick, $usnick, "+oa"));
 
-		send_join($usnick, "#aimirc-debug");
-		send_server_mode("#aimirc-debug +o $usnick");
-		irc_send(":$usnick MODE #aimirc-debug +nsk $ourpass\r\n");
+		irc_join($usnick, "#aimirc-debug");
+		irc_server_mode("#aimirc-debug +o $usnick");
+		irc_send(irc_mode($usnick, "#aimirc-debug", "+nsk $ourpass"));
 		$aimircdebug = 1;
 		$longnicks{'#aimirc-debug'} = '#aimirc-debug';
 
@@ -716,16 +708,7 @@ sub irc_newnick($) {
 
 	Toc::debug_print("Shall we create $nick?", "nicks", 2);
 	return if haskeys($nicks{noprefix $nick});
-	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
-
-	#Enforce RFC1459 compliance.
-	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
-	#But there's really no right thing to do in that case I suppose.
-	#That's why it deserves the adjective "pathological".
-	#
-	$shortnick =~ s/^[^a-zA-Z]+// unless $prefix; #Nicks must start with a-ZA-Z
-	$shortnick =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
-	
+	$shortnick = ircify $nick;	
 	$nicks{noprefix($shortnick)}{$usnick} = time;
 	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks{normalize($shortnick)} = $nick;
@@ -812,17 +795,17 @@ sub process_irc_message($) {
 	} elsif(/^KILL +(\S+)/i) {
 		delete $nicks{noprefix $1};
 	} elsif(/^VERSION/i) {
-		irc_send("351 $nick aimirc-$VERSION. $us :aimirc\r\n");
-	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
+		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
+	} elsif(/^JOIN +.?#aim\(chat-(\d+)\)?/i or /^SJOIN +\d+ +#aim\(chat-(\d+)\)? +\S+ +:(\S+)/i) {
 		my $chat = $1;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d; #Only needed for Hybrid?
 		$nnick = normalize($nick);
 
 		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
-			send_join($usnick, "#aimchat-$chat");
-			send_server_mode("#aimchat-$chat +isnto $usnick");
-			irc_send(":$usnick KICK #aimchat-$chat $nick :This channel is reserved for aimirc usage.\r\n");
+			irc_send(irc_join($usnick, "#aimchat-$chat"));
+			irc_send(irc_mode($us, "#aimchat-$chat", "+isnto $usnick"));
+			irc_send(irc_kick($usnick, "#aimchat-$chat", $nick, "This channel is reserved for aimirc usage."));
 			$chattimer{$chat} = time;
 		} elsif($aim_connections{$nnick}) {
 			$chatjoined{$chat} = 1;
@@ -832,19 +815,21 @@ sub process_irc_message($) {
 				irc_send($chatqueue{$chat});
 				delete $chatqueue{$chat};
 			}
-			irc_send(":$usnick MODE #aimchat-$chat +o $nnick\r\n");
+			irc_send(irc_mode($usnick, "#aimchat-$chat", "+o $nnick"));
 		}
 	} elsif(/^INVITE +(\S+) +:?#aimchat-(\d+)/i) {
 		my $recipient = noprefix($1);
 		my $chat = $2;
+		my $topic = $chattopics{$chat};
 
-		chat_invite($aim_connections{$nnick}{socket}, $chat, "Please come to $chattopics{$chat}.", $recipient) if $aim_connections{$nnick};
+		$topic =~ s/^{.+?} //;
+		chat_invite($aim_connections{$nnick}{socket}, $chat, "Please come to $topic.", $recipient) if $aim_connections{$nnick};
 	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
 		my ($mode, $parms, @matches, @modes, @params, @tparams, $params, $modestring, $modechar, $modeparm, $modetype, $status);
 
-		irc_send("504 $nick :You cannot change modes in AIM chat channels.\r\n") if $aim_connections{$nnick};
+		irc_send(irc_error($nick, 504, "You cannot change modes in AIM chat channels.")) if $aim_connections{$nnick};
 
 		$modes =~ tr/+-/-+/;
 		$modes =~ s/\s*\d+[\r\n]*$// unless $aim_connections{$nnick};
@@ -865,11 +850,7 @@ sub process_irc_message($) {
 				}
 				if($modechar eq "o" and normalize($modeparm) eq normalize($usnick)) {
 					if($modetype eq "+") {
-						if($servermode eq "ts") {
-							irc_send("MODE #aimchat-$chat +o $usnick\r\n");
-						} else {
-							irc_send(":$usnick MODE #aimchat-$chat +o $usnick\r\n");
-						}
+						irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, "#aimchat-$chat", "+o $usnick"));
 					}
 				} elsif($modechar eq "o" and $aim_connections{normalize($modeparm)} and $modetype eq "-") {
 					#Do nothing
@@ -903,30 +884,26 @@ sub process_irc_message($) {
 
 		#Toc::debug_print("Mode parse final: $modestring", "errors", 3);
 
-		irc_send(":$usnick MODE #aimchat-$chat $modestring\r\n") if $modestring;
+		irc_send(irc_mode($usnick, "#aimchat-$chat", $modestring)) if $modestring;
 	} elsif(/^TOPIC +#aimchat-(\d+)/i) {
-		irc_send("505 $nick :Cannot change topic in AIM chat channels.\r\n");
-		irc_send("TOPIC #aimchat-$1 :$chattopics{$1}\r\n");
+		irc_send(irc_error($nick, 505, "Cannot change topic in AIM chat channels."));
+		irc_send(irc_topic($usnick, "#aimchat-$1", $chattopics{$1}));
 	} elsif(/^KICK +#aimchat-(\d+) +(\S+)/i) {
-		irc_send("503 $nick :Cannot kick users from AIM chat channels.\r\n");
-		send_join($2, "#aimchat-$1");
+		irc_send(irc_error($nick, 503, "Cannot kick users from AIM chat channels."));
+		irc_send(irc_join($2, "#aimchat-$1"));
 		if(normalize($2) eq normalize($usnick)) {
-			if($servermode eq "ts") {
-				irc_send("MODE #aimchat-$1 +o $usnick\r\n");
-			} else {
-				irc_send(":$usnick MODE #aimchat-$1 +o $usnick\r\n");
-			}
+			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, "#aimchat-$1", "+o $usnick");
 		}
 	} elsif(/^PART +#aimchat-(\d+)/i) {
 		if(exists $aim_connections{$nnick}{screennames}{$chatnames{$1}}) {
 			Toc::debug_print("$nick left aimchat $1 ($chattopics{$1}).", "chat", 1);
 			if($aim_connections{$nnick} and $chattopics{$1}) {
 				chat_leave($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1) if $aim_connections{$nnick};
-				irc_send(":$usnick PART #aimchat-$1\r\n");
+				irc_send(irc_part($usnick, "#aimchat-$1"));
 				foreach $who(keys %{$chats{$1}}) {
 					delete $chats{$1}{$who};
 					delete $nicks{normalize($who)}{"chat-$1"};
-					irc_send(":$prefix$who PART #aimchat-$1\r\n");
+					irc_send(irc_part(":$prefix$who", "#aimchat-$1"));
 				}
 				delete $chattopics{$1};
 				delete $chatnames{$1};
@@ -1544,7 +1521,6 @@ Buddy {
 				$aim_connections{$nnick}{away} = $1;
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket}, $1);
-					irc_send(":$prefix$screenname AWAY :$1\r\n");
 				}
 			}
 		} else {
@@ -1554,7 +1530,6 @@ Buddy {
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					delete $aim_connections{$nnick}{screennames}{$screenname}{away_buddies};
 					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket});
-					irc_send(":$prefix$screenname AWAY\r\n");
 				}
 			}
 		}
@@ -1599,7 +1574,7 @@ Buddy {
 		}
 		do_signoff_all($nnick, 1) if $aim_connections{$nnick};
 	} elsif(/^PING/) {
-		irc_send("PONG $us\r\n");
+		irc_send(irc_pong());
 	} elsif(/^NOTICE +$usnick(\@\S+)? +:?(.+)/i) {
 		process_ctcp($nnick, $usnick, $2);
 	}
@@ -1740,7 +1715,7 @@ sub process_aim_message($$$) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has departed"));
 			delete $nicks{noprefix $nnick}{$connection->{nick}};
 			unless(haskeys($nicks{noprefix $nnick}) > 1) {
-				irc_send(":$prefix$inick QUIT :I signed off of AIM (UPDATE_BUDDY)\r\n");
+				irc_send(irc_quit("$prefix$inick", "I signed off of AIM (UPDATE_BUDDY)"));
 				delete $nicks{noprefix $nnick};
 			}
 		}
@@ -1757,12 +1732,12 @@ sub process_aim_message($$$) {
 
 		$chattopics{$1} = "{$screenname} $topic";
 		$chatnames{$1} = $screenname;
-		send_join($usnick, "#aimchat-$1");
-		send_server_mode("#aimchat-$1 +o $usnick");
-		irc_send(":$usnick MODE #aimchat-$1 +sint\r\n");
-		irc_send(":$usnick TOPIC #aimchat-$1 :{$screenname} $topic\r\n");
+		irc_send(irc_join($usnick, "#aimchat-$1"));
+		irc_send(irc_mode($us, "#aimchat-$1", "+o $usnick"));
+		irc_send(irc_mode($usnick, "#aimchat-$1", "+sint"));
+		irc_send(irc_topic($usnick, "#aimchat-$1", "{$screenname} $topic"));
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "Join IRC channel #aimchat-$1 to join AIM chat $topic.")) unless $chatinvites{$1};
-		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$1\r\n");
+		irc_send(irc_invite($usnick, "#aimchat-$1", $connection->{nick}));
 		delete $chatinvites{$1};
 		$longnicks{"#aimchat-$1"} = "#aimchat-$1";
 	} elsif($cmd eq "CHAT_IN") {
@@ -1803,7 +1778,7 @@ sub process_aim_message($$$) {
 				next if normalize($who) eq $screenname;
 				$chats{$1}{$who} = 1;
 				irc_send(irc_newnick("$prefix$who"));
-				send_join("$prefix$who", "#aimchat-$1");
+				irc_send(irc_join("$prefix$who", "#aimchat-$1"));
 
 				$nicks{normalize($who)}{"chat-$1"} = -1;
 				manglewarn($connection->{nick}, $who);
@@ -1812,7 +1787,7 @@ sub process_aim_message($$$) {
 			foreach $who(@who) {
 				next if normalize($who) eq $screenname;
 				delete $chats{$1}{$who};
-				irc_send(":" . substr("$prefix$who", 0, $ircservers{$servermode}{nicklen}) . " PART #aimchat-$1\r\n");
+				irc_send(irc_part(ircify $screenname, "#aimchat-$1"));
 				delete $nicks{normalize($who)}{"chat-$1"};
 			}
 		}
@@ -1822,7 +1797,7 @@ sub process_aim_message($$$) {
 		$chatinvites{$2} = $connection->{nick};
 		$chatnames{$2} = $screenname;
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2"));
-		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$2\r\n");
+		irc_send(irc_invite($usnick, "#aimchat-$2", $connection->{nick}));
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
 		my $html = get("http://toc-d01.blue.aol.com/$1");
@@ -2065,26 +2040,30 @@ sub do_signoff($$;$) {
 		%config = deref(get_config($screenname));
 		$buddylists{$nparam} = conf2str(%config) if haskeys $config{Buddies};
 	}
+	savedat($screenname);
+	delete $buddylists{$nparam};
+	delete $pounces{$nparam};
+	delete $profiles{$nparam};
 
 	foreach $chat(keys %chatnames) {
 		next unless $chatnames{$chat} eq $screenname;
 		foreach $who(keys %{$chats{$chat}}) {
 			delete $chats{$chat}{$who};
 			delete $nicks{normalize($who)}{"chat-$chat"};
-			irc_send(":$prefix$who PART #aimchat-$chat\r\n");
+			irc_send(irc_part("$prefix$who", "#aimchat-$chat"));
 		}
 		delete $chattopics{$chat};
 		delete $chatnames{$chat};
 		delete $chatjoined{$chat};
-		irc_send(":$usnick KICK #aimchat-$chat $nick :The screenname you were using in this chatroom is no longer signed on to AOL Instant Messenger.\r\n");
-		irc_send(":$usnick PART #aimchat-$chat\r\n");
+		irc_send(irc_kick($usnick, "#aimchat-$chat", $nick, "The screenname you were using in this chatroom is no longer signed on to AOL Instant Messenger."));
+		irc_send(irc_part($usnick, "#aimchat-$chat"));
 	}
 
 	delete $irc_connections{$screenname};
 	foreach $xnick(keys %nicks) {
 		delete $nicks{$xnick}{$nick};
 		next if normalize $xnick eq normalize $usnick;
-		irc_send(":$prefix$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
+		irc_send(irc_quit("$prefix$xnick", "I signed off of AIM (do_signoff)")) unless haskeys($nicks{$xnick}) > 1;
 	}
 
 	delete $aim_connections{$nick}{screennames}{$screenname};
@@ -2122,30 +2101,79 @@ sub socksub {
 }
 
 # Send mode as if it's coming from the server
-sub send_server_mode($) {
-	my $mode = shift;
+sub irc_mode($$) {
+	my($who, $mode, $modestr) = @_;
 
-	$mode = "MODE $mode";
-	$mode .= " " . time if $servermode ne "ts";
-	$mode .= "\r\n";
-	irc_send($mode);
+	$modestr = "";
+	$modestr = ":$who " unless $who eq $us;
+	$modestr .= "MODE $mode";
+	$modestr .= " " . time if $servermode ne "ts" and $who eq $us;
+	$modestr .= "\r\n";
+	return $modestr;
 }
 
 # Join a channel
-sub send_join($$) {
+sub irc_join($$) {
 	my($user, $channel, $ret) = @_;
 
-	irc_newnick($user);
-	$user = substr($user, 0, $ircservers{$servermode}{nicklen});
+	$ret = irc_newnick($user);
+	$user = ircify $user;
 
 	if($servermode eq "ts") {
 		$user = "\@$user" if normalize($user) eq normalize($usnick);
-		$ret = "SJOIN " . time . " $channel + :$user\r\n";
+		$ret .= "SJOIN " . time . " $channel + :$user\r\n";
 	} else {
-		$ret = ":$user JOIN $channel\r\n";
+		$ret .= ":$user JOIN $channel\r\n";
 	}
 
-	irc_send($ret);
+	return $ret;
+}
+
+# Kick someone from a channel
+sub irc_kick($$$;$) {
+	my($from, $channel, $nick, $reason) = @_;
+
+	return ":$from KICK $channel $nick" . ($reason ? " :$reason" : "") . "\r\n";
+}
+
+# Leave a channel
+sub irc_part($$;$) {
+	my($from, $channel, $reason) = @_;
+
+	return ":$from PART $channel" . ($reason ? " :$reason" : "") . "\r\n";
+}
+
+# Send a numeric IRC error
+sub irc_error($$$) {
+	my($to, $number, $text) = @_;
+
+	return "$number $to :$text\r\n";
+}
+
+# Change the topic for a channel
+sub irc_topic($$$) {
+	my($from, $channel, $topic) = @_;
+
+	return ":$from TOPIC $channel :$topic\r\n";
+}
+
+# Reply to a PING
+sub irc_pong() {
+	return "PING $us\r\n";
+}
+
+# Leave IRC
+sub irc_quit($;$) {
+	my($from, $reason) = @_;
+
+	return ":$from QUIT" . ($reason ? " :$reason" : "") . "\r\n";
+}
+
+# Do all these bloody IRC commands really need documentation?  RTFRFC.
+sub irc_invite($$$) {
+	my($from, $channel, $who) = @_;
+
+	return ":$from INVITE $who $channel\r\n";
 }
 
 # Receive a message from IRC
@@ -2205,7 +2233,7 @@ sub switchnick($$) {
 	return 0;
 }
 
-# Clean up nicknames, send keepalives/idle, checkpoint, etc.
+# Clean up nicknames, send keepalives/idle, etc.
 sub timestuff($) {
 	my($currtime, $anick, $kill, $bnick, $chattimer, $cname, $connection, $screenname, $multinick, $sndata, $nick) = shift;
 
@@ -2230,7 +2258,7 @@ sub timestuff($) {
 		}
 		if($kill == 1) {
 			delete $nicks{$anick};
-			irc_send(":$prefix$anick QUIT :Waah, nobody wants me (reaped)\r\n");
+			irc_send(irc_quit("$prefix$anick", "Waah, nobody wants me (reaped)"));
 			Toc::debug_print("\t$anick, HAVE A NICE AFTERLIFE. ($anick reaped)", "nicks", 1);
 		} else {
 			Toc::debug_print("\t$anick, YOU LIVE FOR NOW.", "nicks", 3);
@@ -2240,7 +2268,7 @@ sub timestuff($) {
 	#Part from the chat-channels that we joined in response to someone joining a #aimchat-1234 without being invited or doing an AIMServ join
 	foreach $chattimer(keys %chattimer) {
 		if(($currtime - $chattimer{$chattimer}) >= 60) {
-			irc_send(":$usnick PART #aimchat-$chattimer\r\n");
+			irc_send(irc_part($usnick, "#aimchat-$chattimer"));
 			delete $chattimer{$chattimer};
 		}
 	}
@@ -2280,10 +2308,6 @@ sub timestuff($) {
 	} else {
 		$keepalive = 1;
 	}
-
-	if($currtime - $checktime >= $checkpoint*60 and $checkpoint > 0) {
-		checkpoint;
-	}
 }
 
 # Signoff all screennames for a particular IRCnick
@@ -2301,8 +2325,9 @@ sub do_signoff_all($;$) {
 sub going_down() {
 	my ($user, @users) = (undef, keys %aim_connections);
 
-	checkpoint unless $did_checkpoint;
-	$did_checkpoint = 1;
+	foreach $user(keys %irc_connections) {
+		savedat($user);
+	}
 	foreach $user(@users) {
 		next if $aim_connections{$user}{notified}++;
 		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
@@ -2553,36 +2578,35 @@ sub safename($) {
 	return $dangerous_name;
 }
 
-sub checkpoint() {
-	my($pounce, $screenname);
+sub savedat($) {
+	my($screenname, $pounce, $screenname) = shift;
+
+	$screenname = safename $screenname;
 
 	if(-d $directory and -w $directory) {
-		if($savebuddies > 1) {
+		if($savebuddies) {
 			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
-			foreach $screenname(keys %buddylists) {
-				unlink "$directory/buddylists/$screenname";
-				next unless $buddylists{$screenname};
-				open(BUDDYLIST, ">$directory/buddylists/$screenname") or next;
+			unlink "$directory/buddylists/$screenname";
+			if($buddylists{$screenname}) {
+				open(BUDDYLIST, ">$directory/buddylists/$screenname");
 				print BUDDYLIST $buddylists{$screenname};
 				close BUDDYLIST;
 			}
 		}
-		if($saveprofiles > 1) {
+		if($saveprofile) {
 			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
-			foreach $screenname(keys %profiles) {
-				unlink "$directory/profiles/$screenname";
-				next unless $profiles{$screenname};
-				open(PROFILE, ">$directory/profiles/$screenname") or next;
+			unlink "$directory/profiles/$screenname";
+			if($profiles{$screenname}) {
+				open(PROFILE, ">$directory/profiles/$screenname");
 				print PROFILE $profiles{$screenname};
 				close PROFILE;
 			}
 		}
-		if($savepounces > 1) {
+		if($savepounces) {
 			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
-			foreach $screenname(keys %pounces) {
-				unlink "$directory/pounces/$screenname";
-				next unless scalar @{$pounces{$screenname}};
-				open(POUNCES, ">$directory/pounces/$screenname") or next;
+			unlink "$directory/pounces/$screenname";
+			if(scalar @{$pounces{$screenname}}) {
+				open(POUNCES, ">$directory/pounces/$screenname");
 				foreach $pounce(@{$pounces{$screenname}}) {
 					print POUNCES "$pounce->{who} $pounce->{what}\n";
 				}
@@ -2590,8 +2614,8 @@ sub checkpoint() {
 			}
 		}
 	} else {
-		print STDERR "Warning!  $directory is unwritable - not checkpointing.\n";
-		Toc::debug_print("Warning!  $directory is unwritable - not checkpointing.", "errors", 1);
+		print STDERR "Warning!  $directory is unwritable - not saving data.\n";
+		Toc::debug_print("Warning!  $directory is unwritable - not saving data.", "errors", 1);
 	}
 }
 
@@ -2672,4 +2696,23 @@ sub got_im($$$$) {
 			$sndata->{away_buddies}{$nnick} = time;
 		}
 		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
+}
+
+
+# Sanitize a screenname for IRC
+sub ircify($) {
+	my $screenname = shift;
+
+	#Yes, I am aware that the RFC mandates a max of 9 characters.
+	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen});
+
+	#Enforce RFC1459 compliance.
+	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
+	#But there's really no right thing to do in that case I suppose.
+	#That's why it deserves the adjective "pathological".
+	#
+	$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
+
+	return $screenname;
 }
