@@ -175,28 +175,116 @@ $VERSION = '0.01';
 
 use strict;
 use warnings;
-use vars qw($VERSION);
+use vars qw($VERSION $ABNF);
 use Lingua::EN::Inflect qw(PL);
 use Carp;
 
-use constant CORE_RULES => <<END; #As defined in RFC 2234 appendix A
-ALPHA          =  %x41-5A / %x61-7A   ; A-Z / a-z
-BIT            =  "0" / "1"
-CHAR           =  %x01-7F             ; any 7-bit US-ASCII character, excluding NUL
-CR             =  %x0D                ; carriage return
-CRLF           =  CR LF               ; Internet standard newline
-CTL            =  %x00-1F / %x7F      ; controls
-DIGIT          =  %x30-39             ; 0-9
-DQUOTE         =  %x22                ; " (Double Quote)
-HEXDIG         =  DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
-HTAB           =  %x09                ; horizontal tab
-LF             =  %x0A                ; linefeed
-LWSP           =  *(WSP / CRLF WSP)   ; linear white space (past newline)
-OCTET          =  %x00-FF             ; 8 bits of data
-SP             =  %x20                ; space
-VCHAR          =  %x21-7E             ; visible (printing) characters
-WSP            =  SP / HTAB           ; white space
-END
+# Well, if you're reading the source code, you probably want to know something about the internals of this beast.
+# First, a warning to the educated: I have no formal knowledge of parsing, so my terminology probably differs from yours.
+# What we do is we parse the ABNF that the user gives us and turn it into an "op tree".  This op tree is a sequence
+# of operands: "all-ops", "any-ops", or "terminal".  Each operand has a value, as well as an optional token name,
+# minimum repeat count, and maximum repeat count.  Terminal operands are the leafiest parts of the tree.  The value of
+# a terminal operand is a regular expression.  Terminal operands are used for expressing actual character data.
+#
+# any-ops and all-ops are similar.  An any-op is a collection of alternative operands, similar to the '|' operator in
+# regular expressions.  An all-op is an ordered sequence of operands which must be matched in its entirety.  Both
+# any-ops and all-ops have lists of tokens as their values.  These lists can contain a mixture of strings which are
+# the names of other tokens and literal operands given as anonymous hashes.
+#
+# That will all make a lot more sense once you look at the parse tree for CORE_RULES given below... go do that and
+# then come back here.
+#
+#
+# Okay, so how do we generate these parse trees?  Well, we have to parse the ABNF given to us in the add method.
+# In order to do this, I've hard-coded in a parse tree for ABNF that I made by hand based on section 4 of the RFC.
+# Pretty neat, no?  Think about it - this lets us just use this one parsing engine for generating parse trees from
+# the user's ABNF and for parsing against the user's ABNF.  We take the hand-written parse tree and just bless it
+# into a Parse::ABNF object.
+#
+# Once you have the parse tree, the rest is pretty self-explanatory.  I mean it's not easy, but there's no special
+# trick.  You just go through the parse tree...
+
+use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
+	{
+		tokname => "ALPHA",
+		type => "terminal",
+		value => '[\x41-\x5A\x61-\x7A]' # A-Z / a-z
+	},{
+		tokname => "BIT",
+		type => "terminal",
+		value => "[01]"
+	},{
+		tokname => "CHAR",
+		type => "terminal",
+		value => '[\x01-\x7F]' # any 7-bit US-ASCII character, excluding NUL
+	},{
+		tokname => "CR",
+		type => "terminal",
+		value => '\x0D' # carriage return
+	},{
+		tokname => "CRLF",
+		type => "all-ops",
+		value => [qw(CR LF)] # Internet standard newline
+	},{
+		tokname => "CTL",
+		type => "terminal",
+		value => '[\x00-\x1F\x7F]' # controls
+	},{
+		tokname => "DIGIT",
+		type => "terminal",
+		value => '[\x30-39]' # 0-9
+	},{
+		tokname => "DQUOTE",
+		type => "terminal",
+		value => '\x22' # " (Double Quote)
+	},{
+		tokname => "HEXDIG",
+		type => "any-ops",
+		value => [
+			"DIGIT",
+			{
+				type => "terminal",
+				value => '[A-F]'
+			}
+		]
+	},{
+		tokname => "HTAB",
+		type => "terminal",
+		value => '\x09' # horizontal tab
+	},{
+		tokname => "LF",
+		type => "terminal",
+		value => '\x0A' # linefeed
+	},{
+		tokname => "LWSP",
+		type => "all-ops",
+		minreps => 0,
+		maxreps => -1,
+		value => [
+			{
+				type => "any-ops",
+				value => [qw(WSP CRLF)]
+			},
+			"WSP"
+		] # linear white space (past newline)
+	},{
+		tokname => "OCTET",
+		type => "terminal",
+		value => '[\x00-\xFF]' # 8 bits of data
+	},{
+		tokname => "SP",
+		type => "terminal",
+		value => '\x20' # space
+	},{
+		tokname => "VCHAR",
+		type => "terminal",
+		value => '[\x21-\x7E]' # visible (printing) characters
+	},{
+		tokname => "WSP",
+		type => "any-ops",
+		value => [qw(SP HTAB)] # white space
+	}
+);
 
 
 
@@ -240,7 +328,6 @@ sub abnf($$) {
 
 sub rules($;$) {
 	my($self, $rule) = @_;
-	my $rule;
 
 }
 
@@ -250,37 +337,255 @@ sub matches($$$;@) {
 }
 
 
-# Various regexes that we use to parse ABNF.
-use constant REGEX_WHITESPACE => '[ \t]*';
-use constant REGEX_VISCHAR => '[\x21-\x7E]';
-use constant REGEX_CRLF => "\(\r|\n|\(\r\n\)\)";
-
-use constant REGEX_COMMENT => '\(;\(' . REGEX_WHITESPACE . '|' . REGEX_VISCHAR . '\)\)'
-use constant REGEX_COMMENT_NEWLINE => '\(' . REGEX_COMMENT . '|' . REGEX_CRLF . '\)';
-use constant REGEX_COMMENT_WHITESPACE => '\(' . REGEX_COMMENT_NEWLINE . '?' . REGEX_WHITESPACE . '\)';
-
-use constant REGEX_REPEAT => '\([0-9]+|\([0-9]*\*[0-9]*\)\)';
-
-use constant REGEX_ELEMENT => '\(' . REGEX_RULENAME . '|' . REGEX_GROUP . '|' . REGEX_OPTION . '|' . REGEX_CHAR_VAL . '|' . REGEX_NUM_VAL . '|' . REGEX_PROSE_VAL . '\)';
-use constant REGEX_REPETITION => '\(' . REGEX_REPEAT . '?' . REGEX_ELEMENT . '\)';
-use constant REGEX_CONCATENATION => '\(' . REGEX_REPETITION . '\(' . REGEX_COMMENT_WHITESPACE . '+' . REGEX_REPETITION . '\)*\)';
-use constant REGEX_ALTERNATION => '\(' . REGEX_CONCATENATION . '\(' . REGEX_COMMENT_WHITESPACE . '*/' . REGEX_COMMENT_WHITESPACE . '*' . REGEX_CONCATENATION . '\)*\)';
-
-use constant REGEX_RULENAME => '\([a-zA-Z][-a-zA-Z0-9]*\)';
-use constant REGEX_DEFINED_AS => '\(' . REGEX_COMMENT_WHITESPACE . '*=/?' . REGEX_COMMENT_WHITESPACE . '*\)';
-
-
+# Remember to handle "REGEX_RULE continues if next line starts with whitespace" !!
 sub _parse_rules($$) {
 	my($self, $rules) = @_;
+}
 
-	while($rules =~ m/
-		^\( # Rules or comments
-			\( # A rule
-				[a-zA-Z][-a-zA-Z0-9]*		# A rule name
-				\( # Defined as...
-					[ \t]*| # Whitespace or
-			\(;\([ \t][\x21-\x7E]*\)
-	/x
+# We use this as a bootstrap for grokking ABNF syntax.
+use constant ABNF_PARSETREE => (
+	CORE_RULES,
+	{
+		tokname => "rulelist",
+		minreps => 1,
+		maxreps => -1,
+		type => "any-ops",
+		value => [
+			"rule", 
+			{
+				type => "all-ops",
+				value => [
+					{
+						type => "all-ops",
+						minreps => 0,
+						maxreps => -1,
+						value => [qw(c-wsp)]
+					}, "c-nl"
+				]
+			}
+		]
+	},{
+		tokname => "rule",
+		type => "all-ops",
+		value => [qw(rulename defined-as elements c-nl)]
+	},{
+		tokname => "rulename",
+		type => "all-ops",
+		value => ["ALPHA", 
+			{
+				type => "any-ops",
+				minreps => 0,
+				maxreps => -1,
+				value => ["ALPHA", "DIGIT", {type => "terminal", value => "-"}]
+			}
+		]
+	},{
+		tokname => "defined-as",
+		type => "all-ops",
+		value => ["maybe-some-c-wsp", {type => "terminal", value => '=/?'}, "maybe-some-c-wsp"]
+	},{
+		tokname => "elements",
+		type => "any-ops",
+		value => [qw(alternation maybe-some-c-wsp)]
+	},{
+		tokname => "c-wsp",
+		type => "any-ops",
+		value => ["WSP", {type => "all-ops", value => [qw(c-nl WSP)]}]
+	},{
+		tokname => "maybe-some-c-wsp",
+		type => "any-ops",
+		minreps => 0,
+		maxreps => -1,
+		value => [qw(c-wsp)]
+	},{
+		tokname => "c-nl",
+		type => "any-ops",
+		value => [qw(comment CRLF)]
+	},{
+		tokname => "comment",
+		type => "all-ops",
+		value => [
+			{type => "terminal", value => ";"},
+			{
+				type => "any-ops", 
+				minreps => 0,
+				maxreps => -1,
+				value => [qw(WSP VCHAR)]
+			},{type => "all-ops", value => [qw(CRLF)]}
+		]
+	},{
+		tokname => "alternation",
+		type => "all-ops",
+		value => ["concatenation",
+			{
+				type => "all-ops",
+				minreps => 0,
+				maxreps => -1,
+				value => ["maybe-some-c-wsp", {type => "terminal", value => "/"}, "maybe-some-c-wsp", "concatenation"]
+			}
+		]
+	},{
+		tokname => "concatenation",
+		type => "all-ops",
+		value => ["repetition",
+			{
+				type => "all-ops",
+				minreps => 0,
+				maxreps => -1,
+				value => [qw(maybe-some-c-wsp repetition)]
+			}
+		]
+	},{
+		tokname => "repetition",
+		type => "all-ops",
+		value => [
+			{
+				type => "all-ops",
+				minreps => 0,
+				maxreps => 1,
+				value => [qw(repeat)]
+			}, "element"
+		]
+	},{
+		tokname => "repeat",
+		type => "any-ops",
+		value => [
+			{
+				type => "all-ops",
+				minreps => 1,
+				maxreps => -1,
+				value => [qw(DIGIT)]
+			},{
+				type => "all-ops",
+				value => [
+					{
+						type => "all-ops",
+						minreps => 0,
+						maxreps => -1,
+						value => [qw(DIGIT)]
+					},{type => "terminal", value => '\*'},{
+						type => "all-ops",
+						minreps => 0,
+						maxreps => -1,
+						value => [qw(DIGIT)]
+					}
+				]
+			}
+		]
+	},{
+		tokname => "element",
+		type => "any-ops",
+		value => [qw(rulename group option char-val num-val prose-val)]
+	},{
+		tokname => "group",
+		type => "all-ops",
+		value => [{type => "terminal", value => '\('}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "terminal", value => '\)'}]
+	},{
+		tokname => "option",
+		type => "all-ops",
+		value => [{type => "terminal", value => '\['}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => "terminal", value => '\]'}]
+	},{
+		tokname => "char-val",
+		type => "all-ops",
+		value => ["DQUOTE", {type => "terminal", value => '[\x20-21\x23-7E]*'}, "DQUOTE"]
+	},{
+		tokname => "num-val",
+		type => "all-ops",
+		value => [{type => "terminal", value => "%"}, {type => "any-ops", value => [qw(bin-val dec-val hex-val)]}]
+	},{
+		tokname => "bin-val",
+		type => "all-ops",
+		value => [
+			{type => "terminal", value => "b"},
+			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(BIT)]},
+			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+				{
+					type => "all-ops",
+					minreps => 1,
+					maxreps => -1,
+					value => [{type => "terminal", value => '\.'}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(BIT)]
+					}]
+				},{
+					type => "all-ops",
+					value => [{type => "terminal", value => "-"}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(BIT)]
+					}]
+				}
+			]}
+		]
+	},{
+		tokname => "dec-val",
+		type => "all-ops",
+		value => [
+			{type => "terminal", value => "d"},
+			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(DIGIT)]},
+			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+				{
+					type => "all-ops",
+					minreps => 1,
+					maxreps => -1,
+					value => [{type => "terminal", value => '\.'}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(DIGIT)]
+					}]
+				},{
+					type => "all-ops",
+					value => [{type => "terminal", value => "-"}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(DIGIT)]
+					}]
+				}
+			]}
+		]
+	},{
+		tokname => "hex-val",
+		type => "all-ops",
+		value => [
+			{type => "terminal", value => "x"},
+			{type => "all-ops", minreps => 1, maxreps => -1, value => [qw(HEXDIG)]},
+			{type => "any-ops", minreps => 0, maxreps => 1, value => [
+				{
+					type => "all-ops",
+					minreps => 1,
+					maxreps => -1,
+					value => [{type => "terminal", value => '\.'}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(HEXDIG)]
+					}]
+				},{
+					type => "all-ops",
+					value => [{type => "terminal", value => "-"}, {
+						type => "all-ops",
+						minreps => 1,
+						maxreps => -1,
+						value => [qw(HEXDIG)]
+					}]
+				}
+			]}
+		]
+	},{
+		tokname => "prose-val",
+		type => "all-ops",
+		value => [{type => "terminal", value => "<"}, {type => "terminal", value => '[\x20-\x3D\x3F-\x7E]*'}, {type => "terminal", value => ">"}]
+	}
+);
+
+sub BEGIN {
+	$ABNF = { ABNF_PARSETREE };
+	bless $ABNF, "Parse::ABNF";
 }
 
 1;
