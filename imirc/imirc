@@ -494,10 +494,15 @@ sub mainloop() {
 					next unless $screenname;
 					$sndata = $connection->{screennames}->{$screenname};
 					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
-					next if $sndata->{ison};
-					next if ($currtime - $sndata->{signontime}) <= 10;
-					irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
-					do_signoff($nick, $sndata->{oscar}, 1);
+					if($sndata->{ison}) {
+						my $buddy = (keys %{$sndata->{away_queue}})[0];
+						$sndata->{oscar}->get_away($buddy);
+						delete $sndata->{away_queue}->{$buddy};
+					} else {
+						next if ($currtime - $sndata->{signontime}) <= 10;
+						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
+						do_signoff($nick, $sndata->{oscar}, 1);
+					}
 				}
 			}
 
@@ -1296,6 +1301,7 @@ sub process_irc_message($) {
 				irc_send("$foo :reorder_groups group1, group2, ... - Changes the order of the groups in your buddylist.\r\n", 1);
 				irc_send("$foo :reorder_groups group buddy1, buddy2, ... - Changes the order of the buddies in a group on your buddylist.\r\n", 1);
 				irc_send("$foo :set_buddy_comment buddy comment - Associate a brief comment with a buddy.  This can be something like the buddy's real name.\r\n", 1);
+				irc_send("$foo :get_away screenname - View someone's away message.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :Note on savebuddies\\loadbuddies: savebuddies will send you a CTCP savebuddies (loadbuddies sends CTCP loadbuddies.\r\n", 1);
 				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
@@ -1476,6 +1482,7 @@ sub process_irc_message($) {
 				$param =~ /(\d+)/;
 				$oscar->chat_decline($chats{$1}->{url});
 				delete $chats{$1};
+				irc_send(irc_privmsg($usnick, $nick, "Chat invitation declined.", "", "", $screenname));
 			}
 		} elsif($cmd eq "clonebuddies") {
 			local @ARGV = split(/\s+/, "$param $extra");
@@ -1511,6 +1518,13 @@ sub process_irc_message($) {
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "Direction for clonebuddies must be 'to' or 'from'.", "", "", $screenname));
 				}
+			}
+		} elsif($cmd eq "get_away") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: get_away screenname", "", "", $screenname));
+			} else {
+				$sndata->{away_requested}->{$param} = 1;
+				$oscar->get_away($param);
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -1721,14 +1735,21 @@ sub oscar_buddy_in($$$$) {
 			irc_send(irc_privmsg($usnick, $nick, "$buddy has gone away.  Use the IRC command /whois $inick to see the away message.", "", "", $screenname));
 			$sndata->{away}->{$buddy} = 1;
 		}
-		$oscar->get_away($buddy) unless $away->{$buddy};
-		$away->{$buddy} = 1;
+		if(!$away->{buddy}) {
+			if(time - $sndata->{ison} > 30) {
+				$oscar->get_away($buddy);
+			} else {
+				irc_send(irc_away(ircify($prefix.$buddy), "This user's away message has not yet been retrieved.  Use the get_away command to see the away message."));
+				$sndata->{away_queue}->{$buddy} = 1;
+			}
+			$away->{$buddy} = 1;
+		}
 	} else {
 		if($sndata->{away}->{$buddy}) {
 			delete $sndata->{away}->{$buddy};
 			irc_send(irc_privmsg($usnick, $nick, "$buddy is no longer away.", "", "", $screenname));
 		}
-		irc_send(":$inick AWAY\r\n") if delete $away->{$buddy};
+		irc_send(irc_away($inick)) if delete $away->{$buddy};
 	}
 }
 
@@ -1898,8 +1919,14 @@ sub oscar_buddy_info($$$) {
 	if($buddat->{awaymsg}) {
 		$away->{$buddy} = $buddat->{awaymsg};
 		my $awaymsg = html2txt($buddat->{awaymsg});
-		$awaymsg =~ tr/\r\n/  /;
-		irc_send(":".ircify($prefix.$buddy)." AWAY :$awaymsg\r\n");
+		if($sndata->{away_requested}->{$buddy}) {
+			irc_send(irc_privmsg(ircify($prefix.$buddy), $awaymsg, "[AWAY] ", "", $screenname));
+			delete $sndata->{away_requested}->{$buddy};
+		} else {
+			$awaymsg =~ tr/\r\n/  /;
+			$awaymsg = "This away message is too long for the IRC server to handle.  Use the get_away command to see it." if length($awaymsg) > 500;
+			irc_send(irc_away(ircify($prefix.$buddy), $awaymsg));
+		}
 	} else {
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
@@ -1938,7 +1965,7 @@ sub oscar_signon_done($) {
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_part($usnick, $chan));
 
-	$sndata->{ison} = 1;
+	$sndata->{ison} = time;
 	update_usercount();
 	if($irc_away->{$nick}) {
 		$oscar->set_away($irc_away->{$nick});
@@ -2169,6 +2196,8 @@ sub do_signon($$$$) {
 	$sndata->{inchan} = 0;
 	$connection->{aimnick} ||= $screenname;
 	$sndata->{away_buddies} = $oscar->buddyhash();
+	$sndata->{away_queue} = $oscar->buddyhash();
+	$sndata->{away_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
 	$irc_connections->{$screenname} = $nick;
 
@@ -2314,6 +2343,13 @@ sub irc_invite($$$) {
 
 	return ":$from INVITE $who $channel\r\n";
 }
+
+# Set an away message
+sub irc_away($;$) {
+	my($nick, $awaymsg) = @_;
+	return $awaymsg ? ":$nick AWAY :$awaymsg\r\n" : ":$nick AWAY\r\n";
+}
+
 
 # Receive a message from IRC
 sub irc_recv(;$) {
@@ -3071,3 +3107,4 @@ sub rm_nick_user($$) {
 		irc_send(irc_quit(ircify($prefix.$nick), "No more users (reaped)"));
 	}
 }
+
