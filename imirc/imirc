@@ -1551,7 +1551,7 @@ Buddy {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
-		$screenname = $connection = $sndata = "";
+		$screenname = "";
 		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
 		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
 
