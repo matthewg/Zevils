@@ -61,4 +61,10 @@ sub GetStories($;%) { print "GetStories\n"; return qw(1); }
 sub GetComments($;%) { print "GetComments\n"; return qw(1); }
 sub GetFrontendVars($;%) { print "GetFrontendVars\n"; return qw(1); }
 
+require Slash::PSM::BSI:Section;
+require Slash::PSM::BSI::Topic;
+require Slash::PSM::BSI::User;
+require Slash::PSM::BSI::Story;
+require Slash::PSM::BSI::Comment;
+
 1;

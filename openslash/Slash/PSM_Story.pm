@@ -1,4 +1,4 @@
-package Slash::PSM::SlashSite::Section;
+package Slash::PSM::SlashSite::Story;
 use strict;
 use Carp qw(cluck croak carp confess);
 no strict 'subs';
@@ -8,7 +8,7 @@ use vars qw(@ISA %rfields %wfields $AUTOLOAD);
 sub AUTOLOAD {
 	my($self, %rfields, %wfields) = shift;
 
-	return unless ref($self) eq "Slash::PSM::Section" or $self eq "Slash::PSM::Section"; #Don't allow this method to be inherited.
+	return unless ref($self) eq "Slash::PSM::Story" or $self eq "Slash::PSM::Story"; #Don't allow this method to be inherited.
 	for my $attr (qw()) { $rfields{$attr}++; }
 	for my $attr (qw()) { $wfields{$attr}++; }
 
@@ -16,3 +16,4 @@ sub AUTOLOAD {
 }
 
 1;
+
