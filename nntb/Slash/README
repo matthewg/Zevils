@@ -1,9 +1,5 @@
 To install:
 	ln -s /usr/src/nntb/Slash/NNTP /usr/local/slash/plugins/NNTP
-	cd /usr/local/slash/plugins/NNTP
-	perl Makefile.PL
-	make
-	make install
 	/usr/local/slash/bin/install-plugins -u slash
 
 Configuration parameters:
@@ -11,6 +7,8 @@ Configuration parameters:
 	slashsites: Path to your slash.sites file; $datadir/slash.sites by default.
 	slashsite: Which slash site this entry is for; the first entry in
 		slashsites will be used by default.
+	snum_lockfile: Semaphore file for stories.nntp_snum.  Defaults to
+		$datadir/site/$slashsite/nntb_snum.lock
 
 Custom article headers:
 	X-Slash-URL: URL for web access to (story/comment/journal)

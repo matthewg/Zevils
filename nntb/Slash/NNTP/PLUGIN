@@ -3,4 +3,3 @@ description="NNTP support"
 mysql_schema=mysql_schema
 mysql_dump=dump
 note=note
-task=nntp.pl

@@ -508,6 +508,21 @@ sub groupstats($$) { return undef; }
 
 =pod
 
+=item next GROUP MSGNUM
+
+=item prev GROUP MSGNUM
+
+These methods should returns the next or previous message number from
+the given message number in the given group.  The validity of the group
+and message number will be verified before this method is called.
+
+=cut
+
+sub next($$$) { return undef; }
+sun prev($$$) { return undef; }
+
+=pod
+
 =item num2id GROUP MSGNUM
 
 This method should convert a message number in a particular group to a message ID.

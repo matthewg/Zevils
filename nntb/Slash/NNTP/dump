@@ -1,3 +1,2 @@
 INSERT INTO vars (name, value, description) VALUES ('nntp_force_auth', '0', '1=Users must log in to use NNTP, 2=Only subscribers can log in');
-INSERT INTO vars (name, value, description) VALUES ('nntp_next_snum', '1', 'Next story number for NNTP - don\'t change this');
 INSERT INTO vars (name, value, description) VALUES ('nntp_host', 'www.example.com', 'Hostname of NNTP server');
