@@ -190,9 +190,8 @@ $image
 sub makeDir
 {
 	my ($section,$sid)=@_;
-        my $monthid=substr($sid,3,2);
-        my $yearid=substr($sid,0,2);
-        my $dayid=substr($sid,6,2);
+	$sid =~ m!^(\d+)/(\d+)/(\d+)!;
+	my($yearid, $monthid, $dayid) = ($1, $2, $3);
 	mkdir "$basedir/$section",oct('0755');
         mkdir "$basedir/$section/$yearid",oct('0755');
         mkdir "$basedir/$section/$yearid/$monthid",oct('0755');
