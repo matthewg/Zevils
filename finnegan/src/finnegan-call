@@ -33,7 +33,7 @@ $v->waitfor("READY");
 
 # User hangs up
 $v->del_handler('BUSY_TONE', 'endh');
-$v->add_handler('BUSY_TONE', 'endh', sub { vm_shutdown(3); });
+$v->add_handler('BUSY_TONE', 'endh', sub { vm_shutdown($snooze_ok ? 3 : 0); });
 
 if($type eq "wake") {
 	$v->add_handler('RECEIVED_DTMF', 'readnum', sub {
@@ -48,4 +48,4 @@ $v->play_and_wait($sample);
 $v->wait(1);
 $v->expect("READY");
 $v->play_and_wait($sample);
-vm_shutdown(3, 1);
+vm_shutdown($snooze_ok ? 3 : 0, 1);
