@@ -412,7 +412,7 @@ sub process_irc_message {
 			get_directory($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "set_dir") {
 			$param = "$param $extra" if $extra;
-			if($param) {
+			if($param and $param ne "set_dir") {
 				@temp = split(/:/, $param);
 					%temp = (
 					first_name => shift @temp,
@@ -430,7 +430,7 @@ sub process_irc_message {
 			}
 		} elsif ($cmd eq "dir_search") {
 			$param = "$param $extra" if $extra;
-			if($param) {
+			if($param and $param ne "dir_search") {
 				@temp = split(/:/, $param);
 				%temp = (
 					first_name => shift @temp,
@@ -502,13 +502,13 @@ sub process_irc_message {
 				$upstream->print("$foo :italic 0/1 - When set to 1 (the default), HTML italic tags will be translated to their IRC formatting equivalent.\r\n");
 				$upstream->print("$foo :underlined 0/1 - When set to 1 (the default), HTML underlined tags will be translated to their IRC formatting equivalent.\r\n");
 			} else {
-				$upstream->print("$foo :aimirc $version, (c)1999 Matthew Sachs.\r\n");
+				$upstream->print("$foo :aimirc $version, (c)2000 Matthew Sachs.\r\n");
 				$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
 				$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
 				$upstream->print("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n");
 				$upstream->print("$foo :basics buddies chat misc\r\n");
 				$upstream->print("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n");
-				$upstream->print("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to $prefixSomeDude.\r\n");
+				$upstream->print("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n");
 				$upstream->print("$foo :That person must be on your buddylist, have sent you an IM recentely, or be added to IRC via the add command.\r\n");
 			}
 		} else {
