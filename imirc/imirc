@@ -438,7 +438,7 @@ sub loadconf() {
 				$self->mask($io, 0);
 				my $fd = fileno($io);
 				delete $self->[0]{$fd} unless %{$self->[0]{$fd}};
-				print STDERR "Called IO::Poll workaround\n";
+				#print STDERR "Called IO::Poll workaround\n";
 			};
 		}
 
@@ -568,10 +568,11 @@ sub mainloop() {
 			if($usepoll) {
 				#debug_print("Processing poll results...", "irc", 2);
 				foreach my $handle ($poll->handles(POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)) {
+					next unless $handle;
 					my $events = $poll->events($handle);
 					my $target = $fdmap{fileno($handle)};
 
-					debug_print("Got handle $handle (". fileno($handle). ") target $target (". ref($target). ") with events $events", "irc", 2);
+					#debug_print("Got handle $handle (". fileno($handle). ") target $target (". ref($target). ") with events $events", "irc", 2);
 
 					if($events & POLLNVAL) {
 						$poll->remove($handle);
@@ -618,8 +619,10 @@ sub mainloop() {
 				$do_irc = 1 if vec($rin, $upstream->fileno, 1);
 			}
 
-			#debug_print("Processing IRC...", "irc", 2);
-			process_irc_message(irc_recv(1)) if $do_irc or @getbuff;
+			if($do_irc or @getbuff) {
+				debug_print("Processing IRC...", "irc", 2);
+				process_irc_message(irc_recv(1));
+			}
 
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
