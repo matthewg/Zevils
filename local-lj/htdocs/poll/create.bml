@@ -356,9 +356,9 @@
         }
         $ret .= "</select></p>\n";
 
-        $ret .= "<p>Are the results of this poll anonymous?<br /><input name='anonymous' type='checkbox'";
+        $ret .= "<p><input name='anonymous' type='checkbox'";
         $ret .= " selected" if $poll->{'anonymous'};
-        $ret .= "></p>\n";
+        $ret .= ">The results of this poll are anonymous.</p>\n";
   
         $ret .= "Poll Name: <i>(opt.)</i><br />";
         $ret .= LJ::html_text({ 'name' => 'name', 'size' => '50', 
