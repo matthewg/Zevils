@@ -9,6 +9,10 @@ use Modem::Vgetty;
 use POSIX;
 use DBI;
 
+my $test = shift || "";
+
+warn "TESTING MODE\n" if $test;
+
 my($db_host, $db_user, $db_pass, $db_database);
 my $brancal_timestamp = 0;
 require "./db-info.inc";
@@ -21,11 +25,27 @@ POSIX::setsid() or die "Can't start a new session: $!";
 
 $SIG{CHLD} = sub { push @phonelines, delete $kidmap{wait()}; };
 
-my $dbh = DBI->connect("DBI:mysql:database=$db_database;host=$db_host", $db_user, $db_pass);
+our $dbh = DBI->connect("DBI:mysql:database=$db_database;host=$db_host", $db_user, $db_pass);
 if(!$dbh) die "Couldn't connect to database.\n";
 
-my $get_wakes = $dbh->prepare("SELECT * FROM wakes WHERE (trigger_time = NULL OR DATE(trigger_time) < CURDATE()) AND (ISNULL(date) OR date=CURDATE()) ORDER BY time LIMIT ".(scalar(@phonelines)*2);
+my $get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
+my $get_wakes = $dbh->prepare("SELECT * FROM wakes WHERE next_trigger <= NOW() ORDER BY time LIMIT ".(scalar(@phonelines)*2);
+my $update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
 
+my %daymap = ("Sun" => 1, "Mon" => 2, "Wed" => 3, "Thu" => 4, "Fri" => 6, "Sat" => 7);
+my @daymap_inv = ("", sort { $daymap{$a} <=> $daymap{$b} } keys %daymap);
+
+sub log_error($) {
+	my $errstr = $dbh->quote(shift);
+	$dbh->execute("INSERT INTO log_daemon (time, data) VALUES (NOW(), $errstr)");
+}
+sub db_error($) {
+	my $errstr = "Database error: " . shift . " - " . $dbh->{mysql_error};
+	log_error($errstr);
+}
+
+# -1. Reload Brandeis calendar data, if necessary.
+# 0. Update next_trigger.  Note that we don't attempt to figure out the correct date for recurring wakes, we do that ad-hoc.
 # 1. Wait until we have a phone line available.
 # 2. Get as many wakes as we have phone lines, times two
 # 3. Check to see if we should call any now
@@ -33,6 +53,52 @@ my $get_wakes = $dbh->prepare("SELECT * FROM wakes WHERE (trigger_time = NULL OR
 # 5. For each free phone lines we have, if there are at least 60 seconds until the next wake, pop off a forgot_pin if there are any.
 # 6. Sleep 10 seconds
 while(1) {
+	my $bctime = (stat "./brancal.inc")[9];
+	if($bctime > $brancal_timestamp) {
+		$brancal_timestamp = $bctime;
+		my $ret = do "./brancal.inc";
+		if(!$ret) {
+			my $reason = "";
+			$reason = "Couldn't parse brancal.inc: $@" if $@;
+			$reason = "Couldn't load brancal.inc: $!" unless defined($ret);
+			$reason = "Couldn't run brancal.inc" unless $ret;
+			log_error($reason);
+		}
+
+		# Make sure it gets included again next time
+		delete $INC{"brancal.inc"};
+		delete $INC{"./brancal.inc"};
+	}
+
+	my $ret = $get_newwakes->execute();
+	if(!$ret) {
+		db_error("Couldn't get new wakes");
+	} else {
+		while(my $row = $get_newwakes->fetchrow_hashref) {
+			$row->{time} =~ /(\d+):(\d+)/;
+			my @waketime = (0, $2, $1, 0, 0, 0);
+			my $waketime;
+			if($row->{date}) {
+				my @dateparts = split(/-/, $row->{date});
+				@waketime[3, 4, 5] = @dateparts[2, 1, 0];
+				$waketime = mktime(@waketime);
+			} else {
+				my @currtime = localtime(time()));
+				@waketime[3, 4, 5] = @currtime[3, 4, 5];
+
+				my $currsecs = $currtime[2]*60+$currtime[1];
+				my $wakesecs = $waketime[2]*60+$waketime[1];
+
+				$waketime = mktime(@waketime);
+				$waketime += 60*60*24 if $currsecs > $wakesecs; # Not today - tomorrow
+			}
+
+			if(!$update_nexttime->execute($waketime, $row->{id})) {
+				db_error("Couldn't update trigger_time");
+			}
+		}
+	}
+
 	if(!@phonelines) {
 		sleep 10;
 		next;
@@ -40,12 +106,54 @@ while(1) {
 
 	$ret = $get_wakes->execute();
 	if(!$ret) {
-		$dbh->execute("INSERT INTO log_daemon (time, data) VALUES (NOW(), "Couldn't get wakes: ' . $dbh->{mysql_error} . "')");
-		exit 1;
+		db_error("Couldn't get wakes");
+		next;
 	}
 
-	while(my $row = $get_wakes->fetchrow_hashref) {
-		
+	while(@phonelines and my $row = $get_wakes->fetchrow_hashref) {
+		# If it's a non-snoozed recurring wait, we have to make sure that it should get tapped today
+		if(!$row->{date} and !$row->{snooze_count}) {
+			my $go_today = 1;
+
+			my($weekday, $hour, $date) = split(/:/, strftime("%w:%H:%Y-%m-%d", localtime(time())));
+			my $yesterday_date = strftime("%Y-%m-%d", localtime(time() - 60*60*24));
+			my @today = split(/-/, strftime("%d-%m-%Y", localtime(time())));
+			my @tomorrow = split(/-/, strftime("%d-%m-%Y", localtime(time() + 60*60*24)));
+			$weekday++; # Make Sunday 1, not 0
+			my $yesterday = ($week_day - 1) % 8;
+
+			if($row->{cal_type} eq "Brandeis") {
+				$weekday = $finnegan::BRANDEIS_DAYS->{$date} if $finnegan::BRANDEIS_DAYS->{$date};
+				$yesterday = $finnegan::BRANDEIS_DAYS->{$yesterday_date} if $finnegan::BRANDEIS_DAYS->{$yesterday_date};
+			}
+
+			my %wake_days = map { $daymap{$_} => 1 } split(/,/, $row->{cur_weekdays});
+			$wake->{time} =~ /^(\d+):/;
+			my $wake_hour = $1;
+
+			# Should the wake be activated on this day of the week?
+			# Or, if wake is for 11PM, and it's midnight, also check yesterday.
+			if($wake_days{$weekday}) {
+				# Everything's groovy
+			} elsif($wake_hour == 23 and $hour == 0 and $wake_days{$yesterday}) {
+				$weekday = $yesterday;
+				$date = $yesterday_date;
+				@tomorrow = @today;
+			} else {
+				$go_today = 0;
+			}
+
+			$go_today = 0 if $row->{cal_type} eq "Brandeis" and $finnegan::NO_CLASSES->{$date};
+			$go_today = 0 if $row->{cal_type} eq "holidays" and $finnegan::HOLIDAYS->{$date};
+
+			if(!$go_today) {
+				$row->{time} =~ /(\d+):(\d+)/;
+				
+				my $waketime = mktime(0, $2, $1, @today);
+				if(!$update_nexttime->execute($waketime, $row->{id})) {
+					db_error("Couldn't update trigger_time");
+				}
+		}
 	}
 }
 my $v = new Modem::Vgetty;

@@ -14,15 +14,13 @@ CREATE TABLE wakes (
 	cur_weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cal_type SET('normal', 'holidays', 'Brandeis') NULL,
 	snooze_interval INT NOT NULL DEFAULT 9,
-	snooze_time TIME NULL,
 	snooze_count INT NOT NULL DEFAULT 0,
-	trigger_time DATETIME NULL,
+	next_trigger DATETIME NULL,
 	INDEX (time),
 	INDEX (date),
 	INDEX (std_weekdays),
 	INDEX (cur_weekdays),
-	INDEX (snooze_time),
-	INDEX (verified),
+	INDEX (next_trigger),
 	INDEX (extension)
 );
 
