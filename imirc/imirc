@@ -521,6 +521,7 @@ sub mainloop() {
 		}
 
 		irc_send(irc_join($usnick, "#imirc-debug"));
+		irc_send(irc_mode($us, "#imirc-debug", "+o $usnick"));
 		irc_send(irc_mode($usnick, "#imirc-debug", "+nsk $ourpass"));
 		$imircdebug = 1;
 		$longnicks->{'#imirc-debug'} = '#imirc-debug';
@@ -865,8 +866,17 @@ sub process_irc_message($$) {
 
 		if($nick eq $themname and $servermode eq "unreal") {
 			$modes =~ s/\s*(\d+)$//;
-			return if $bouncequeue->{$chan} and $modes ne "+";
-			$chants->{$chan} = $1;
+
+			# Argh.
+			# Unreal 3.1: 
+			#	:somedude JOIN #chan
+			#	MODE #chan +o somedude 1234
+			#	MODE #chan +  somedude 1233
+			# Unreal 3.2:
+			#	:somedude JOIN #chan
+			#	MODE #chan +o somedude 1233
+			$chants->{$chan} = $1 - 10;
+
 			return bounce_join(delete($bouncequeue->{$chan}), $chan) if $bouncequeue->{$chan};
 			return if $modes =~ /^&/; # TS uses this to indicate that it's bouncing the modes
 		}
