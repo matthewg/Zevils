@@ -14,13 +14,11 @@ CFLAGS=-ggdb -DHAVE_OPENGL -I../lwalib $(SDL_CFLAGS) # -Wall
 LDFLAGS=$(SDL_LIBS) $(GL_LIBS)
 
 COMPILE=$(CC) $(CFLAGS) -c $< -o $@
-LINK=$(CC) $(CFLAGS) -o $@ $^  $(LDFLAGS)
+LINK=$(CC) $(CFLAGS) -o $@ $(OBJS) ../lwalib/lwalib.a  $(LDFLAGS)
 MKLIB=$(AR) r $@ $(OBJS)
 
 clean:
 	rm -f *.o *.exe $(APP)
-
-../lwalib/lwalib/lwalib.a: lwalib
 
 lwalib:
 	$(MAKE) -C ../lwalib
@@ -31,7 +29,7 @@ lwalib:
 %.a: $(OBJS)
 	$(MKLIB)
 
-$(APP): $(OBJS) ../lwalib/lwalib.a
+$(APP): $(OBJS) lwalib
 	$(LINK)
 
 
