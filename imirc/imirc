@@ -1467,6 +1467,14 @@ User {
 				$oscar->loglevel($param);
 				$sndata->{loglevel} = $param;
 			}
+		} elsif($cmd eq "decline") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: decline chat", "", "", $screenname));
+			} else {
+				$param =~ /(\d+)/;
+				$oscar->chat_decline($chats{$1}->{url});
+				delete $chats{$1};
+			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
@@ -1798,7 +1806,7 @@ sub oscar_chat_invite($$$$$) {
 		queue => ""
 	};
 	my $chan = chatchan($chatid);
-	irc_send(irc_privmsg($usnick, $nick, "$from has invited us to chatroom $chat for the following reason: " .  html2txt($msg) . "To accept, join $chan", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "$from has invited us to chatroom $chat for the following reason: " .  html2txt($msg) . "To accept, join $chan.  To decline, send $usnick the command 'decline $chatid'.", "", "", $screenname));
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_mode($usnick, $chan, "+ints"));
