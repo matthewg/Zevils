@@ -48,6 +48,7 @@ sub BEGIN {
 use File::Basename;
 
 my $altinstall = shift || 0;
+$altinstall = 1 if $] < 5.006;
 
 my $dirname = dirname($0);
 chomp($dirname = `pwd`) if $dirname eq ".";
