@@ -839,20 +839,21 @@ instead calling set_config.  Returns the toc_set_config-format string.
 
 =cut
 
-sub conf2str($\%) {
+sub conf2str(\%) {
 	my($config) = @_;
-	my($msg, %config, $group, $buddy, $permtype);
+	my($msg, %config, $group, $buddy, $permtype, %groups);
 	$permtype = $config->{permtype};
 	$permtype ||= 4;
 	$msg = "m $permtype\n";
 	foreach $buddy (keys %{$config->{Buddies}}) {
-		push @{$config{$config->{Buddies}{$buddy}{group}}}, $buddy;
+		$group = $config->{Buddies}{$buddy}{group};
+		push @{$groups{$group}}, $buddy;
 	}
-	foreach $group (keys %$config) {
+	foreach $group (sort keys %groups) {
 		next if $group eq "permit" or $group eq "deny" or $group eq "permtype";
 		next if $group eq "permtype" or $group eq "groups";
 		$msg .= "g $group\n";
-		foreach $buddy (@{$config{$group}}) {
+		foreach $buddy (sort @{$groups{$group}}) {
 			$msg .= "b $buddy\n";
 		}
 	}
