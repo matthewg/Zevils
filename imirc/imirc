@@ -1271,6 +1271,7 @@ sub process_irc_message($$) {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname", "", "", $screenname));
 			} else {
+				$sndata->{info_requested}->{$param} = 1;
 				$oscar->get_info($param);
 			}
 		} elsif ($cmd eq "set_info" or $cmd eq "set_profile") {
@@ -2240,8 +2241,8 @@ sub oscar_buddy_info($$$) {
 	} elsif($sndata->{away_requested}->{$buddy}) {
 		irc_send(irc_privmsg($usnick, $nick, "$buddy is not away or has no away message set.", "", "", $screenname));
 		delete $sndata->{away_requested}->{$buddy};
-	} else {
-
+	} elsif($sndata->{info_requested}->{$buddy}) {
+		delete $sndata->{info_requested}->{$param};
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
@@ -2550,6 +2551,7 @@ sub do_signon($$$$) {
 	$sndata->{away_buddies} = $oscar->buddyhash();
 	$sndata->{away_queue} = $oscar->buddyhash();
 	$sndata->{away_requested} = $oscar->buddyhash();
+	$sndata->{info_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
 	$sndata->{ctcp} = 0;
 	$sndata->{relnotes} = {};
