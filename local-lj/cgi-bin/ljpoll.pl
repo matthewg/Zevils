@@ -585,7 +585,7 @@ sub show_poll
             }
 
             LJ::Poll::clean_poll(\$value);
-            $ret .= "<p>" . ($po->{'anonymous'} ? "<em>Anonymous</em>" : LJ::ljuser($user)) . " -- $value</p>\n";
+            $ret .= "<p>" . ($po->{'anonymous'} ? "<i>(Anonymous)</i>" : LJ::ljuser($user)) . " -- $value</p>\n";
         }
 
         # temporary
