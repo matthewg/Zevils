@@ -1651,7 +1651,7 @@ sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
 	foreach $xnick(keys %nicks) {
-		next if $xnick eq $usnick;
+		next if normalize($xnick) eq normalize($usnick);
 		delete $nicks{$xnick}{$nick};
 		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
