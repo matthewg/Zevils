@@ -27,6 +27,9 @@ $v->enable_events;
 $v->dial($extension);
 $v->waitfor("READY");
 
+# User hangs up
+$v->add_handler('DIAL_TONE', 'hangup', sub { $v->send("ATH0"); $v->shutdown; exit(2); });
+
 if($type eq "wake") {
 	$v->add_handler('RECEIVED_DTMF', 'readnum', sub {
 		$v->stop;
