@@ -37,7 +37,7 @@ CREATE TABLE log_wake (
 	phoneline VARCHAR(255) NULL,
 	ip VARCHAR(15) NULL,
 	INDEX (extension),
-	INDEX (wake_id),
+	INDEX (wake_id)
 );
 
 CREATE TABLE log_ext (
