@@ -8,7 +8,7 @@ if(isset($_POST["op"])) {
 	$op = $_POST["op"];
 	if($op == "Forgot PIN" && $extension_ok && $extension) {
 		if(!mysql_query("UPDATE prefs SET forgot_pin=1 WHERE extension='$extension'")) db_error();
-		if(!mysql_affected_rows())
+		if(!mysql_affected_rows() && !mysql_num_rows(mysql_query("SELECT * FROM prefs WHERE extension='$extension'")))
 			echo $TEMPLATE["login"]["pin_not_found"];
 		else
 			echo $TEMPLATE["login"]["pin_sent"];
