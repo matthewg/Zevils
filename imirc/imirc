@@ -1110,7 +1110,7 @@ sub process_irc_message($$) {
 			foreach $group($oscar->groups) {
 				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
 				foreach $buddy(sort {
-				  $a->{online} <=> $b->{online}
+				  $b->{online} <=> $a->{online}
 				    or
 				  $a->{away} <=> $b->{away}
 				    or
@@ -1124,7 +1124,7 @@ sub process_irc_message($$) {
 					$line .= " [icon]" if $buddy->{icon_md5sum};
 					$line .= " [away]" if $buddy->{online} and $buddy->{away};
 					$line .= " [warning level $evil%]" if $evil;
-					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{alias} ne $buddy->{screenname};
+					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{screenname} ne $buddy->{alias};
 					$line .= " {Status: $buddy->{extended_status}}" if $buddy->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
@@ -1150,7 +1150,7 @@ sub process_irc_message($$) {
 					$line .= " [icon]" if $buddy->{icon_md5sum};
 					$line .= " [away]" if $buddy->{away};
 					$line .= " [warning level $evil%]" if $evil;
-					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{alias} ne $buddy->{screenname};
+					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{screenname} ne $buddy->{alias};
 					$line .= " {Status: $buddy->{extended_status}}" if $buddy->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
