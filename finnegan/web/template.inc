@@ -72,6 +72,16 @@ END_MKWAKE_EDIT_START
 END_DOCS_START
 ,
 
+	"legal_start" => <<<END_LEGAL_START
+<ul class="navigation">
+<li><a href="index.php">View Your Wake-up Calls</a></li>
+<li><a href="mkwake.php">Create a New Wake-up Call</a></li>
+<li><a href="docs.php">Documentation</a></li>
+</ul>
+<h3>Legal Information</h3>
+END_LEGAL_START
+,
+
 	"wake_list_start" => <<<END_WAKE_LIST_START
 <p>
 Your current wake-up calls are listed below.  To add a wake-up call,
@@ -173,7 +183,12 @@ END_MKWAKE_NEW_END
 END_DOCS_END
 ,
 
+	"legal_end" => <<<END_LEGAL_END
+END_LEGAL_END
+,
+
 	"page_end" => <<<END_PAGE_END
+<p><small>(c)2004 <a href="http://www.zevils.com/">Matthew Sachs</a> and <a href="http://union.brandeis.edu/">the Brandeis Student Union</a>.  <a href="legal.php">Legal Information</a></small></p>
 </body>
 </html>
 END_PAGE_END

@@ -63,6 +63,11 @@ person entering the invalid PINs from accessing the system.
 END_FAQITEM
 ),
 
+	array("Can I get a copy of the Finnegan source code?", <<<END_FAQITEM
+
+END_FAQITEM
+),
+
 	array("Who can I contact regarding questions/comments/suggestions/complaints pertaining to Finnegan?", <<<END_FAQITEM
 You can post a message to <a href="http://my.brandeis.edu/bboard/q-and-a?topic%5fid=592&topic=Finnegan%3a%20Wake%2dup%20Call%20System">the Finnegan bboard</a>
 or email <a href="mailto:finnegan@brandeis.edu">finnegan@brandeis.edu</a> .

@@ -163,3 +163,7 @@ Documentation items (docs.php):
 		NUM
 		CONTENTS
 	docs_body_end
+
+Legal information (legal.php):
+	legal_start
+	legal_end
