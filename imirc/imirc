@@ -1465,7 +1465,7 @@ sub process_irc_message($) {
 				irc_send("$foo :When you sign on, you will be reminded if you have any untriggered pounces.\r\n", 1);
 				irc_send("$foo :Each pounce is deleted after it is triggered, so it only will happen once.\r\n", 1);
 				irc_send("$foo :You can have one pounce per buddy, and you can only hae pounces for people on your buddylist.\r\n", 1);
-				irc_send("$foo :If you delete a buddy, its pounce goes with it.", 1);
+				irc_send("$foo :If you delete a buddy, its pounce goes with it.\r\n", 1);
 				irc_send("$foo :\r\n", 1);
 				irc_send("$foo :Pounce commands:\r\n", 1);
 				irc_send("$foo :\tadd_pounce buddy text - Pounce on screenname with a message of text.\r\n", 1);
