@@ -2,6 +2,12 @@
 
 #NNTB - Network News Transport for 'Blogs
 
+sub BEGIN {
+	require File::Basename;
+	File::Basename->import;
+	unshift @INC, dirname($0)."/lib";
+}
+
 use strict;
 use warnings;
 use vars qw($version @args %config %blogs $client_ip);
@@ -9,11 +15,6 @@ use NNTB::Common;
 
 $version = "0.01";
 
-sub BEGIN {
-	require File::Basename;
-	File::Basename->import;
-	unshift @INC, dirname($0)."/lib";
-}
 
 sub do_log(@) { _log("NNTB: ", @_); }
 sub _log(@) {
