@@ -49,7 +49,7 @@ class.  For instance, you could have:
 			.stories - This would have all front-page stories
 				.some_section
 				.other_section
-					.foo_bar_story - Comments for that story
+					.123 - Comments for story 123
 		.html
 			.stories - Same as above, but in HTML format
 				...etc...
