@@ -6,7 +6,11 @@ sub BEGIN {
 }
 
 use strict;
-use warnings;
+if($[ > 5.005) {
+	require warnings;
+} else {
+	$^W = 1;
+}
 use CPAN;
 use CPAN::MyConfig;
 use File::Basename;
