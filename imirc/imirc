@@ -1153,7 +1153,7 @@ sub process_irc_message($) {
 				unless($nicks->{$param}) {
 					irc_send(irc_newnick($prefix . $param));
 				}
-				manglewarn($nick, $prefix.$param);
+				manglewarn($nick, $prefix.$param, $screenname);
 				$nicks->{$param}->{$screenname} = time;	
 				irc_send(irc_privmsg($usnick, $nick, "$param has been created on IRC.", "", "", $screenname));
 				irc_send(irc_join($prefix.$param, nickchan($screenname))) if $sndata->{inchan};
@@ -1321,7 +1321,7 @@ sub process_irc_message($) {
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
 			} elsif($param eq "set") {
 				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
-				irc_send("$foo :set nicklen (limit) - If limit is non-zero, any AIM user that talks to you who has a nickname which, including the $prefix, is longer than the limit, you will receive a warning containing the full nickname of the sender.  If limit is zero, this feature will be disabled (except for the server-level nicklen limit.)  This setting is preserved across signoffs (that is, if you sign off and later sign back on, this setting will be preserved.  Sega DreamCast users will probably want to set a nicklen of 9.\r\n", 1);
+				irc_send("$foo :set nicklen (limit) - If limit is non-zero, when an AIM user who has a nickname longer than the limit talks to you, you will receive a warning containing the full nickname of the sender.  A limit of zero (the default setting) turns this off.  This setting is preserved across AIM sessions and even aimirc servers.  DreamCast users will want to set the limit to 9.\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
@@ -1686,7 +1686,7 @@ sub oscar_buddy_in($$$$) {
 	my $inick = ircify($prefix.$buddy);
 	unless($nicks->{$buddy}->{$screenname} and $nicks->{$buddy}->{$screenname} == -1) {
 		$nicks->{$buddy}->{$screenname} = -1;
-		manglewarn($nick, $inick);
+		manglewarn($nick, $inick, $screenname);
 		if($sndata->{inchan}) {
 			irc_send(irc_join($inick, nickchan($screenname)));
 			irc_send(irc_mode($usnick, nickchan($screenname), "+v $inick"));
@@ -1745,7 +1745,7 @@ sub oscar_chat_buddy_in($$$$) {
 
 	irc_send(irc_newnick($prefix.$buddy));
 	my $inick = ircify($prefix.$buddy);
-	manglewarn($nick, $inick) unless $nicks->{$buddy}->{$screenname};
+	manglewarn($nick, $inick, $screenname) unless $nicks->{$buddy}->{$screenname};
 	irc_send(irc_join($inick, chatchan($chatid)));
 	$nicks->{$buddy}->{"chat-$chatid"} = -1;
 }
@@ -1794,7 +1794,7 @@ sub oscar_im_in($$$$) {
 
 	irc_send(irc_newnick($prefix.$from));
 	unless($nicks->{$inick}->{$screenname}) {
-		manglewarn($nick, $inick);
+		manglewarn($nick, $inick, $screenname);
 		$nicks->{$inick}->{$screenname} = time;
 		irc_send(irc_join($inick, nickchan($screenname))) if $sndata->{inchan};
 	}
@@ -2352,13 +2352,19 @@ sub irc_recv(;$) {
 }
 
 # Warn if a screenname is being mangled to work with IRC
-sub manglewarn($$) {
-	my($who, $what) = @_;
+sub manglewarn($$$) {
+	my($who, $what, $screenname) = @_;
 
-	irc_send(irc_privmsg($usnick, $who,
-		"\02WARNING\02: Screenname $what has been mangled to IRC nickname " . $shortnicks->{$what}))
+	my $ircdude = $irc_connections->{$screenname};
+	my $sndata = $aim_connections->{$ircdude}->{screennames}->{$screenname};
 
-		if lc($shortnicks->{$what}) ne lc($what);
+	if($shortnicks->{$what} ne $what) {
+		irc_send(irc_privmsg($usnick, $who,
+			"\02WARNING\02: Screenname $what has been mangled to IRC nickname " . $shortnicks->{$what}, "", "", $screenname));
+	} elsif($sndata->{nicklen} and length($shortnicks->{$what}) > $sndata->{nicklen}) {
+		irc_send(irc_privmsg($usnick, $who,
+			"\02WARNING\02: Nickname ".$shortnicks->{$what}." is longer ".$sndata->{nicklen}." characters.", "", "", $screenname));
+	}
 }
 
 # Switch the default screenname for an IRCnick
