@@ -1,17 +1,15 @@
 #!/usr/bin/perl
 
-sub BEGIN {
-        require File::Basename;
-        my $self = $ENV{SCRIPT_FILENAME} || $0;
-        push @INC, File::Basename::dirname($self);                
-        push @INC, File::Basename::dirname($self) . "/..";
-}
+require File::Basename;
+my $self = $ENV{SCRIPT_FILENAME} || $0;
+push @INC, File::Basename::dirname($self);                
+push @INC, File::Basename::dirname($self) . "/..";
 
 my $r = Apache->request unless $ENV{SLASH_UID};
 
 use DBI;
 use strict 'vars';
-use Slash;
+require Slash;
 
 sub main
 {

@@ -2,17 +2,15 @@
 
 my $r = Apache->request if $ENV{SERVER_PROTOCOL};
 
-sub BEGIN {
-        require File::Basename;
-	my $self = $ENV{SCRIPT_FILENAME} || $0;
-        push @INC, File::Basename::dirname($self);
-        push @INC, File::Basename::dirname($self) . "/..";
-}
+require File::Basename;
+my $self = $ENV{SCRIPT_FILENAME} || $0;
+push @INC, File::Basename::dirname($self);
+push @INC, File::Basename::dirname($self) . "/..";
 
-use DBI;
-use strict vars;
-use Slash;
-use htmlutils;
+require Slash;
+require DBI;
+require strict vars;
+require htmlutils;
 
 sub main
 {

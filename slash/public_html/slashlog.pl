@@ -1,12 +1,5 @@
 #!/usr/bin/perl
 
-sub BEGIN {
-        require File::Basename;
-        my $self = $ENV{SCRIPT_FILENAME} || $0;
-        push @INC, File::Basename::dirname($self);                
-        push @INC, File::Basename::dirname($self) . "/..";
-}
-
 my ($op,$data)=("/","");
 
 $_=$ENV{SCRIPT_NAME};
