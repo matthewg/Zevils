@@ -1,0 +1,4 @@
+<FilesMatch ^(.*\.inc)$>
+  deny from all
+</FilesMatch>
+
