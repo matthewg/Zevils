@@ -1599,15 +1599,14 @@ sub process_irc_message($) {
 			} else {
 				bounce_join($nick, chatchan($1));
 			}
+		} elsif ($oldnick and $recipient eq $oldnick) {
+			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $usnick will no longer work."));
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections->{$nick} and $oscar) {
 				send_im($oscar, $target, $msg);
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via IMIRC to send messages to AIM users.  /msg AIMServ help for details."));
 			}
-		} elsif ($oldnick and $recipient eq $oldnick) {
-			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $usnick will no longer work."));
-		}
 	} elsif(/^AWAY *(.*)/) {
 		if($1 =~ /:?(.*)/) {
 			$irc_away->{$nick} = $1;
