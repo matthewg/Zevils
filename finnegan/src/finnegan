@@ -120,7 +120,7 @@ sub prepare_statements() {
 	$log_forgot_pin_start = $dbh->prepare("INSERT INTO log_ext (extension, event, start_time, phoneline) VALUES (?, 'forgotpin', NOW(), ?)");
 	$log_forgot_pin_end = $dbh->prepare("UPDATE log_ext SET result=?, end_time=NOW(), data=? WHERE log_id=?");
 	$get_insertid = $dbh->prepare("SELECT LAST_INSERT_ID()");
-	$wake_maxsnooze = $dbh->prepare("SELECT ISNULL(max_snooze_count, $Finnegan::Config::max_snooze_count) FROM wakes WHERE wake_id = ?");
+	$wake_maxsnooze = $dbh->prepare("SELECT ISNULL(max_snooze_count, $Finnegan::Config::max_snooze_count) FROM wakes WHERE wake_id=?");
 }
 prepare_statements();
 
