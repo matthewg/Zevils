@@ -1,3 +1,5 @@
+I should rewrite the code, it's starting to get ugly again.
+
 More thoughts on crypto and such:
 	When we send a message to someone for the first time after signing on,
 	put a special HTML comment in that IM.  <!-- aimirc [capabilities] -->
