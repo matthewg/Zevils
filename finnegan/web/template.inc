@@ -244,6 +244,7 @@ has not called you, please contact <a href=\"mailto:finnegan@brandeis.edu\">finn
 END_PIN_SENT
 ,
 
+	"pin_not_found" => errmsg("The system could not locate your PIN.  Try logging in without one, and you will be prompted to set a new PIN."),
 	"id_invalid" => errmsg("Wake-up call not found."),
 	"time_invalid" => errmsg("Please enter a valid time."),
 	"ampm_invalid" => errmsg("Please specify 'AM' or 'PM'."),

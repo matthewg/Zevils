@@ -1,6 +1,7 @@
 CREATE TABLE prefs (
 	extension CHAR(5) NOT NULL PRIMARY KEY,
-	pin VARCHAR(4) NULL
+	pin VARCHAR(4) NULL,
+	forgot_pin BIT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE wakes (

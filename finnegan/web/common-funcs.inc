@@ -2,7 +2,7 @@
 
 eval(implode('', file('../src/brancal.inc')));
 
-function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
+function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $TEMPLATE;
 	global $NO_CLASSES;
 	global $BRANDEIS_DAYS;
@@ -63,18 +63,18 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 		$weekday = strftime("%w", mktime($time_matches[1], $time_matches[2], 0, $date_matches[2], $date_matches[3], $date_matches[1])) + 1;
 
-		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-			"WHERE NOT ISNULL(date) AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
+		$result = @mysql_query("SELECT wake_id, (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+			"WHERE wake_id != $id AND NOT ISNULL(date) AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
 	} else {
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 		if($cal_type == "normal") {
-			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date)");
+			$result = @mysql_query("SELECT wake_id, (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE wake_id != $id AND NOT ISNULL(date)");
 		} else if($cal_type == "holidays") {
 			$holidays = array_keys($HOLIDAYS);
 			for($i = 0; $i < sizeof($holidays); $i++) $holidays[$i] = "'$holidays[$i]'";
-			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$holidays).")");
+			$result = @mysql_query("SELECT wake_id, (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE wake_id != $id AND NOT ISNULL(date) AND date NOT IN (".implode(",",$holidays).")");
 		} else {
 			$no_classes = array_keys($NO_CLASSES);
 			for($i = 0; $i < sizeof($no_classes); $i++) $no_classes[$i] = "'$no_classes[$i]'";
@@ -85,10 +85,10 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 			reset($BRANDEIS_DAYS);
 
 			#echo "Doing query <tt>SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")</tt><br>\n";
+				"WHERE wake_id != $id AND NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")</tt><br>\n";
 
-			$result = @mysql_query("SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")");
+			$result = @mysql_query("SELECT wake_id, ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE wake_id != $id AND NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")");
 		}
 	}
 	if(!$result) {
@@ -105,7 +105,8 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 
 	//Get the one-shots
 	while($row = mysql_fetch_row($result)) {
-		if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[0], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+		if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+			#echo "Conflict with wake $row[0]<br>\n";
 			$okay = 0;
 			break;
 		}
@@ -128,8 +129,8 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 			$brandeis_weekday_name = $weekday_name;
 
 		if($date) {
-			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
-				"WHERE ISNULL(date) AND (".
+			$query = "SELECT wake_id, ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
+				"WHERE wake_id != $id AND ISNULL(date) AND (".
 				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
 			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
 			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
@@ -138,8 +139,8 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 			#echo "Doing query <tt>$query</tt><br />\n";
 			$result = @mysql_query($query);
 		} else {
-			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
-				"WHERE ISNULL(date) AND (";
+			$query = "SELECT wake_id, ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
+				"WHERE wake_id != $id AND ISNULL(date) AND (";
 			if($cal_type == "Brandeis") {
 				$query .= "cal_type='normal' OR cal_type='holidays'";
 				$query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
@@ -160,7 +161,8 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 		}
 
 		while($row = mysql_fetch_row($result)) {
-			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[0], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+				#echo "Conflict with wake $row[0]<br>\n";
 				$okay = 0;
 				break;
 			}

@@ -71,6 +71,7 @@ Main page (wake-up call list, index.php) items:
 
 	pin_bruteforce: User has had too many recent login failures, and should wait an hour.
 	pin_sent: System will soon call the user's extension and read out the PIN.
+	pin_not_found: Couldn't do "Forgot PIN", you don't have one.
 	pin_set_old_error: When setting PIN, "old PIN" is wrong.
 	pin_set_new_mismatch: When setting PIN, pin1 != pin2
 	pin_set_new_invalid: When setting PIN, new PIN is not syntactically valid.

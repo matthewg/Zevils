@@ -8,7 +8,7 @@ if(isset($_REQUEST["id"])) {
 	$id = preg_replace('/[^0-9]/', "", $_REQUEST["id"]);
 	$page = "mkwake_edit";
 } else {
-	$id = "";
+	$id = 0;
 	$page = "mkwake_new";
 }
 
@@ -107,7 +107,7 @@ if($extension_ok) {
 			}
 
 			$the_weekdays = array("mon", "tue", "wed", "thu", "fri", "sat", "sun");
-			$the_weekdays_cur = array("mon_cur", "tue_cur", "wed_cur", "thu_cur", "fri_cur", "sat_cur", "sun_cur");
+			$the_weekdays_cur = $the_weekdays;
 			$weekdays_ct = 0;
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
 				if(isset($_POST[$the_weekdays[$i]]) && $_POST[$the_weekdays[$i]]) {
@@ -122,7 +122,7 @@ if($extension_ok) {
 
 			$weekdays_cur_ct = 0;
 			for($i = 0; $i < sizeof($the_weekdays_cur); $i++) {
-				if(isset($_POST[$the_weekdays_cur[$i]]) && $_POST[$the_weekdays_cur[$i]]) {
+				if(isset($_POST[$the_weekdays_cur[$i]."_cur"]) && $_POST[$the_weekdays_cur[$i]."_cur"]) {
 					$weekdays_cur[$the_weekdays_cur[$i]] = "checked";
 					$weekdays_cur_ct++;
 				}
@@ -163,7 +163,7 @@ if($extension_ok) {
 			$sql_time = time_to_sql($time, $ampm);
 			$baddays = array();
 			if($date) {
-				if(!is_time_free($sql_time, "", "", date_to_sql($date, $sql_time))) {
+				if(!is_time_free(0, $sql_time, "", "", date_to_sql($date, $sql_time))) {
 					$error = 1;
 					echo $TEMPLATE["time_unavailable_onetime"];
 				}
@@ -171,7 +171,7 @@ if($extension_ok) {
 				$weekday_names = array("", "sun", "mon", "tue", "wed", "thu", "fri", "sat");
 				for($i = 1; $i < sizeof($weekday_names); $i++) {
 					if($weekdays[$weekday_names[$i]] || $weekdays_cur[$weekday_names[$i]]) {
-						if(!is_time_free($sql_time, $i, $_POST["cal_type"])) {
+						if(!is_time_free($id, $sql_time, $i, $_POST["cal_type"])) {
 							$error = 1;
 							$baddays[] = ucfirst($weekday_names[$i]);
 						}
@@ -208,14 +208,14 @@ if($extension_ok) {
 					implode(", ", $cols),
 					implode(", ", $values));
 
-				#if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
-				#	implode(", ", $cols),
-				#	implode(", ", $values)
-				#))) db_error();
+				if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
+					implode(", ", $cols),
+					implode(", ", $values)
+				))) db_error();
 
-				#if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
-				#$row = mysql_fetch_row($result);
-				$id = 0; #$row[0];
+				if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
+				$row = mysql_fetch_row($result);
+				$id = $row[0];
 				$event = "create";
 			} else {
 				$set = "$cols[0] = $values[0]";

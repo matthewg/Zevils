@@ -12,6 +12,16 @@ if(!$dbh) db_error();
 
 echo $TEMPLATE["page_start"];
 
+if(isset($_POST["op"]) && $_POST["op"] == "Forgot PIN" && isset($_POST["extension"]) && extension_ok($_POST["extension"])) {
+	echo $TEMPLATE["viewcalls_start_noext"];
+
+	if(!mysql_query("UPDATE prefs SET forgot_pin=1 WHERE extension='$extension'")) db_error();
+	if(mysql_affected_rows() != 1)
+		echo $TEMPLATE["pin_not_found"];
+	else
+		echo $TEMPLATE["pin_sent"];
+}
+
 check_extension_pin();
 
 if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
