@@ -1,9 +1,12 @@
 ; These rules are useful for testing the rule parser.
+; Note that this does NOT match "the quick brown fox jumped over the lazy dogs"
+; I usually run it against something like 'alt1 the quick brown fox over <0 '
+
 quick = "quick" *WSP
 brown = "brown" *WSP
 fox = "fox" *WSP
 jumped = "jumped" *WSP
-foo = bar baz
+foo = bar *WSP baz
 bar = "alt1"
 bar =/ "alt2"
 baz = ["the"] *WSP quick 1*2(brown fox) / jumped "over" *WSP %x3C.3E %d48-50 %b100000

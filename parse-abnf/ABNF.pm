@@ -818,7 +818,7 @@ sub _matches($$$;$$$@) {
 						# For instance, if we have a rule that matches *CHAR, we want to return the match as a single scalar and not as an array of separate one-character matches.
 						# Unless, of course, CHAR is in @matchrules.
 
-						if(not ref($didmatch) or (ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @{*$retval})) { #retval and didmatch are all simple values
+						if((not ref($didmatch) or (ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch)) and not grep { ref($_) } @{*$retval}) { #retval and didmatch are all simple values
 							${*$retval}[0] = "" unless defined ${*$retval}[0]; #Make sure the array exists before writing to [-1]
 							if(ref($didmatch) eq "ARRAY") {
 								${*$retval}[-1] .= join("", @$didmatch);
