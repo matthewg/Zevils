@@ -23,6 +23,7 @@ Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
 EOF
 ;
 
+sub going_down();
 sub do_signoff_all($;$);
 sub reap();
 sub switchnick($$);
@@ -49,6 +50,7 @@ sub send_join($$);
 sub irc_recv(;$);
 sub truncwarn($$);
 
+sub END { going_down; }
 
 sub BEGIN {
 	require FindBin;
@@ -440,6 +442,7 @@ unless($reload) {
 		POSIX::setsid() or die "Can't start a new session: $!";
 	}
 	sub kill_handler {
+		going_down;
 		$upstream->close;
 		foreach $connections(keys %$aim_connections) {
 			$connections->{socket}->close;
@@ -453,6 +456,7 @@ $SIG{CHLD} = 'IGNORE';
 
 #Restart on SIGHUP
 sub phoenix {
+	going_down;
 	$upstream->close;
 	foreach $key(keys %aim_connections) {
 		$aim_connections{$key}{socket}->close if $aim_connections{$key}{socket};
@@ -671,7 +675,7 @@ sub process_irc_message($) {
 		} elsif($aim_connections{$nnick}) {
 			$chatjoined{$chat} = 1;
 			if($chatinvites{$chat}) {
-				chat_accept($aim_connections{$nnick}{socket}, $chat);
+				chat_accept($aim_connections{$nnick}{screennames}{$chatnames{$chat}}{socket}, $chat);
 			} else {
 				irc_send($chatqueue{$chat});
 				delete $chatqueue{$chat};
@@ -764,7 +768,7 @@ sub process_irc_message($) {
 	} elsif(/^PART +#aimchat-(\d+)/i) {
 		Toc::debug_print("$nick left aimchat $1 ($chattopics{$1}).", "chat", 1);
 		if($aim_connections{$nnick} and $chattopics{$1}) {
-			chat_leave($aim_connections{$nnick}{socket}, $1) if $aim_connections{$nnick};
+			chat_leave($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1) if $aim_connections{$nnick};
 			irc_send(":$usnick PART #aimchat-$1\r\n");
 			foreach $who(keys %{$chats{$1}}) {
 				delete $chats{$1}{$who};
@@ -1234,7 +1238,7 @@ sub process_aim_message($$$) {
 		send_join($usnick, "#aimchat-$1");
 		send_server_mode("#aimchat-$1 +o $usnick");
 		irc_send(":$usnick MODE #aimchat-$1 +sint\r\n");
-		irc_send(":$usnick TOPIC #aimchat-$1 :$topic\r\n");
+		irc_send(":$usnick TOPIC #aimchat-$1 :{$screenname} $topic\r\n");
 		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$1\r\n");
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "Join IRC channel #aimchat-$1 to join AIM chat $topic.")) unless $chatinvites{$1};
 		delete $chatinvites{$1};
@@ -1274,7 +1278,7 @@ sub process_aim_message($$$) {
 		@who = split(/:/, $who);
 		if(lc($2) eq "t") {
 			foreach $who(@who) {
-				next if normalize($who) eq normalize($connection->{aimnick});
+				next if normalize($who) eq $screenname;
 				$chats{$1}{$who} = 1;
 				irc_send(irc_newnick("$prefix$who"));
 				send_join("$prefix$who", "#aimchat-$1");
@@ -1284,7 +1288,7 @@ sub process_aim_message($$$) {
 			}
 		} else {
 			foreach $who(@who) {
-				next if normalize($who) eq normalize($connection->{aimnick});
+				next if normalize($who) eq $screenname;
 				delete $chats{$1}{$who};
 				irc_send(":" . substr("$prefix$who", 0, $ircservers{$servermode}{nicklen}) . " PART #aimchat-$1\r\n");
 				delete $nicks{normalize($who)}{"chat-$1"};
@@ -1294,6 +1298,7 @@ sub process_aim_message($$$) {
 		$val =~ /([^:]+):([^:]+):([^:]+):(.*)/;
 		Toc::debug_print("$connection->{nick} has been invited to chat $1 ($4) [$2] by $3", "chat", 2);
 		$chatinvites{$2} = $connection->{nick};
+		$chatnames{$2} = $screenname;
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2"));
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
@@ -1681,4 +1686,13 @@ sub do_signoff_all($;$) {
 		do_signoff($nnick, $aim_connections{$nnick}{screennames}{$screenname}{socket}, 1);
 	}
 	irc_send(irc_privmsg($usnick, $nick, "All connections signed off of AOL Instant Messenger.")) unless $already_off;
+}
+
+sub going_down() {
+	my ($user, @users) = (undef, keys %aim_connections);
+
+	foreach $user(@users) {
+		next if $aim_connections{$user}{notified}++;
+		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
+	}
 }
