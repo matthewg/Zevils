@@ -150,6 +150,9 @@ $debug = 0;
 loadconf();
 
 unless($reload) {
+	if($servermode eq "p0210" and ($require_qlines or $ignoreuhosts)) {
+		print "Due to ircd 2.10 restrictions, IMIRC will pause for 75 seconds after connecting to your IRC server but before doing anything else.\n";
+	}
 	if($fork) {
 		#We don't need no stinking ampersands!
 		my $pid = fork;
@@ -370,11 +373,11 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n",
 		},
 		p0210 => {
-			nick => "NICK _NICK_ 1 +i _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _USER_ _USER_.$us 1 +i :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			nicklen => 9,
-			pass => "PASS $ourpass 0210030002 IRC\r\n",
+			pass => "PASS $ourpass 0210030002 IRC|aEfiIJMuw P\r\n",
 		},
 		p10 => {
 			nick => "$numeric N _NICK_ 1 _TIME_ _USER_ _USER_.$us +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
@@ -444,10 +447,12 @@ sub mainloop() {
 		connect_to_irc();
 		$imircdebug = 0;
 
+		sleep 60 if $servermode eq "p0210" and ($ignoreuhosts or $require_qlines);
+
 		irc_send(irc_newnick($usnick)) or die "Couldn't make usnick $usnick: $!\n";
 		$nicks->{$usnick}->{$usnick} = -1;
 		irc_send(irc_mode($usnick, $usnick, "-i"));
-		irc_send(irc_mode($usnick, $usnick, "+oa"));
+		irc_send(irc_mode($usnick, $usnick, "+o" . ($servermode eq "p0210" ? "" : "a")));
 
 		if($oldnick) {
 			irc_send(irc_newnick($oldnick)) or die "Couldn't make oldnick $oldnick: $!\n";
@@ -464,6 +469,7 @@ sub mainloop() {
 		@uhosts = ();
 		irc_send(irc_stats($usnick, "U")) if $ignoreuhosts;
 
+		sleep 20 if $servermode eq "p0210" and $ignoreuhosts;
 		@qlines = ();
 		irc_send(irc_stats($usnick, "Q")) if $require_qlines;
 
@@ -709,10 +715,6 @@ sub process_irc_message($) {
 		$sndata = $aim_connections->{$nick}->{aimnick};
 	}
 
-	# We need to keep track of all TSs so that we can SJOIN the chan and have our ops not be ignored
-	if(/^SJOIN +(\d+) +(?:\d* *)(\S+)/) {
-	}
-
 	if(/^ERROR +:(.+)/) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
@@ -720,11 +722,12 @@ sub process_irc_message($) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
-	} elsif(!/#imirc-debug/i and (/^(JOIN) +.?($nickchan)(\S+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$nickchan(\S+?) +\S+ +: *(\S+)/i)) {
+	} elsif(!/#imirc-debug/i and (/^(JOIN) +.?($nickchan)(\S+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$nickchan(\S+?) +\S+ +: *(\S+)/i or /^(NJOIN) +($nickchan)(\S+?) +:(\S+)/i)) {
 		$chants->{$nickchan.$3} = $2 if $1 eq "SJOIN";
 		my $screenname = new Net::OSCAR::Screenname $3;
 		$screenname =~ s/,.*//;
-		$nick = $4 if $1 eq "SJOIN";
+		$screenname =~ s/\x7.*//; # For ircd 2.10
+		$nick = $4 if $1 eq "SJOIN" or $1 eq "NJOIN";
 		$nick =~ tr/\@+//d;
 		$nick = new Net::OSCAR::Screenname $nick;
 		$oscar = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar} if $aim_connections->{$nick} and $aim_connections->{$nick}->{screennames}->{$screenname};
@@ -749,10 +752,10 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the set imchan command."));
 		}
-	} elsif(/^(JOIN) +.?($chatchan)(\d+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$chatchan(\d+) +\S+ +:(\S+)/i) {
+	} elsif(/^(JOIN) +.?($chatchan)(\d+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$chatchan(\d+) +\S+ +:(\S+)/i or /^(NJOIN) +($chatchan)(\d+) +:(\S+)/i) {
 		$chants->{$chatchan.$3} = $2 if $1 eq "SJOIN";
 		my $chat = $3;
-		$nick = $4 if $1 eq "SJOIN";
+		$nick = $4 if $1 eq "SJOIN" or $1 eq "NJOIN";
 		$nick =~ tr/\@+//d; #Only needed for Hybrid?
 		$nick = new Net::OSCAR::Screenname $nick;
 		$screenname = $aim_connections->{$nick}->{aimnick} if $aim_connections->{$nick};
@@ -2496,6 +2499,9 @@ sub irc_join($$) {
 		$chants->{$channel} ||= time;
 		$user = "\@$user" if $user eq $usnick;
 		$ret .= ":$us SJOIN $chants->{$channel} $channel + :$user\r\n";
+	} elsif($servermode eq "p0210") {
+		$user = "\@$user" if $user eq $usnick;
+		$ret .= ":$us NJOIN $channel :$user\r\n";
 	} else {
 		$ret .= ":$user JOIN $channel\r\n";
 	}
