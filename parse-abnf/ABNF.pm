@@ -334,7 +334,7 @@ use constant CORE_RULES => (
 	},
 	octet => { type => OP_TYPE_NUMVAL, value => [map {chr} (0x00..0xFF)], core=>1 }, 						# 8 bits of data
 	sp => { type => OP_TYPE_NUMVAL, value => [chr(0x20)], core=>1 }, 								# space
-	vchat => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x21..0x7E)], core=>1 }, 			# visible (printing) characters
+	vchar => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x21..0x7E)], core=>1 }, 			# visible (printing) characters
 	wsp => { type => OP_TYPE_OPS, mode => OP_MODE_ALTERNATOR, value => [qw(sp htab)], core=>1 } 					# white space
 );
 
@@ -398,6 +398,8 @@ sub add_ruleparse($$$;$) {
 	$rulename = ${*$intoks} if ref($intoks) eq "GLOB";
 	#print tabify("$rulename\n") if $rulename;
 	if($rulename eq "char-val") { #strip surrounding ""
+		$intok =~ s/^\s*// if $intok;
+		$intok =~ s/\s*$// if $intok;
 		chop $intoks[0];
 		substr($intoks[0], 0, 1, "");
 	} elsif($rulename eq "prose-val") {
@@ -405,7 +407,6 @@ sub add_ruleparse($$$;$) {
 	}
 
 	foreach $intok(@intoks) {
-		#print tabify("Got $intok.\n");
 		if(ref($intok) eq "GLOB") {
 			#print tabify("Got GLOB.\n");
 			$tablevel++;
@@ -415,6 +416,7 @@ sub add_ruleparse($$$;$) {
 			#print tabify("Got ARRAY.\n");
 			$self->add_ruleparse($rule, $intok, $rulename);
 		} else {
+			#print tabify("Got $parent/$rulename/$intok.\n");
 			if($rulename eq "rulename" or $rulename eq "group" or $rulename eq "option" or $rulename =~ /(char|bin|dec|hex)-val/) {
 				my ($type, $minreps, $maxreps, $rulebak);
 
@@ -430,7 +432,7 @@ sub add_ruleparse($$$;$) {
 				# At this point, it means that the previous token should be alternated with the current token.
 				#
 				if($self->{nextalt}) {
-					if(scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) {
+					if($rule->{value} and scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) {
 						my $newval = {
 							mode => OP_MODE_ALTERNATOR,
 							type => $rule->{type},
@@ -454,8 +456,9 @@ sub add_ruleparse($$$;$) {
 				}
 
 				if($rulename eq "option") {
-					if($intok eq "[") {
+					if($intok =~ /\s*\[\s*/) {
 						croak "ABNF error: Repetition specified on option!" if $self->{nextrep}; # Just in case the user does something stupid like 1*[foo]
+						$rule->{type} ||= OP_TYPE_OPS;
 						push @saverules, $rule;
 						$rule = {};
 						$rule->{minreps} = 0;
@@ -465,7 +468,8 @@ sub add_ruleparse($$$;$) {
 						$rule = pop @saverules;
 					}
 				} elsif($rulename eq "group") {
-					if($intok eq "(") {
+					if($intok =~ /\s*\(\s*/) {
+						$rule->{type} ||= OP_TYPE_OPS;
 						push @saverules, $rule;
 						$rule = {};
 						if($self->{nextrep}) {
@@ -540,7 +544,7 @@ sub add_ruleparse($$$;$) {
 					$tmprule->{type} = $type;
 
 					if($rulename eq "bin-val" or $rulename eq "dec-val" or $rulename eq "hex-val") {
-						$intok =~ /^[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)$/;
+						$intok =~ /^\s*[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)\s*$/;
 						my $left = $1;
 						my $conjunction = $2;
 						my $right = $3;
@@ -569,6 +573,7 @@ sub add_ruleparse($$$;$) {
 				}
 				$rule = $rulebak if $rulebak;
 			} elsif($rulename eq "repeat") {
+				$intok =~ s/\s//g;
 				$self->{nextrep} = $intok;
 			} elsif($rulename eq "num-val") {
 				#ignore the % (in something like %xFF)
@@ -590,7 +595,21 @@ sub add($@) {
 
 	# strip comments, whitespace / newline between rules
 	$rule = join("\n", @rules);
-	$rule =~ s/;[ \t\x21-\x7E]*$//mg; # strip comments
+
+	# We want to strip comments.
+	# However, we can't just take out everything after a ;
+	# What about the rule semicolon = ";" ?
+	# So we have to compensate for ; appearing within ""...
+	@rules = split(/\n/, $rule);
+	foreach $rule(@rules) {
+		my $pos;
+		$rule =~ s/^([^"]*?);.*/$1/;
+		while($rule =~ /"[^"]*?"?/g) { $pos = pos($rule); } #WHY do I need to explicitly save/restore pos?
+		pos($rule) = $pos;
+		$rule =~ s/\G([^;]*);.*/$1/; # strip comments
+	}
+	$rule = join("\n", @rules);
+
 	$rule =~ s/[\r\n]{1,2}[ \t]+/ /g; # join continued lines
 	while($rule =~ /[\r\n]{2,}/) { $rule =~ s/[\r\n]{2,}/\n/; } # remove extraneous newlines
 	$rule =~ s/[\r\n](?![^\r\n])//g; # remove trailing newlines
@@ -646,7 +665,8 @@ sub abnf($$) {
 sub rules($;$) {
 	my($self, $rule) = @_;
 
-	croak "ABNF unimplemented method: rules";
+	croak "ABNF unimplemented method: rules" if $rule;
+	return keys %$self;
 }
 
 sub op_is_fork($$) { #Is there more than one way to match this op?
@@ -682,7 +702,7 @@ sub matches($$$;@) {
 	$data = $tmpdata;
 	$tablevel = -1;
 
-	if($matchrules[0] eq "*") {
+	if(@matchrules and $matchrules[0] eq "*") {
 		@matchrules = grep { not exists $self->{$_}->{core} } keys %$self;
 	}
 
@@ -698,7 +718,7 @@ sub matches($$$;@) {
 	push @matchrules, $rule;
 	undef $ret;
 	$ret = $self->_matches($rule, $rule, undef, undef, 0, @matchrules);
-	if($ret and @matchrules and $nomatchself) {
+	if($ret and @matchrules and $nomatchself and ref($ret)) {
 		$ret = [@{*$ret}];
 	}
 	return $ret;
@@ -800,7 +820,7 @@ sub _matches($$$;$$$@) {
 
 	}
 	$tablevel++;
-	#warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
+	#print "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -834,7 +854,7 @@ sub _matches($$$;$$$@) {
 
 	$maxreps = exists($rule->{maxreps}) ? $rule->{maxreps} : 1;
 	$minreps = exists($rule->{minreps}) ? $rule->{minreps} : 1;
-	@matchvalues = @{$rule->{value}};
+	@matchvalues = @{$rule->{value}} if $rule->{value};
 	$mode = exists($rule->{mode}) ? $rule->{mode} : OP_MODE_ALTERNATOR; #singleton is effectively the same as either one
 
 	@my_playback = ();
@@ -960,7 +980,7 @@ sub _matches($$$;$$$@) {
 		}
 	}
 
-	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
+	#print "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
 	$tablevel--;
 
 	if(not defined $didmatch) {
