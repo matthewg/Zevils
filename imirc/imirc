@@ -2325,12 +2325,12 @@ sub process_ctcp($$$) {
 					delete $dccget{$from};
 					next CTCP;
 				} else {
-					$socket = IO::Socket::INET->new(
+					eval { $socket = IO::Socket::INET->new(
 						PeerAddr => $ipaddr,
 						PeerPort => $port,
 						Timeout => 5
-					);
-					unless($socket) {
+					); } ;
+					unless(!$@ and $socket) {
 						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $@"));
 						next CTCP;
 					}
@@ -2444,15 +2444,15 @@ sub irc_dcc($$$$$) {
 		return "";
 	}
 
-	$socket = IO::Socket::INET->new(
+	eval { $socket = IO::Socket::INET->new(
 		LocalPort => 0,
 		Listen => 1,
 		Proto => 'tcp',
 		LocalAddr => $dccip,
 		Timeout => 5
-	);
+	); };
 
-	unless($socket) {
+	unless(!$@ and $socket) {
 		irc_send(irc_privmsg($from, $to, "Couldn't create DCC socket: $@"));
 		return "";
 	} else {
