@@ -257,6 +257,8 @@ sub loadconf() {
 		exit 1;
 	}
 
+	exit;
+
 	#Now process additional command-line options
 
 	Getopt::Long::Configure("no_pass_through");
