@@ -3631,7 +3631,7 @@ sub globmatch($$) {
 	$glob =~ s/\?/./g;
 	$glob =~ s/\*/.*/g;
 
-	return 1 if $string =~ /$glob/i;
+	return 1 if $string =~ /^$glob$/i;
 	return 0;
 }
 
