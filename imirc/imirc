@@ -40,10 +40,9 @@ sub BEGIN {
 		print STDERR "You do not have the HTML::FormatText and HTML::Parse modules installed.\n";
 		print STDERR "There are at least three possible ways to install these modules:\n";
 		print STDERR "1) [preferred] Get them as a package from your OS vendor or Linux distributor.\n";
-		print STDERR "        In Debian, you can install the libhtml-tree-perl package.\n";
-		print STDERR "        Note that Debian no longer provides a package for HTML::FormatText,\n";
-		print STDERR "        you will need to get it manually.   I'm not sure about other\n";
-		print STDERR "        operating systems or distributions.\n";
+		print STDERR "        In Debian, you can install the libhtml-tree-perl and \n";
+		print STDERR "        libhtml-format-perl packages.  I'm not sure about\n";
+		print STDERR "        other operating systems or distributions.\n";
 		print STDERR "2) Use the CPAN module to install it.  Run perl -MCPAN -e shell and \n";
 		print STDERR "        type install HTML::Tree when you get to the CPAN prompt, and\n";
 		print STDERR "        then install HTML::FormatText .\n";
