@@ -3079,9 +3079,18 @@ sub loadbuddies($$$) {
 		foreach my $group(keys %{$data->{Buddy}->{list}}) {
 			if(ref($data->{Buddy}->{list}->{$group})) {
 				irc_send(irc_privmsg($usnick, "matthewg", "Doing $group"));
-				@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
-				foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
+
+				my $buddygroup = $data->{Buddies}->{list}->{$group};
+				my @buddies;
+				if(ref($buddygroup) eq "HASH") {
+					@buddies = keys %$buddygroup;
+				} else {
+					@buddies = @$buddygroup;
+				@{$buddies{$group}} = @buddies;
+
+				foreach my $buddy(@buddies) {
 					#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
+					next unless ref($data->{Buddy}->{list}->{$group}) eq "HASH";
 					next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
 					next unless $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote};
 					next unless $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
