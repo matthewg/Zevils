@@ -60,6 +60,8 @@ $version = "0.80";
 @args = @ARGV;
 
 
+$uid = 1;
+
 %ircservers = (
 	dal2 => {
 		nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via aimirc\r\n",
@@ -78,7 +80,7 @@ $version = "0.80";
 		pass => "PASS $ourpass :1\r\n"
 	},
 	ircu => {
-		nick => ":$us NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger services\r\n",
+		nick => ":$us NICK _NICK_ _UID_ _TIME_ _USER_ $us $us :AOL Instant Messenger services\r\n",
 		server => "SERVER $us 1 _TIME_ _TIME_ P09 AIM Services\r\n",
 		uspass => 1,
 		theirpass => 1,
@@ -218,6 +220,7 @@ sub irc_subparms($;$$) {
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
+	$input =~ s/_UID_/$uid++/g;
 	warn "$input\n" if $debug >= 2;
 	return $input;
 }
