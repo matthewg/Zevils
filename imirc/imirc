@@ -3364,7 +3364,7 @@ sub process_dcc($$) {
 	if($retval == 1) {
 		io_events($dcc->{socket}, dcc_state_io_events($dcc->{state}), $dcc);
 	} else {
-		io_Events($dcc->{socket}, "deleted");
+		io_events($dcc->{socket}, "deleted");
 	}
 
 	if($retval == -1) {
