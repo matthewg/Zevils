@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 $starttime = time;
 
@@ -34,6 +34,7 @@ sub END { &going_down; }
 
 sub BEGIN {
 	require File::Basename;
+	push @INC, File::Basename::dirname($0)."/lib";
 	push @INC, File::Basename::dirname($0);
 
 	require 5.006;
