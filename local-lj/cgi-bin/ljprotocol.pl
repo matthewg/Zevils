@@ -1398,7 +1398,6 @@ sub _get_events_comments
                                   "journalid=? and logtime > ?");
             $sth->execute($ownerid, $date);
         } elsif ($type eq "comments") {
-            return fail($err,200,"Must specify journalid") unless $req->{'journalid'};
             $sth = $dbcr->prepare("SELECT jtalkid, datepost FROM talk2 WHERE ".
                                   "journalid=? and nodeid=? and nodetype='L' and logtime > ?");
             $sth->execute($ownerid, $journalid, $date);
