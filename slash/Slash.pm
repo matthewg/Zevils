@@ -1,6 +1,6 @@
 package Slash;
 use strict;
-use vars;
+use vars qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection $currentMode $userMode $dbh $datadir &getSlash &linkStory &getSection &adminMenu &selectForm &selectGeneric &selectTopic &selectSection &getvars &getvar &setvar &newvar &getapptags &getfile &geturl &prog2file &url2file &getUser &getblock &getsid &getsiddir &writelog &pollbooth &sqlSelectMany &sqlSelect &sqlSelectHash &sqlSelectHashref &sqlUpdate &sqlInsert &sqlconnect &stripByMode &stripBadHtml &approvetag &header &footer &prepEvalBlock &prepBlock &nukeBlockCache &blockCache &titlebar &fancybox &printComments &dispComment &dispStory &displayStory &sendEmail &pollItem &printComments2 &getOlderStories &displayStories &selectStories &currentAdminUsers);
 use DBI;
 use Carp;
 
@@ -10,7 +10,7 @@ sub BEGIN {
 	$VERSION     = 0.30;
 
 	@ISA=qw(Exporter);
-	@EXPORT=qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection $currentMode $userMode $dbh $datadir &getSlash &linkStory &getSection &adminMenu &selectForm &selectGeneric &selectTopic &selectSection &getvars &getvar &setvar &newvar &getapptags &getfile &geturl &prog2file &url2file &getUser &getblock &getsid &getsiddir &writelog &pollbooth &sqlSelectMany &sqlSelect &sqlSelectHash &sqlSelectHashref &sqlUpdate &sqlInsert &sqlconnect &stripByMode &stripBadHtml &approvetag &header &footer &prepEvalBlock &prepBlock &nukeBlockCache &blockCache &titlebar &fancybox &printComments &dispComment &dispStory &displayStory &sendEmail &pollItem &printComments2 &getOlderStories &displayStories &selectStories &currentAdminUsers);   
+	@EXPORT=qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection $currentMode $userMode $dbh $datadir &getSlash &linkStory &getSection &adminMenu &selectForm &selectGeneric &selectTopic &selectSection &getvars &getvar &setvar &newvar &getapptags &getfile &geturl &prog2file &url2file &getUser &getblock &getsid &getsiddir &writelog &pollbooth &sqlSelectMany &sqlSelect &sqlSelectHash &sqlSelectHashref &sqlUpdate &sqlInsert &sqlconnect &stripByMode &stripBadHtml &approvetag &header &footer &prepEvalBlock &prepBlock &nukeBlockCache &blockCache &titlebar &fancybox &printComments &dispComment &dispStory &displayStory &sendEmail &pollItem &printComments2 &getOlderStories &displayStories &selectStories &currentAdminUsers);
 	#Uncomment the following to enable stack traces:
 	#$Carp::Verbose = 1;
 	$SIG{__WARN__} = sub { carp $_[0] };
