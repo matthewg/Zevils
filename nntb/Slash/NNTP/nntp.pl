@@ -108,7 +108,7 @@ $task{$me}{code} = sub {
 			$journalcount++;
 		}
 
-		$where = "ISNULL(nntp_cnum)";
+		$where = "ISNULL(comments.nntp_cnum)";
 		$where .= " AND comments.sid = discussions.id";
 		$where .= " AND comments.sid = journals.discussion";
 

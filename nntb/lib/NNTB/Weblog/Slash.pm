@@ -153,7 +153,7 @@ sub parsegroup($$) {#
 			my($section, $id) = ($1, $2);
 
 			# Section name possibly mangled
-			($section) = grep { $_->{id} == $id } $self->{slash_db}->getSections() if $section =~ /_/;
+			($section) = grep { $_->{id} == $id } values %{$self->{slash_db}->getSections()} if $section =~ /_/;
 
 			$ret[0] = $section;
 		} else { # {text,html}.stories.section.story_id
@@ -221,7 +221,7 @@ sub groups($;$) {
 
 	my $sections = $self->{slash_db}->getSections();
 
-	foreach my $section (@$sections) {
+	foreach my $section (values %$sections) {
 		next unless timeCalc($section->{ctime}, "%s") > $time;
 
 		my $group = $self->groupname("$section->{section}_$section->{id}");
@@ -255,7 +255,7 @@ sub groups($;$) {
 		$ret{"$textroot.journals"} = "All $sitename journals";
 		$ret{"$htmlroot.journals"} = "All $sitename journals";
 
-		my $jusers = $self->{slash_db}->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid');
+		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid GROUP BY nickname, uid HAVING jdate > '.$time);
 		foreach my $juser(values %$jusers) {
 			# No getJournals...
 			my $journalgroup = $self->groupname("journals", "$juser->{nickname}_$juser->{uid}");
@@ -263,6 +263,8 @@ sub groups($;$) {
 			$ret{"$htmlroot.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
 		}
 	}
+
+	return %ret;
 }
 
 sub articles($$;$) {

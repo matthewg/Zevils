@@ -81,13 +81,14 @@ EOF
 	exit 0;
 }
 
+use Symbol qw(qualify_to_ref);
 use Getopt::Long;
 use Time::Local;
 use Sys::Hostname;
 use HTML::FormatText;
 use HTML::Parse;
 use IO::Handle;
-use Socket;
+use IO::Socket::INET;
 use File::Basename;
 use File::Spec;
 use Cwd;
@@ -138,7 +139,10 @@ sub loadconf() {
 		exit 1;
 	}
 
-	$config{loglevel} = LOG_DEBUG if $config{debug};
+	if($config{debug}) {
+		$config{loglevel} = LOG_DEBUG;
+		require Data::Dumper;
+	}
 
 	@conffiles = @default_conffiles unless @conffiles;
 
@@ -247,6 +251,8 @@ sub loadblogs() {
 	}
 }
 
+sub got_client(*);
+
 sub main() {
 
 	init();
@@ -273,7 +279,8 @@ sub main() {
 
 		#Code to restart on SIGHUP
 		sub phoenix { 
-			close CLIENT; close SERVER;	exec($0, @args);
+			close SERVER;
+			exec($0, @args);
 		}
 		$SIG{HUP} = \&phoenix;
 
@@ -285,14 +292,14 @@ sub main() {
 		$SIG{CHLD} = \&REAPER;
 
 		#Code to handle incoming connections
-		socket(SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
-
-		setsockopt(SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
-
-		my $my_addr = sockaddr_in($config{port}, INADDR_ANY);
-		bind(SERVER, $my_addr) or die "Couldn't bind: $!\n";
-
-		listen(SERVER, SOMAXCONN) or die "Couldn't listen: $!\n";
+		my $server = IO::Socket::INET->new(
+				LocalPort => $config{port},
+				Listen => SOMAXCONN,
+				Proto => 'tcp',
+				ReuseAddr => 1
+			)
+			or die "Couldn't bind to socket: $!\n";
+		$server->listen() or die "Couldn't listen on socket: $!\n";
 
 		# Okay, time to drop privileges
 		my $uid = getpwnam($config{user}) or die "Couldn't get UID for $config{user}\n";
@@ -302,21 +309,20 @@ sub main() {
 		$< = $> = $uid;
 		die "Couldn't change UID: $!\n" if $> != $uid;
 
-		while(accept(CLIENT, SERVER)) {
+		while(my($client, $client_ip) = $server->accept()) {
 			next if my $pid = fork; # parent
 			die "fork: $!" unless defined $pid;
 			# we are the world, we are the children
-			close SERVER;
+			$server->close();
 
-			got_client();
+			got_client($client);
 
 			exit;
-		} continue { close CLIENT; }
+		} continue { close $client; }
 
-		close SERVER;  #buh-bye
+		$server->close();;  #buh-bye
 	} else { #inetd == 1
-		*CLIENT = *STDIN; # 'cuz that's what inetd does
-		got_client();
+		got_client(STDIN);
 	}
 }
 
@@ -339,20 +345,23 @@ sub findblog($) {
 	return $blog;
 }
 
-sub got_client() {
-	my($currmsg, $currgroup, $user);
+sub got_client(*) {
+	my($client, $currmsg, $currgroup, $user);
+	$client = qualify_to_ref(shift, caller);
 
-	(undef, $client_ip) = sockaddr_in(getpeername(CLIENT));
-	$client_ip = inet_ntoa(gethostbyaddr($client_ip, AF_INET));
+	# Unless inetd, we already have set this
+	#(undef, $client_ip) = sockaddr_in(getpeername(CLIENT));
+	#do_log("Client IP: $client_ip", LOG_INFO);
+	#$client_ip = inet_ntoa(gethostbyaddr($client_ip, AF_INET));
 
-	select CLIENT;
+	select $client;
 	$| = 1; # Auto-flush the output.
 	nntp_put("200 ", hostname(), " NNTB server $version ready");
 
 	do_log("Got a client from $client_ip", LOG_INFO);
 	$_->got_client() foreach values %blogs;
 
-	GETLINE: while(<CLIENT>) {
+	GETLINE: while(<$client>) {
 		s/[\r\n]{1,2}$//;
 		do_log("From NNTP: $_", LOG_DEBUG);
 		my $text = $_;
@@ -484,6 +493,9 @@ sub got_client() {
 
 					foreach $blog (values %blogs) {
 						my %groups = $blog->groups();
+
+						print Data::Dumper::Dumper(\%groups);
+
 						while(my($group, $desc) = each(%groups)) {
 							nntp_put("$group   $desc");
 						}
@@ -556,7 +568,7 @@ sub got_client() {
 				my %headers;
 				my $body;
 
-				GETHEAD: while (<CLIENT>) {
+				GETHEAD: while (<$client>) {
 					s/[\r\n]{1,2}$//;
 					last GETHEAD if $_ eq "";
 
@@ -574,7 +586,7 @@ sub got_client() {
 					}
 				}
 
-				GETBODY: while (<CLIENT>) {
+				GETBODY: while (<$client>) {
 					s/[\r\n]{1,2}$/\n/;
 					last GETBODY if $_ eq ".\n";
 					$body .= $_;
