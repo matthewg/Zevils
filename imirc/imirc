@@ -1722,7 +1722,8 @@ sub oscar_buddy_in($$$$) {
 
 	if($buddat->{away}) {
 		if(!$sndata->{away}->{$buddy}) {
-			irc_send(irc_privmsg($usnick, $nick, "$buddy has gone away.  Use the IRC command /whois $inick to see their away message.", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "$buddy has gone away.  Use the IRC command /whois $inick to see the away message.", "", "", $screenname));
+			$sndata->{away}->{$buddy} = 1;
 		}
 		$oscar->get_away($buddy) unless $away->{$buddy};
 		$away->{$buddy} = 1;
