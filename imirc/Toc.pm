@@ -444,8 +444,10 @@ sub signon($$&;&) {
 		return -1;
 	}
 	$config = str2conf($msg);
+	$msg =~ s/^CONFIG://;
+	$config{gotconf} = 1 if $msg;
 	$config{$username} = $config;
-	$config{$username}{permtype} = $permtype;
+	$config{$username}{permtype} = $config->{permtype};
 
 	_setup($socket);
 	sflap_do($socket, "toc_init_done");
@@ -944,15 +946,18 @@ sub _setup($) {
 	foreach $buddy(keys %{$config->{Buddies}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 	sflap_do($handle, $msg) unless $msg eq "toc_add_buddy";
 
-	sflap_do($handle, "toc_add_permit");
-	sflap_do($handle, "toc_add_deny");
-	if($config{_hnick($handle)}->{permtype} == 2) {
+	if($config->{permtype} != 1 and $config->{permtype} != 4) {
 		sflap_do($handle, "toc_add_permit");
-	} elsif($config{_hnick($handle)}->{permtype} == 3) {
+	} else {
+		sflap_do($handle, "toc_add_deny")
+	}
+
+	if(scalar keys %{$config->{permit}} and $config->{permtype} != 2) {
 		$msg = "toc_add_permit";
 		foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_permit";
-	} elsif($config{_hnick($handle)}->{permtype} == 4) {
+	}
+	if(scalar keys %{$config->{deny}} and $config->{permtype} != 1) {
 		$msg = "toc_add_deny";
 		foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_deny";
