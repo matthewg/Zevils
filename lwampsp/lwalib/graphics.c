@@ -109,6 +109,34 @@ void DrawParabola(SDL_Surface *screen, int x0, int y0, double radangle, double v
 }
 
 
+void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint32 color) {
+	double d = sqrt(
+		pow(x1 - x0, 2) +
+		pow(y1 - y0, 2)
+	);
+
+	for(double t = 0; t < d; t++) {
+		double x = x0 + (x1 - x0)*t/d;
+		double y = y0 + (y1 - y0)*t/d;
+		if((x >= 0) && (y >= 0) && (x < screen_width) && (y < screen_height))
+			DrawPixel(screen, x, y, color);
+	}
+}
+void DrawLine(SDL_Surface *screen, int x0, int y0, int x1, int y1, Uint8 r, Uint8 g, Uint8 b) {
+	DrawLine(screen, x0, y0, x1, y1, SDL_MapRGB(screen->format, r, g, b));
+}
+
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint32 color) {
+	for(int counter = 0; counter < w; counter++) {
+		double x = x_center - w/2;
+		double y = cos(counter)*h + y_center;
+		DrawLine(screen, x_center, y_center, x, y, color);
+	}
+}
+void DrawBlast(SDL_Surface *screen, int x_center, int y_center, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
+	DrawBlast(screen, x_center, y_center, w, h, SDL_MapRGB(screen->format, r, g, b));
+}
+
 char *float2str(float f) {
 	static char buf[1024];
 	sprintf(buf, "%f", f);
