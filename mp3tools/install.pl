@@ -1,9 +1,16 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 use CPAN;
 use Config qw(config_sh);
 use File::Path;
 use File::Copy;
 use Cwd;
+
+use vars qw(@docs @sampledocs @manpages @cgiscripts @programs); # Things to install
+use vars qw($bin $cgi $doc $man); # Places to install them
+use vars qw($defbin $defcgi $defdoc $defman); # Defaults
+use vars qw($initdir $pathsep $mac $win32); # And some misc.stuff
+
+use strict;
 
 @docs = qw(CONTRIBUTORS COPYING EXAMPLE HISTORY INSTALL
 		README RELNOTES mp3gui.1.html mp3id3.1.html mp3index.1.html
@@ -17,30 +24,29 @@ print "Welcome to the mp3tools installer.\n";
 $initdir = cwd;
 die "This installer must be run from the directory you extracted the mp3tools archive into!\n" unless -f "$initdir/README";
 
-$havemodules = 0;
-$deftkmodule = 1;
+my $havemodules = 0;
 while(!$havemodules) {
-	$tkmodule = 0;
+	my $do_tkmodule = 0;
 	print "mp3tools requires the File::KGlob and MPEG::MP3Info modules\n";
 	print "mp3gui also requires the Tk module.\n";
 	print "Include Tk in list of required modules (say yes if you plan on using mp3gui - default is yes)? ";
-	chomp($tkmodule = <STDIN>);
-	$tkmodule ||= $deftkmodule;
-	$tkmodule = 0 if $tkmodule =~ /^\s*[n0]/i;
+	chomp($do_tkmodule = <STDIN>);
+	$do_tkmodule ||= 1;
+	$do_tkmodule = 0 if $do_tkmodule =~ /^\s*[n0]/i;
 	print "Would you like to:\n";
 		print "\t[a]bort the installation\n";
 		print "\t[c]heck to see if you have these modules installed\n";
 		print "\t[l]et the CPAN module download these for you\n";
 		print "\t[s]kip installation of these modules\n";
 		print "\t(please type the first letter of the option you want)\n";
-	chomp ($selection = <STDIN>);
+	chomp (my $selection = <STDIN>);
 	$selection = lc(substr($selection, 0, 1));
 	exit if $selection eq "a";
 	if($selection eq "c") {
-		$str = "perl -MFile::KGlob -MMPEG::MP3Info ";
-		$str .= "-MTk " if $tkmodule;
+		my $str = "perl -MFile::KGlob -MMPEG::MP3Info ";
+		$str .= "-MTk " if $do_tkmodule;
 		$str .= " -e 'exit;'";
-		$return = system($str);
+		my $return = system($str);
 		if($return == 0) {
 			print "You appear to have the required modules.\n";
 			$havemodules = 1;
@@ -57,11 +63,11 @@ while(!$havemodules) {
 		print "the one where it asks for your preferred CPAN site.  You can select a\n";
 		print "CPAN site from the list at http://www.perl.com/CPAN-local/SITES.html\n";
 		print "Oh, and you must be online.\n\n";
-		for $mod (qw(File::KGlob MPEG::MP3Info)) {
+		for my $mod (qw(File::KGlob MPEG::MP3Info)) {
 			my $obj = CPAN::Shell->expand('Module', $mod);
 			$obj->install;
 		}
-		(CPAN::Shell->expand('Module', 'Tk'))->install if $tkmodule;
+		(CPAN::Shell->expand('Module', 'Tk'))->install if $do_tkmodule;
 		$havemodules = 1;
 	} else {
 		print "I do not understand your selection.\n";
@@ -71,7 +77,7 @@ while(!$havemodules) {
 # install docs (including samples/)
 # install mp3play.cgi
 
-$conf = config_sh();
+my $conf = config_sh();
 $conf =~ /^installsitebin=(.*)$/m;
 $defbin = $1; $defbin =~ s/^'(.*)'/$1/;
 $conf =~ /^installman1dir=(.*)$/m;
@@ -108,9 +114,9 @@ while (1 == 1) {
 	unless (-d $bin) {
 		print "Warning! $bin is not a valid directory!\n";
 		print "Would you like me to create it? ";
-		chomp($docreate = <STDIN>);
+		chomp(my $docreate = <STDIN>);
 		if($docreate and $docreate !~ /^\s*n/i) {
-			mkpath($bin, false, 0755);
+			mkpath($bin, 0, 0755);
 			last;
 		}
 	} else { last; }
@@ -124,9 +130,9 @@ while (1 == 1) {
 	unless (-d $man) {
 		print "Warning! $man is not a valid directory!\n";
 		print "Would you like me to create it? ";
-		chomp($docreate = <STDIN>);
+		chomp(my $docreate = <STDIN>);
 		if($docreate and $docreate !~ /^\s*n/i) {
-			mkpath($man, false, 0755);
+			mkpath($man, 0, 0755);
 			last;
 		}
 	} else { last; }
@@ -140,9 +146,9 @@ while (1 == 1) {
 	unless (-d $doc) {
 		print "Warning! $doc is not a valid directory!\n";
 		print "Would you like me to create it? ";
-		chomp($docreate = <STDIN>);
+		chomp(my $docreate = <STDIN>);
 		if($docreate and $docreate !~ /^\s*n/i) {
-			mkpath($doc, false, 0755);
+			mkpath($doc, 0, 0755);
 			last;
 		}
 	} else { last; }
@@ -156,9 +162,9 @@ while (1 == 1) {
 	unless (-d $cgi) {
 		print "Warning! $cgi is not a valid directory!\n";
 		print "Would you like me to create it? ";
-		chomp($docreate = <STDIN>);
+		chomp(my $docreate = <STDIN>);
 		if($docreate and $docreate !~ /^\s*n/i) {
-			mkpath($cgi, false, 0755);
+			mkpath($cgi, 0, 0755);
 			last;
 		}
 	} else { last; }
@@ -170,7 +176,7 @@ while (1 == 1) {
 unless($bin =~ /^\s*none\s*$/i) {
 	print "Installing programs...\n";
 	chdir $bin;
-	foreach $program (@programs) {
+	foreach my $program (@programs) {
 		print "Installing $program in $bin\n";
 		copy("$initdir$pathsep$program", $program);
 		chmod 0755, $program;
@@ -181,13 +187,13 @@ unless($doc =~ /^\s*none\s*$/i) {
 	print "Installing documentation...\n";
 	chdir $doc;
 	mkdir "samples", 0755;
-	foreach $docfile (@docs) {
+	foreach my $docfile (@docs) {
 		print "Installing $docfile in $doc\n";
 		copy("$initdir$pathsep$docfile", $docfile);
 	}
 	chdir "samples";
-	foreach $docfile (@sampledocs) {
-		print "Installing $docfile in $docsampdir\n";
+	foreach my $docfile (@sampledocs) {
+		print "Installing $docfile in sampes\n";
 		copy("$initdir$pathsep$docfile", $docfile);
 	}
 }
@@ -195,7 +201,7 @@ unless($doc =~ /^\s*none\s*$/i) {
 unless($man =~ /^\s*none\s*$/i) {
 	print "Installing manual pages...\n";
 	chdir $man;
-	foreach $manpage (@manpages) {
+	foreach my $manpage (@manpages) {
 		print "Installing $manpage in $man\n";
 		copy("$initdir$pathsep$manpage", $manpage);
 	}
@@ -204,7 +210,7 @@ unless($man =~ /^\s*none\s*$/i) {
 unless($cgi =~ /^\s*none\s*$/i) {
 	print "Installing CGI scripts...\n";
 	chdir $cgi;
-	foreach $cgiscript (@cgiscripts) {
+	foreach my $cgiscript (@cgiscripts) {
 		print "Installing $cgiscript in $cgi\n";
 		copy("$initdir$pathsep$cgiscript", $cgiscript);
 	}
