@@ -2195,7 +2195,7 @@ sub do_signoff($$;$) {
 	foreach my $xnick(keys %$nicks) {
 		next if $xnick eq $usnick or not $screenname;
 		delete $nicks->{$xnick}->{$screenname}; 
-		irc_send(irc_quit(ircify($prefix.$xnick), "Nobody wants me anymore.")) unless haskeys($nicks->{$xnick});
+		irc_send(irc_quit(ircify($xnick), "Nobody wants me anymore.")) unless haskeys($nicks->{$xnick});
 	}
 
 	irc_send(irc_part($usnick, nickchan($screenname))) if $screenname;
