@@ -415,7 +415,7 @@ if($prompt == "time") {
 		if($_SESSION["weekdays"][$weekday_short]) {
 			$this_wd &= ~pow(2, $i);
 		} else {
-			$this_wd |= pow(2, ~i);
+			$this_wd |= pow(2, $i);
 		}
 		echo $this_wd;
 
