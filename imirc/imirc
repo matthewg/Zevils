@@ -3697,7 +3697,11 @@ sub checkstats() {
 	@uhosts = ();
 	irc_send(irc_stats($usnick, "U")) if $ignoreuhosts;
 
-	sleep 20 if $servermode eq "p0210" and $ignoreuhosts;
+	if($servermode eq "p0210" and $ignoreuhosts) {
+		alarm 0;
+		sleep 20;
+		alarm 10;
+	}
 	@qlines = ();
 	irc_send(irc_stats($usnick, "Q")) if $require_qlines;
 }
