@@ -6,6 +6,8 @@ use IO::Socket;
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
+$debug = 0;
+
 =pod
 =item getconfig(NICK)
 Returns a config-hash of the type returned by signon for NICK.
@@ -76,7 +78,7 @@ Gets an SFLAP-encoded message from HANDLE.  Returns the message.
 =cut
 
 sub sflap_get($) {
-	my($handle) = shift;
+	my($handle, $type, @hdr, @signon_hdr) = shift;
 	my($buff, $len, $connection);
 	#get 6 chars
 	$err = "Undefined handle";
@@ -86,9 +88,24 @@ sub sflap_get($) {
 	#decode the SFLAP header
 
 	#get $len chars
-	$len = (unpack("CCnn", $buff))[3];
+	@hdr = unpack("CCnn", $buff);
+	if($debug) {
+		if($hdr[1] == 1) {
+			$type = "signon";
+		} elsif($hdr[1] == 2) {
+			$type = "data";
+		} else { $type = $hdr[1];
+		}
+		print STDERR "sflap_get: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n";
+		if($type eq "signon") {
+			@signon_hdr = unpack("NnnA*", $buff);
+			print STDERR "\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n";
+		}
+	}
+	$len = $hdr[3];
 	$handle->read($buff, $len) or $err = "Couldn't read: $!";
 	chomp $buff;
+	print STDERR "\tdata: $buff\n" if $type ne "signon";
 	if($err) {
 		$handle->close if $handle;
 		return -1;
@@ -142,7 +159,7 @@ sub signon($$;&) {
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
 	sflap_put($socket, sflap_encode($username, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
-	$msg = quote("toc_signon login.oscar.aol.com 1234 $username " . roast_password($password) . " english ") . "\"TIK:\\\$Revision$\"";
+	$msg = quote("toc_signon login.oscar.aol.com 1234 $username  " . roast_password($password) . " english ") . "\"TIK:\\\$Revision$\"";
 	sflap_put($socket, sflap_encode($msg, 0, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
 	$msg = sflap_get($socket);
@@ -370,7 +387,7 @@ will be stored in $Net::Toc::err if an error occurs.
 =cut
 
 sub sflap_put($$) {
-	my($handle, $msg) = @_; #msg must already be encoded
+	my($handle, $msg, $type, @signon_hdr) = @_; #msg must already be encoded
 
 	$err = "Undefined handle";
 	return -1 unless $handle;
@@ -379,6 +396,25 @@ sub sflap_put($$) {
 	my($seqno) = ++${*$handle}{'net_toc_seqno'};
 	my @hdr = unpack("CCnn", substr($msg, 0, 6));
 	$hdr[2] = $seqno;
+
+	if($debug) {
+		if($hdr[1] == 1) {
+			$type = "signon";
+		} elsif($hdr[1] == 2) {
+			$type = "data";
+		} else { $type = $hdr[1];
+		}
+		print STDERR "sflap_put: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n";
+		$foo = $msg;
+		substr($foo, 0, 6) = "";
+		if($type eq "signon") {
+			@signon_hdr = unpack("NnnA*", $foo);
+			print STDERR "\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n";
+		} else {
+			print STDERR "\tdata: $foo\n";
+		}
+	}
+
 	substr($msg, 0, 6) = pack("CCnn", @hdr);
 
 	$handle->print($msg) or $err = "Couldn't write: $!";
@@ -465,3 +501,5 @@ sub str2conf($) {
 }
 
 sub _hnick($) { return ${*$socket}{'net_toc_username'}; }
+
+1;
