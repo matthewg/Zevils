@@ -149,6 +149,12 @@ $debug = 0;
 
 loadconf();
 
+if($prefix eq "") {
+	warn "Disabling kill_impersonaters - \$prefix = \"\"\n" if $kill_impersonaters;
+	warn "Disabling require_qlines - \$prefix = \"\"\n" if $require_qlines;
+	$require_qlines = $kill_impersonaters = 0;
+}
+
 unless($reload) {
 	if($servermode eq "p0210" and ($require_qlines or $ignoreuhosts)) {
 		print "Due to ircd 2.10 restrictions, IMIRC will pause for 75 seconds after connecting to your IRC server but before doing anything else.\n";
