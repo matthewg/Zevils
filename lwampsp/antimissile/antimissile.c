@@ -245,6 +245,8 @@ void clicked_go(int id) {
 	}
 	controls.animation_time->set_text(float2str(isect_t));
 	do_projectiles(isect_t, &xa, &ya, &xb, &yb, Vax, Vay, Vbx, Vby);
+	printf("Drawing blast at %f,%f\n", xa, ya);
+	DrawBlast(screen, xa, ya, 30, 30, rand(), rand(), rand());
 }
 
 void clicked_exit(int id) { exit(0); }
