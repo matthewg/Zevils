@@ -394,7 +394,7 @@ sub process_irc_message {
 			get_directory($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "set_dir") {
 			$param = "$param $extra";
-			if($param and $param ne "set_dir") {
+			if($extra) {
 				@temp = split(/:/, $param);
 				%temp = (
 					first_name => unshift @temp,
@@ -413,7 +413,7 @@ sub process_irc_message {
 			}
 		} elsif ($cmd eq "dir_search") {
 			$param = "$param $extra";
-			if($param and $param ne "dir_search") {
+			if($extra) {
 				@temp = split(/:/, $param);
 				%temp = (
 					first_name => unshift @temp,
