@@ -601,16 +601,19 @@ sub make_call($$) {
 			my $snooze = 0;
 
 			my $pid = fork();
+			my $exit_status;
+
 			if(!defined($pid)) {
 				$end->("failure", "Couldn't fork: $!");
 			} elsif(!$pid) {
 				exec(@command) or die "Couldn't exec: $!\n";
 			} else {
 				$SIG{ALRM} = sub { die "Got SIGALRM\n"; };
-				eval {
+				$exit_status = eval {
 					alarm($timeout+5);
 					waitpid($pid, 0);
 					alarm(0);
+					$?;
 				};
 			}
 
@@ -618,13 +621,13 @@ sub make_call($$) {
 			if($@) {
 				kill(9, $pid);
 				$end->("failure", "Child hung: $@");
-			} elsif($?) {
-				if($? == -1) {
+			} elsif($exit_status) {
+				if($exit_status == -1) {
 					$end->("failure", "Failed to execute: $!");
-				} elsif($? & 127) {
-					$end->("failure", "Died with signal " . ($? & 127));
+				} elsif($exit_status & 127) {
+					$end->("failure", "Died with signal " . ($exit_status & 127));
 				} else {
-					my $status = $? >> 8;
+					my $status = $exit_status >> 8;
 
 					if($status == 0 or ($status == 3 and !$snooze_ok)) { # Success
 						$end->("success", "");
