@@ -343,7 +343,7 @@ sub got_client() {
 	my($currmsg, $currgroup, $user);
 
 	(undef, $client_ip) = sockaddr_in(getpeername(CLIENT));
-	$client_ip = inet_ntoa(gethotbyaddr($client_ip, AF_INET));
+	$client_ip = inet_ntoa(gethostbyaddr($client_ip, AF_INET));
 
 	select CLIENT;
 	$| = 1; # Auto-flush the output.
