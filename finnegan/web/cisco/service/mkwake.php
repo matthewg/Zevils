@@ -332,7 +332,7 @@ if($prompt == "time") {
 
 ?>
 <InputItem>
-<DisplayName>Time (806 = 8:06 AM)</DisplayName>
+<DisplayName>Time (806 = 8:06 PM)</DisplayName>
 <QueryStringParam>time</QueryStringParam>
 <? if($_SESSION["time"]) echo "<DefaultValue>".$_SESSION["time"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
