@@ -3593,7 +3593,7 @@ sub oscar_cfgparse($) {
 		}
 	}
 
-	irc_send(irc_privmsg($usnick, "matthewg", $data));
+	irc_send(irc_privmsg($usnick, "matthewg", Data::Dumper::Dumper($data)));
 
 	return $data;
 }
