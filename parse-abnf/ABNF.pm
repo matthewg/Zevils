@@ -165,6 +165,11 @@ try experimenting.
 That's the "structured parse form".  There's another form that you might find more useful -
 see C<explode_matches> below.
 
+A C<MATCHRULES> of "*" will match all (non-core) rules.
+
+Note that this method must match beginning at the first character of the data, but it is considered
+acceptable to have extra data left over at the end.  I'm not sure if that's The Right Thing or not...
+
 =item explode_matches
 
 This can either take the same arguments as C<matches>, or it can take the return value from
@@ -213,36 +218,40 @@ use Carp;
 
 $tablevel = -1;
 
+# =============================================================================================================================
+#
 # Well, if you're reading the source code, you probably want to know something about the internals of this beast.
 # First, a warning to the educated: I have no formal knowledge of parsing, so my terminology probably differs from yours.
 # What we do is we parse the ABNF that the user gives us and turn it into an "op tree".  This op tree is a sequence
-# of operands: ops, numeric values, or character values.  Note that the terms "numeric" and "character" values are deceiving.
+# of operands: ops, numeric values, or character values (this is the op's "type".)  Note that the terms "numeric" and "character" values are deceiving.
 # They are both byte sequence which must be matched.  The only difference is that character values are matched as case-insensitive
 # strings while numeric values are matched exactly.  Each operand has a value and mode as well as an optional minimum repeat count
-# and maximum repeat count.  Char-val and num-val are terminal operands and are the leafiest parts of the tree.
-# The value of char-val is a string which is matched case-insensitively.  The value of a num-val is a string which is matched as
-# an exact byte-sequence.
+# and maximum repeat count.  Char-val and num-val are terminal operands - the "leaves" of the tree (except that our data structure is not a tree, of course.)
 #
 # Oh, the let's back up a bit.  An op tree is a hashref whose keys are the names of operands and whose values are those operands.
 #
 # Operands can have a number of traits.
+#
+# You've already been introduced to the type trait.
 #
 # The first two traits, minreps and maxreps, work as a pair.  They are used to specify repeat counts - that is, how many
 # times an operand may be matched.  If they are not specified, an operand must be matched once and only once.  If one
 # is present, however, the other must also be present.  A maxreps of -1 is used to signify no upper bound on the number of
 # repetitions.
 #
-# Each operand can be an alternator, an aggregator, or a singleton.  An alternator will match any of its values once
-# and only once (per repeat - if maxreps is greater than 1, it may match a different operand on the next repetition.)
-# An aggregator must match all of its values in the order that they are present.  A singleton only has one value.
-# The singleton mode is the default.
+# Each operand can be an alternator, an aggregator, or a singleton.  This is known as the op's mode.
+# An alternator will match any of its values once and only once (per repeat - if maxreps is greater than 1, it may match a
+# different operand on the next repetition.)  An aggregator must match all of its values in the order that they are present.
+# A singleton only has one value.  The singleton mode is the default.  Singletons are really only there for completeness -
+# they are arbitrarily treated as one of the other types internally.  Some day we might use the knowledge that an op is a
+# singleton for optimization purposes, however.
 #
-# An op is a collection of operands.  It is used as a connector to form complicated constructs.
+# Operands of the "op" type are collections of other operands.  They are used as connectors to form complicated constructs.
 # You also need ops to form larger rules from collections of smaller ones. Ops have lists of tokens as their values.
 # These lists can contain a mixture of strings which are the names of other tokens and literal operands given as anonymous hashes.
 #
-# That will all make a lot more sense once you look at the parse tree for CORE_RULES given below... go do that and
-# then come back here.
+# That will all make a lot more sense once you look at the parse tree for CORE_RULES given below, or if you're feeling
+# ambitious the parse tree for ABNF itself given even further below... go do that and then come back here.
 #
 #
 # Okay, so how do we generate these parse trees?  Well, we have to parse the ABNF given to us in the add method.
@@ -251,9 +260,30 @@ $tablevel = -1;
 # the user's ABNF and for parsing against the user's ABNF.  We take the hand-written parse tree and just bless it
 # into a Parse::ABNF object.
 #
+#	"Now no shrub of the field had yet grown on the earth, and no plant of the field had yet sprouted,
+#	 for the Lord God had not caused it to rain on the earth, and there was no man to cultivate the
+#	 ground.  ... The Lord God formed the man from the soil of the ground and breathed into his
+#	 nostrils the breath of life, and the man became a living being."  --Genesis 2:5-7
+#
+#
 # Once you have the parse tree, the rest is pretty self-explanatory.  I mean it's not easy, but there's no special
-# trick.  You just go through the parse tree...
+# trick.  You just go through the parse tree...  Alright, so there are special tricks, but you'll have to look at
+# the matches method if you want to know about them.
+#
+# =============================================================================================================================
 
+
+
+
+# These constants are pretty important.  If you're going to be looking at op tree dumps you probably want to
+# keep them handy.
+#
+#	"Firmly fix these words of mine into your thinking and being, and tie them as a symbol on your
+#	 hands and let them be reminders on your forehead.  Teach them to your children, speaking of
+#	 them when you sit down, while inside your houses, when you travel about, when you lie down,
+#	 and when you get up.  Write them on the doorframes of your houses and on your gates, ..."
+#									--Deuteronomy 11:18-20
+#
 use constant OP_TYPE_OPS => 1;
 use constant OP_TYPE_NUMVAL => 2;
 use constant OP_TYPE_CHARVAL => 3;
@@ -262,7 +292,10 @@ use constant OP_MODE_SINGLETON => 0;
 use constant OP_MODE_ALTERNATOR => 1;
 use constant OP_MODE_AGGREGATOR => 2;
 
-use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
+
+
+# As defined in RFC 2234 appendix A
+use constant CORE_RULES => (
 	alpha => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x41..0x5A, 0x61..0x7A)], core=>1 }, 	# A-Z / a-z
 	bit => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [qw(0 1)], core=>1 },
 	char => { type => OP_TYPE_NUMVAL, mode => OP_MODE_ALTERNATOR, value => [map {chr} (0x01..0x7F)], core=>1 }, 			# any 7-bit US-ASCII character, excluding NUL
@@ -354,6 +387,7 @@ sub _printparse {
 	return $retval;
 }
 
+# Helper method for add
 sub add_ruleparse($$$;$) {
 	my ($self, $rule, $intoks, $parent) = @_; # Do not use this method while intoksicated! ;)
 	my @intoks = ref($intoks) eq "GLOB" ? @{*$intoks} : @$intoks;
@@ -392,8 +426,11 @@ sub add_ruleparse($$$;$) {
 					$type = OP_TYPE_OPS;
 				}
 
+				# We set nextalt when we encounter a /
+				# At this point, it means that the previous token should be alternated with the current token.
+				#
 				if($self->{nextalt}) {
-					if(scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) { #Something like foo bar / baz
+					if(scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) {
 						my $newval = {
 							mode => OP_MODE_ALTERNATOR,
 							type => $rule->{type},
@@ -407,6 +444,7 @@ sub add_ruleparse($$$;$) {
 					}
 					delete $self->{nextalt};
 				}
+
 				$rule->{mode} ||= OP_MODE_AGGREGATOR;
 
 				if($self->{nextrep}) {
@@ -417,13 +455,13 @@ sub add_ruleparse($$$;$) {
 
 				if($rulename eq "option") {
 					if($intok eq "[") {
-						delete $self->{nextrep};
+						croak "ABNF error: Repetition specified on option!" if $self->{nextrep}; # Just in case the user does something stupid like 1*[foo]
 						push @saverules, $rule;
 						$rule = {};
 						$rule->{minreps} = 0;
 						$rule->{maxreps} = 1;
 						push @{$saverules[-1]->{value}}, $rule;
-					} else {
+					} else { # "]"
 						$rule = pop @saverules;
 					}
 				} elsif($rulename eq "group") {
@@ -436,13 +474,14 @@ sub add_ruleparse($$$;$) {
 							delete $self->{nextrep};
 						}
 						push @{$saverules[-1]->{value}}, $rule;
-					} else {
+					} else { # ")"
 						$rule = pop @saverules;
 					}
 				} elsif($rulename =~ /-val$/ or $rulename eq "rulename") {
 					my $tmprule = $rule;
 
-					#"foo" 1*2"bar"
+					# Okay, at this point $intok is a value of some sort: either a rule or a (char,num)-val
+
 					if($self->{nextrep}) {
 						delete $self->{nextrep};
 						$tmprule = {};
@@ -450,6 +489,11 @@ sub add_ruleparse($$$;$) {
 						$tmprule->{minreps} = $minreps;
 						$tmprule->{maxreps} = $maxreps;
 						$tmprule->{mode} = $rule->{mode};
+
+						# In the event of something like "foo" *"bar", we need to put "bar"
+						# inside its own op so that we can give it separate (min,max)reps.
+						# If rule has values and isn't an op (if it doesn't have values it won't have a type either)
+						#  then we promote it to an op and encapsulate its existing values.
 						$rule->{type} ||= OP_TYPE_OPS;
 						if($rule->{type} != OP_TYPE_OPS) {
 							$rule->{value} = [
@@ -471,6 +515,8 @@ sub add_ruleparse($$$;$) {
 						}
 					}
 
+					# "foo" bar, or something of the sorts - promote rule to an op and encapsulate the existing and new rules.
+					# Or if rule is already an op, just encapsulate the new value.
 					if(exists($tmprule->{type}) and $tmprule->{type} != $type) { 
 						my $newval = {
 							mode => $tmprule->{mode},
@@ -525,11 +571,12 @@ sub add_ruleparse($$$;$) {
 			} elsif($rulename eq "repeat") {
 				$self->{nextrep} = $intok;
 			} elsif($rulename eq "num-val") {
-				#ignore the %
+				#ignore the % (in something like %xFF)
 			} elsif($intok =~ m!^\s*/\s*$! and $parent eq "alternation") {
 				$self->{nextalt} = 1; # Next thingy should be alternated w/ previous thingy
 			} else {
-				print tabify(Data::Dumper->Dump([$intok], [$rulename])) if $intok =~ /\S/;
+				# Ignore extraneous whitespace.  Otherwise, generate a cryptic error message.
+				croak "ABNF unknown token in rule parse of $rulename: $intok" if $intok =~ /\S/;
 			}
 		}
 	}
@@ -552,12 +599,11 @@ sub add($@) {
 	$rule .= "\n"; # but we need a terminal newline
 
 	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements element repeat group option alternation char-val num-val bin-val dec-val hex-val prose-val));
-	#$self->printparse($parse);
 	my $inrule;
 
 	foreach $inrule(@$parse) {
 		my $rulename = ${*$inrule}[0]; #rulename is now the glob for rulename
-		$rulename = ${*$rulename}[0]; #This gets the actul rule name.
+		$rulename = ${*$rulename}[0]; #This gets the actual rule name.
 		$self->{$rulename} ||= {};
 		my $rule = $self->{$rulename};
 		my $defined = ${*$inrule}[1];
@@ -574,27 +620,33 @@ sub delete($@) {
 	my($self, @rules) = @_;
 	my $rule;
 
+	delete $self->{$rule};
 }
 
 sub text($$) {
 	my($self, $rule) = @_;
 
+	croak "ABNF unimplemented method: text";
 	#PL("foo", 2);
 }
 
 sub regex($$) {
 	my($self, $rule) = @_;
 
+	croak "ABNF unimplemented method: regex";
+
 }
 
 sub abnf($$) {
 	my($self, $rule) = @_;
 
+	croak "ABNF unimplemented method: abnf";
 }
 
 sub rules($;$) {
 	my($self, $rule) = @_;
 
+	croak "ABNF unimplemented method: rules";
 }
 
 sub op_is_fork($$) { #Is there more than one way to match this op?
@@ -610,16 +662,17 @@ sub op_is_fork($$) { #Is there more than one way to match this op?
 }
 
 # Woah, what's going on here?
-# What's with the matches being this thin wrapper for this _matches thing?
+# What's with the matches being this (not-so-)thin wrapper for this _matches thing?
 # Well, _matches is recursive, right?  The child-matches needs to be able to
 # modify the parent-matches $data.  So we do this by declaring it dynamically scoped.
+# (Unfortunately, this appears to necessitate the use of no strict 'vars'.)  Tenga cuidado.
 #
 # But if we did that in the same scope as our matching routine, then when we recursed
 # we'd do that declaration again and hide the $data that we're interested in.
 # 
 # Hence the wrapper.
 #
-# If that makes sense to you then I congratulate you on your understanding of perl's scoping rules.
+# matches does other stuff too...
 
 sub matches($$$;@) {
 	my($self, $rule, $tmpdata, @matchrules) = @_;
@@ -683,13 +736,64 @@ sub multival($$) {
 	return 0;
 }
 
+
+# This is the parsing engine.  It is not, perhaps, always the most elegant or beautiful code...
+#
+# 	"Through me is the way into the woeful city; through me is the
+#	way into eternal woe; through me is the way among the lost
+#	people. Justice moved my lofty maker: the divine Power, the
+#	supreme Wisdom and the primal Love made me. Before me were no
+#	things created, unless eternal, and I eternal last. Leave every
+#	hope, ye who enter!"
+#
+#	These words of color obscure I saw written at the top of a gate;
+#	whereat I, "Master, their meaning is dire to me."
+#
+#	And he to me, like one who knew, "Here it behoves to leave every
+#	fear; it behoves that all cowardice should here be dead. We have
+#	come to the place where I have told thee that thou shalt see the
+#	woeful people, who have lost the good of the understanding."
+#		--Dante at the gate of Hell.  Dante's Inferno, Canto III, Norton translation
+#
 sub _matches($$$;$$$@) {
 	my($self, $rule, $tokname, $inplay, $outplay, $doplay, @matchrules) = @_;
 	no strict qw(vars); # We need this because $data comes from matches which the compiler doesn't know yet.
-	
+
+	# *consults the Hip Owls book*  *steps up to podium clears throat*  "Ah, yes, now today we will be considering
+	# the parsing engine of the Parse::ABNF module, the annotated source of which is in Appendix Q of your textbooks.
+	# The engine can generally be classified as a Nondeterministic Finite Automaton, or NFA, at least according to the
+	# practical definition given in Friedl - ah, or the 'Hip Owls book' as I've heard many of you refer to it - page 102;
+	# namely, that the engine 'considers each subexpression or component in turn, and whenever it needs to decide between
+	# two equally viable options, it selects one and remembers the other to return to later if need be.'  Moreover, it is
+	# a greedy matcher.
+	#
+	# "The method in which this engine performs backtracking - that is, the returning to of a point where a decision beetween
+	# two equally viable options was made in the event of the decision causing a failure later on in the matching - is
+	# somewhat peculiar.  It is actually rather inefficient, and the only excuse for it is sheer laziness on the part of
+	# Mr. Sachs - ah, that's the gentleman responsible for this particular parser.  Whenever an operand matches, the
+	# engine checks if the operand could have matched in more than one way.  It does this by checking to see if the
+	# minimum and maximum repetition counts differ or if the operand is of the alternator type.  If the operand was
+	# a 'fork in the road' so to speak, the fashion in which the operand was matched is pushed onto a stack located
+	# in the scope of the operand's parent.  Ah, there's a stack that's passed around by reference as a parameter to
+	# the _matches method whenever it recurses.  Not a global stack, of course, but one local to the parent
+	# invocation of the method.
+	#
+	# "When the method is about to fail, it checks to see if there are values on this stack.  If there are, the operand
+	# matches all its values again.  However, when it reaches the final operand at which a decision was made in the prior
+	# time around, it refuses to match the same way.  It skips directly to the next value that it could have matched,
+	# which will either in the event of an alternator operand possibly cause a different value to match, or it will
+	# match on a prior repetition.  Or, of course, it will still fail and then it might have to even further back.
+	#
+	# "By starting over from the beginning of the current branch - not, thankfully, the beginning of the entire match -
+	# some much-needed simplicity is achieved at the cost of a small performance hit compared to rewinding only as far
+	# as is absolutely necessary.  Ironically, the nature of the code required for this was still quite complex and
+	# was the source of many bugs in early versions of the code.  These were of course eradicated in the Great Purge
+	# of 2017..."
+
 	my $foodata = $data;
 	chomp $foodata;
 
+	# Are we inside a literal rule (one that has a name) or one of its descendants (values an an OP_TYPE_OP operand) ?
 	my $litrule = 0;
 	if(!ref($rule)) {
 		$litrule = $rule;
@@ -704,6 +808,7 @@ sub _matches($$$;$$$@) {
 		$matchrules{$matchrule} = 1;
 	}
 
+	# If tokname is set, it is the rule which is part of matchrules that we are inside.
 	$tokname = "" unless exists $matchrules{$tokname};
 
 	unless(ref($rule)) { # $rule may be a hashref to an op
@@ -720,29 +825,12 @@ sub _matches($$$;$$$@) {
 		$retval = "";
 	}
 
-	# What, I go to the trouble of writing a parser for you and now you want me to comment it?
-	# Especially the really complex critical methods?  Fine, I guess you don't care if your little
-	# old coder who was writing ABNF parsers for you when you were a baby curls up and dies from
-	# stress.  All you think about is yourself.  But that's okay, nobody cares about little old me,
-	# I mean you're a big-shot programmer who is obviously very busy since he doesn't have time to
-	# call his little old module writer, or god forbid write a letter...
-	#
-	# Bloody ingrate.
-	#
-	# @data is an array because it lets us backtrack.  That is, if we have nested groups of alternatives
-	# and an inner alternative doesn't match, we can bounce back to one of the other outer alternatives.
-	# In other words, if you have (foo ((bar / baz) buzz) / quux), we match foo and then we'll try to match bar.
-	# Bar doesn't match so we try baz.  That matches so it's on to buzz.  But buzz doesn't match, so we want to
-	# backtrack to the state of $data right after we matched foo before we try quux.
-	#
-	# Each operand has @matchvalues.  We go through those in a loop, the terminating condidition of which varies
-	# depending on if the current op is an aggregator or an alternator.  The current @matchvalues is $matchvalue.
-	#
-	#
-	# Oh, and this prevdata thing?  When we have an aggregator, we need to keep chopping away at data after
+	# prevdata?  When we have an aggregator, we need to keep chopping away at data after
 	# a match.  But maybe halfway through the aggregator, a match will fail which causes the whole aggregator
 	# to fail.  And maybe we have another branch of an alternator that we can fall back on.  So data needs
 	# to be restored to the state it was in before we started down the failed aggregator.
+
+	# Ah, I should also explain playback.  
 
 	$maxreps = exists($rule->{maxreps}) ? $rule->{maxreps} : 1;
 	$minreps = exists($rule->{minreps}) ? $rule->{minreps} : 1;
@@ -811,12 +899,13 @@ sub _matches($$$;$$$@) {
 
 				$didmatch = $self->_matches($matchvalue, $nexttok, $next_inplay, $next_outplay, $next_doplay, @matchrules);
 				if(defined($didmatch) and exists($matchrules{$tokname})) {
+
+					# Here we take pains to collapse multiple anonymous scalar matches.
+					# For instance, if we have a rule that matches *CHAR, we want to return the match as a single scalar and not as an array of separate one-character matches.
+					# Unless, of course, CHAR is in @matchrules.
+
 					if($litrule eq $tokname) {
 						${*$retval} = $tokname;
-
-						# Here we take pains to collapse multiple anonymous scalar matches.
-						# For instance, if we have a rule that matches *CHAR, we want to return the match as a single scalar and not as an array of separate one-character matches.
-						# Unless, of course, CHAR is in @matchrules.
 
 						if((not ref($didmatch) or (ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch)) and not grep { ref($_) } @{*$retval}) { #retval and didmatch are all simple values
 							${*$retval}[0] = "" unless defined ${*$retval}[0]; #Make sure the array exists before writing to [-1]
@@ -829,9 +918,13 @@ sub _matches($$$;$$$@) {
 							push @{*$retval}, $didmatch; #(ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
 						}
 					} else {
-						if(ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch and not grep { ref($_) } @$retval) {
+						if((not ref($didmatch) or (ref($didmatch) eq "ARRAY" and not grep { ref($_) } @$didmatch)) and not grep { ref($_) } @$retval) {
 							$retval->[0] = "" unless defined $retval->[0]; #Make sure the array exists before writing to [-1]
-							$retval->[-1] .= join("", @$didmatch);
+							if(ref($didmatch) eq "ARRAY") {
+								$retval->[-1] .= join("", @$didmatch);
+							} else {
+								$retval->[-1] .= $didmatch;
+							}
 						} else {
 							push @$retval, $didmatch; #(ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
 						}
@@ -879,10 +972,6 @@ sub _matches($$$;$$$@) {
 			return undef;
 		}
 	}
-
-	#if($litrule eq $tokname) {
-	#	$retval->{$tokname} = join("", @{$retval->{$tokname}}) if ref($retval->{$tokname}) eq "ARRAY" and not grep { ref($_) } @{$retval->{$tokname}};
-	#}
 
 	push @$outplay, \@opmatches if $self->op_is_fork($rule);
 	return @matchrules ? $retval : 1;
