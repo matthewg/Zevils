@@ -47,3 +47,6 @@ A new configuration option, $usepoll (on by default) instructs IMIRC to use
 IO::Poll instead of select if it is available.  IO::Poll is standard with perl
 5.6.0 and newer, and isn't available for older perls.  This should increase
 performance and decrease CPU utilization, especially for long-running IMIRCs.
+
+New signon option, --hashpass, lets user avoid sending the password to the
+IMIRC server if they feel like doing some good ol'-fashioned MD5 digestion.
