@@ -133,6 +133,7 @@ sub do_request
     if ($method eq "editevent")        { return editevent(@args);        }
     if ($method eq "syncitems")        { return syncitems(@args);        }
     if ($method eq "getevents")        { return getevents(@args);        }
+    if ($method eq "gettalks")         { return gettalks(@args);         }
     if ($method eq "editfriends")      { return editfriends(@args);      }
     if ($method eq "editfriendgroups") { return editfriendgroups(@args); }
     if ($method eq "consolecommand")   { return consolecommand(@args);   }
@@ -1252,20 +1253,35 @@ sub editevent
     return $res;
 }
 
-sub getevents
+sub getevents   { _get_events_talks("events", @_); }
+sub gettalks    { _get_events_talks("talks", @_); }
+
+sub _get_events_talks
 {
-    my ($req, $err, $flags) = @_;
+    my ($type, $req, $err, $flags) = @_;
+    return fail($err,500) unless $type eq "events" or $type eq "talks";
     return undef unless authenticate($req, $err, $flags);
     return undef unless check_altusage($req, $err, $flags);
 
+    my $dbr = LJ::get_db_reader();
     my $u = $flags->{'u'};
+    my $journalid = $req->{'journalid'};
+    my $jitem;
+
+    if($type eq "talks") {
+        $journalid =~ tr/0-9//dc;
+        return fail($err,203,"Invalid journalid") unless $journalid;
+        $jitem = LJ::Talk::get_journal_item($u, $journalid);
+        fail($err,203,"Nonexistant journalid") unless $jitem;
+        return undef unless LJ::can_view($dbr, $u, $jitem);
+    }
+
     my $uowner = $flags->{'u_owner'} || $u;
 
     ### shared-journal support
     my $posterid = $u->{'userid'};
     my $ownerid = $flags->{'ownerid'};
 
-    my $dbr = LJ::get_db_reader();
     my $sth;
 
     my $dbcr =  LJ::get_cluster_reader($uowner);
@@ -1332,6 +1348,8 @@ sub getevents
         # mysql's braindead optimizer to use the right index.
         my $rtime_after = 0;
         my $rtime_what = $is_community ? "rlogtime" : "revttime";
+        $rtime_what = "datepost" if $type eq "talks";
+
         if ($req->{'beforedate'}) {
             return fail($err,203,"Invalid beforedate format.")
                 unless ($req->{'beforedate'} =~
@@ -1376,21 +1394,31 @@ sub getevents
         }
         
         my %item;
-        $sth = $dbcr->prepare("SELECT jitemid, logtime FROM log2 WHERE ".
-                              "journalid=? and logtime > ?");
-        $sth->execute($ownerid, $date);
+        if($type eq "events") {
+            $sth = $dbcr->prepare("SELECT jitemid, logtime FROM log2 WHERE ".
+                                  "journalid=? and logtime > ?");
+            $sth->execute($ownerid, $date);
+        } elsif($type eq "talks") {
+            return fail($err,200,"Must specify journalid") unless $req->{'journalid'};
+            $sth = $dbcr->prepare("SELECT jtalkid, datepost FROM talk2 WHERE ".
+                                  "journalid=? and nodeid=? and nodetype='L' and logtime > ?");
+            $sth->execute($ownerid, $journalid, $date);
+        }
+
         while (my ($id, $dt) = $sth->fetchrow_array) {
             $item{$id} = $dt;
         }
 
-        my $p_revtime = LJ::get_prop("log", "revtime");
-        $sth = $dbcr->prepare("SELECT jitemid, FROM_UNIXTIME(value) ".
-                              "FROM logprop2 WHERE journalid=? ".
-                              "AND propid=$p_revtime->{'id'} ".
-                              "AND value+0 > UNIX_TIMESTAMP(?)");
-        $sth->execute($ownerid, $date);
-        while (my ($id, $dt) = $sth->fetchrow_array) {
-            $item{$id} = $dt;
+        if($type eq "events") {
+            my $p_revtime = LJ::get_prop("log", "revtime");
+            $sth = $dbcr->prepare("SELECT jitemid, FROM_UNIXTIME(value) ".
+                                  "FROM logprop2 WHERE journalid=? ".
+                                  "AND propid=$p_revtime->{'id'} ".
+                                  "AND value+0 > UNIX_TIMESTAMP(?)");
+            $sth->execute($ownerid, $date);
+            while (my ($id, $dt) = $sth->fetchrow_array) {
+                $item{$id} = $dt;
+            }
         }
 
         my $limit = 100;
@@ -1398,7 +1426,11 @@ sub getevents
         if (@ids > $limit) { @ids = @ids[0..$limit-1]; }
         
         my $in = join(',', @ids) || "0";
-        $where = "AND jitemid IN ($in)";
+        if($type eq "events") {
+            $where = "AND jitemid IN ($in)";
+        } elsif($type eq "talks") {
+            $where = "AND jtalkid IN ($in)";
+        }
     }
     elsif ($req->{'selecttype'} eq "multiple")
     {
@@ -1410,7 +1442,11 @@ sub getevents
         my $limit = 100;
         return fail($err,209,"Can't retrieve more than $limit entries at once") if @ids > $limit;
         my $in = join(',', @ids);
-        $where = "AND jitemid IN ($in)";
+        if($type eq "events") {
+            $where = "AND jitemid IN ($in)";
+        } elsif($type eq "talks") {
+            $where = "AND jtalkid IN ($in)";
+        }
     }
     else
     {
@@ -1419,8 +1455,13 @@ sub getevents
 
     # common SQL template:
     unless ($sql) {
-        $sql = "SELECT jitemid, eventtime, security, allowmask, anum, posterid ".
-            "FROM log2 WHERE journalid=$ownerid $where $orderby $limit";
+        if($type eq "events") {
+            $sql = "SELECT jitemid, eventtime, security, allowmask, anum, posterid ".
+                "FROM log2 WHERE journalid=$ownerid $where $orderby $limit";
+        } elsif($type eq "talks") {
+            $sql = "SELECT jtalkid, datepost, state, posterid, parenttalkid ".
+                "FROM talk2 WHERE journalid=$ownerid AND nodeid=$journalid AND nodetype='L' $where $orderby $limit";
+        }
     }
 
     # whatever selecttype might have wanted us to use the master db.
@@ -1433,28 +1474,47 @@ sub getevents
     return fail($err,501,$dbcr->errstr) if $dbcr->err;
 
     my $count = 0;
-    my @itemids = ();
+    my @ids = ();
     my $res = {};
-    my $events = $res->{'events'} = [];
-    my %evt_from_itemid;
+    my $results = $res->{$type} = [];
+    my %result_from_id;
 
-    while (my ($itemid, $eventtime, $sec, $mask, $anum, $jposterid) = $sth->fetchrow_array)
-    {
-        $count++;
-        my $evt = {};
-        $evt->{'itemid'} = $itemid;
-        push @itemids, $itemid;
+    if($type eq "events") {
+        while (my ($itemid, $eventtime, $sec, $mask, $anum, $jposterid) = $sth->fetchrow_array)
+        {
+            $count++;
+            my $evt = {};
+            $evt->{'itemid'} = $itemid;
+            push @ids, $itemid;
 
-        $evt_from_itemid{$itemid} = $evt;
+            $result_from_id{$itemid} = $evt;
 
-        $evt->{"eventtime"} = $eventtime;
-        if ($sec ne "public") {
-            $evt->{'security'} = $sec;
-            $evt->{'allowmask'} = $mask if $sec eq "usemask";
+            $evt->{"eventtime"} = $eventtime;
+            if ($sec ne "public") {
+                $evt->{'security'} = $sec;
+                $evt->{'allowmask'} = $mask if $sec eq "usemask";
+            }
+            $evt->{'anum'} = $anum;
+            $evt->{'poster'} = LJ::get_username($dbr, $jposterid) if $jposterid != $ownerid;
+            push @$results, $evt;
         }
-        $evt->{'anum'} = $anum;
-        $evt->{'poster'} = LJ::get_username($dbr, $jposterid) if $jposterid != $ownerid;
-        push @$events, $evt;
+    } elsif($type eq "talks") {
+        while (my ($talkid, $talktime, $state, $posterid, $parenttalkid) = $sth->fetchrow_array)
+        {
+            next if $state eq "S"; # and !LJ::Talk::can_view_screened($u, $journal_user, $posting_user, $commenting_user) #???
+            $count++;
+            my $talk = {};
+            $talk->{'talkid'} = $talkid;
+            push @ids, $talkid;
+
+            $result_from_id{$talkid} = $talk;
+
+            $talk->{'talktime'} = $talktime;
+            $talk->{'screened'} = $state if $state eq "S";
+            $talk->{'poster'} = LJ::get_username($dbr, $posterid);
+            $talk->{'parenttalkid'} = $parenttalkid;
+            push @$results, $talk;
+        }
     }
 
     # load properties. Even if the caller doesn't want them, we need
@@ -1465,19 +1525,29 @@ sub getevents
 	### do the properties now
 	$count = 0;
 	my %props = ();
-        LJ::load_log_props2($dbcr, $ownerid, \@itemids, \%props);
-	foreach my $itemid (keys %props) {
+
+        if($type eq "events") {
+            LJ::load_log_props2($dbcr, $ownerid, \@itemids, \%props);
+        } elsif($type eq "talks") {
+            LJ::load_talk_props2($dbcr, $ownerid, \@itemids, \%props);
+        }
+
+	foreach my $id (keys %props) {
             # 'replycount' is a pseudo-prop, don't send it.
             # FIXME: this goes away after we restructure APIs and
             # replycounts cease being transferred in props
-            delete $props{$itemid}->{'replycount'};
+            delete $props{$id}->{'replycount'};
 
-	    my $evt = $evt_from_itemid{$itemid};
-	    $evt->{'props'} = {};
-	    foreach my $name (keys %{$props{$itemid}}) {
-		my $value = $props{$itemid}->{$name};
+            # delete posterip for security reasons
+            delete $props{$id}->{'posterip'};
+
+	    my $result = $result_from_id{$id};
+
+	    $result->{'props'} = {};
+	    foreach my $name (keys %{$props{$id}}) {
+		my $value = $props{$id}->{$name};
 		$value =~ s/\n/ /g;
-		$evt->{'props'}->{$name} = $value;
+		$result->{'props'}->{$name} = $value;
 	    }
 	}
     }
@@ -1486,12 +1556,17 @@ sub getevents
     my $gt_opts = {
         'usemaster' => $use_master,
     };
-    my $text = LJ::get_logtext2($uowner, $gt_opts, @itemids);
+    my $text = "";
+    if($type eq "events") {
+        $text = LJ::get_logtext2($uowner, $gt_opts, @ids);
+    } else {
+        $text = LJ::get_talktext2($uowner, $gt_opts, @ids);
+    }
 
-    foreach my $i (@itemids)
+    foreach my $i (@ids)
     {
         my $t = $text->{$i};
-        my $evt = $evt_from_itemid{$i};
+        my $result = $result_from_id{$i};
 
         # if they want subjects to be events, replace event
         # with subject when requested.
@@ -1503,21 +1578,21 @@ sub getevents
         # now that we have the subject, the event and the props, 
         # auto-translate them to UTF-8 if they're not in UTF-8.
         if ($LJ::UNICODE && $req->{'ver'} >= 1 && 
-                $evt->{'props'}->{'unknown8bit'}) {
+                $result->{'props'}->{'unknown8bit'}) {
             my $error = 0;
             $t->[0] = LJ::text_convert($t->[0], $uowner, \$error);
             $t->[1] = LJ::text_convert($t->[1], $uowner, \$error);
-            foreach (keys %{$evt->{'props'}}) {
-                $evt->{'props'}->{$_} = LJ::text_convert($evt->{'props'}->{$_}, $uowner, \$error);
+            foreach (keys %{$result->{'props'}}) {
+                $result->{'props'}->{$_} = LJ::text_convert($result->{'props'}->{$_}, $uowner, \$error);
             }
             return fail($err,208,"Cannot display this post. Please see $LJ::SITEROOT/support/encodings.bml for more information.")
                 if $error;
         }
 
-        if ($LJ::UNICODE && $req->{'ver'} < 1 && !$evt->{'props'}->{'unknown8bit'}) {
+        if ($LJ::UNICODE && $req->{'ver'} < 1 && !$result->{'props'}->{'unknown8bit'}) {
             unless ( LJ::is_ascii($t->[0]) && 
                      LJ::is_ascii($t->[1]) &&
-                     LJ::is_ascii(join(' ', values %{$evt->{'props'}}) )) {
+                     LJ::is_ascii(join(' ', values %{$result->{'props'}}) )) {
                 # we want to fail the client that wants to get this entry
                 # but we make an exception for selecttype=day, in order to allow at least
                 # viewing the daily summary
@@ -1532,7 +1607,7 @@ sub getevents
 
         if ($t->[0]) {
             $t->[0] =~ s/[\r\n]/ /g;
-            $evt->{'subject'} = $t->[0];
+            $result->{'subject'} = $t->[0];
         }
 
         # truncate
@@ -1560,12 +1635,16 @@ sub getevents
         } else { # "pc" -- default
             $t->[1] =~ s/\n/\r\n/g;
         }
-        $evt->{'event'} = $t->[1];
+        if($type eq "events") {
+            $result->{'event'} = $t->[1];
+        } elsif($type eq "talks") {
+            $result->{'talk'} = $t->[1];
+        }
     }
 
     # maybe we don't need the props after all
     if ($req->{'noprops'}) {
-        foreach(@$events) { delete $_->{'props'}; }
+        foreach(@$results) { delete $_->{'props'}; }
     }
 
     return $res;
@@ -2317,6 +2396,9 @@ sub do_request
     if ($req->{'mode'} eq "getevents") {
         return getevents($req, $res, $flags);
     }
+    if ($req->{'mode'} eq "gettalks") {
+        return gettalks($req, $res, $flags);
+    }
     if ($req->{'mode'} eq "editfriends") {
         return editfriends($req, $res, $flags);
     }
@@ -2730,37 +2812,58 @@ sub editevent
 }
 
 ## flat wrapper
-sub getevents
+sub getevents { _get_events_talks("events", @_); }
+sub gettalks { _get_events_talks("talks", @_); }
+
+sub _get_events_talks
 {
-    my ($req, $res, $flags) = @_;
+    my ($type, $req, $res, $flags) = @_;
+    if($type ne "events" and $type ne "talks") {
+        $res->{'success'} = "FAIL";
+        $res->{'errmsg'} = LJ::Protocol::error_message(500);
+        return 0;
+    }
 
     my $err = 0;
     my $rq = upgrade_request($req);
 
-    my $rs = LJ::Protocol::do_request("getevents", $rq, \$err, $flags);
+    my $rs = LJ::Protocol::do_request("get$type", $rq, \$err, $flags);
     unless ($rs) {
         $res->{'success'} = "FAIL";
         $res->{'errmsg'} = LJ::Protocol::error_message($err);
         return 0;
     }
 
-    my $ect = 0;
+    my $rct = 0;
     my $pct = 0;
-    foreach my $evt (@{$rs->{'events'}}) {
-        $ect++;
-        foreach my $f (qw(itemid eventtime security allowmask subject anum poster)) {
-            if (defined $evt->{$f}) {
-                $res->{"events_${ect}_$f"} = $evt->{$f};
+    foreach my $result (@{$rs->{$type}}) {
+        $rct++;
+        my @vallist;
+        my $singular = "";
+        my $idname = "";
+        if($type eq "events") {
+            @vallist = qw(itemid eventtime security allowmask subject anum poster);
+            $singular = "event";
+            $idname = "itemid";
+        } elsif($type eq "talks") {
+            @vallist = qw(talkid talktime screened poster parenttalkid);
+            $singular = "talk";
+            $idname = "talkid";
+        }
+
+        foreach my $f (@vallist) {
+            if (defined $result->{$f}) {
+                $res->{"${type}_${rct}_$f"} = $result->{$f};
             }
         }
-        $res->{"events_${ect}_event"} = LJ::eurl($evt->{'event'});
+        $res->{"${type}_${rct}_${singular}"} = LJ::eurl($result->{$singular});
 
-        if ($evt->{'props'}) {
-            foreach my $k (sort keys %{$evt->{'props'}}) {
+        if ($result->{'props'}) {
+            foreach my $k (sort keys %{$result->{'props'}}) {
                 $pct++;
-                $res->{"prop_${pct}_itemid"} = $evt->{'itemid'};
+                $res->{"prop_${pct}_${idname}"} = $result->{$idname};
                 $res->{"prop_${pct}_name"} = $k;
-                $res->{"prop_${pct}_value"} = $evt->{'props'}->{$k};
+                $res->{"prop_${pct}_value"} = $result->{'props'}->{$k};
             }
         }
     }
@@ -2768,7 +2871,7 @@ sub getevents
     unless ($req->{'noprops'}) {
         $res->{'prop_count'} = $pct;
     }
-    $res->{'events_count'} = $ect;
+    $res->{"${type}_count"} = $rct;
     $res->{'success'} = "OK";
 
     return 1;
