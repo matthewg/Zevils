@@ -1268,13 +1268,12 @@ Buddy {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number"));
 			} elsif($savepounces <= 0) {
 				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
+			} elsif($sndata->{pounces}->[$param]) {
+				splice(@{$sndata->{pounces}}, $param, 1);
+				splice(@{$pounces{safename $screenname}}, $param, 1) if $savepounces > 0;
+				irc_send(irc_privmsg($usnick, $nick, "Pounce deleted."));
 			} else {
-				unless(splice(@{$sndata->{pounces}}, $param, 1)) {
-					splice(@{$pounces{safename $screenname}}, $param, 1) if $savepounces > 0;
-					irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces."));
-				} else {
-					irc_send(irc_privmsg($usnick, $nick, "Pounce deleted."));
-				}
+				irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces."));
 			}
 		} elsif ($cmd eq "list_pounces") {
 			if($savepounces <= 0) {
