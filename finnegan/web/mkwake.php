@@ -78,7 +78,10 @@ if(isset($_POST["submit"])) {
 		$max_snooze_count = $_POST["max_snooze_count"];
 	}
 
-	if($type == "one-time") {
+	if(!isset($_POST["type"]) || ($type != "one-time" && $type != "recur")) {
+		$error = 1;
+		echo $TEMPLATE["mkwake"]["type_invalid"];
+	} else if($type == "one-time") {
 		if(!isset($_POST["date"]) || !preg_match('/^(\d+)\/(\d+)$/', $_POST["date"], $matches) || $matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) {
 			$error = 1;
 			echo $TEMPLATE["mkwake"]["date_invalid"];
