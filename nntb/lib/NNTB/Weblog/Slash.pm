@@ -247,8 +247,8 @@ sub groups($;$) {
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
 	my $textroot = "$self->{root}.text";
 	my $htmlroot = "$self->{root}.html";
-	$ret{"$textroot.stories"} = "$sitename front page stories";
-	$ret{"$htmlroot.stories"} = "$sitename front page stories";
+	$ret{"$textroot.stories"} = "$sitename front page stories" unless $time;
+	$ret{"$htmlroot.stories"} = "$sitename front page stories" unless $time;
 
 	my $sections = $self->{slash_db}->getSections();
 
@@ -283,8 +283,8 @@ sub groups($;$) {
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
-		$ret{"$textroot.journals"} = "All $sitename journals";
-		$ret{"$htmlroot.journals"} = "All $sitename journals";
+		$ret{"$textroot.journals"} = "All $sitename journals" unless $time;
+		$ret{"$htmlroot.journals"} = "All $sitename journals" unless $time;
 
 		my $jusers = $self->{slash_db}->sqlSelectAllHashref(
 			'nickname',
@@ -379,9 +379,11 @@ sub articles($$;$) {
 			$ret{$story->{"nntp_snum"}} = $self->form_msgid($story->{id}, $format, "story");
 		}
 	} elsif($grouptype eq "journals") {
-		my $where = "1 = 1";
-		$where .= " AND uid=$id" if $id;
-		$where .= " AND UNIX_TIMESTAMP(date) > $time" if $time;
+		my $and = ($id and $time) ? "AND" : "";
+		my $where = "";
+
+		$where .= "uid=$id" if $id;
+		$where .= " $and UNIX_TIMESTAMP(date) > $time" if $time;
 
 		my $journals = $self->{slash_db}->sqlSelectAllHashref(
 			"id",
@@ -395,17 +397,16 @@ sub articles($$;$) {
 		}
 	} elsif($grouptype eq "story" or $grouptype eq "journal") {
 		my $from = "comments";
-
-		my $where = "1 = 1";
-		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
+		my $where = "";
 
 		if($grouptype eq "story") {
-			$where .= " comments.sid = $id";
+			$where = "comments.sid = $id";
 		} else {
 			$from .= ", journals";
-			$where .= " AND journals.discussion = comments.sid";
-			$where .= " AND journals.id = $id";
+			$where = "journals.discussion = comments.sid";
+			$where = " AND journals.id = $id";
 		}
+		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
 
 		my $comments = $self->{slash_db}->sqlSelectAllHashref(
 			"cid",
@@ -861,6 +862,7 @@ sub groupstats($$) {
 						"sid=$journal->{discussion}");
 	}
 
+	($first, $last, $num) = (1, 0, 0) if !defined($first) || !defined($last) || !defined($num);
 	#$self->log("Returning ($first, $last, $num)", LOG_DEBUG);
 	return ($first, $last, $num);
 }

@@ -431,8 +431,8 @@ sub got_client(*) {
 						$body =~ s/(?!\r)\n/\r\n/g;
 						$body =~ s/[\r\n]{1,2}$//;
 						nntp_put($body);
-						nntp_put(".");
 					}
+					nntp_put(".") unless $command eq "stat";
 				} else {
 					nntp_put($blog->{errstr});
 				}
@@ -517,7 +517,7 @@ sub got_client(*) {
 						foreach $blog ($pattern ? findblog($pattern) : values %blogs) {
 							my %groups;
 							if($pattern) {
-								if($blog->is_group($pattern)) {
+								if($blog and $blog->is_group($pattern)) {
 									%groups = ($pattern => $blog->description($pattern));
 								} else {
 									%groups = ();
