@@ -9,7 +9,7 @@ use MPEG::MP3Info;
 use File::KGlob;
 use Cwd;
 use File::Basename;
-$version = "1.4";
+$version = "1.5";
 
 # mp3gui by Matthew Sachs <matthewg@zevils.com>
 #   This program licensed under Version 2 of the GPL.
@@ -31,7 +31,7 @@ MPEG audio file, viewing and altering ID3 tags, and a front-end to mp3index.
 Version: $version
 
 by Matthew Sachs <matthewg\@zevils.com> - Latest version at
-http://www.zevils.com/linux/.  This program licensed under Version 2
+http://www.zevils.com/programs/.  This program licensed under Version 2
 of the GNU Public License.  See http://www.gnu.org for details.
 
 Use it without any arguments to start normally.

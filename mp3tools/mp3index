@@ -19,7 +19,7 @@
 # Jun 15 2000 - Version 1.2: No changes in mp3index
 # Jan 16 2002 - Version 1.4: M3U support
 
-$version = "1.4";
+$version = "1.5";
 use MPEG::MP3Info;
 use Getopt::Long;
 use Text::Wrap qw(wrap);

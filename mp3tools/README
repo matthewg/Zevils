@@ -5,14 +5,14 @@ version.)
 
 =====
 
-mp3tools version 1.4
+mp3tools version 1.5
 Created Feb 6 1999 by Matthew Sachs <matthewg@zevils.com>
-Official mp3tools web page: http://www.zevils.com/linux/mp3tools/
+Official mp3tools web page: http://www.zevils.com/programs/mp3tools/
 
 mp3tools and all programs that are a part of it are licensed under Version
 2 of the GNU Public License.  A file called COPYING which contains a copy
 of the license should have been included with the program - if not, you
-can obtain a copy from http://www.zevils.com/linux/COPYING
+can obtain a copy from http://www.zevils.com/programs/COPYING
 
 mp3tools is a set of utilities for working with MPEG audio files.  Despite
 the name, all of the utilities should work for all MPEG audio files and
@@ -41,10 +41,10 @@ generally use the terms MP3 and MPEG audio file interchangeably ;)
 
 Where can I find out more about mp3tools?
 
-	Besides the official web page, http://www.zevils.com/linux/mp3tools/,
-	you might want to join the mp3tools mailing list.  Send a blank message
-	to mp3tools-subscribe@egroups.com to do so.  This list is for 
-	discussion about mp3tools.
+	Besides the official web page, http://www.zevils.com/programs/mp3tools/,
+	you might want to join the mp3tools mailing list.  Visit
+	    http://lists.zevils.com/cgi-bin/mailman/listinfo/mp3tools
+	to subscribe.
 
 What's this mp3play.cgi thing?
 
@@ -53,10 +53,10 @@ What's this mp3play.cgi thing?
 	be played in a streaming fashion - that is, it will be played as it
 	downloads (and it won't be saved to the hard disk.)
 
-	For instruction on setting up Netscape to work with mp3play.cgi links
+	For instruction on setting up some browsers to work with mp3play.cgi links
 	(and playall.cgi), visit 
-	http://www.zevils.com/linux/mp3tools/howto_play.html .  The sample
-	format will automatically put a link to this page if you use
+	    http://www.zevils.com/programs/mp3tools/howto_play.html
+	The sample format will automatically put a link to this page if you use
 	mp3play.cgi or playall.cgi.
 
 mp3gui quickstart
