@@ -123,46 +123,9 @@ $TEMPLATE = array(
 <html>
 <head>
 <title>__TITLE__</title>
-<style type="text/css">
-table {
-	border-collapse: collapse;
-	border: thick outset
-}
-th {
-	font-weight: bold;
-	align: left;
-	border-right: 3px solid black;
-}
-tr {
-	border: 1px solid black;
-}
-thead th {
-	border: none;
-	border-bottom: 3px solid black;
-	align: left;
-}
-caption {
-	align: top
-}
-td {
-	padding: 2px
-}
-.error {
-	font-weight: bold;
-	color: #FF0000;
-}
-.status {
-	font-weight: bold;
-}
-.weekday-off {
-	text-decoration: line-through
-}
-.weekday-on {
-	
-}
-.weekday-temp {
-	font-style: italic
-}
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<style type="text/css" media="screen">
+	@import url(/finnegan.css);
 </style>
 </head>
 <body>

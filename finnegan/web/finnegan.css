@@ -1,0 +1,39 @@
+table {
+	border-collapse: collapse;
+	border: thick outset
+}
+th {
+	font-weight: bold;
+	align: left;
+	border-right: 3px solid black;
+}
+tr {
+	border: 1px solid black;
+}
+thead th {
+	border: none;
+	border-bottom: 3px solid black;
+	align: left;
+}
+caption {
+	align: top
+}
+td {
+	padding: 2px
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.status {
+	font-weight: bold;
+}
+.weekday-off {
+	text-decoration: line-through
+}
+.weekday-on {
+	
+}
+.weekday-temp {
+	font-style: italic
+}
