@@ -478,12 +478,7 @@ sub mainloop() {
 		$imircdebug = 1;
 		$longnicks->{'#imirc-debug'} = '#imirc-debug';
 
-		@uhosts = ();
-		irc_send(irc_stats($usnick, "U")) if $ignoreuhosts;
-
-		sleep 20 if $servermode eq "p0210" and $ignoreuhosts;
-		@qlines = ();
-		irc_send(irc_stats($usnick, "Q")) if $require_qlines;
+		checkstats() if $themname;
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
@@ -1828,6 +1823,7 @@ sub process_irc_message($) {
 		# If there was no prefix, this is name of upstream server.
 		# Else, upstream is just informing us about one of its links
 		$themname = $1 unless $nick;
+		checkstats();
 	}
 }
 
@@ -3517,4 +3513,14 @@ sub did_quit($) {
 		splice(@dccqueue, $i, 1);
 	}
 	do_signoff_all($nick) if $aim_connections->{$nick};
+}
+
+# We need to know $themname in order to check stats...
+sub checkstats() {
+	@uhosts = ();
+	irc_send(irc_stats($usnick, "U")) if $ignoreuhosts;
+
+	sleep 20 if $servermode eq "p0210" and $ignoreuhosts;
+	@qlines = ();
+	irc_send(irc_stats($usnick, "Q")) if $require_qlines;
 }
