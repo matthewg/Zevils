@@ -198,6 +198,8 @@ sub loadconf() {
 		"output=s" => \$output
 	);
 
+	print Data::Dumper::Dumper(\@conffiles);
+
 	@conffiles = @default_conffiles unless $conffiles[0];
 
 	if(!$errors) {
