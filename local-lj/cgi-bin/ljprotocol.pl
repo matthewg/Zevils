@@ -562,7 +562,7 @@ sub postcomment { _post_event_comment("comment", @_); }
 sub _post_event_comment
 {
     my ($type, $req, $err, $flags) = @_;
-    return fail($err,500) unless $type eq "events" or $type eq "comments";
+    return fail($err,500) unless $type eq "event" or $type eq "comment";
     return undef unless authenticate($req, $err, $flags);
     return undef unless check_altusage($req, $err, $flags);
 

@@ -11,6 +11,7 @@ use strict;
 package LJ::Talk;
 
 use HTML::TreeBuilder;
+use HTML::FormatText;
 
 sub get_subjecticons
 {
