@@ -28,4 +28,6 @@ Queco Jones <quecojones@netzero.net>, discovering stupid mp3gui bug
 Richard van den Berg <richard@vdberg.org>, patch for mp3index VBR bug,
 idea for mp3index accepting M3U files, another example of an mp3index format
 
+Jack Angel <man@oceanography.ru>, milliseconds display in mp3info play-time
+
 I'm probably leaving some people out...

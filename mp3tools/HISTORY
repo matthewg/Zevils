@@ -42,3 +42,5 @@ Version 1.4, Jan 16 2002 - install.pl uses strict and installs into installsiteb
 instead of installbin, added new sample mp3format courtesy of 
 Richard van den Berg <richard@vdberg.org>, mp3index supports M3U files,
 and a spurious warning was suppressed
+
+Version 1.5, Dec 27 2003 - Add option to display milliseconds in mp3info play-time.
