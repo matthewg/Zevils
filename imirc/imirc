@@ -348,6 +348,7 @@ $errors = &GetOptions(
 	"sendidle:i" => \$sendidle,
 	"tocserver=s" => \$tocserver,
 	"tocport=i" => \$tocport,
+	"dccip=s" => \$dccip,
 );
 
 if(!$errors) {
@@ -551,6 +552,7 @@ unless($reload) {
 		foreach $aim(@aims) {
 			$connection = $aim_connections{$aim};
 			foreach $screenname(keys %{$aim_connections{$aim}{screennames}}) {
+				next unless $screenname; #Why is this needed?
 				do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
 				$msg = sflap_get($connection->{screennames}{$screenname}{socket});
 				if($msg == -1) {
@@ -994,7 +996,7 @@ sub process_irc_message($) {
 			unless($param and $1 and $2) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text"));
 			} else {
-				if($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}) {
+				if(UNIVERSAL::isa($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, "IO::Socket")) {
 					chat_whisper($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "That is not a valid chat ID."));
