@@ -338,7 +338,7 @@ sub loadconf() {
 		},
 		ts => {
 			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
-			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 3 1 0 :_TIME_\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 5 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 9,
