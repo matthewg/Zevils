@@ -1265,7 +1265,7 @@ sub _get_events_comments
 
     my $dbr = LJ::get_db_reader();
     my $u = $flags->{'u'};
-    my $journalid = $req->{'journalid'};
+    my $journalid = $req->{'eventid'};
     my $jitem;
 
     my $uowner = $flags->{'u_owner'} || $u;
@@ -2816,7 +2816,7 @@ sub editevent
 
 ## flat wrapper
 sub getevents { _get_events_comments("events", @_); }
-sub gettalks { _get_events_comments("comments", @_); }
+sub getcomments { _get_events_comments("comments", @_); }
 
 sub _get_events_comments
 {
