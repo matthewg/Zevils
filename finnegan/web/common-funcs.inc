@@ -8,12 +8,12 @@ function db_error() {
 
 function extension_ok($extension) {
 	global $TEMPLATE;
-	if(!preg_match('/^[69][0-9]{4}$/', $extension))
+	if(!preg_match('/^[69][0-9]{4}$/', $extension)) {
 		echo $TEMPLATE["extension_invalid"];
 		return 0;
-	else if(in_array($extension, array(
+	} else if(in_array($extension, array(
 		'62000', '62222', '63000', '63333', '65000'
-	)) {
+	))) {
 		echo $TEMPLATE["extension_forbidden"];
 		return 0;
 	} else {

@@ -1,6 +1,8 @@
 <?
 //See template-spec.txt for documentation.
 
+function errmsg($msg) { return "<p class=\"error\">$msg  Check <a href=\"docs.php\">the Finnegan documentation</a> or <a href=\"mailto:finnegan@brandeis.edu\">email finnegan@brandeis.edu</a> for assistance.</p>\n"; }
+
 $TEMPLATE = array(
 	"page_start" => <<<END_PAGE_START
 <html>
@@ -157,103 +159,19 @@ PIN: <input type="password" name="pin" size="5" maxlength="4" /><br />
 END_GET_EXTENSION
 ,
 
-	"extension_invalid" => <<<END_EXTENSION_INVALID
-<p class="error">The extension you entered is invalid.</p>
-END_EXTENSION_INVALID
-,
-
-	"extension_forbidden" => <<<END_EXTENSION_FORBIDDEN
-<p class="error">That extension is not allowed to receive wake-up calls.</p>
-END_EXTENSION_FORBIDDEN
-,
-
-	"db_error" => <<<END_DB_ERROR
-<p class="error">
-There was a problem with the database: <tt>__ERROR__</tt>.
-Please try again later.  If the problem persists, please report it to blah blah.
-</p>
-END_DB_ERROR
-,
-
-	"date_error" => <<<END_DATE_ERROR
-<p class="error">
-There was a problem with a date or time: '<tt>__DATE__</tt>'.
-Please try again later.  If the problem persists, please report it to blah blah.
-</p>
-END_DATE_ERROR
-,
-
-	"pin_invalid" => <<<END_PIN_INVALID
-<p class="error">
-The PIN you entered is invalid.  A PIN must be between one and four digits
-long, and can only contain the digits 0 through 9.
-</p>
-END_PIN_INVALID
-,
-
-	"pin_set_new_invalid" => <<<END_PIN_SET_NEW_INVALID
-<p class="error">
-Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits
-long, and can only contain the digits 0 through 9.
-</p>
-END_PIN_SET_NEW_INVALID
-,
-
-	"pin_error" => <<<END_PIN_ERROR
-<p class="error">
-The PIN you entered is incorrect.  If you've forgotten your PIN, please
-click the "Forgot PIN" button, and the system will call you with your PIN.
-</p>
-END_PIN_ERROR
-,
-
-	"pin_mismatch" => <<<END_PIN_MISMATCH
-<p class="error">
-The values you entered for 'New PIN' and 'Confirm New PIN' don't match.
-Please try again.
-</p>
-END_PIN_MISMATCH
-,
-
-	"pin_empty" => <<<END_PIN_EMPTY
-<p class="error">
-You have entered a PIN, but your extension doesn't have a PIN associated with it.
-To set a PIN, use the 'change PIN' field on the main screen.
-</p>
-END_PIN_EMPTY
-,
-
-	"pin_bruteforce_warn" => <<<END_PIN_BRUTEFORCE_WARN
-<p class="error">
-You have been entering too many incorrect PINs.  If you enter another incorrect PIN,
-you will be temporarily locked out of the system.
-</p>
-END_PIN_BRUTEFORCE_WARN
-,
-
-	"pin_bruteforce" => <<<END_PIN_BRUTEFORCE
-<p class="error">
-You have entered too many incorrect PINs and are temporarily locked out of the system.
-Please wait an hour, and then click the 'Forgot PIN' button below.
-</p>
-END_PIN_BRUTEFORCE
-,
-
-	"pin_set_old_error" => <<<END_PIN_SET_OLD_ERROR
-<p class="error">
-Your PIN could not be set because you entered your old PIN incorrectly.
-Please try again.
-</p>
-END_PIN_SET_OLD_ERROR
-,
-
-	"pin_set_new_mismatch" => <<<END_PIN_SET_NEW_MISMATCH
-<p class="error">
-Your PIN could not be set because what you typed for "New PIN" didn't
-match what you typed for "Confirm New PIN".  Please try again.
-</p>
-END_PIN_SET_NEW_MISMATCH
-,
+	"extension_invalid" => errmsg("The extension you entered is invalid."),
+	"extension_forbidden" => errmsg("That extension is not allowed to receive wake-up calls."),
+	"db_error" => errmsg("There was a problem with the database: <tt>__ERROR__</tt>. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
+	"date_error" => errmsg("There was a problem with a date or time: '<tt>__DATE__</tt>'. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
+	"pin_invalid" => errmsg("The PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
+	"pin_set_new_invalid" => errmsg("Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
+	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, please click the \"Forgot PIN\" button, and the system will call you with your PIN."),
+	"pin_mismatch" => errmsg("The values you entered for 'New PIN' and 'Confirm New PIN' don't match. Please try again."),
+	"pin_empty" => errmsg("You have entered a PIN, but your extension doesn't have a PIN associated with it. To set a PIN, use the 'change PIN' field on the main screen."),
+	"pin_bruteforce_warn" => errmsg("You have been entering too many incorrect PINs.  If you enter another incorrect PIN, you will be temporarily locked out of the system."),
+	"pin_bruteforce" => errmsg("You have entered too many incorrect PINs and are temporarily locked out of the system. Please wait an hour, and then click the 'Forgot PIN' button below."),
+	"pin_set_old_error" => errmsg("Your PIN could not be set because you entered your old PIN incorrectly. Please try again."),
+	"pin_set_new_mismatch" => errmsg("Your PIN could not be set because what you typed for \"New PIN\" didn't match what you typed for \"Confirm New PIN\".  Please try again."),
 
 	"pin_set_ok" => <<<END_PIN_SET_OK
 <p class="status">
@@ -263,11 +181,94 @@ END_PIN_SET_OK
 ,
 
 	"pin_sent" => <<<END_PIN_SENT
-<p class="error">
+<p class="status">
 The system will call you and tell you your PIN as soon as it is available.
 It shouldn't take more than a few minutes.  If, after 15 minutes, the system
-has not called you, please contact blah blah for assistance.
+has not called you, please contact <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a> for assistance.
 </p>
 END_PIN_SENT
+,
+
+	"time_invalid" => errmsg("Please enter a valid time."),
+	"ampm_invalid" => errmsg("Please specify 'AM' or 'PM'."),
+	"message_invalid" => errmsg("Please enter a valid wake-up message number."),
+	"day_invalid" => errmsg("Please enter a valid day."),
+	"month_invalid" => errmsg("Please enter a valid month."),
+	"weekdays_invalid" => errmsg("Please select one or more days of the week."),
+	"cal_type_invalid" => errmsg("Please select a valid calendar type."),
+	"type_invalid" => errmsg("Please select a type of wake-up call.  If you've selected a recurring wake-up call, do not enter a date, and select which days of the week the wake-up call should be activate on.  If you've selected a one-time wake-up call, enter a date, and do not select days of the week."),
+	"time_unavailable_onetime" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available."),
+	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__"),
+	"too_many_wakes" => errmsg("You have too many wake-up calls.  You may only have ten.  Try using recurring wake-up calls instead of setting one-time calls for every day, or delete some of your other wake-up calls.  If you need more wake-up calls, email <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>"),
+
+	"mkwake_form" => <<<END_MKWAKE_FORM
+<p>
+1. Enter a time for the wake-up call.<br />
+Time: <input type="text" size="6" maxlength="5" value="__TIME__" /><br />
+<input type="radio" name="ampm" value="AM" __AM__ /> AM<br />
+<input type="radio" name="ampm" value="PM" __PM__ /> PM<br />
+</p><p>
+2. Select a wake-up message.  This is the message you will hear when you pick up your wake-up call.<br />
+Messages:
+</p><ol>
+<!-- <li>"Hello, this is Matthew Sachs, and I pronounce 'Finnegan' as 'Finnegan'.</li> -->
+<li>"This is your wake-up call."</li>
+<li>"WAKE UP!!"</li>
+</ol><p>
+Message: <input type="text" size="3" maxlength="2" value="__MESSAGE__" />
+</p><p>
+3. Would you like this to be a one-time wake-up call or a recurring wake-up call?  A one-time wake-up call
+will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
+every time it's a particular day or days of the week, at a particular for time.  For instance, you could
+set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br />
+<input type="radio" name="type" value="one-time" __ONETIME__ /> One-time
+<input type="radio" name="type" value="recur" __RECUR__ /> Recurring
+</p><p>
+4a. <strong>Skip this step for recurring wake-up calls.</strong> Enter the date, in month/day format,
+that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.<br />
+Date: <input type="text" name="date" size="6" maxlength="5" value="__DATE__" />
+</p><p>
+4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
+would you like this wake-up call to call you on?<br />
+<input type="checkbox" name="mon" value="1" __MON__ /> Monday<br />
+<input type="checkbox" name="tue" value="1" __TUE__ /> Tuesday<br />
+<input type="checkbox" name="wed" value="1" __WED__ /> Wednesday<br />
+<input type="checkbox" name="thu" value="1" __THU__ /> Thursday<br />
+<input type="checkbox" name="fri" value="1" __FRI__ /> Friday<br />
+<input type="checkbox" name="sat" value="1" __SAT__ /> Saturday<br />
+<input type="checkbox" name="sun" value="1" __SUN__ /> Sunday
+</p><p>
+5b. <strong>Skip this step for one-time wake-up calls.</strong> Which type of calendar
+would you like this wake-up call to use?  Calls which use the "Brandeis" calendar will
+only call you if the University is having classes on that day, and it will treat
+Brandeis Mondays as Monday.  Calls which use the "National Holidays" calendar
+won't call you on national holidays.  Calls which use the "Normal" calendar
+don't do anything special.<br />
+Calendar Type: <select name="cal_type">
+<option value="brandeis" __CALTYPE_BRANDEIS__>Brandeis</option>
+<option value="holidays" __CAPTYPE_HOLIDAYS__>National Holidays</option>
+<option value="normal" __CALTYPE_NORMAL__>Normal</option>
+</select>
+</p></p>
+6b. <strong>Skip this step for one-time wake-up calls.</strong> If you want
+your recurring wake-up call to skip a particular day the next time that call
+would otherwise be activated on that day, you can select a different set of
+days here.  You might want to do this if a class has been cancelled one day.
+This isn't very useful for new wake-up calls, and if you're creating a new
+wake-up call you can safely ignore it, but you can use the 'Edit'
+link to set this later.<br />
+<input type="checkbox" name="mon_cur" value="1" __MON_CUR__ /> Monday<br />
+<input type="checkbox" name="tue_cur" value="1" __TUE_CUR__ /> Tuesday<br />
+<input type="checkbox" name="wed_cur" value="1" __WED_CUR__ /> Wednesday<br />
+<input type="checkbox" name="thu_cur" value="1" __THU_CUR__ /> Thursday<br />
+<input type="checkbox" name="fri_cur" value="1" __FRI_CUR__ /> Friday<br />
+<input type="checkbox" name="sat_cur" value="1" __SAT_CUR__ /> Saturday<br />
+<input type="checkbox" name="sun_cur" value="1" __SUN_CUR__ /> Sunday
+</p><p>
+<input type="submit" name="submit" value="Submit" /><br />
+</p><p>
+<input type="reset" />
+</p>
+END_MKWAKE_FORM
 );
 ?>

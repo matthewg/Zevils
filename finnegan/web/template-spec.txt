@@ -45,7 +45,7 @@ Main page (wake-up call list, index.php) items:
 		COUNT: Number of wake-up calls that the user has.
 	wake_list_item_once: A one-shot wake-up call in the wake-up call list
 		ID: Unique identifier for this wake-up call
-		DELETE: If 'SELECTED', this wake-up call was flagged for deletion.
+		DELETE: If 'selected', this wake-up call was flagged for deletion.
 			Otherwise, blank.  Note that wake-up calls marked for
 			deletion will be wrapped in <span class="wake-delete">...</span>
 		TIME: Time that the wake-up call is set for
@@ -100,22 +100,38 @@ New/Edit Wake-Up Call items (mkwake.php):
 	month_invalid: ...
 	weekdays_invalid: Must specify at least one weekday.
 	cal_type_invalid: ...
+	type_invalid: Error for invalid type, or data given does not match type (no month/day for recur, no weekdays for one-time)
 
-	time_unavailable: Too many wake-up calls are scheduled for that time, no phone lines available.
-		DAYS: For recurring wake-up calls, which days of the week there are conflicts with.
+	time_unavailable_onetime: Too many wake-up calls are scheduled for that time, no phone lines available.
+	time_unavailable_recur: Too many wake-up calls are scheduled for that time, no phone lines available.
+		DAYS: Which days of the week there are conflicts with. (e.g. "Mon, Wed")
+	too_many_wakes: Your extension has too many wake-up calls.
 
+
+	mkwake_form: Form for user to enter a new call or edit an existing one.
+		TIME
+		RECUR: If wake is recurring, 'selected'
+		ONETIME: Ditto
+		AM: If time is in AM, 'selected'
+		PM: Ditto
+		MESSAGE: Number of the message
+		DATE
+		MON, TUE, WED, THU, FRI, SAT, SUN: If that weekday is selected, 'selected'
+		CALTYPE_BRANDEIS: If this calendar type is active, 'selected'
+		CALTYPE_HOLIDAYS
+		CALTYPE_NORMAL
+		XXX_CUR: Ditto, but for 'currently active' weekdays.  Only for editing existing wakes;
 
 
 	The page should post the following data to mkwake.php:
 		op: 'create'/'edit'
 		id: ID of wake-up call to edit, if editing
-		extension: User's extension
 		time: Time of the wake-up call
 		ampm: 'AM' if time is 'AM', otherwise 'PM'
 		message: Number of the wake-up message the user wants
+		type: 'recur' or 'one-time'
 		One-time wake-up calls:
-			month: Number (1-12) of month for the wake
-			day: Number (1-31) of day of month for the wake
+			date: Date for the wake, in mm/dd form
 		Recurring wake-up calls:
 			mon: If present, this call is active on Mondays.
 			tue: If present, this call is active on Tuesdays.
