@@ -20,6 +20,8 @@ MKLIB=$(AR) r $@ $(OBJS)
 clean:
 	rm -f *.o *.exe $(APP)
 
+../lwalib/lwalib/lwalib.a: lwalib
+
 lwalib:
 	$(MAKE) -C ../lwalib
 
@@ -29,7 +31,7 @@ lwalib:
 %.a: $(OBJS)
 	$(MKLIB)
 
-$(APP): $(OBJS) lwalib
+$(APP): $(OBJS) ../lwalib/lwalib.a
 	$(LINK)
 
 
