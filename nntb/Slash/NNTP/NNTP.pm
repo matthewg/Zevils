@@ -42,9 +42,9 @@ sub next_num($$;$) {
 		return $snum;
 	} elsif($type eq "section_snum") {
 		my $section = $what;
-		my($snum) = @{$self->sqlSelectAll("next_snum", "sections", "section=$section")};
+		my($snum) = @{$self->sqlSelectAll("next_snum", "sections", "section=".$self->sqlQuote($section))};
 		return undef unless $snum;
-		$self->sqlUpdate("sections", {next_snum => $snum + 1}, "section=$section");
+		$self->sqlUpdate("sections", {next_snum => $snum + 1}, "section=".$self->sqlQuote($section));
 		return $snum;
 	} elsif($type eq "cnum") {
 		my $sid = $what;
