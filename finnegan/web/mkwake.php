@@ -161,6 +161,7 @@ if($extension_ok) {
 
 		if(!$error) {
 			$sql_time = time_to_sql($time, $ampm);
+			$baddays = array();
 			if($date) {
 				if(!is_time_free($sql_time, "", "", date_to_sql($date, $sql_time))) {
 					$error = 1;
@@ -168,7 +169,6 @@ if($extension_ok) {
 				}
 			} else {
 				$weekday_names = array("", "sun", "mon", "tue", "wed", "thu", "fri", "sat");
-				$baddays = array();
 				for($i = 1; $i < sizeof($weekday_names); $i++) {
 					if($weekdays[$weekday_names[$i]] || $weekdays_cur[$weekday_names[$i]]) {
 						if(!is_time_free($sql_time, $i, $_POST["cal_type"])) {
@@ -180,7 +180,7 @@ if($extension_ok) {
 
 				if($error) echo preg_replace("/__DAYS__/", implode(", ", $baddays), $TEMPLATE["time_unavailable_recur"]);
 			}
-			if($error) log_wake("0", $extension, $event, "failure", "time_unavailable: $time/$date/".implode(",",$baddays));
+			if($error) log_wake($id ? $id : 0, $extension, $id ? "edit" : "create", "failure", "time_unavailable: $time/$date/".implode(",",$baddays));
 		}
 
 		if(!$error) {
@@ -204,18 +204,18 @@ if($extension_ok) {
 			}
 
 			if(!$id) {
-				#printf("INSERT INTO wakes (%s) VALUES (%s)",
-				#	implode(", ", $cols),
-				#	implode(", ", $values));
-
-				if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
+				printf("INSERT INTO wakes (%s) VALUES (%s)",
 					implode(", ", $cols),
-					implode(", ", $values)
-				))) db_error();
+					implode(", ", $values));
 
-				if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
-				$row = mysql_fetch_row($result);
-				$id = $row[0];
+				#if(!mysql_query(sprintf("INSERT INTO wakes (%s) VALUES (%s)",
+				#	implode(", ", $cols),
+				#	implode(", ", $values)
+				#))) db_error();
+
+				#if(!mysql_query("SELECT LAST_INSERT_ID()")) db_error();
+				#$row = mysql_fetch_row($result);
+				$id = 0; #$row[0];
 				$event = "create";
 			} else {
 				$set = "$cols[0] = $values[0]";
@@ -280,14 +280,10 @@ if($extension_ok) {
 			$the_weekdays = explode(",", $row["std_weekdays"]);
 			$the_weekdays_cur = explode(",", $row["cur_weekdays"]);
 			for($i = 0; $i < sizeof($the_weekdays); $i++) {
-				if(isset($_POST[$the_weekdays[$i]]) && $_POST[$the_weekdays[$i]]) {
-					$weekdays[$the_weekdays[$i]] = "checked";
-				}
+				$weekdays[strtolower($the_weekdays[$i])] = "checked";
 			}
 			for($i = 0; $i < sizeof($the_weekdays_cur); $i++) {
-				if(isset($_POST[$the_weekdays_cur[$i]]) && $_POST[$the_weekdays_cur[$i]]) {
-					$weekdays_cur[$the_weekdays_cur[$i]] = "checked";
-				}
+				$weekdays_cur[strtolower($the_weekdays_cur[$i])] = "checked";
 			}
 
 			if($row["cal_type"] == "normal")

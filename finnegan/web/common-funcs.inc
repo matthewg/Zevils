@@ -9,6 +9,8 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $HOLIDAYS;
 	global $extension;
 
+	#echo "****CHECKING $weekday*****<br>\n";
+
 	$phonelines = 1;
 	$seconds_per_week = 604800;
 	$wake_duration = 120;
@@ -51,34 +53,42 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 
 	//finepoch: (weekday-1) * 86400 + hours*60*60 + minutes*60
 
-	//First, get the one-time wakes.
+	/* First, get the one-time wakes.
+	 * If this one is a one-timer, things are pretty straightforward, no weird holidays/Brandeis days/weekdays to deal with.
+	 * If this one is recurring, we have to do various funky adjustments to exclude holidays/classless days, and in the
+	 * case of Brandeis calendar, compensate for Brandeis Mondays/Tuesdays/etc.
+	 */
 	if($date) {
 		preg_match('/(\d+)-(\d+)-(\d+)/', $date, $date_matches);
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 		$weekday = strftime("%w", mktime($time_matches[1], $time_matches[2], 0, $date_matches[2], $date_matches[3], $date_matches[1])) + 1;
 
 		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-			"WHERE NOT ISNULL(date) AND extension='$extension' AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
+			"WHERE NOT ISNULL(date) AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
 	} else {
 		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 		if($cal_type == "normal") {
 			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND extension='$extension'");
+				"WHERE NOT ISNULL(date)");
 		} else if($cal_type == "holidays") {
 			$holidays = array_keys($HOLIDAYS);
 			for($i = 0; $i < sizeof($holidays); $i++) $holidays[$i] = "'$holidays[$i]'";
 			$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND extension='$extension' AND date NOT IN (".implode(",",$holidays).")");
+				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$holidays).")");
 		} else {
 			$no_classes = array_keys($NO_CLASSES);
 			for($i = 0; $i < sizeof($no_classes); $i++) $no_classes[$i] = "'$no_classes[$i]'";
 
-			$case = "CASE date WHEN";
-			while(list($bdate, $bday) = each($BRANDEIS_DAYS)) $case .= " '$bdate' THEN $bday";
+			$case = "CASE date";
+			while(list($bdate, $bday) = each($BRANDEIS_DAYS)) $case .= " WHEN '$bdate' THEN $bday";
 			$case .= " ELSE DAYOFWEEK(date) END";
+			reset($BRANDEIS_DAYS);
+
+			#echo "Doing query <tt>SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
+				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")</tt><br>\n";
 
 			$result = @mysql_query("SELECT ($case - 1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes ".
-				"WHERE NOT ISNULL(date) AND extension='$extension' AND date NOT IN (".implode(",",$no_classes).")");
+				"WHERE NOT ISNULL(date) AND date NOT IN (".implode(",",$no_classes).")");
 		}
 	}
 	if(!$result) {
@@ -87,6 +97,7 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 		db_error();
 	}
 
+	#echo "fin epoch: $weekday, $time_matches[1], $time_matches[2]<br>\n";
 	$fintime = ($weekday-1) * 86400 + $time_matches[1]*60*60 + $time_matches[2]*60;
 	$wake_intervals = _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration);
 
@@ -100,31 +111,46 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 		}
 	}
 
+	/* Now, we get the recurring wakes.
+	 * Again, we have to make adjustments for calendar oddities in recurring wakes.
+	 * The worst case is when this wake, the one we're checking availability for,
+	 * is recurring.  Since a Monday in the Brandeis calendar can fall on any
+	 * day of the week in the other calendars (damn you, Brandeis Mondays!),
+	 * we have to assume that all wakes for calendar-types other than Brandeis
+	 * can potentially happen on the same day as a Brandeis wake, and vice versa.
+	 */
 	if($okay) {
 		$weekday_names = array("", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat");
 		$weekday_name = $weekday_names[$weekday];
+		if(isset($BRANDEIS_DAYS[$date]))
+			$brandeis_weekday_name = $weekday_names[$BRANDEIS_DAYS[$date]];
+		else
+			$brandeis_weekday_name = $weekday_name;
 
 		if($date) {
-			if(isset($BRANDEIS_DAYS[$date])) $brandeis_weekday_name = $weekday_names[$BRANDEIS_DAYS[$date]];
-
 			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
-				"WHERE ISNULL(date) AND extension='$extension' AND (".
+				"WHERE ISNULL(date) AND (".
 				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
 			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
 			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
 			$query .= ")";
 
-			echo "Doing query <tt>$query</tt><br />\n";
+			#echo "Doing query <tt>$query</tt><br />\n";
 			$result = @mysql_query($query);
 		} else {
-/*			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
-				"WHERE ISNULL(date) AND extension='$extension' AND (".
-				"(cal_type='normal' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
-			if(!isset($HOLIDAYS[$date])) $query .= " OR (cal_type='holidays' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0))";
-			if(!isset($NO_CLASSES[$date])) $query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+			$query = "SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes " .
+				"WHERE ISNULL(date) AND (";
+			if($cal_type == "Brandeis") {
+				$query .= "cal_type='normal' OR cal_type='holidays'";
+				$query .= " OR (cal_type='Brandeis' AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+			} else {
+				$query .= "cal_type='Brandeis'";
+				$query .= " OR ((cal_type='normal' OR cal_type='holidays') AND (FIND_IN_SET('$brandeis_weekday_name',std_weekdays)>0 OR FIND_IN_SET('$brandeis_weekday_name',cur_weekdays)>0))";
+			}
 			$query .= ")";
 
-			echo "Doing query <tt>$query</tt><br />\n";*/
+			#echo "Doing query <tt>$query</tt><br />\n";
+			$result = @mysql_query($query);
 		}
 
 		if(!$result) {
@@ -148,13 +174,16 @@ function is_time_free($sql_time, $weekday = "", $cal_type = "", $date = "") {
 }
 
 function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
-	for($i = 0; $i < sizeof($wake_intervals); $i++) {
-		if(
-			($cur_intervals[0] >= $wake_intervals[0] && $cur_intervals[1] <= $wake_intervals[1]) ||
-			($cur_intervals[1] >= $wake_intervals[0] && $cur_intervals[1] <= $wake_intervals[1])
-		) {
-			if(++$wake_intervals[2] >= $phonelines) {
-				return 1;
+	for($j = 0; $j < sizeof($cur_intervals); $j++) {
+		for($i = 0; $i < sizeof($wake_intervals); $i++) {
+			#echo "Does (".$cur_intervals[$j][0].", ".$cur_intervals[$j][1].") overlap (".$wake_intervals[$i][0].", ".$wake_intervals[$i][1].")?<br>\n";
+			if(
+				($cur_intervals[$j][0] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1]) ||
+				($cur_intervals[$j][1] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1])
+			) {
+				if(++$wake_intervals[$i][2] >= $phonelines) {
+					return 1;
+				}
 			}
 		}
 	}
@@ -168,9 +197,9 @@ function _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_s
 
 	for($i = 0; $i <= $max_snooze; $i++) {
 		$ret[$i] = array($fintime + $i*$snooze_duration, $fintime+$wake_duration + $i*($snooze_duration+$wake_duration), 0);
-		echo "<tt>Got interval (".$ret[$i][0].", ".$ret[$i][1].")</tt><br />\n";
+		#echo "<tt>Got interval (".$ret[$i][0].", ".$ret[$i][1].")</tt><br />\n";
 	}
-	echo "<tt>=======</tt><br />\n";
+	#echo "<tt>=======</tt><br />\n";
 
 	return $ret;
 }

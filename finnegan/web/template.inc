@@ -322,7 +322,7 @@ Calls which use the "Normal" calendar don't do anything special.
 </p><p>
 Calendar Type: <select name="cal_type">
 <option value="Brandeis" __CALTYPE_BRANDEIS__>Brandeis</option>
-<option value="holidays" __CAPTYPE_HOLIDAYS__>National Holidays</option>
+<option value="holidays" __CALTYPE_HOLIDAYS__>National Holidays</option>
 <option value="normal" __CALTYPE_NORMAL__>Normal</option>
 </select>
 </p></p>
