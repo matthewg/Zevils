@@ -1,0 +1,66 @@
+This is NNTB, by Matthew Sachs <matthewg@zevils.com>
+(c)2000-2002 Matthew Sachs, all rights reserved.
+This software is licensed under Version 2 of the GNU Public License.
+A copy of the license is contained in the file COPYING, which should have
+been included with this software.
+
+========REQUIREMENTS========
+
+*perl 5.6.1 or better
+
+*One of the supported weblogs
+
+*The following perl modules (the CPAN distribution containing the module
+is given in parentheses:)
+
+	HTML::FormatText (HTML-Format)
+	HTML::Parse (HTML-Tree)
+
+See the permodinstall manpage (perldoc perlmodinstall) for information
+on obtaining and installing modules.
+
+
+========INSTALLATION========
+
+Change into the NNTB directory.  This directory was created when you
+unpacked the NNTB tarball and should be called nntb-XX where XX is the NNTB
+version.
+
+Obtain the necessary perl modules.
+
+Open the nntb.conf file in a text editor.  Edit it to your satisfaction and
+then copy it to either /etc/nntb.conf or ~/.nntb .
+
+[blog-specific configuration]
+
+Run it.  initscript.
+
+========TROUBLESHOOTING========
+
+If you get a permission denied error while trying to run nntb, try the
+following command: chmod +x nntb
+
+If you get an error about a bad interpreter while trying to run nntb, your perl
+may not be installed in /usr/bin/perl.  Find out where your perl binary is located;
+try commands like 'which perl', 'type -path perl', 'whereis perl', and
+'locate perl | grep bin'.  Then, change the first line of nntb from #!/usr/bin/perl
+to #!/path/to/your/perl
+
+========DEBUGGING========
+
+========FURTHER INFORMATION========
+
+There are mailing lists and a CVS tree.
+See http://www.zevils.com/programs/ for details.
+
+Obtaining support:
+	You should try the following, in order, for help with IMIRC:
+	1) Ask in irc.zevils.com #nntb
+	2) Send an email to nntb-users@lists.zevils.com
+	3) Contact the author directly (see below)
+
+Contacting the author:
+	E-Mail: matthewg@zevils.com
+	AIM: MattSachs
+
+NNTB website: http://www.zevils.com/programs/nntb/
