@@ -1,95 +1,88 @@
-<html>
-<head>
-<meta name="Content-Style" content="text/css">
-</head>
-<body>
-<a href="#NAME">NAME</a><br>
-<a href="#SYNOPSIS">SYNOPSIS</a><br>
-<a href="#mp3id3">mp3id3</a><br>
-<a href="#DESCRIPTION">DESCRIPTION</a><br>
-<a href="#REPORTING BUGS">REPORTING BUGS</a><br>
-<a href="#SEE ALSO">SEE ALSO</a><br>
-<!-- Creator     : groff version 1.15  -->
-<!-- CreationDate: Mon Oct  9 04:04:52 2000
- -->
-<!-- Total number of pages: 1 -->
-<!-- Page: 1 -->
-<!-- left  margin: 100 -->
-<!-- right margin: 750 -->
-<a name="NAME"></a><h2>NAME</h2><p><font size=3>mp3id3 - view and edit the ID3 tags of an MPEG audio file</p>
-<a name="SYNOPSIS"></a><h2>SYNOPSIS</h2><a name="mp3id3"></a><h2>mp3id3</h2><a name="DESCRIPTION"></a><h2>DESCRIPTION</h2><p><font size=3>[<font size=3><I>OPTION</I><font size=3>]... <font size=3><I>FILES</I><font size=3>...</p>
-<p><font size=3>If no options are given, mp3id3 will print all ID3 tags for the given files.<br>
-<span style=" text-indent: 1.3000in;"></span>If no files are given, mp3id3 will list the valid genres and their number.</p>
-<p><font size=3><B>Note on -a, -A, -c, -g, -s, and -y options:</B> <font size=3>To set an ID3 tag,</p>
+Content-type: text/html
 
-<table width="100%"  rules="none"  frame="none"  cols="2">
-<tr valign="top" align="left">
-<td valign="top" align="left"  width="20.0000%">
-</td>
-<td valign="top" align="left"  width="80.0000%">
-<p><font size=3>you say something like --arist=Beethoven Symphony9.mp3. However, you can also use the ID3 tag options to select which ID3 tags to have mp3id3 display. But you can't just say mp3id3 -a Symphony9.mp3. If you do this, the program thinks that you are trying to set the ID3 artist tag on an unnamed file. The proper way to do this is mp3id3 -a "" Sym- phony9.mp3.</p>
-</td>
-</tr>
-</table>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of MP3ID3</TITLE>
+</HEAD><BODY>
+<H1>MP3ID3</H1>
+Section: Matthew Sachs (1)<BR>Updated: December 2003<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
 
-<table width="100%"  rules="none"  frame="none"  cols="4">
-<tr valign="top" align="left">
-<td valign="top" align="left"  width="17.6923%">
-<p><font size=3><B>-l</B><font size=3>, <font size=3><B>--list</p>
-</B><p><font size=3><B>-d</B><font size=3>, <font size=3><B>--delete</p>
-</B><p><font size=3><B>-n</B><font size=3>, <font size=3><B>--no-winamp</p>
-</B></td>
-<td valign="top" align="left"  width="2.3077%">
-</td>
-<td valign="top" align="left"  width="29.6923%">
-<p><font size=3>List valid genres and exit</p>
-<p><font size=3>Remove all ID3 tags from the files</p>
-<p><font size=3>Don't use WinAmp genres. This</p>
-</td>
-<td valign="top" align="left"  width="48.4615%">
-<p><font size=3>will only affect things if you have songs with a genre</p>
-</td>
-</tr>
-<tr valign="top" align="left">
-<td valign="top" align="left"  width="17.6923%">
-</td>
-<td valign="top" align="left"  width="2.3077%">
-</td>
-<td valign="top" align="left"  width="29.6923%">
-<p><font size=3>above 78.</p>
-</td>
-<td valign="top" align="left"  width="50.3077%">
-</td>
-</tr>
-</table>
-<p><font size=3><B>-a</B><font size=3>, <font size=3><B>--artist</B><font size=3>[=ARTIST]<br>
-<span style=" text-indent: 1.3000in;"></span>Get or set the ID3 artist tag for the selected files.</p>
-<p><font size=3><B>-A</B><font size=3>, <font size=3><B>--album</B><font size=3>[=ALBUM]<br>
-<span style=" text-indent: 1.3000in;"></span>Get or set the ID3 album tag for the selected files.</p>
-<p><font size=3><B>-c</B><font size=3>, <font size=3><B>--comment</B><font size=3>[=COMMENT]<br>
-<span style=" text-indent: 1.3000in;"></span>Get or set the ID3 comment tag for the selected files.</p>
-<p><font size=3><B>-g</B><font size=3>, <font size=3><B>--genre</B><font size=3>[=GENRE]<br>
-<span style=" text-indent: 1.3000in;"></span>Get or set the ID3 genre tag for the selected files. This can either be a number from 0 to<br>
-<span style=" text-indent: 1.3000in;"></span>114 (higher values, up to 255, are valid but unknown) or the name of the genre as shown by<br>
-<span style=" text-indent: 1.3000in;"></span>mp3id3 --list.</p>
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
 
-<table width="100%"  rules="none"  frame="none"  cols="2">
-<tr valign="top" align="left">
-<td valign="top" align="left"  width="67.6923%">
-<p><font size=3><B>-s</B><font size=3>, <font size=3><B>--songname</B><font size=3>[=SONGNAME]<br>
-<span style=" text-indent: 1.3000in;"></span>Get or set the ID3 song name tag for the selected files.</p>
-<p><font size=3><B>-y</B><font size=3>, <font size=3><B>--year</B><font size=3>[=YEAR] Get or set the ID3 year tag for the selected files.</p>
-<p><font size=3><B>-t</B><font size=3>, <font size=3><B>--track</B><font size=3>[=TRACK]</p>
-</td>
-<td valign="top" align="left"  width="32.3077%">
-</td>
-</tr>
-</table>
-<p><font size=3>Get or set the ID3v1.1 track number for the selected files.</p>
-<p><font size=3><B>-v</B><font size=3>, <font size=3><B>--version</B> <font size=3>Display the version and exit.</p>
-<p><font size=3><B>-h</B><font size=3>, <font size=3><B>--help</B> <font size=3>Show information about mp3id3</p>
-<a name="REPORTING BUGS"></a><h2>REPORTING BUGS</h2><p><font size=3>Report bugs to &lt;matthewg@zevils.com&gt;.</p>
-<a name="SEE ALSO"></a><h2>SEE ALSO</h2><p><font size=3>The README file and other documentation distributed with mp3tools. Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools<br>
-</p>
-</body>
-</html>
+mp3id3 - view and edit the ID3 tags of an MPEG audio file
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<B>mp3id3</B>
+
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+
+[<I>OPTION</I>]... <I>FILES</I>...
+<DL COMPACT>
+<DT>If no options are given, mp3id3 will print all ID3 tags for the given files.<DD>
+If no files are given, mp3id3 will list the valid genres and their number.
+<DT><B>Note on -a, -A, -c, -g, -s, and -y options:</B>  To set an ID3 tag,<DD>
+you say something like --arist=Beethoven Symphony9.mp3.  However, you can
+also use the ID3 tag options to select which ID3 tags to have mp3id3 display.
+But you can't just say mp3id3 -a Symphony9.mp3.  If you do this, the program
+thinks that you are trying to set the ID3 artist tag on an unnamed file.  The
+proper way to do this is mp3id3 -a &quot;&quot; Symphony9.mp3.
+<DT><B>-l</B>, <B>--list</B><DD>
+List valid genres and exit
+<DT><B>-d</B>, <B>--delete</B><DD>
+Remove all ID3 tags from the files
+<DT><B>-n</B>, <B>--no-winamp</B><DD>
+Don't use WinAmp genres.  This will only affect things if you have songs with a
+genre above 78.
+<DT><B>-a</B>, <B>--artist</B>[=ARTIST]<DD>
+Get or set the ID3 artist tag for the selected files.
+<DT><B>-A</B>, <B>--album</B>[=ALBUM]<DD>
+Get or set the ID3 album tag for the selected files.
+<DT><B>-c</B>, <B>--comment</B>[=COMMENT]<DD>
+Get or set the ID3 comment tag for the selected files.
+<DT><B>-g</B>, <B>--genre</B>[=GENRE]<DD>
+Get or set the ID3 genre tag for the selected files.  This can either be a
+number from 0 to 114 (higher values, up to 255, are valid but unknown) or the
+name of the genre as shown by mp3id3 --list.
+<DT><B>-s</B>, <B>--songname</B>[=SONGNAME]<DD>
+Get or set the ID3 song name tag for the selected files.
+<DT><B>-y</B>, <B>--year</B>[=YEAR]<DD>
+Get or set the ID3 year tag for the selected files.
+<DT><B>-t</B>, <B>--track</B>[=TRACK]<DD>
+Get or set the ID3v1.1 track number for the selected files.
+<DT><B>-v</B>, <B>--version</B><DD>
+Display the version and exit.
+<DT><B>-h</B>, <B>--help</B><DD>
+Show information about mp3id3
+</DL>
+<A NAME="lbAE">&nbsp;</A>
+<H2>REPORTING BUGS</H2>
+
+Report bugs to &lt;<A HREF="mailto:matthewg@zevils.com">matthewg@zevils.com</A>&gt;.
+<A NAME="lbAF">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+The README file and other documentation distributed with mp3tools.
+Also, the mp3tools mailing list at <A HREF="http://lists.zevils.com/cgi-bin/mailman/listinfo/mp3tools">http://lists.zevils.com/cgi-bin/mailman/listinfo/mp3tools</A>
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAE">REPORTING BUGS</A><DD>
+<DT><A HREF="#lbAF">SEE ALSO</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 18:39:05 GMT, December 27, 2003
+</BODY>
+</HTML>
