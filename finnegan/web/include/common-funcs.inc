@@ -20,7 +20,7 @@ function db_start() {
 }
 
 function redirect($uri) {
-	ob_clean();
+	ob_end_clean();
 	header("Status: 303 See Other");
         header("Location: $uri");
 
@@ -120,7 +120,7 @@ function pin_check($extension, $pin, $newpin = 0) {
 
 			$goodpin = $row[0];
 
-			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='getwakes' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
+			$result = mysql_query(sprintf("SELECT COUNT(*), extension, ip FROM log_ext WHERE (extension='%s' OR ip='%s') AND event='auth' AND result='failure' AND data='pin_error' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600 GROUP BY extension, ip HAVING COUNT(extension) >= 2", 
 					$extension, getenv("REMOTE_ADDR")));
 			if(!$result) db_error();
 
@@ -267,6 +267,7 @@ function try_auth() {
 		if($extension_error) {
 			return $extension_error;
 		} else {
+			$extension_ok = 1;
 			$pin_error = pin_check($extension, $pin);
 			if($pin_error) {
 				return $pin_error;
@@ -283,6 +284,8 @@ function try_auth() {
 				return "";
 			}
 		}
+	} else {
+		return "no_extension";
 	}
 }
 

@@ -43,6 +43,7 @@ if(isset($_POST["op"])) {
 		setcookie("finnegan-savepin", "", time()-3600);
 
 		if($extension_ok) log_ext($extension, "delcookie", "success");
+		redirect("login.php");
 	}
 }
 

@@ -8,7 +8,7 @@ $TEMPLATE["login"] = array(
 </ul>
 <h3>Log In</h3>
 END
-;
+,
 
 	"script" => "",
 	"head" => "",
@@ -31,7 +31,7 @@ END
 
 	"pin_not_found" => errmsg("The system could not locate your PIN.  Try logging in without one, and you will be prompted to set a new PIN."),
 
-	"form" => <<END
+	"form" => <<<END
 <form method="post" action="login.php">
 <p>
 Please enter your 5-digit Brandeis extension.  If you've previously set a PIN, enter it here, too.  If you've never used the

@@ -76,7 +76,7 @@ END
 );
 
 if($FinneganConfig->testmode) {
-	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server';
+	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server</h1>';
 }
 if($FinneganConfig->nocalls) {
 	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
