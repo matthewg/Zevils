@@ -221,7 +221,7 @@ if($extension_ok) {
 				$set = "$cols[0] = $values[0]";
 				for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
 
-				#echo "UPDATE wakes SET $set WHERE extension='$extension' AND wake_id=$id";
+				#echo "UPDATE wakes SET trigger_time=NULL, snooze_time=NULL, snooze_count=0, $set WHERE extension='$extension' AND wake_id=$id";
 				if(!mysql_query("UPDATE wakes SET $set WHERE extension='$extension' AND wake_id=$id")) db_error();
 				$event = "edit";
 			}
