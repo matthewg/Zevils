@@ -444,7 +444,7 @@ sub userCheckCookie
         my $c=sqlSelectMany("uid","users",
                        "uid=".$dbh->quote($uid)." and passwd=".$dbh->quote($passwd));
 	if ($c) { $uid=-1 unless $c->fetchrow(); }
-        $c->finish();
+        $c->finish() if $c;
         return ($uid, $passwd);
 }
 
