@@ -551,7 +551,7 @@ sub mainloop() {
 			if(!$usepoll) {
 				select($rin, $win, $ein, $timeout) or @getbuff or goto CLEANUP;
 			} else {
-				my $rv = $poll->poll($timeout * 1000); # poll timeout is in milliseconds
+				my $rv = $poll->poll($timeout); # poll timeout is in milliseconds
 				if($rv == -1) {
 					next if $! == EINTR;
 					die "Poll error: $!";
