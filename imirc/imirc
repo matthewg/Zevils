@@ -357,6 +357,14 @@ sub loadconf() {
 			nicklen => 9,
 			pass => "PASS :$ourpass\r\n",
 		},
+		bahamut => {
+			nick => "NICK _NICK_ 2 _TIME_ +i _USER_ $us $us _TIME_ :AOL Instant Messenger client via IMIRC\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 3 1 0 :_TIME_\r\n",
+			uspass => 1,
+			theirpass => 1,
+			nicklen => 30,
+			pass => "PASS $ourpass :TS\r\n",
+		},
 			
 	);
 

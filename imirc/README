@@ -9,7 +9,7 @@ AOL Instant Messenger and AOL are a trademarks of America Online.
 Requirements:
 	perl 5.004 or better (5.6.1 or better strongly recommended)
 	A working IRC server with C/N lines for IMIRC
-		Your IRC server might not work with IMIRC.  Cyclone,
+		Your IRC server might not work with IMIRC.  Bahamut, Cyclone,
 		Dragonfire, Undernet IRCD, TS irc servers such as Hybrid, Unreal,
 		and irc.org 2.10 and possibly 2.9 are the only ones that are known
 		to work.  It should also work with anything that uses RFC-standard
