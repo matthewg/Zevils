@@ -29,7 +29,7 @@ sub log(@) {
 
 sub groupname($$) {
 	my($self, $group) = @_;
-	$group =~ tr/ ./_/d;
+	$group =~ tr/ ./__/;
 	return $group;
 }
 
