@@ -62,7 +62,6 @@ sub format {
 			$self->textflow($1);
 		} elsif(ref $node) {
 			my $tag = $node->tag;
-			print "tag=\"$tag\", start=\"$start\"\n";
 			my $func = $tag . '_' . ($start ? "start" : "end");
 			return $self->$func($node);
 		} else {  

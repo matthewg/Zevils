@@ -1551,7 +1551,7 @@ Buddy {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
-		$screenname = normalize($aim_connections{$nnick}{screenname});
+		$screenname = normalize($aim_connections{$nnick}{aimnick});
 
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
@@ -1610,7 +1610,6 @@ Buddy {
 				} else {
 					message($sndata->{socket}, $target, $msg);
 				}
-				irc_send(irc_privmsg($usnick, "matthewg", "Setting \$nicks{$target}{$screenname} to time"));
 				$nicks{$target}{$screenname} = time if $nicks{$target}{$screenname} != -1;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
@@ -2778,48 +2777,47 @@ sub base642num($) {
 }
 
 sub got_im($$$$) {
-		my($from, $to, $message, $autoflag, $nick, $multinick, $notice, $screenname, $connection, $ar, $sndata, $config, $socket, $inick, $nnick) = @_;
+	my($from, $to, $message, $autoflag, $nick, $multinick, $notice, $screenname, $connection, $ar, $sndata, $config, $socket, $inick, $nnick) = @_;
 
-		$inick = $from; $inick =~ tr/ //d;
-		$nnick = lc($inick);
+	$inick = $from; $inick =~ tr/ //d;
+	$nnick = lc($inick);
 
-		$screenname = $to;
-		$config = deref get_config($to);
-		$connection = $aim_connections{$irc_connections{$to}};
-		$sndata = $connection->{screennames}{$to};
-		$socket = $sndata->{socket};
+	$screenname = $to;
+	$config = deref get_config($to);
+	$connection = $aim_connections{$irc_connections{$to}};
+	$sndata = $connection->{screennames}{$to};
+	$socket = $sndata->{socket};
 
-		$multinick = "";
-		$multinick = "{$to} " if $to ne $connection->{aimnick} and not $sndata->{inchan};
+	$multinick = "";
+	$multinick = "{$to} " if $to ne $connection->{aimnick} and not $sndata->{inchan};
 
-		($message =~ /<!-- NOTICE -->/) ? ($notice = 1) : ($notice = 0);
-		$message = chr(01) . $message . chr(01) if $message =~ /<!-- CTCP -->/;
-		unless($nicks{noprefix $nnick}) {
-			irc_send(irc_newnick($prefix . $inick));
+	($message =~ /<!-- NOTICE -->/) ? ($notice = 1) : ($notice = 0);
+	$message = chr(01) . $message . chr(01) if $message =~ /<!-- CTCP -->/;
+	unless($nicks{noprefix $nnick}) {
+		irc_send(irc_newnick($prefix . $inick));
+	}
+	manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{$screenname};
+	irc_send(irc_join("$prefix$inick", "#aimirc-$screenname")) if $sndata->{inchan} and not $nicks{ircify($inick)}{$screenname};
+
+	($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
+	$message = join("\n", html2txt($message, $nick));
+
+	irc_send(irc_privmsg("$prefix$inick", $connection->{nick}, $message, "$multinick$ar", $notice));
+
+	if(($ar eq "") and $connection->{away} and (time - $sndata->{away_buddies}{$nnick} > $time)) {
+		my $tmp;
+		my %config = deref(get_config($screenname));
+		my $class = $config{Buddies}{$nnick}{class} if exists $config{Buddies}{$nnick};
+		if(substr($class, 0, 1) eq "A") {
+			$tmp = "[automated reply] " . $connection->{away};
+		} else {
+			$tmp = $connection->{away};
 		}
-		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{$screenname};
-		irc_send(irc_join("$prefix$inick", "#aimirc-$screenname")) if $sndata->{inchan} and not $nicks{ircify($inick)}{$screenname};
-
-		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
-		$message = join("\n", html2txt($message, $nick));
-
-		irc_send(irc_privmsg("$prefix$inick", $connection->{nick}, $message, "$multinick$ar", $notice));
-
-		if(($ar eq "") and $connection->{away} and (time - $sndata->{away_buddies}{$nnick} > $time)) {
-			my $tmp;
-			my %config = deref(get_config($screenname));
-			my $class = $config{Buddies}{$nnick}{class} if exists $config{Buddies}{$nnick};
-			if(substr($class, 0, 1) eq "A") {
-				$tmp = "[automated reply] " . $connection->{away};
-			} else {
-				$tmp = $connection->{away};
-			}
-			message($socket, $nnick, $tmp, 1);
-			$sndata->{away_buddies}{$nnick} = time;
-		}
-		$screenname = normalize($screenname);
-		irc_send(irc_privmsg($usnick, "matthewg", "Setting \$nicks{".noprefix($nnick)."}{$screenname} to time"));
-		$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
+		message($socket, $nnick, $tmp, 1);
+		$sndata->{away_buddies}{$nnick} = time;
+	}
+	$screenname = normalize($screenname);
+	$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
 }
 
 
