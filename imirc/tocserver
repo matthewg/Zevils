@@ -138,7 +138,7 @@ while($client = $sock->accept) {
 		next;
 	}
 
-	$line = $client->read(10);
+	$client->read($line, 10);
 	die unless $line eq "FLAPON\r\n\r\n";
 	sflap_do($client, "SIGN_ON:1.0");
 	(undef, undef, undef, $screenname) = unpack("NnnZ*", sflap_get($client)); #signon packet
