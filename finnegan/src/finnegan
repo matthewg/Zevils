@@ -184,6 +184,7 @@ sub db_error($$) {
 }
 sub can_make_call() {
 	if($Finnegan::Config::use_cisco) {
+		log_debug("can_make_call ? $phonecalls <? $Finnegan::Config::Cisco::max_simultaneous_calls");
 		return 0 unless $phonecalls < $Finnegan::Config::Cisco::max_simultaneous_calls;
 	} else {
 		return 0 unless scalar keys %phonelines_avail;
@@ -278,7 +279,10 @@ while(1) {
 		next unless $row;
 
 		last unless can_make_call();
-		log_debug("Got " . $row->{wake_id});
+		{
+			no warnings;
+			log_debug("Got " . $row->{wake_id} . " with time " . $row->{unix_trigger} . " >? " . time() . ", date " . $row->{date} . ", snooze_count " . $row->{snooze_count});
+		}
 		next if $row->{unix_trigger} > time();
 
 		# If it's a non-snoozed recurring wait, we have to make sure that it should get tapped today
