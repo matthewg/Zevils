@@ -464,38 +464,38 @@ sub process_irc_message {
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
-				$upstream->print("$foo :help - show this screen\r\n");
-				$upstream->print("$foo :signon nick pass - sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands\r\n");
-				$upstream->print("$foo :signoff - sign off of AIM\r\n");
+				$upstream->print("$foo :help - Show this screen.\r\n");
+				$upstream->print("$foo :signon nick pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n");
+				$upstream->print("$foo :signoff - Sign off of AIM\.r\n");
 				$upstream->print("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n");
-				$upstream->print("$foo :get_permit_mode - see your current permit mode\r\n");
-				$upstream->print("$foo :set_permit_mode newmode - set your permit mode\r\n");
-				$upstream->print("$foo :list_permit_modes - list the valid permit modes and their definitions\r\n");
+				$upstream->print("$foo :get_permit_mode - See your current permit mode.\r\n");
+				$upstream->print("$foo :set_permit_mode newmode - Set your permit mode.\r\n");
+				$upstream->print("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n");
 			} elsif($param eq "buddies") {
-				$upstream->print("$foo :add_permit nick - add nick to your permit list, removing from deny list\r\n");
-				$upstream->print("$foo :add_deny nick - add nick to your deny list, removing from permit and buddy lists\r\n");
-				$upstream->print("$foo :buddyinfo name - get signon time, idle time, evil level, and user class for a buddy\r\n");
-				$upstream->print("$foo :add_buddy nick [group] - add nick to your buddy list.  If you give a group, buddy will be added to that group\r\n");
-				$upstream->print("$foo :remove_buddy nick - remove nick from your buddy list\r\n");
-				$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - warn nick, optionally anonymously\r\n");
-				$upstream->print("$foo :remove_permit nick - remove nick from permit list\r\n");
-				$upstream->print("$foo :remove_deny nick - remove nick from deny list\r\n");
-				$upstream->print("$foo :onbuddies - list buddies who are currently on\r\n");
-				$upstream->print("$foo :buddylist - list all buddies\r\n");
-				$upstream->print("$foo :permitlist - see who is on your permit list\r\n");
-				$upstream->print("$foo :denylist - see who is on your deny list\r\n");
+				$upstream->print("$foo :add_permit nick - Add nick to your permit list, removing from deny list.\r\n");
+				$upstream->print("$foo :add_deny nick - Add nick to your deny list, removing from permit list.\r\n");
+				$upstream->print("$foo :buddyinfo name - Get signon time, idle time, evil level, and user class for a buddy.\r\n");
+				$upstream->print("$foo :add_buddy nick [group] - Add nick to your buddy list.  If you give a group, buddy will be added to that group.\r\n");
+				$upstream->print("$foo :remove_buddy nick - Remove nick from your buddy list.\r\n");
+				$upstream->print("$foo :evil nick [anon] (or warn nick [anon]) - Warn nick, optionally anonymously.\r\n");
+				$upstream->print("$foo :remove_permit nick - Remove nick from permit list.\r\n");
+				$upstream->print("$foo :remove_deny nick - Remove nick from deny list.\r\n");
+				$upstream->print("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n");
+				$upstream->print("$foo :buddylist - List everyone on your buddylist.\r\n");
+				$upstream->print("$foo :permitlist - See who is on your permit list.\r\n");
+				$upstream->print("$foo :denylist - See who is on your deny list.\r\n");
 			} elsif($param eq "chat") {
-				$upstream->print("$foo :join topic - create and join a new chatroom with topic set to topic\r\n");
-				$upstream->print("$foo :chat chat_id message - send message to chat chat_id\r\n");
-				$upstream->print("$foo :whisper chat_id user message - whisper to user in chat chat_id\r\n");
-				$upstream->print("$foo :accept chat_id - accept an invitation to chat chat_id\r\n");
-				$upstream->print("$foo :invite buddy1,buddy2,...,buddyn chat_id message - invite buddies into a chat\r\n");
-				$upstream->print("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - warn nick inside chat_id, optionally anonymously\r\n");
-				$upstream->print("$foo :part chat_id - leave chatroom chat_id\r\n");
+				$upstream->print("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n");
+				$upstream->print("$foo :chat chat_id message - Send message to chat chat_id.\r\n");
+				$upstream->print("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n");
+				$upstream->print("$foo :accept chat_id - Accept an invitation to chat chat_id.\r\n");
+				$upstream->print("$foo :invite buddy1,buddy2,...,buddyn chat_id message - Invite buddies into a chat.\r\n");
+				$upstream->print("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n");
+				$upstream->print("$foo :part chat_id - Leave chatroom chat_id.\r\n");
 			} elsif($param eq "misc") {
-				$upstream->print("$foo :info nick - get info for nick\r\n");
-				$upstream->print("$foo :set_info new info - set your info\r\n");
-				$upstream->print("$foo :get_dir nick - Get directory info for nick\r\n");
+				$upstream->print("$foo :info nick - Get info for nick.\r\n");
+				$upstream->print("$foo :set_info new info - Set your info.\r\n");
+				$upstream->print("$foo :get_dir nick - Get directory info for nick.\r\n");
 				$upstream->print("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n");
 				$upstream->print("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n");
 				$upstream->print("$foo :bold 0/1 - When set to 1 (the default), HTML bold tags will be translated to their IRC formatting equivalent.\r\n");
