@@ -223,9 +223,9 @@ sub loadconf() {
 
 	foreach $conffile(@conffiles) {
 		$conffile =~ s/~/$home/;
-		print "Trying to read config file $conffile\n"; # if $verbose;
+		print STDERR "Trying to read config file $conffile\n" if $verbose;
 		if(-r $conffile) {
-			print STDERR "Reading config file $conffile\n" if $verbose;
+			print "Reading config file $conffile\n"; # if $verbose;
 			$confversion = 0;
 			do $conffile;
 			die $@ if $@;
