@@ -8,7 +8,7 @@ $confdir = "/etc/slash/";	#Under here goes psm.d/, psm/ (PSM-specific
 				#configuration files), and psm.conf
 
 @capabilities = qw(auth permissions userdata sections topics stories
-	comments moderation metamod vars);
+	comments moderation metamod vars polls);
 				#auth - user/author/admin authentication
 				#permissions - user permissions, such as
 				#	whether or not a user can post stories

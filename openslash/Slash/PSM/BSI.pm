@@ -23,6 +23,7 @@ sub load($$$$$) { #load up an existing SlashSite
 	$self->{_capabilities}{moderation} = 1;
 	$self->{_capabilities}{metamod} = 1;
 	$self->{_capabilities}{vars} = 1;
+	$self->{_capabilities}{polls} = 1;
 
 	return $self;
 }
@@ -32,6 +33,7 @@ sub Topic($$) { print "Topic $_[1]\n"; 1; }
 sub User($$) { print "User $_[1]\n"; 1; }
 sub Story($$) { print "Story $_[1]\n"; 1; }
 sub Comment($$) { print "Comment $_[1]\n"; 1; }
+sub Poll($$) { print "Poll $_[1]\n"; 1; }
 sub FrontendVar($$;$$) { shift; print "FrontendVar ", join(", ", @_), "\n"; 1; }
 
 
@@ -59,6 +61,7 @@ sub GetTopics($;%) { print "GetTopics\n"; return qw(1); }
 sub GetUsers($;%) { print "GetUsers\n"; return qw(1); }
 sub GetStories($;%) { print "GetStories\n"; return qw(1); }
 sub GetComments($;%) { print "GetComments\n"; return qw(1); }
+sub GetPolls($;%) { print "GetPolls\n"; return qw(1); }
 sub GetFrontendVars($;%) { print "GetFrontendVars\n"; return qw(1); }
 
 require Slash::PSM::BSI:Section;
@@ -66,5 +69,6 @@ require Slash::PSM::BSI::Topic;
 require Slash::PSM::BSI::User;
 require Slash::PSM::BSI::Story;
 require Slash::PSM::BSI::Comment;
+require Slash::PSM::BSI::Poll;
 
 1;
