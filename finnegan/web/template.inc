@@ -14,33 +14,47 @@ $TEMPLATE = array(
 </style>
 </head>
 <body>
+<h1>Finnegan</h1>
+<h2>Brandeis wake-up calls, sponsored by the Student Union and the Computer Operators Group</h2>
 END_PAGE_START
 ,
 
 	"viewcalls_start_noext" => <<<END_VIEWCALLS_START_NOEXT
-<h1><a href="docs.php">Help with Finnegan</a></h1>
+<ul class="navigation">
+<li><a href="docs.php">Help with Finnegan</a></li>
+</ul>
+<h3>Log In to Finnegan</h3>
 <form method="post" action="index.php">
 END_VIEWCALLS_START_NOEXT
 ,
 
 	"viewcalls_start" => <<<END_VIEWCALLS_START
-<h1><a href="docs.php">Help with Finnegan</a></h1>
-<h1><a href="mkwake.php">Create a New Wake-up Call</a></h1>
+<ul class="navigation">
+<li><a href="docs.php">Help with Finnegan</a></li>
+<li><a href="mkwake.php">Create a New Wake-up Call</a></li>
+</ul>
+<h3>View Your Wake-up Calls</h3>
 <form method="post" action="index.php">
 END_VIEWCALLS_START
 ,
 
 	"mkwake_new_start" => <<<END_MKWAKE_NEW_START
-<h1><a href="docs.php">Help with Finnegan</a></h1>
-<h1><a href="index.php">View Your Wake-up Calls</a></h1>
+<ul class="navigation">
+<li><a href="docs.php">Help with Finnegan</a></li>
+<li><a href="index.php">View Your Wake-up Calls</a></li>
+</ul>
+<h3>Create a New Wake-up Call</h3>
 <form method="post" action="mkwake.php">
 <input type="hidden" name="op" value="create" />
 END_MKWAKE_NEW_START
 ,
 
 	"mkwake_edit_start" => <<<END_MKWAKE_EDIT_START
-<h1><a href="docs.php">Help with Finnegan</a></h1>
-<h1><a href="index.php">View Your Wake-up Calls</a></h1>
+<ul class="navigation">
+<li><a href="docs.php">Help with Finnegan</a></li>
+<li><a href="index.php">View Your Wake-up Calls</a></li>
+</ul>
+<h3>Edit a Wake-up Call</h3>
 <form method="post" action="mkwake.php">
 <input type="hidden" name="op" value="edit" />
 <input type="hidden" name="id" value="__ID__" />
@@ -95,6 +109,14 @@ END_WAKE_LIST_ITEM_RECUR
 </table>
 <p><input type="submit" name="op" value="Delete marked wake-up calls" /></p>
 END_WAKE_LIST_END
+,
+
+	"delete_confirm" => <<<END_DELETE_CONFIRM
+<p class="error">
+Are you sure you want to delete the selected wake-up calls?<br />
+<input type="submit" name="op" value="Confirm Deletion" />
+</p>
+END_DELETE_CONFIRM
 ,
 
 	"viewcalls_end" => <<<END_VIEWCALLS_END

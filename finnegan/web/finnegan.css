@@ -21,6 +21,9 @@ caption {
 td {
 	padding: 2px
 }
+.wake-delete {
+	background-color: #FF0000;
+}
 .error {
 	font-weight: bold;
 	color: #FF0000;

@@ -85,6 +85,18 @@ if($extension_ok) {
 				if(!mysql_query(sprintf("INSERT INTO log_ext (extension, event, result, time, data, ip) VALUES ('%s', '%s', '%s', NOW(), '%s', '%s')",
 					$extension, "setpin", "failure", $error, getenv("REMOTE_ADDR")))) db_error();
 			}
+		} else if($op == "Confirm Deletion" && isset($_POST["id"])) {
+			while(list($id, $value) = each($_POST["id"])) {
+				if(!preg_match('/^[0-9]+$/', $id)) unset($_POST["id"]);
+			}
+			$keys = implode(", ", array_keys($_POST["id"]));
+
+			if(!mysql_query(sprintf("DELETE FROM wakes WHERE extension='%s' AND wake_id IN (%s)", $extension, $keys))) db_error();
+
+			while(list($id, $value) = each($_POST["id"])) {
+				if(!mysql_query(sprintf("INSERT INTO log_wake (wake_id, extension, event, result, start_time, end_time, ip) VALUES ('%s', '%s', '%s', '%s', NOW(), NOW(), '%s')",
+					$id, $extension, "delete", "success", getenv("REMOTE_ADDR")))) db_error();
+			}
 		}
 	}
 
@@ -170,6 +182,7 @@ if($extension_ok) {
 		if($delete) echo "</span>";
 	}
 	echo $TEMPLATE["wake_list_end"];
+	if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls") echo $TEMPLATE["delete_confirm"];
 
 	mysql_close($dbh);	
 } else {

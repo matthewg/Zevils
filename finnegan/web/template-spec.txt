@@ -68,7 +68,7 @@ Main page (wake-up call list, index.php) items:
 
 	delete_confirm: "Confirm Deletion" button.
 		This template is called if op='delete' was posted.  It should
-		post to index.php with op='delete_confirm'.
+		post to index.php with op="Confirm Deletion".
 
 	pin_bruteforce: User has had too many recent login failures, and should wait an hour.
 	pin_sent: System will soon call the user's extension and read out the PIN.
