@@ -1397,8 +1397,8 @@ Buddy {
 			chat_send($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
-				if($irc_connections{normalize $recipient} and $shortcircuit) {
-					irc_send(irc_privmsg($aim_connections{$nnick}{aimnick}, $recipient, html2txt(txt2html($msg))));
+				if($irc_connections{normalize $target} and $shortcircuit) {
+					irc_send(irc_privmsg("$prefix$aim_connections{$nnick}{aimnick}", $irc_connections{normalize $target}, html2txt(txt2html($msg))));
 				} else {
 					message($aim_connections{$nnick}{socket}, $target, $msg);
 					$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
