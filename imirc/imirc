@@ -80,12 +80,14 @@ sub BEGIN {
 		require HTML::Parse;
 		require MIME::Base64;
 		require Net::OSCAR;
+		require Net::OSCAR::Utility;
 		require Net::OSCAR::Screenname;
-		Net::OSCAR->import(qw(:standard :loglevels normalize));
+		Net::OSCAR->import(qw(:standard :loglevels));
+		Net::OSCAR::Utility->import(qw(normalize));
 		import MIME::Base64;
 	};
 
-	$@ .= "We require Net::OSCAR 0.61 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.61;
+	$@ .= "We require Net::OSCAR 1.00 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 1.00;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -118,7 +120,7 @@ $SIG{__DIE__}  = sub { croak $_[0] };
 $SIG{PIPE} = 'IGNORE';
 
 $home = (getpwuid($>))[7];
-$version = $VERSION = '1.5-CVS $Revision$';
+$version = $VERSION = '1.6-CVS $Revision$';
 
 @args = @ARGV;
 
@@ -481,7 +483,7 @@ sub mainloop() {
 	my $oscardbg = $user_loglevel;
 	$oscardbg = $debuglevel{oscar} if $debug and $debuglevel{oscar} > $user_loglevel;
 
-	$oscarprime = Net::OSCAR->new();
+	$oscarprime = Net::OSCAR->new(capabilities => [qw(extended_status buddy_icons)]);
 	$oscarprime->loglevel($oscardbg);
 	$oscarprime->set_callback_error(\&oscar_error);
 	$oscarprime->set_callback_rate_alert(\&oscar_rate_alert);
@@ -504,6 +506,10 @@ sub mainloop() {
 	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
 	$oscarprime->set_callback_connection_changed(\&oscar_connection_changed);
 	$oscarprime->set_callback_auth_challenge(\&oscar_auth_challenge);
+	$oscarprime->set_callback_extended_status(\&oscar_extended_status);
+	$oscarprime->set_callback_new_buddy_icon(\&oscar_new_buddy_icon);
+	$oscarprime->set_callback_buddy_icon_uploaded(\&oscar_buddy_icon_uploaded);
+	$oscarprime->set_callback_buddy_icon_downloaded(\&oscar_buddy_icon_downloaded);
 
 	unless($reload) {
 		$chatseq = 0;
@@ -859,7 +865,7 @@ sub process_irc_message($$) {
 		$nick =~ tr/\@+//d;
 		if($1 eq "NJOIN") {
 			$nick =~ s/,.*//;
-			$nick =~ s/\x7.*//;
+			$nick =~ s/\x07.*//;
 		}
 		did_join(new Net::OSCAR::Screenname($nick), $chan);
 	} elsif(/^INVITE +(\S+) +:?$chatchan(\d+)/i) {
@@ -1100,6 +1106,8 @@ sub process_irc_message($$) {
 					$line .= " [online]" if $buddat->{online};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
+					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
+					$line .= " {Status: $buddat->{extended_status}}" if $buddat->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
 			}
@@ -1120,6 +1128,8 @@ sub process_irc_message($$) {
 					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
 					$line .= " [away]" if $buddat->{online} and $buddat->{away};
 					$line .= " [warning level $evil%]" if $evil;
+					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
+					$line .= " {Status: $buddat->{extended_status}}" if $buddat->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
 			}
@@ -1152,6 +1162,8 @@ sub process_irc_message($$) {
 					$msg .= "Group: \t".$oscar->findbuddy($param)."\r\n";
 					$msg .= "Signon Time: \t" . localtime($buddyconf->{onsince}) . "\r\n";
 					$msg .= "Idle Time: \t".(sprintf "%.1f", $buddyconf->{idle}/60)." minutes\r\n";
+					$msg .= "Status: \t$buddyconf->{extended_status}\r\n" if $buddyconf->{extended_status};
+					$msg .= "Alias: \t$buddyconf->{alias}\r\n" if $buddyconf->{alias};
 					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
 
 					$msg .= "User Class: \t";
@@ -1381,7 +1393,7 @@ sub process_irc_message($$) {
 			$oscar->confirm_account();
 		} elsif ($cmd eq "loadbuddies") {
 			$sndata->{blmerge} = $param;
-			$dccget{$nick} = $screenname;
+			$dccget{$nick} = [$screenname, "list"];
 			irc_send(irc_ctcp($usnick, $nick, "loadbuddies"));
 			irc_send(irc_privmsg($usnick, $nick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
 		} elsif ($cmd eq "savebuddies") {
@@ -1407,6 +1419,28 @@ sub process_irc_message($$) {
 					irc_send(irc_privmsg($usnick, $nick, "Please accept the DCC SEND from $usnick.  The file being sent is your buddylist.", "", "", $screenname));
 				}
 			}
+		} elsif ($cmd eq "get_icon") {
+			unless($dccip) {
+				irc_send(irc_privmsg($usnick, $nick, "get_icon is not available on this server - the administrator has not specified a DCC IP in the IMIRC configuration file.", "", "", $screenname));
+			} elsif(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: get_icon screenname", "", "", $screenname));
+			} elsif(!$oscar->buddy($param) or !$oscar->buddy($param)->{icon_md5sum}) {
+				irc_send(irc_privmsg($usnick, $nick, "Couldn't find icon information for $param.", "", "", $screenname));
+			} else {
+				irc_send(irc_privmsg($usnick, $nick, "Requesting buddy icon for $param...", "", "", $screenname));
+				$oscar->get_icon($param, $oscar->buddy($param)->{icon_md5sum});
+			}
+		} elsif ($cmd eq "set_icon") {
+			unless($dccip) {
+				irc_send(irc_privmsg($usnick, $nick, "set_icon is not available on this server - the administrator has not specified a DCC IP in the IMIRC configuration file.", "", "", $screenname));
+			} else {
+				$dccget{$nick} = [$screenname, "icon"];
+				irc_send(irc_ctcp($usnick, $nick, "set_icon"));
+				irc_send(irc_privmsg($usnick, $nick, "Please DCC SEND $usnick your buddy icon.", "", "", $screenname));
+			}
+		} elsif ($cmd eq "set_status") {
+			$param .= " $extra" if $extra;
+			$oscar->set_extended_status($param);
 		} elsif ($cmd eq "add_pounce") {
 			unless($param and $extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce buddy text", "", "", $screenname));
@@ -1449,7 +1483,7 @@ sub process_irc_message($$) {
 					}
 				}
 			}
-		} elsif ($cmd eq "help") {
+		} elsif($cmd eq "help") {
 			my $foo = ":$usnick PRIVMSG $nick";
 			$foo = ":$usnick PRIVMSG ".nickchan($screenname) if $sndata->{inchan};
 			if($param eq "basics") {
@@ -1463,36 +1497,39 @@ sub process_irc_message($$) {
 				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
 				irc_send("$foo :set_permit_mode newmode - Set your permit mode.\r\n", 1);
 				irc_send("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n", 1);
-			} elsif($param eq "buddies") {
+			} elsif($param eq "buddylist") {
 				irc_send("$foo :NOTE: For the commands that take screenname[,screenname2,...screennameN] as a parameter, you must have only commas between the screennames.\r\n", 1);
 				irc_send("$foo :You may NOT have spaces between the screennames!\r\n", 1);
 				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :add_permit screenname[,screenname2,...,screennameN] - Add screenname (possibly multiple screenname) to your permit list, removing from deny list.\r\n", 1);
-				irc_send("$foo :add_deny screenname[,screenname2,...,screennameN] - Add nick (possibly multiple screenname) to your deny list, removing from permit list.\r\n", 1);
-				irc_send("$foo :buddyinfo screenname - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
 				irc_send("$foo :rename_group oldgroup newgroup - Rename a group\r\n", 1);
 				irc_send("$foo :add_buddy screenname[,screenname2,...,screennameN] [group] - Add screenname (possibly multiple screennames) to your buddy list.  If you give a group, the screenname will be added to that buddy group.\r\n", 1);
 				irc_send("$foo :remove_buddy screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from your buddy list.\r\n", 1);
-				irc_send("$foo :warn screenname [anon] - Warn screenname, optionally anonymously.\r\n", 1);
-				irc_send("$foo :remove_permit screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from permit list.\r\n", 1);
-				irc_send("$foo :remove_deny screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from deny list.\r\n", 1);
 				irc_send("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n", 1);
 				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
-				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
-				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
 				irc_send("$foo :savebuddies [TOC] - DCC SENDs you a copy of your buddylist.  By default it will be in \"OSCAR format\" - use the TOC parameter for \"TOC format\".\r\n", 1) if $dccip;
 				irc_send("$foo :loadbuddies [merge] - DCC GETs a copy of your buddylist and uses that as your new buddylist.  You must do this before sending the file.  If the merge parameter is present, the new buddylist will be merged with your current buddylist.  Otherwise, it will replace your buddylist.\r\n", 1);
 				irc_send("$foo :clonebuddies [--merge] to|from screenname - Copy the buddylist to/from your current screenname to/from another screenname you are signed on under.  The direction given in the command is with respect to your default screenname, i.e. use 'to' to clone the buddylist of your default screenname \2to\2 the other screenname.  Behavior in regards to merging/replacing of the buddylist is the same as that of loadbuddies.\r\n", 1);
 				irc_send("$foo :reorder_groups group1, group2, ... - Changes the order of the groups in your buddylist.\r\n", 1);
 				irc_send("$foo :reorder_groups group buddy1, buddy2, ... - Changes the order of the buddies in a group on your buddylist.\r\n", 1);
-				irc_send("$foo :set_buddy_comment buddy comment - Associate a brief comment with a buddy.  This can be something like the buddy's real name.\r\n", 1);
-				irc_send("$foo :get_away screenname - View someone's away message.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :Note on savebuddies\\loadbuddies: savebuddies will send you a CTCP savebuddies (loadbuddies sends CTCP loadbuddies.\r\n", 1);
 				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
 				irc_send("$foo :There are two buddylist formats which savebuddies and loadbuddies understand.\r\n", 1);
 				irc_send("$foo :OSCAR format is the format that the Windows AOL Instant Messenger client exports its buddylist in.\r\n", 1);
 				irc_send("$foo :TOC format is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
+			} elsif($param eq "privacy") {
+				irc_send("$foo :add_permit screenname[,screenname2,...,screennameN] - Add screenname (possibly multiple screenname) to your permit list, removing from deny list.\r\n", 1);
+				irc_send("$foo :add_deny screenname[,screenname2,...,screennameN] - Add nick (possibly multiple screenname) to your deny list, removing from permit list.\r\n", 1);
+				irc_send("$foo :remove_permit screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from permit list.\r\n", 1);
+				irc_send("$foo :remove_deny screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from deny list.\r\n", 1);
+				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
+				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
+			} elsif($param eq "buddyinfo") {
+				irc_send("$foo :buddyinfo screenname - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
+				irc_send("$foo :warn screenname [anon] - Warn screenname, optionally anonymously.\r\n", 1);
+				irc_send("$foo :set_buddy_comment buddy comment - Associate a brief comment with a buddy.  This can be something like the buddy's real name.\r\n", 1);
+				irc_send("$foo :get_away screenname - View someone's away message.\r\n", 1);
+				irc_send("$foo :get_icon screenname - Download someone's buddy icon.\r\n", 1);
 			} elsif($param eq "chat") {
 				irc_send("$foo :join chat_name - Create/join a chatroom called chat_name.\r\n", 1);
 				irc_send("$foo :join_exchange exchange chat_name - Create/join a chatroom in a different exchange (see below.)\r\n", 1);
@@ -1508,9 +1545,11 @@ sub process_irc_message($$) {
 				irc_send("$foo :loglevel newlevel - Sets the logging level for your connection.  newlevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
 				irc_send("$foo :get_profile screenname - Get profile for screenname.\r\n", 1);
 				irc_send("$foo :set_profile new profile - Set your profile.  You can use some HTML formating.\r\n", 1);
-				irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
-				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
-				irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
+				irc_send("$foo :set_icon - Set your buddy icon.  You must then DCC SEND $usnick your buddy icon.\r\n", 1);
+				irc_send("$foo :set_status status - Set your status.\r\n", 1);
+				#irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
+				#irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
+				#irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
 				irc_send("$foo :sendidle (0|1) - Send the TOC server your idle information?\r\n", 1);
 				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
@@ -1527,8 +1566,8 @@ sub process_irc_message($$) {
 					irc_send("$foo :newnick nick - Create a new nickname on irc.\r\n", 1);
 					irc_send("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 1 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n", 1);
 					irc_send("$foo :showlevels - List all debugging channels and their levels.\r\n", 1);
-        irc_send("$foo :rehash - Reload /etc/imirc.conf and $home/.imirc .\r\n", 1);
 					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to IMIRC without having to do a full restart.\r\n", 1);
+				        irc_send("$foo :rehash - Reload /etc/imirc.conf and $home/.imirc .\r\n", 1);
 					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this IMIRC server, text will be sent over that AIM connection.\r\n", 1);
 					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
 					irc_send("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n", 1);
@@ -1578,12 +1617,14 @@ sub process_irc_message($$) {
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
 				irc_send("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n", 1);
 				irc_send("$foo :\tbasics - basic commands\r\n", 1);
-			 	irc_send("$foo :\tbuddies - buddylist manipulation, etc.\r\n", 1);
+			 	irc_send("$foo :\tbuddyinfo - get information about a buddy\r\n", 1);
+			 	irc_send("$foo :\tbuddylist - buddylist manipulation\r\n", 1);
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tcredits - some of the many people who've helped with IMIRC\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using IMIRC with multiple AIM screennames from one IRC connection.\r\n", 1);
 				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
+				irc_send("$foo :\tprivacy - control who is allowed to contact you\r\n", 1);
 				irc_send("$foo :\tset - various settings you can change\r\n", 1);
 				#irc_send("$foo :\tintroduction - introduction to IMIRC and AOL Instant Messenger.\r\n", 1);
 				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any IMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
@@ -2376,6 +2417,40 @@ sub oscar_log($$$) {
 	irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname)) if $level <= $sndata->{loglevel};
 }
 
+sub oscar_extended_status($$) {
+	my($oscar, $status) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
+
+	irc_send(irc_privmsg($usnick, $nick, "Your extended status is now '$status'.", "", "", $screenname)) if $status;
+}
+
+sub oscar_new_buddy_icon($$$) {
+	my($oscar, $budsn, $buddy) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
+
+	##XXX do something else here?
+	oscar_log($oscar, 1, "$budsn has a new buddy icon.");
+}
+
+sub oscar_buddy_icon_uploaded($) {
+	my($oscar) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
+
+	irc_send(irc_privmsg($usnick, $nick, "Your buddy icon has been uploaded successfully.", "", "", $screenname));
+}
+
+sub oscar_buddy_icon_downloaded($$$) {
+	my($oscar, $budsn, $icondata) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
+
+	my $message = irc_dcc($usnick, $nick, $icondata, "icon", "$budsn.jpg", $screenname);
+	if($message) {
+		irc_send($message);
+		irc_send(irc_ctcp($usnick, $nick, "get_icon"));
+		irc_send(irc_privmsg($usnick, $nick, "Please accept the DCC SEND from $usnick.  The file being sent is the buddy icon for $budsn.", "", "", $screenname));
+	}
+}
+
 sub debug_print($$$) {
 	my($text, $type, $level) = @_;
 	my($line, @lines);
@@ -2979,7 +3054,8 @@ sub process_ctcp($$$$$) {
 		} elsif($cmd eq "ACTION") {
 			$message .= "\02ACTION\02 $args"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
 		} elsif($cmd eq "DCC") {
-			$screenname = $dccget{$from} || "";
+			my @dccdata = ref($dccget{$from}) ? @{$dccget{$from}} : ();
+			$screenname = $dccdata[0];
 			($cmd, $args) = split(/ /, $args, 2);
 			if($cmd eq "REJECT") {
 				my($dcc, $i);
@@ -3001,8 +3077,8 @@ sub process_ctcp($$$$$) {
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename", 1));
 					next CTCP;
 				}
-				if($dccget{$from} and $filesize > 20480) {
-					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 20k.", "", "", $screenname));
+				if($dccget{$from} and $filesize > 102400) {
+					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept more than 100k.", "", "", $screenname));
 					delete $dccget{$from};
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
@@ -3023,7 +3099,7 @@ sub process_ctcp($$$$$) {
 						time => time,
 						size => $filesize,
 						what => "",
-						desc => $dccget{$from},
+						desc => $dccdata[1],
 						state => DCC_STATE_GET_CONNECT,
 						sent => 0,
 						received => 0,
@@ -3227,45 +3303,8 @@ sub irc_dcc($$$$$$) {
 
 	io_events($socket, dcc_state_io_events(DCC_STATE_SEND_LISTEN), $dccqueue[-1]);
 
-	debug_print("DCC SEND (litening on $dccip:$port) buff: $what", "DCC", 3);
+	debug_print("DCC SEND (listening on $dccip:$port) buff: $what", "DCC", 3);
 	return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " $port " . length($what));
-}
-
-#The base64 functions are for the P10 IRC protocol
-sub num2base64($) {
-	my $number = shift;
-	my (@table, $char, $ret, $num, $currdig);
-
-	$ret = "";
-	foreach $char("A".."Z") { push @table, $char; }
-	foreach $char("a".."z") { push @table, $char; }
-	foreach $char("0".."9") { push @table, $char; }
-	push @table, "[", "]";
-	for($num = 2; $num >= 0; $num--) {
-		next unless $number >= 64**$num;
-		$currdig = ($number - 64**$num) % 64;
-		$ret .= $table[$currdig];
-		$number -= $currdig;
-	}
-	return $ret;
-}
-
-sub base642num($) {
-	my $number = shift;
-	my (%table, $char, $num, $currdig, $ret);
-
-	$num = 0;
-	foreach $char("A".."Z") { $table{$char} = $num++; }
-	foreach $char("a".."z") { $table{$char} = $num++; }
-	foreach $char("0".."9") { $table{$char} = $num++; }
-	$table{"["} = $num++;
-	$table{"]"} = $num++;
-
-	$num = $ret = 0;
-	while($currdig = substr($number, -1, 1, "")) {
-		$ret += $table{$currdig}*64**$num++;
-	}
-	return $ret;
 }
 
 # Sanitize a nick for IRC
@@ -3305,6 +3344,43 @@ sub ircify($;$) {
 	return $shortnick;
 }
 
+#The base64 functions are for the P10 IRC protocol
+sub num2base64($) {
+	my $number = shift;
+	my (@table, $char, $ret, $num, $currdig);
+
+	$ret = "";
+	foreach $char("A".."Z") { push @table, $char; }
+	foreach $char("a".."z") { push @table, $char; }
+	foreach $char("0".."9") { push @table, $char; }
+	push @table, "[", "]";
+	for($num = 2; $num >= 0; $num--) {
+		next unless $number >= 64**$num;
+		$currdig = ($number - 64**$num) % 64;
+		$ret .= $table[$currdig];
+		$number -= $currdig;
+	}
+	return $ret;
+}
+
+sub base642num($) {
+	my $number = shift;
+	my (%table, $char, $num, $currdig, $ret);
+
+	$num = 0;
+	foreach $char("A".."Z") { $table{$char} = $num++; }
+	foreach $char("a".."z") { $table{$char} = $num++; }
+	foreach $char("0".."9") { $table{$char} = $num++; }
+	$table{"["} = $num++;
+	$table{"]"} = $num++;
+
+	$num = $ret = 0;
+	while($currdig = substr($number, -1, 1, "")) {
+		$ret += $table{$currdig}*64**$num++;
+	}
+	return $ret;
+}
+
 sub bounce_join($$) {
 	my($nick, $chan) = @_;
 
@@ -3315,7 +3391,6 @@ sub bounce_join($$) {
 	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for IMIRC usage."));
 	$chantimer{$chan} = time;
 }
-
 
 sub process_dcc($$$$$) {
 	my $dcc = shift;
@@ -3437,12 +3512,19 @@ sub process_dcc($$$$$) {
 
 			if($dcc->{received} == $dcc->{size}) {
 				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
-				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC transfer of $dcc->{desc} completed.", "", "", $screenname));
 				my $sndata = $aim_connections->{$dcc->{for}}->{screennames}->{$screenname};
-				if(loadbuddies($sndata->{oscar}, $dcc->{what}, $sndata)) {
-					irc_send(irc_privmsg($usnick, $dcc->{for}, "Buddylist loaded.", "", "", $screenname));
+
+				if($dcc->{desc} eq "list") {
+					if(loadbuddies($sndata->{oscar}, $dcc->{what}, $sndata)) {
+						irc_send(irc_privmsg($usnick, $dcc->{for}, "Buddylist loaded.", "", "", $screenname));
+					} else {
+						irc_send(irc_privmsg($usnick, $dcc->{for}, "Could not load buddylist.", "", "", $screenname));
+					}
+				} elsif($dcc->{desc} eq "icon") {
+					$sndata->{oscar}->set_icon($dcc->{what});
 				} else {
-					irc_send(irc_privmsg($usnick, $dcc->{for}, "Could not load buddylist.", "", "", $screenname));
+					irc_send(irc_privmsg($usnick, $dcc->{for}, "Unknown DCC type '$dcc->{desc}'.", "", "", $screenname));
 				}
 				$retval = -1;
 				goto DCC_CLEANUP;
@@ -3862,3 +3944,5 @@ sub did_join($$) {
 		}
 	}
 }
+
+
