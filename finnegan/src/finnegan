@@ -58,7 +58,7 @@ $SIG{CHLD} = sub {
 	if($phoneline) {
 		delete $kidmap{$pid};
 		$phonelines_avail{$phoneline} = 1;
-		unlink("../tmp/$pid.rmd") unless $Finnegan::Config::testmode
+		unlink("../tmp/$pid.rmd") unless $Finnegan::Config::nocalls;
 	}
 };
 
