@@ -1428,6 +1428,7 @@ User {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: loglevel newlevel", "", "", $screenname));
 			} else {
 				$oscar->loglevel($param);
+				$sndata->{loglevel} = $param;
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
