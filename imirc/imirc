@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap $select_rd $select_wr $select_err $bouncequeue $incbuff);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $localhelp $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap $select_rd $select_wr $select_err $bouncequeue $incbuff);
 
 # Light-blasted thing doesn't like us importing constants at run-time
 sub POLLIN {&IO::Poll::POLLIN};
@@ -130,6 +130,7 @@ $version = $VERSION = '1.6-CVS $Revision$';
 $prefix = "AIM-";
 $usnick = "IMServ";
 $oldnick = "AIMServ";
+$localhelp = "";
 $confversion = 0;
 $chatchan = "#aimchat-";
 $nickchan = "#aimchan-";
@@ -263,6 +264,14 @@ sub loadconf() {
 				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
 				$foundconfig = -1 unless $foundconfig;
 			} else {
+				if($confversion == 1.5) {
+					print STDERR "Do you have a channel where people can ask for help with IMIRC?\n";
+					print STDERR "If so, set \$localhelp to that channel (e.g. '\$localhelp = \"#imirc\"') in your IMIRC configuration file.\n";
+					print STDERR "In either case, change \$confversion to 1.6 in your config file to suppress this message.\n";
+					print STDERR "(Sleeping for 10 seconds to give you a chance to read this...)\n";
+					sleep 10;
+				}
+
 				$foundconfig = 1;
 			}
 		} elsif(-e $conffile) {
@@ -303,6 +312,7 @@ sub loadconf() {
 		"servermode=s" => \$servermode,
 		"prefix=s" => \$prefix,
 		"usnick=s" => \$usnick,
+		"localhelp=s" => \$localhelp,
 		"time=i" => \$time,
 		"fork:i" => \$fork,
 		"verbose|v" => \$verbose,
@@ -1588,8 +1598,21 @@ sub process_irc_message($$) {
 				irc_send("$foo :\tlistnames - list screennames that you are signed on as.  Also tells you your default screenname.\r\n", 1);
 				irc_send("$foo :\tswitchname screenname - switch to a new default screenname\r\n", 1);
 				irc_send("$foo :\tsignoffall - sign off all screennames\r\n", 1);
-			#} elsif($param eq "introduction") {
-			#	irc_send("$foo :
+			} elsif($param eq "intro") {
+				irc_send("$foo :Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any IMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
+				irc_send("$foo :AIM stands for AOL Instant Messenger.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
+				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :You need an AOL Instant Messenger account to use IMIRC.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :See 'help basics' for information on how to sign on to AIM.\r\n", 1);
+				if($localhelp) {
+					irc_send("$foo :Join $localhelp or visit the IMIRC web site <http://www.zevils.com/programs/imirc/> for more help.\r\n", 1);
+				} else {
+					irc_send("$foo :Visit the IMIRC web site <http://www.zevils.com/programs/imirc/> for more help.\r\n", 1);
+				}
 			} elsif($param eq "pounce") {
 				irc_send("$foo :A pounce will automatically send an IM to a buddy when that buddy comes online.\r\n", 1);
 				irc_send("$foo :Your pounces will be saved when you sign off but cannot trigger unless you are signed on.\r\n", 1);
@@ -1613,34 +1636,33 @@ sub process_irc_message($$) {
 					irc_send("$foo :$_\r\n", 1);
 				}
 				close CREDITS;
-			} else {
-				irc_send("$foo :IMIRC $version, (c)1999-2002 Matthew Sachs.\r\n", 1);
-				irc_send("$foo :IMIRC homepage: http://www.zevils.com/programs/imirc/\r\n", 1);
+			} elsif($param eq "legal") {
 				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
+				irc_send("$foo :AOL and AMERICA ONLINE are registered trademarks owned by America Online,\r\n", 1);
+				irc_send("$foo :Inc.  The INSTANT MESSENGER mark is owned by America Online, Inc.  This program\r\n", 1);
+				irc_send("$foo :is not endorsed by, or affiliated with, America Online, Inc.\r\n", 1);
+			} else {
+				irc_send("$foo :IMIRC $version, (c)1999-2004 Matthew Sachs.\r\n", 1);
+				irc_send("$foo :\x02IMIRC web site\x02: http://www.zevils.com/programs/imirc/\r\n", 1);
 				irc_send("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n", 1);
-				irc_send("$foo :\tbasics - basic commands\r\n", 1);
+				irc_send("$foo :\t\x02basics\x02 - basic commands\r\n", 1);
 			 	irc_send("$foo :\tbuddyinfo - get information about a buddy\r\n", 1);
 			 	irc_send("$foo :\tbuddylist - buddylist manipulation\r\n", 1);
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tcredits - some of the many people who've helped with IMIRC\r\n", 1);
+				irc_send("$foo :\tlegal - important legal notices\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using IMIRC with multiple AIM screennames from one IRC connection.\r\n", 1);
 				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
 				irc_send("$foo :\tprivacy - control who is allowed to contact you\r\n", 1);
 				irc_send("$foo :\tset - various settings you can change\r\n", 1);
-				#irc_send("$foo :\tintroduction - introduction to IMIRC and AOL Instant Messenger.\r\n", 1);
-				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any IMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
-				irc_send("$foo :AIM stands for AOL Instant Messenger.\r\n", 1);
-				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :AOL and AMERICA ONLINE are registered trademarks owned by America Online,\r\n", 1);
-				irc_send("$foo :Inc.  The INSTANT MESSENGER mark is owned by America Online, Inc.  This program\r\n", 1);
-				irc_send("$foo :is not endorsed by, or affiliated with, America Online, Inc.\r\n", 1);
-				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
-				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
-				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :You need an AOL Instant Messenger account to use IMIRC.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
+				irc_send("$foo :\t\x02intro\x02 - introduction to IMIRC\r\n", 1);
+				if($localhelp) {
+					irc_send("$foo :Join $localhelp or visit the IMIRC web site for more help.\r\n", 1);
+				} else {
+					irc_send("$foo :Visit the IMIRC web site for more help.\r\n", 1);
+				}
 			}
 		} elsif($cmd eq "switchname") {
 			unless($param) {
