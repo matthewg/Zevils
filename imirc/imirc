@@ -747,7 +747,7 @@ sub Toc::debug_print($$$) {
 	return unless $debug;
 	return if defined($debug{$type}) and $level > $debug{$type};
 
-	if($aimircdebug) {
+	if($aimircdebug and $debug < 2) {
 		@lines = split(/[\r\n]+/, $text);
 	
 		foreach $line(@lines) {
