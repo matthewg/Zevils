@@ -1109,7 +1109,13 @@ sub process_irc_message($$) {
 
 			foreach $group($oscar->groups) {
 				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
-				foreach $buddy($oscar->buddies($group)) {
+				foreach $buddy(sort {
+				  $a->{online} <=> $b->{online}
+				    or
+				  $a->{away} <=> $b->{away}
+				    or
+				  $a->{idle_since} <=> $b->{idle_since}
+				} $oscar->buddies($group)) {
 					$buddat = $oscar->buddy($buddy, $group);
 					$evil = $buddat->{evil};
 					$line = "\t$buddy";
@@ -1131,7 +1137,11 @@ sub process_irc_message($$) {
 
 			foreach $group($oscar->groups) {
 				my $showedgroup = 0;
-				foreach $buddy($oscar->buddies($group)) {
+				foreach $buddy(sort {
+				  $a->{away} <=> $b->{away}
+				    or
+				  $a->{idle_since} <=> $b->{idle_since}
+				} $oscar->buddies($group)) {
 					irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname)) unless $showedgroup++;
 					$buddat = $oscar->buddy($buddy, $group);
 					$evil = $buddat->{evil};
