@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+foreach (@ARGV) {
+	my $wav = $_;
+	my $g711 = $wav;
+	$g711 =~ s!/wav/!/g711-mulaw/!;
+	$g711 =~ s!\.wav$!.ul!;
+	print "Converting $wav to $g711...\n";
+	unlink($g711);
+	system("mkdir -p `dirname $g711`");
+	system("sox $wav -r 8000 -c 1 $g711 resample");
+}
+
