@@ -2262,7 +2262,12 @@ sub do_signon($$$$) {
 	my $oscar = $oscarprime->clone();
 	my $loglevel = ($oscarprime->loglevel > $params->{loglevel}) ? $oscarprime->loglevel : $params->{loglevel};
 	$oscar->loglevel($loglevel);
-	$oscar->signon($screenname, $password, $oscarserver, $oscarport);
+	$oscar->signon(
+		screenname => $screenname,
+		password => $password,
+		host => $oscarserver,
+		port => $oscarport
+	);
 
 	$screenname = new Net::OSCAR::Screenname $screenname;
 	$aim_connections->{$nick}->{nick} = $nick;
