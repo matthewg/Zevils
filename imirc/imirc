@@ -90,7 +90,6 @@ if($servermode eq "dal2") {
 		#warn "$in\n";
 	}
 }
-warn "Okay, done.\n";
 
 $upstream->print(irc_newnick($usnick));
 $upstream->print(":$us MODE $usnick +o\r\n");

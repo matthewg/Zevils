@@ -56,17 +56,17 @@ sub update_buddy($$$$$$$) {
 	my($sn, $nick, $class, $evil, $signon, $idle, $online) = @_;
 
 	if($online) {
-		$config{$sn}{config}->{Buddies}{$nick}{class} = $class;
-		$config{$sn}{config}->{Buddies}{$nick}{evil} = $evil;
-		$config{$sn}{config}->{Buddies}{$nick}{signon} = $signon;
-		$config{$sn}{config}->{Buddies}{$nick}{idle} = $idle;
+		$config{$sn}->{Buddies}{$nick}{class} = $class;
+		$config{$sn}->{Buddies}{$nick}{evil} = $evil;
+		$config{$sn}->{Buddies}{$nick}{signon} = $signon;
+		$config{$sn}->{Buddies}{$nick}{idle} = $idle;
 	} else {
-		delete $config{$sn}{config}->{Buddies}{$nick}{class};
-		delete $config{$sn}{config}->{Buddies}{$nick}{evil};
-		delete $config{$sn}{config}->{Buddies}{$nick}{signon};
-		delete $config{$sn}{config}->{Buddies}{$nick}{idle};
+		delete $config{$sn}->{Buddies}{$nick}{class};
+		delete $config{$sn}->{Buddies}{$nick}{evil};
+		delete $config{$sn}->{Buddies}{$nick}{signon};
+		delete $config{$sn}->{Buddies}{$nick}{idle};
 	}
-	$config{$sn}{config}->{Buddies}{$nick}{online} = $online;
+	$config{$sn}->{Buddies}{$nick}{online} = $online;
 }
 
 =item get_config(NICK)
@@ -74,7 +74,7 @@ Returns a config-hash of the type returned by signon for NICK.
 
 =cut
 
-sub get_config($) { return $config{$_[0]}{config}; }
+sub get_config($) { return $config{$_[0]}; }
 
 =pod
 
@@ -286,8 +286,8 @@ sub signon($$;&) {
 		return -1;
 	}
 	$config = str2conf($msg);
-	$config{$username}{config} = %$config;
-	$config{$username}{config}{permtype} = $permtype;
+	$config{$username} = $config;
+	$config{$username}{permtype} = $permtype;
 
 	debug_print("$username is about to send toc_init_done", "signon", 2);
 
@@ -595,11 +595,11 @@ PERMTYPE is the Toc permit type.
 sub permtype($;$) {
 	my($handle, $permtype) = @_;
 	if($permtype) {
-		$config{_hnick($handle)}{config}{permtype} = $permtype;
+		$config{_hnick($handle)}->{permtype} = $permtype;
 		set_config($handle, $config{_hnick($handle)});
 		return $permtype;
 	} else {
-		return $config{_hnick($handle)}{config}{permtype};
+		return $config{_hnick($handle)}->{permtype};
 	}
 }
 
@@ -660,7 +660,7 @@ In all other cases, it is called automatically when needed.  Returns the result 
 
 sub set_config($$) {
 	my($handle, $config) = @_;
-	$config{_hnick($handle)}{config} = %$config;
+	$config{_hnick($handle)} = $config;
 
 	sflap_do($handle, conf2str($config));
 }
