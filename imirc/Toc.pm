@@ -533,36 +533,38 @@ sub remove_buddy($$) {
 
 =pod
 
-=item add_permit(HANDLE, NICK)
+=item add_permit(HANDLE, NICK[, NO_SET_CONFIG])
 
 Add NICK to the permit list.  Returns the result of set_config.
+See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_permit($$) {
-	my($handle, $nick) = @_;
+sub add_permit($$;$) {
+	my($handle, $nick, $noconfig) = @_;
 	debug_print(_hnick($handle) . " is adding $nick to permit list", "buddies", 1);
 	sflap_do($handle, "toc_add_permit $nick");
 	delete $config{_hnick($handle)}->{deny}{$nick};
 	$config{_hnick($handle)}->{permit}{$nick} = 1;
-	set_config($handle, $config{_hnick($handle)});
+	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 =pod
 
-=item add_deny(HANDLE, NICK)
+=item add_deny(HANDLE, NICK[, NO_SET_CONFIG])
 
 Add NICK to the deny list.  Returns the result of set_config.
+See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_deny($$) {
-	my($handle, $nick) = @_;
+sub add_deny($$;$) {
+	my($handle, $nick, $noconfig) = @_;
 	debug_print(_hnick($handle) . " is adding $nick to deny list", "buddies", 1);
 	sflap_do($handle, "toc_add_deny $nick");
 	delete $config{_hnick($handle)}->{permit}{$nick};
 	$config{_hnick($handle)}->{deny}{$nick} = 1;
-	set_config($handle, $config{_hnick($handle)});
+	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
 
