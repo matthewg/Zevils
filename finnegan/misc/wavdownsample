@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+foreach (@ARGV) {
+	my $wav = $_;
+	my $down = $wav;
+	$down =~ s!wav/!wav-mono8/!;
+	print "Converting $wav to $down...\n";
+	unlink($down);
+	system("mkdir -p `dirname $down`");
+	system("sox $wav -r 8000 -c 1 $down resample");
+}
