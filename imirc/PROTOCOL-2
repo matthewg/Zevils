@@ -3,5 +3,11 @@ Permit mode 5 == permit iff on buddylist
 EMAIL:email
 toc_get_away screenname => AWAY:screenname:message
 toc_change_email ADMIN_EMAIL_STATUS
+toc_confirm_account ADMIN_CONFIRM_STATUS
+
+Instead of GOTO_URL:
+	
+INFO:<screenname>:<evil amount>:<signon time>:<idle time>:<user class>:profile:awaymsg
+Profile and awaymsg are mutually exclusive
 
 $chat->{dormouse_id}

@@ -121,7 +121,6 @@ while(my $toc = $sock->accept) {
 	$flags |= O_NONBLOCK;
 	fcntl($toc, F_SETFL, $flags);
 
-	#sflap_do($toc, "SIGN_ON:1.0");
 	sflap_put($toc, sflap_encode(pack("N", 1), 1));
 	$message = sflap_get($toc, 1);
 	(undef, undef, undef, $screenname) = unpack("Nnna*", $message); #signon packet
@@ -130,21 +129,82 @@ while(my $toc = $sock->accept) {
 	
 
 	$message = sflap_get($toc, 1);
-	$toc->{toc2} = 1 if $msg =~ /TOC2/;
+	if($msg !~ /TOC2/) {
+		sflap_do($toc, "ERROR:989:Your client is too old.  You must use a client which supports the TOC2 protocol.");
+		$toc->close();
+		exit 1;
+	}
         # $msg = quote("toc_signon login.oscar.aol.com 5190 $username  " . roast_password($password) . " english ") . "\"QuickBuddy\"";
-	@params = split(/\s+/, $msg);
+	@params = toc_split($msg);
 	my $password = unroast_password($params[5]);
 
 	$oscar = $oscarprime->clone();
 	$tocs{normalize($screenname)} = $toc;
 	$oscar->signon($screenname, $password);
 
-	#event loop
+	while(1) {
+		my $rin = '';
+		vec($rin, $toc->fileno, 1) = 1;
+		foreach my $connection($oscar->connections) {
+			vec($rin, fileno $connection, 1) = 1;
+		}
+		my $win = $rin;
+		my $ein = $rin;
+		next unless select($rin, $win, $ein, 0.01);
+		$oscar->process_connections(\$rin, \$win, \$ein);
+		next unless vec($rin, $toc->fileno, 1);
+		($command, @params) = toc_split(sflap_get($toc, 1));
+		process_toc_command($toc, $oscar, $command, @params);
+	}
+}
+
+# Be aware of "quoted parameters", unescaping, etc.
+sub toc_split($) {
+	my @params = 
+
+sub process_toc_command($$$@) {
+	my($toc, $oscar, $command, @params) = @_;
+
+	if($command eq "toc_signon") {
+		die "Got toc_signon too late!\n";
+	} elsif($command eq "toc_init_done") {
+		# ignore
+	} elsif($command eq "toc_send_im") {
+		my $who = shift @params;
+		my $away = 0;
+		if($params[-1] eq "away") {
+			pop @params;
+			$away = 1;
+		}
+		my $message = join(" ", @params);
+		$oscar->send_im($params[0],
+
 }
 
 sub Toc::debug_print($$$) {
 	my($text, $type, $level) = @_;
 	#print STDERR "($level, $type) $text";
+}
+
+sub buddy_info_string($) {
+	my $buddat = shift;
+	my $string = "";
+
+	$string .= join(":", int($buddat->{evil}), $buddat->{onsince}, $buddat->{idle});
+	$string .= ":";
+	$string .= $buddat->{aol} ? "A" : " ";
+	if($buddat->{admin}) {
+		$string .= "A";
+	} elsif($buddat->{trial}) {
+		$string .= "U";
+	} elsif($buddat->{free}) {
+		$string .= "O";
+	} else {
+		$string .= " ";
+	}
+
+	$string .= "U" if $buddat->{away};
+	return $string;
 }
 
 
@@ -164,14 +224,9 @@ sub signon_done($) {
 
 	sflap_do($toc, "SIGN_ON:TOC2.0");
 	sflap_do($toc, "NICK:".$oscar->screenname);
+	sflap_do($toc, "EMAIL:".$oscar->email);
 
-	my $config = "m ";
-	if($oscar->visibility == 5 and not $toc->{toc2}) {
-		$config .= 3; # If client doesn't support permit_mode 5, we just tell 'em 'permit some'
-	} else {
-		$config .= 5;
-	}
-	$config .= "\n";
+	my $config = "m " . $oscar->visibility . "\n";
 	
 	foreach my $group($oscar->groups) {
 		next unless $group eq "permit" or $group eq "deny";
@@ -203,7 +258,7 @@ sub admin_error($$$$) {
 	my $toc = $tocs{normalize($oscar->screenname)};
 
 	my $errno = 900;
-	if($error =~ /Couldn't connect/) {
+	if($error == ADMIN_ERROR_CONNREF) {
 		$errno = 914;
 	} else {
 		$errno = 911;
@@ -217,12 +272,14 @@ sub admin_ok($$) {
 	my $toc = $tocs{normalize($oscar->screenname)};
 
 	#password change, email change, screenname format
-	if($reqtype eq "password change") {
+	if($reqtype == ADMIN_TYPE_PASSWORD_CHANGE) {
 		$reqtype = "ADMIN_PASSWD_STATUS";
-	} elsif($reqtype eq "screenname format") {
+	} elsif($reqtype == ADMIN_TYPE_SCREENNAME_FORMAT) {
 		$reqtype = "ADMIN_NICK_STATUS";
-	} elsif($reqtype eq "email change") {
+	} elsif($reqtype == ADMIN_TYPE_EMAIL_CHANGE) {
 		$reqtype = "ADMIN_EMAIL_STATUS";
+	} elsif($reqtype == ADMIN_TYPE_ACCOUNT_CONFIRM) {
+		$reqtype = "ADMIN_CONFIRM_STATUS";
 	}
 
 	sflap_do($toc, "$reqtype:0:");
@@ -241,20 +298,7 @@ sub buddy_in($$$$) {
 	my($screenname, $group, $buddat) = @_;
 	my $string = "UPDATE_BUDDY:$screenname:T:";
 
-	$string .= join(":", int($buddat->{evil} / 10), $buddat->{onsince}, $buddat->{idle});
-	$string .= ":";
-	$string .= $buddat->{aol} ? "A" : " ";
-	if($buddat->{admin}) {
-		$string .= "A";
-	} elsif($buddat->{trial}) {
-		$string .= "U";
-	} elsif($buddat->{free}) {
-		$string .= "O";
-	} else {
-		$string .= " ";
-	}
-
-	$string .= "U" if $buddat->{away};
+	$string .= buddy_info_string($buddat);
 
 	sflap_do($toc, $string);
 }
@@ -302,20 +346,14 @@ sub chat_im_in($$$$) {
 	sflap_do($toc, "CHAT_IN:".$chat->{dormouse_id}.":$who:F:$what");
 }
 
-sub chat_invite($$$) {
+sub chat_invite($$$$$) {
 	my $oscar = shift;
-	my($from, $msg, $chat) = @_;
+	my($from, $msg, $chat, $chaturl) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
 	my $chatseq = chatseq();
-	$chats{$chat->{url}} = $chatseq;
-	sflap_do($toc, "CHAT_INVITE:
-CHAT_INVITE:<Chat Room Name>:<Chat Room Id>:<Invite Sender>:<Message>
-
-	my $invnum = push @invites, $chat;
-	$invnum--;
-	print "$from has invited us to chat $chat.  Use command accept_invite $invnum to accept.\n";
-	print "Invite message: $msg\n";
+	$chats{$chaturl} = $chatseq;
+	sflap_do($toc, "CHAT_INVITE:$chat:$chatseq:$from:$msg");
 }
 
 sub chat_joined($$$) {
@@ -323,8 +361,7 @@ sub chat_joined($$$) {
 	my($name, $chat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	push @chats, $chat;
-	print "You have joined chat $name.  Its chat number is ".(scalar(@chats)-1)."\n";
+	sflap_do($toc, "CHAT_JOIN:".$chat->{dormouse_id}.":$name");
 }
 
 sub evil($$$) {
@@ -332,8 +369,7 @@ sub evil($$$) {
 	my($newevil, $enemy) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	$enemy ||= "Anonymous";
-	print "$enemy has just evilled you!  Your new evil level is $newevil%.\n";
+	sflap_do($toc, "EVILED:$newevil:$enemy");
 }
 
 sub buddy_info($$$$) {
@@ -341,51 +377,14 @@ sub buddy_info($$$$) {
 	my($screenname, $buddat) = @_;
 	my $toc = $tocs{normalize($oscar->screenname)};
 
-	my $membersince = localtime($buddat->{membersince});
-	my $onsince = localtime($buddat->{onsince});
+	my $string = "INFO:$screenname:";
+	$string .= buddy_info_string($buddat);
+	$buddat->{profile} ||= "";
+	$buddat->{awaymsg} ||= "";
+	$string .= ":".$buddat->{profile};
+	$string .= ":".$buddat->{awaymsg};
 
-	my $extra = "";
-	$extra .= " [TRIAL]" if $buddat->{trial};
-	$extra .= " [AOL]" if $buddat->{aol};
-	$extra .= " [FREE]" if $buddat->{free};
-	$extra .= " [AWAY]" if $buddat->{away};
-
-	$buddat->{evil} /= 10;
-
-	my $profile = "";
-	if($buddat->{awaymsg}) {
-		$profile = <<EOF
----------------------------------
-Away message
----------------------------------
-$buddat->{awaymsg}
-EOF
-	} elsif($buddat->{profile}) {
-		if(exists($buddat->{idle}) and not $buddat->{idle}) {
-			$buddat->{idle} = 0;
-		} elsif(!exists($buddat->{idle})) {
-			$buddat->{idle} = "User does not report idle time." 
-		}
-		$profile = <<EOF
----------------------------------
-Profile
----------------------------------
-$buddat->{profile}
-EOF
-	}
-
-	print <<EOF;
-=================================
-Buddy info for $screenname
----------------------------------
-Flags: $extra
-Member Since: $membersince
-On Since: $onsince
-Idle Time (secs): $buddat->{idle}
-Evil Level: $buddat->{evil}%
-$profile
-=================================
-EOF
+	sflap_do($toc, $string);
 }
 
 

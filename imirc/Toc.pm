@@ -18,7 +18,7 @@ package Toc;
 # AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
 
 use strict;
-use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS %config $err %pausequeue);
+use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS %config $err %pausequeue $SERVER);
 use Fcntl;
 use POSIX qw(:errno_h);
 use Carp qw(cluck);
@@ -30,6 +30,8 @@ use HTML::Parse;
 @EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password set_pause get_pause);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '1.2';
+
+$SERVER = 0;
 
 =pod
 
@@ -295,6 +297,7 @@ sub sflap_get($;$) {
 	#	return -1;
 	#}
 
+	chop $buff if substr($buff, -1, 1) eq chr(0) and $SERVER;
 	return $buff;
 }
 
@@ -1088,7 +1091,7 @@ sub sflap_encode($;$$) {
 		$ret = pack("CCnn", ord("*"), 1, 0, length($so) + length($msg));
 		$ret .= $so;
 	} else {
-		$msg .= chr(0);
+		$msg .= chr(0) unless $SERVER;
 		$ret = pack("CCnn", ord("*"), 2, 0, length($msg));
 	}
 	return $ret . $msg;
