@@ -254,18 +254,7 @@ sub process_irc_message {
 				$aim_connections{$nick}{permtype} = $ret[2]->{permtype};
 				%temp = %{$ret[2]};
 				$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
-				foreach $buddy(keys %{$temp{Buddies}}) {
-					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_buddy($aim_connections{$nick}{socket}, $buddy, $temp{Buddies}{$buddy}{group}, 1);
-				}
-				foreach $buddy(keys %{$temp{permit}}) {
-					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_permit($aim_connections{$nick}{socket}, $buddy, 1);
-				}
-				foreach $buddy(keys %{$temp{deny}}) {
-					$buddy =~ tr/ //d; $buddy = lc($buddy);
-					add_deny($aim_connections{$nick}{socket}, $buddy, 1);
-				}
+
 				$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
 				$aimselect->add($aim_connections{$nick}{socket});
 				irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger."));
@@ -393,42 +382,40 @@ sub process_irc_message {
 		} elsif ($cmd eq "get_dir") {
 			get_directory($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "set_dir") {
-			$param = "$param $extra";
-			if($extra) {
+			$param = "$param $extra" if $extra;
+			if($param) {
 				@temp = split(/:/, $param);
-				%temp = (
-					first_name => unshift @temp,
-					middle_name => unshift @temp,
-					last_name => unshift @temp,
-					maiden_name => unshift @temp,
-					city => unshift @temp,
-					state => unshift @temp,
-					country => unshift @temp,
-					email => unshift @temp,
-					allow_web_searches => unshift @temp
+					%temp = (
+					first_name => shift @temp,
+					middle_name => shift @temp,
+					last_name => shift @temp,
+					maiden_name => shift @temp,
+					city => shift @temp,
+					state => shift @temp,
+					country => shift @temp,
+					allow_web_searches => shift @temp
 				);
 				set_directory($aim_connections{$nick}{socket}, %temp);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
 		} elsif ($cmd eq "dir_search") {
-			$param = "$param $extra";
-			if($extra) {
+			$param = "$param $extra" if $extra;
+			if($param) {
 				@temp = split(/:/, $param);
 				%temp = (
-					first_name => unshift @temp,
-					middle_name => unshift @temp,
-					last_name => unshift @temp,
-					maiden_name => unshift @temp,
-					city => unshift @temp,
-					state => unshift @temp,
-					country => unshift @temp,
-					email => unshift @temp,
-					allow_web_searches => unshift @temp
+					first_name => shift @temp,
+					middle_name => shift @temp,
+					last_name => shift @temp,
+					maiden_name => shift @temp,
+					city => shift @temp,
+					state => shift @temp,
+					country => shift @temp,
+					allow_web_searches => shift @temp
 				);
 				directory_search($aim_connections{$nick}{socket}, %temp);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
 		} elsif ($cmd eq "bold") {
 			$aim_connections{$nick}{bold} = $param;
@@ -543,8 +530,8 @@ sub process_aim_message {
 	$cmd = $1; $val = $2;
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):?(.*)/;
-		Toc::debug_print("Error $1: " . aim_strerror($1), "errors", 1);
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . aim_strerror($1)));
+		Toc::debug_print("Error $1: " . aim_strerror($1, $2), "errors", 1);
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . aim_strerror($1, $2)));
 	} elsif($cmd eq "CONFIG") {
 		update_config($connection->{socket}, $msg);
 	} elsif($cmd eq "IM_IN") {
@@ -594,7 +581,7 @@ sub process_aim_message {
 	} elsif($cmd eq "EVILED") {
 		$val =~ /([^:]+):(.*)/;
 		$connection->{evil} = $1;
-		irc_send(irc_privmsg($usnick, $connection->{nick}, $2 || "Anonymous" . " has just evilled you.  Your new evil level is $1%."));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, ($2 || "Anonymous") . " has just evilled you.  Your new evil level is $1%."));
 	} elsif($cmd eq "CHAT_JOIN") {
 		$val =~ /([^:]+):(.*)/;
 		$connection->{chats}{$1} = $2;
