@@ -74,32 +74,6 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#default method works.
 $time = 60*5; #Five minutes.
 
-$foundconfig = 0;
-if(-r "/etc/aimirc.conf") {
-	undef $@;
-	do "/etc/aimirc.conf";
-	die $@ if $@;
-	$foundconfig = 1;
-}
-if(-r "$home/.aimirc") {
-	undef $@;
-	do "$home/.aimirc";
-	die $@ if $@;
-	$foundconfig = 1;
-}
-
-unless($foundconfig) {
-	print STDERR "You must edit aimirc.conf and copy it to either /etc/aimirc.conf or $home/.aimirc\n";
-	print STDERR "If you have already done this, make sure the aimirc user has permission to read it.\n";
-	exit 1;
-}
-$version = $VERSION = "0.90";
-
-@args = @ARGV;
-
-
-$uid = "100";
-
 %ircservers = (
 	dal2 => {
 		nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via aimirc\r\n",
@@ -134,6 +108,32 @@ $uid = "100";
 		pass => "PASS :$ourpass\r\n"
 	}
 );
+
+$foundconfig = 0;
+if(-r "/etc/aimirc.conf") {
+	undef $@;
+	do "/etc/aimirc.conf";
+	die $@ if $@;
+	$foundconfig = 1;
+}
+if(-r "$home/.aimirc") {
+	undef $@;
+	do "$home/.aimirc";
+	die $@ if $@;
+	$foundconfig = 1;
+}
+
+unless($foundconfig) {
+	print STDERR "You must edit aimirc.conf and copy it to either /etc/aimirc.conf or $home/.aimirc\n";
+	print STDERR "If you have already done this, make sure the aimirc user has permission to read it.\n";
+	exit 1;
+}
+$version = $VERSION = "0.90";
+
+@args = @ARGV;
+
+
+$uid = "100";
 
 
 unless($reload) {
