@@ -558,7 +558,7 @@ sub irc_newnick($) {
 
 	$nick = new Net::OSCAR::Screenname $nick;
 	debug_print("Shall we create $nick?", "nicks", 2);
-	return if haskeys($nicks->{noprefix($nick)});
+	return if exists($nicks->{noprefix($nick)});
 	$shortnick = new Net::OSCAR::Screenname ircify($nick);
 	$nicks->{noprefix($nick)} = $oscarprime->buddyhash();
 	debug_print("\tCreating $nick (normalized ". normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
