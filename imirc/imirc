@@ -214,7 +214,6 @@ sub REAPER {
 }
 $SIG{CHLD} = \&REAPER;
 
-loaddat();
 $lasttime = $checktime = time;
 $keepalive = 0;
 mainloop();
@@ -224,24 +223,33 @@ sub loaddat($) {
 
 	$screenname = safename $screenname;
 
+	Toc::debug_print("loaddat($screenname)", "IRC", 3);
+
 	#Who needs subroutines when you've got copy and paste?
 	#Incidentally, this is what I mean by that "code cleanup" item in TODO
 	#But would a trillion tiny functions be any cleaner?
 	#Oh well - who reads this anyway?
 	if((-d $directory and -r $directory) or mkdir($directory, 0700)) {
 		local $/ = undef;
-		if($savebuddies > 1 and -r "$directory/buddylists/$screenname") {
+		Toc::debug_print("buddylists", "IRC", 3);
+		if($savebuddies and -r "$directory/buddylists/$screenname") {
+			Toc::debug_print("buddylists OK", "IRC", 3);
 			open(BUDDYLIST, "<$directory/buddylists/$screenname");
-			$buddylists{$screennamet} = <BUDDYLIST>;
+			$buddylists{$screenname} = <BUDDYLIST>;
 			close BUDDYLIST;
 		}
 
-		if($saveprofiles > 1 and -r "$directory/profiles/$screenname") {
+		Toc::debug_print("profiles", "IRC", 3);
+		if($saveprofiles and -r "$directory/profiles/$screenname") {
+			Toc::debug_print("profiles OK", "IRC", 3);
 			open(PROFILE, "<$directory/profiles/$screenname");
 			$profiles{$screenname} = <PROFILE>;
 			close BUDDYLIST;
 		}
-		if($savepounces > 1 and -r "$directory/pounces/$screenname") {
+
+		Toc::debug_print("pounces", "IRC", 3);
+		if($savepounces and -r "$directory/pounces/$screenname") {
+			Toc::debug_print("pounces OK", "IRC", 3);
 			open(POUNCE, "<$directory/pounces/$screenname");
 			$pounces = <POUNCE>;
 			close POUNCE;
@@ -252,7 +260,7 @@ sub loaddat($) {
 			}
 		}
 	} else {
-		if($savebuddies > 1 or $saveprofiles > 1 or $savepounces > 1) {
+		if($savebuddies or $saveprofiles or $savepounces) {
 			print STDERR "Warning - could not create $directory: $!\n";
 			print STDERR "Fix it or we can't save buddies, profiles, or pounces to disk.\n";
 			print STDERR "(Sleeping for 5 seconds to make sure you read this...)\n";
@@ -474,7 +482,7 @@ sub mainloop() {
 		irc_send(irc_mode($usnick, $usnick, "+oa"));
 
 		irc_join($usnick, "#aimirc-debug");
-		irc_server_mode("#aimirc-debug +o $usnick");
+		irc_send(irc_mode($us, "#aimirc-debug", "+o $usnick"));
 		irc_send(irc_mode($usnick, "#aimirc-debug", "+nsk $ourpass"));
 		$aimircdebug = 1;
 		$longnicks{'#aimirc-debug'} = '#aimirc-debug';
@@ -708,7 +716,7 @@ sub irc_newnick($) {
 
 	Toc::debug_print("Shall we create $nick?", "nicks", 2);
 	return if haskeys($nicks{noprefix $nick});
-	$shortnick = ircify $nick;	
+	$shortnick = ircify($nick);
 	$nicks{noprefix($shortnick)}{$usnick} = time;
 	Toc::debug_print("\tCreating $nick (normalized " . normalize($nick) . ", shortnick $shortnick)", "nicks", 1);
 	$longnicks{normalize($shortnick)} = $nick;
@@ -892,7 +900,7 @@ sub process_irc_message($) {
 		irc_send(irc_error($nick, 503, "Cannot kick users from AIM chat channels."));
 		irc_send(irc_join($2, "#aimchat-$1"));
 		if(normalize($2) eq normalize($usnick)) {
-			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, "#aimchat-$1", "+o $usnick");
+			irc_send(irc_mode(($servermode eq "ts") ? $us : $usnick, "#aimchat-$1", "+o $usnick"));
 		}
 	} elsif(/^PART +#aimchat-(\d+)/i) {
 		if(exists $aim_connections{$nnick}{screennames}{$chatnames{$1}}) {
@@ -1636,6 +1644,7 @@ sub process_aim_message($$$) {
 		irc_send(irc_privmsg($usnick, $nnick, "You are now connected to AOL Instant Messenger as $val.")) unless $sndata->{ison};
 		$sndata->{formatted} = $val;
 		if(!$sndata->{ison}) {
+			loaddat($screenname);
 			$sndata->{ison} = 1;
 			if($irc_away{$nnick}) {
 				$connection->{away} = $irc_away{$nnick};
@@ -1787,7 +1796,7 @@ sub process_aim_message($$$) {
 			foreach $who(@who) {
 				next if normalize($who) eq $screenname;
 				delete $chats{$1}{$who};
-				irc_send(irc_part(ircify $screenname, "#aimchat-$1"));
+				irc_send(irc_part(ircify($screenname), "#aimchat-$1"));
 				delete $nicks{normalize($who)}{"chat-$1"};
 			}
 		}
@@ -2101,7 +2110,7 @@ sub socksub {
 }
 
 # Send mode as if it's coming from the server
-sub irc_mode($$) {
+sub irc_mode($$$) {
 	my($who, $mode, $modestr) = @_;
 
 	$modestr = "";
@@ -2117,7 +2126,7 @@ sub irc_join($$) {
 	my($user, $channel, $ret) = @_;
 
 	$ret = irc_newnick($user);
-	$user = ircify $user;
+	$user = ircify($user);
 
 	if($servermode eq "ts") {
 		$user = "\@$user" if normalize($user) eq normalize($usnick);
@@ -2579,7 +2588,7 @@ sub safename($) {
 }
 
 sub savedat($) {
-	my($screenname, $pounce, $screenname) = shift;
+	my($screenname, $pounce) = shift;
 
 	$screenname = safename $screenname;
 
@@ -2593,7 +2602,7 @@ sub savedat($) {
 				close BUDDYLIST;
 			}
 		}
-		if($saveprofile) {
+		if($saveprofiles) {
 			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
 			unlink "$directory/profiles/$screenname";
 			if($profiles{$screenname}) {
