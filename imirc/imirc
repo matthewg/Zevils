@@ -2792,7 +2792,7 @@ sub process_ctcp($$$$$) {
 
 		debug_print("Processing CTCP $ctcp: command $cmd", "irc", 2);
 		if($to ne $usnick and $to ne $oldnick) {
-			$aim_connections->{$from}->{oscar}->send_im($to, ($notice ? "<!-- NOTICE -->" : "") . "<!-- CTCP -->$ctcp");
+			$aim_connections->{$from}->{oscar}->send_im($to, ($notice ? "<!-- NOTICE -->" : "") . "<!-- CTCP -->$ctcp") if exists($aim_connections->{$from});
 			next;
 		}
 
