@@ -728,7 +728,20 @@ sub process_irc_message($) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
 	} elsif(/^KILL +(\S+)/i) {
-		delete $nicks->{noprefix $1};
+		my $nick = $1;
+
+		if($nick eq $usnick or $nick eq $oldnick) {
+			debug_print("We were killed: $_", "irc", 1);
+			delete $nicks->{$nick};
+			irc_send(irc_newnick($nick));
+			irc_send(irc_mode($nick, $nick, "-i"));
+			irc_send(irc_mode($nick, $nick, "+o"));
+			$nicks->{$usnick}->{$usnick} = -1;
+		} elsif($nick =~ /^$prefix/) { #One of our nicks was killed
+			delete $nicks->{noprefix $1};
+		} else { #One of our users was killed
+			did_quit($nick);
+		}
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
 	} elsif(!/#imirc-debug/i and (/^(JOIN) +.?($nickchan)(\S+)/i or /^(SJOIN) +(\d+) +(?:\d* *)$nickchan(\S+?) +\S+ +: *(\S+)/i or /^(NJOIN) +($nickchan)(\S+?) +:(\S+)/i)) {
@@ -1766,18 +1779,7 @@ sub process_irc_message($) {
 			delete $nickservers->{$nick};
 		}
 	} elsif(/^QUIT/) {
-		delete $irc_away->{$nick};
-		delete $nickservers->{$nick};
-
-		my($dcc, $i);
-		for($i = $#dccqueue; $i >= 0; $i--) {
-			$dcc = $dccqueue[$i];
-			next unless $dcc->{for} eq $nick;
-			debug_print("Closing DCC socket for transfer to $nick", "DCC", 1);
-			close $dcc->{socket};
-			splice(@dccqueue, $i, 1);
-		}
-		do_signoff_all($nick) if $aim_connections->{$nick};
+		did_quit($nick);
 	} elsif(/^PING\s+:?(\S+)/) {
 		irc_send(irc_pong($1));
 	} elsif(/^248 +$usnick +(?:U +)?(\S+)/) { # STATS U reply
@@ -3487,4 +3489,20 @@ sub aimnick($$) {
 	irc_send(irc_newnick($longnick));
 	$nicks->{$screenname}->{$user} = time;
 	return $shortnicks->{$longnick};
+}
+
+sub did_quit($) {
+	my $nick = shift;
+	delete $irc_away->{$nick};
+	delete $nickservers->{$nick};
+
+	my($dcc, $i);
+	for($i = $#dccqueue; $i >= 0; $i--) {
+		$dcc = $dccqueue[$i];
+		next unless $dcc->{for} eq $nick;
+		debug_print("Closing DCC socket for transfer to $nick", "DCC", 1);
+		close $dcc->{socket};
+		splice(@dccqueue, $i, 1);
+	}
+	do_signoff_all($nick) if $aim_connections->{$nick};
 }
