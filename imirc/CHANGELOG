@@ -1,4 +1,4 @@
-Jan 16 2002, 1.5-rc3
+Jan 16 2002, 1.5-rc4
 	*A number of fixes in channel/mode/invite handling which
 	  solve several problems, mainly with TS/Bahamut servers
 	*Fixes to getmodules for older perls, especially 5.6.0
