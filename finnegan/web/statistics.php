@@ -73,7 +73,7 @@ if(!$cache_stat || isset($_REQUEST["nocache"]) || $cache_stat["mtime"] < (time()
 	# Message stats
 	fwrite($cache, preg_replace("/__TITLE__/", "Users Per Message", $TEMPLATE["statistics"]["group_start"]));
 
-	$stats = mysql_query("SELECT message, COUNT(*) AS 'count' FROM wakes GROUP BY message ORDER BY count DESC");
+	$stats = mysql_query("SELECT message, COUNT(DISTINCT extension) AS 'count' FROM wakes GROUP BY message ORDER BY count DESC");
 	while($row = mysql_fetch_row($stats)) {
 		$id = $row[0];
 		if($id == 0) continue;
