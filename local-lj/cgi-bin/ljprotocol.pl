@@ -1268,19 +1268,18 @@ sub _get_events_comments
     my $journalid = $req->{'journalid'};
     my $jitem;
 
-    if ($type eq "comments") {
-        $journalid =~ tr/0-9//dc;
-        return fail($err,203,"Invalid journalid") unless $journalid;
-#        $jitem = LJ::Talk::get_journal_item($u, $journalid);
-        fail($err,203,"Nonexistant journalid") unless $jitem;
-        return undef unless LJ::can_view($dbr, $u, $jitem);
-    }
-
     my $uowner = $flags->{'u_owner'} || $u;
 
     ### shared-journal support
     my $posterid = $u->{'userid'};
     my $ownerid = $flags->{'ownerid'};
+
+    if ($type eq "comments") {
+        $journalid =~ tr/0-9//dc;
+        return fail($err,203,"Invalid journalid") unless $journalid;
+        $jitem = LJ::Talk::get_journal_item($uowner, $journalid);
+        fail($err,203,"Nonexistant journalid") unless $jitem;
+    }
 
     my $sth;
 
@@ -1501,7 +1500,7 @@ sub _get_events_comments
     } elsif ($type eq "comments") {
         while (my ($talkid, $talktime, $state, $posterid, $parenttalkid) = $sth->fetchrow_array)
         {
-            next if $state eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
+            next if $state eq "S" and !LJ::Talk::can_view_screened($u, LJ::load_user(LJ::get_username($jitem->{ownerid})), LJ::get_username($jitem->{posterid}), LJ::get_username($posterid));
             $count++;
             my $talk = {};
             $talk->{'talkid'} = $talkid;
@@ -1540,8 +1539,8 @@ sub _get_events_comments
 
             # delete posterip for security reasons
             if ($type eq "comments" && 
-                 ($u->{'user'} ne $jitem->{entryu} &&
-                  LJ::check_rel($jitem->{journalu}, $u, 'A'))) {
+                 ($u->{'user'} ne LJ::get_username($jitem->{posterid}) &&
+                  !LJ::check_rel($jitem->{ownerid}, $u, 'A'))) {
                 delete $props{$id}->{'poster_ip'};
             }
 
