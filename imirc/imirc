@@ -980,14 +980,18 @@ sub process_irc_message($) {
 				$extra ? chat_join($aim_connections{$nnick}{socket}, "$param $extra") : chat_join($aim_connections{$nnick}{socket}, $param);
 			}
 		} elsif ($cmd eq "get_permit_mode") {
-			irc_send(irc_privmsg($usnick, $nick, $aim_connections{$nnick}{permtype}));
+			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($aim_connections{$nnick}{socket}) . "."));
 		} elsif ($cmd eq "set_permit_mode") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode"));
 			} else {
-				$aim_connections{$nnick}{permtype} = $param;
-				permtype($aim_connections{$nnick}{socket}, $param);
-				irc_send(irc_privmsg($usnick, $nick, "Permit mode set."));
+				if($param != 1 and $param != 2 and $param != 3 and $param != 4) {
+					irc_send(irc_privmsg($usnick, $nick, "That is not a valid permit mode.  See list_permit_modes for valid permit modes."));
+				} else {
+					$aim_connections{$nnick}{permtype} = $param;
+					permtype($aim_connections{$nnick}{socket}, $param);
+					irc_send(irc_privmsg($usnick, $nick, "Permit mode set."));
+				}
 			}
 		} elsif ($cmd eq "list_permit_modes") {
 			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
