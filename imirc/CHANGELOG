@@ -1,3 +1,19 @@
+Aug 15 2001, 1.5-pre3
+	*Fixes important security flaw related to getting away messages.
+	*Fixes problem with crashing on signon
+	*stupid typo fix
+	*Better stats users command and enhanced in-channel chatting.
+	*Should fix bug with Hybrid and #aimirc-screenname
+	*I rewrote the main event loop for what should be dramatically increased
+	  performance and dramatically reduced CPU utilization.
+	*A couple of stability enhancements
+	*We now require perl 5.6.
+	*getmodules installs Scalar::Util correctly.
+	*Miscellaneous buddyinfo fixes
+	*Correctly prevents away message from being sent to the same user too often
+	*Fix duplicate buddy away messages (closes #37)
+	*Fix spurious mangle warnings
+
 Aug 12 2001, 1.5-pre2
 	Mea culpa - getting away message actually works now
 
