@@ -1461,7 +1461,7 @@ sub process_aim_message($$$) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info."));
 		}
 	} elsif($cmd eq "CONFIG") {
-		if(!$msg) {
+		if(!$val) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
 			if($buddylists{safename $screenname}) {
@@ -1471,8 +1471,8 @@ sub process_aim_message($$$) {
 				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
 			}
 		} else {
-			$buddylists{safename $screenname} = $msg;
-			update_config($socket, $msg);
+			$buddylists{safename $screenname} = $val;
+			update_config($socket, $val);
 		}
 	} elsif($cmd eq "IM_IN") {
 		my $nick;
