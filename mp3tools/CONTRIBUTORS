@@ -18,4 +18,11 @@ Everyone who tried the 1.1 prerelease.
 Theodore Y. Tso (tytso@mit.edu) contributed a patch that fixed genre listing
 in mp3id3.
 
+Dan Wallach <dwallach@cs.rice.edu> for support for ID3v1.1 track numbers in
+mp3id3.
+
+John Ripa <jahr@home.com>, mp3id3 multiple files
+
+Queco Jones <quecojones@netzero.net>, discovering stupid mp3gui bug
+
 I'm probably leaving some people out...

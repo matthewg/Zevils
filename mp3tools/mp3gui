@@ -9,7 +9,7 @@ use MPEG::MP3Info;
 use File::KGlob;
 use Cwd;
 use File::Basename;
-$version = "1.2";
+$version = "1.3";
 
 # mp3gui by Matthew Sachs <matthewg@zevils.com>
 #   This program licensed under Version 2 of the GPL.
@@ -106,6 +106,7 @@ sub mp3info {
 	$lframe->Label(text => 'ID3 Year:')->pack(-pady => 0, -anchor => 'w');
 	$lframe->Label(text => 'ID3 Comment:')->pack(-pady => 0, -anchor => 'w');
 	$lframe->Label(text => 'ID3 Genre:')->pack(-pady => 0, -anchor => 'w');
+	$lframe->Label(text => 'ID3 Track:')->pack(-pady => 0, -anchor => 'w');
 
 	$infowin->update;
 	$rframe = $infowin->Frame(width => 35)->form(-left => [$lframe, 0], -top => ['%0', 0]);
@@ -115,15 +116,15 @@ sub mp3info {
 	$layer = mklabel($rframe, $version);
 	$bitrate = mklabel($rframe, $layer);
 	$length = mklabel($rframe, $bitrate);
-	$vbr = mklabel($rframe, $length) if $MPEG::MP3Info::VERSION > 0.71;
-	$songname = mkentry($rframe, $vbr) if $MPEG::MP3Info::VERSION > 0.71;
-	$songname = mkentry($rframe, $length) if $MPEG::MP3Info::VERSION <= 0.71;
-	$artist = mkentry($rframe, $songname);
-	$album = mkentry($rframe, $artist);
-	$year = mkentry($rframe, $album);
-	$comment = mkentry($rframe, $year);
+	$vbr = mklabel($rframe, $vbg) if $MPEG::MP3Info::VERSION > 0.71;
+	$songname = mkentry($rframe, $songname);
+	$artist = mkentry($rframe, $artist);
+	$album = mkentry($rframe, $album);
+	$year = mkentry($rframe, $year);
+	$comment = mkentry($rframe, $comment);
 	#$genre = 	$rframe->BrowseEntry(-browsecmd => sub { my ($foo, $bar) = (shift, shift); $selected_genre = $bar }, -state => 'readonly', -variable => \$selected_genre)->form(-padx => 1, -top => $comment, -left => $rframe);
 	$genre = 	$rframe->BrowseEntry(-browsecmd => sub { my ($foo, $bar) = (shift, shift); $selected_genre = $bar }, -state => 'readonly', -variable => \$selected_genre)->pack(-padx => 1, -anchor => 'w');
+	$track = mkentry($rframe, $track);
 
 	$songname->bind("<Any-KeyPress>" => \&snpress);
 	$artist->bind("<Any-KeyPress>" => \&arpress);
@@ -132,6 +133,7 @@ sub mp3info {
 	$comment->bind("<Any-KeyPress>" => \&cmpress);
 	$selected_genre = "Unknown";
 	$genre->insert(0, (sort @MPEG::MP3Info::winamp_genres, "Unknown"));
+	$track->bind("<Any-KeyPress>" => \&trpress);
 
 	$infowin->update;
 	$bframe = $infowin->Frame(width => 50)->form(-top => [$rframe, 5], -left => ['%0', 0]);
@@ -202,15 +204,15 @@ sub getmp3info {
 	$year->delete(0, 'end');
 	$year->insert(0, $info->{YEAR});
 	$comment->delete(0, 'end');
-	$comment->insert(0, $info->{YEAR});
+	$comment->insert(0, $info->{COMMENT});
 	$thegenre = $info->{GENRE};
-	$thegenre = "Unknown" if !$use_winamp and !$MPEG::MP3Info::mp3_genres{lc($thegenre)};
-	$thegenre = "Unknown" unless $MPEG::MP3Info::winamp_genres{lc($genre)};
 	$selected_genre = $thegenre;
+	$track->delete(0, 'end');
+	$track->insert(0, $info->{TRACKNUM});
 }
 
 sub mp3id3 {
-	set_mp3tag($file, $songname->get, $artist->get, $album->get, $year->get, $comment->get, $selected_genre);
+	set_mp3tag($file, $songname->get, $artist->get, $album->get, $year->get, $comment->get, $selected_genre, $track->get);
 	getmp3info($file);
 }
 
@@ -218,7 +220,8 @@ sub snpress { elimit("songname", 30); }
 sub arpress { elimit("artist", 30); }
 sub alpress { elimit("album", 30); }
 sub yrpress { elimit("year", 4); }
-sub cmpress { elimit("comment", 30); }
+sub cmpress { elimit("comment", 28); }
+sub trpress { elimit("track", 2); }
 sub elimit {
 	my($name, $size, $key) = (shift, shift);
 	my $oldtext = $oldtext{$name};

@@ -1,107 +1,93 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
-<HTML><HEAD><TITLE>Manpage of MP3INFO</TITLE>
-</HEAD><BODY>
-<H1>MP3INFO</H1>
-Section: Matthew Sachs (1)<BR>Updated: June 1999<BR><A HREF="#index">Index</A>
-<BR><A HREF="http:/cgi-bin/man2html">Return to Main Contents</A>
-<HR>
+<html>
+<head>
+<meta name="Content-Style" content="text/css">
+</head>
+<body>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#mp3info">mp3info</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#REPORTING BUGS">REPORTING BUGS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<!-- Creator     : groff version 1.15  -->
+<!-- CreationDate: Mon Oct  9 04:04:52 2000
+ -->
+<!-- Total number of pages: 1 -->
+<!-- Page: 1 -->
+<!-- left  margin: 100 -->
+<!-- right margin: 750 -->
+<a name="NAME"></a><h2>NAME</h2><p><font size=3>mp3info - get information about MPEG audio files</p>
+<a name="SYNOPSIS"></a><h2>SYNOPSIS</h2><a name="mp3info"></a><h2>mp3info</h2><a name="DESCRIPTION"></a><h2>DESCRIPTION</h2><p><font size=3>[<font size=3><I>OPTION</I><font size=3>]... <font size=3><I>FILE</I><font size=3>...</p>
+<p><font size=3>If called without any options, mp3info will show information about the selected</p>
 
-<A NAME="lbAB">&nbsp;</A>
-<H2>NAME</H2>
-
-mp3info - get information about MPEG audio files
-<A NAME="lbAC">&nbsp;</A>
-<H2>SYNOPSIS</H2>
-
-<B>mp3info</B>
-
-<A NAME="lbAD">&nbsp;</A>
-<H2>DESCRIPTION</H2>
-
-<P>
-
-
-<P>
-
-[<I>OPTION</I>]... <I>FILE</I>...
-<DL COMPACT>
-<DT>If called without any options, mp3info will show information about the selected<DD>
-file.
-<DT><B>-p</B>, <B>--plain</B><DD>
-Filesizes will be shown as plain bytecounts instead of in human-readable
-format.
-<DT><B>-a</B>, <B>--aggressive</B><DD>
-Look for the MPEG header aggressively.  You might need this for things with
-weird headers, but if you do use it then it will take forever if used on
-something which isn't really an MPEG audio file.
-<DT><B>-n</B>, <B>--no-winamp</B><DD>
-Don't use WinAmp genres.  This will only affect things if you have files with
-a genre above 78.
-<DT><B>-q</B>, <B>--quiet</B><DD>
-If you use this option, mp3info will operate in quiet mode.  Quiet mode is
-designed for other programs which need to read the output of mp3info.  In
-quiet mode, mp3info will print only the following:
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>bitrate<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>play length<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>[if there is a valid ID3 tag:]<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 songname<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 artist<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 album<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 year<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 comment<BR>
-<BR>
-
-<TT>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TT>ID3 genre<BR>
-<BR>
-
-<BR>
-
-Think of quiet mode as generating machine-readable output and the default
-&quot;noisy&quot; mode as generating human-readable output.
-<DT><B>-v</B>, <B>--version</B><DD>
-Display the version and exit.
-<DT><B>--help</B><DD>
-Show information about mp3gui
-</DL>
-<A NAME="lbAE">&nbsp;</A>
-<H2>REPORTING BUGS</H2>
-
-Report bugs to &lt;<A HREF="mailto:matthewg@zevils.com">matthewg@zevils.com</A>&gt;.
-<A NAME="lbAF">&nbsp;</A>
-<H2>SEE ALSO</H2>
-
-The README file and other documentation distributed with mp3tools.
-Also, the mp3tools mailing list at <A HREF="http://www.egroups.com/list/mp3tools">http://www.egroups.com/list/mp3tools</A>
-
-<HR>
-<A NAME="index">&nbsp;</A><H2>Index</H2>
-<DL>
-<DT><A HREF="#lbAB">NAME</A><DD>
-<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
-<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
-<DT><A HREF="#lbAE">REPORTING BUGS</A><DD>
-<DT><A HREF="#lbAF">SEE ALSO</A><DD>
-</DL>
-<HR>
-This document was created by
-<A HREF="http:/cgi-bin/man2html">man2html</A>,
-using the manual pages.<BR>
-Time: 01:38:11 GMT, June 29, 1999
-</BODY>
-</HTML>
+<table width="100%"  rules="none"  frame="none"  cols="3">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+</td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>file.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-p</B><font size=3>, <font size=3><B>--plain</p>
+</B><p><font size=3><B>-a</B><font size=3>, <font size=3><B>--aggressive</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Filesizes will be shown as plain bytecounts instead of in human-readable format.</p>
+<p><font size=3>Look for the MPEG header aggressively. You might need this for things with weird head- ers, but if you do use it then it will take forever if used on something which isn't really an MPEG audio file.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-n</B><font size=3>, <font size=3><B>--no-winamp</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Don't use WinAmp genres. This will only affect things if you have files with a genre above 78.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-q</B><font size=3>, <font size=3><B>--quiet</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>If you use this option, mp3info will operate in quiet mode. Quiet mode is designed for other programs which need to read the output of mp3info. In quiet mode, mp3info will print only the following:<br>
+<span style=" text-indent: 0.5000in;"></span>bitrate<br>
+<span style=" text-indent: 0.5000in;"></span>play length<br>
+<span style=" text-indent: 0.5000in;"></span>[if there is a valid ID3 tag:]<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 songname<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 artist<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 album<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 year<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 comment<br>
+<span style=" text-indent: 0.5000in;"></span>ID3 genre<br>
+Think of quiet mode as generating machine-readable output and the default "noisy" mode as generating human-readable output.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-v</B><font size=3>, <font size=3><B>--version</p>
+</B><p><font size=3><B>--help</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Display the version and exit.</p>
+<p><font size=3>Show information about mp3gui</p>
+</td>
+</tr>
+</table>
+<br>
+<a name="REPORTING BUGS"></a><h2>REPORTING BUGS</h2><p><font size=3>Report bugs to &lt;matthewg@zevils.com&gt;.</p>
+<a name="SEE ALSO"></a><h2>SEE ALSO</h2><p><font size=3>The README file and other documentation distributed with mp3tools. Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools<br>
+</p>
+</body>
+</html>

@@ -1,147 +1,193 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
-<HTML><HEAD><TITLE>Manpage of MP3INDEX</TITLE>
-</HEAD><BODY>
-<H1>MP3INDEX</H1>
-Section: Matthew Sachs (1)<BR>Updated: June 1999<BR><A HREF="#index">Index</A>
-<BR><A HREF="http:/cgi-bin/man2html">Return to Main Contents</A>
-<HR>
+<html>
+<head>
+<meta name="Content-Style" content="text/css">
+</head>
+<body>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#FORMAT FILES">FORMAT FILES</a><br>
+<a href="#DATA FILES">DATA FILES</a><br>
+<a href="#REPORTING BUGS">REPORTING BUGS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<!-- Creator     : groff version 1.15  -->
+<!-- CreationDate: Mon Oct  9 04:04:52 2000
+ -->
+<!-- Total number of pages: 2 -->
+<!-- Page: 1 -->
+<!-- left  margin: 100 -->
+<!-- right margin: 750 -->
+<a name="NAME"></a><h2>NAME</h2><p><font size=3>mp3index - generate listings of MPEG audio files</p>
+<a name="SYNOPSIS"></a><h2>SYNOPSIS</h2><p><font size=3><B>mp3index</B> <font size=3>[<font size=3><I>OPTION</I><font size=3>]... <font size=3><I>FILE</I><font size=3>...</p>
+<a name="DESCRIPTION"></a><h2>DESCRIPTION</h2><p><font size=3>Generate a listing for FILEs (the current directory by default). If a format is not named using the --format option, it must be provided on standard input.</p>
 
-<A NAME="lbAB">&nbsp;</A>
-<H2>NAME</H2>
+<table width="100%"  rules="none"  frame="none"  cols="3">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="15.0769%">
+<p><font size=3><B>-k</B><font size=3>, <font size=3><B>--keeppath</p>
+</B></td>
+<td valign="top" align="left"  width="4.9231%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>do not strip the paths from FILEs. You need to do this if you keep your files in multiple directories, but if you use this then you'll need to make sure that the paths mp3index gets are relative to your root MP3 directory. You can probably do that by running mp3index ./**/*.mp3 from that directory (if you're running bash anyway.)</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="15.0769%">
+<p><font size=3><B>-N</B><font size=3>, <font size=3><B>--noparse</p>
+</B></td>
+<td valign="top" align="left"  width="4.9231%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>don't parse the filename for artist and title. You need this if you have the artist in the ID3<br>
+tag and the title contains a dash surrounded spaces. ( - )</p>
+</td>
+</tr>
+</table>
+<p><font size=3><B>-A</B><font size=3>, <font size=3><B>--alternatepat=ALTPAT</p>
+</B>
+<table width="100%"  rules="none"  frame="none"  cols="3">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="19.3846%">
+</td>
+<td valign="top" align="left"  width="1.0000%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>instead of using /(.+)? - (.+)..+/ to find the artist and title from the filename, use an alternate pattern. You must specify a valid regular expression with the artist in the first set of paren- theses and the title in the second. Do not include the /slashes/.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="19.3846%">
+<p><font size=3><B>-f</B><font size=3>, <font size=3><B>-ftpurl</B><font size=3>=<font size=3><I>FTPURL</p>
+</I></td>
+<td valign="top" align="left"  width="1.0000%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="19.3846%">
+</td>
+<td valign="top" align="left"  width="1.0000%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>prefix to use for FTP downloads, such as ftp://matthewg.port.net</p>
+</td>
+</tr>
+</table>
+<p><font size=3><B>-h</B><font size=3>, <font size=3><B>--httpurl=HTTPURL<br>
+<span style=" text-indent: 1.3000in;"></span></B>prefix to use for HTTP downloads, such as mp3files/</p>
+<p><font size=3><B>-p</B><font size=3>, <font size=3><B>--playurl=MP3PLAY_URL<br>
+<span style=" text-indent: 1.3000in;"></span></B>URL for the mp3play.cgi, such as http://matthewg.port.net/cgi-bin/mp3play.cgi</p>
+<p><font size=3><B>-P</B><font size=3>, <font size=3><B>--playall_path=PATH<br>
+<span style=" text-indent: 1.3000in;"></span></B>full path and filename that the CGI to play all MP3s will be written to. This should end in<br>
+<span style=" text-indent: 1.3000in;"></span>.cgi or .pl and might need to go in your webserver's cgi-bin directory. You must specify this<br>
+<span style=" text-indent: 1.3000in;"></span>if specifying a playall_url.</p>
+<p><font size=3><B>-U</B><font size=3>, <font size=3><B>--playall_url=URL</p>
+</B>
+<table width="100%"  rules="none"  frame="none"  cols="2">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="20.0000%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>URL for the file in playall_path. If playall_path is /htdocs/cgi-bin/playall.cgi, this might be<br>
+http://yoursite/cgi-bin/playall.cgi. You must specify this if specifying a playall_path.</p>
+</td>
+</tr>
+</table>
+<p><font size=3><B>-o</B><font size=3>, <font size=3><B>--output=OUTPUT_FILE</p>
+</B>
+<table width="100%"  rules="none"  frame="none"  cols="2">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="20.0000%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>You can use multiple -o options to specify multiple output files. Your layout file must have a<br>
+subroutine for each output file. If no output files are given, output is written to STDOUT.</p>
+</td>
+</tr>
+</table>
+<p><font size=3><B>-d</B><font size=3>, <font size=3><B>--datfile=DATA_FILE<br>
+<span style=" text-indent: 1.3000in;"></span></B>Specifies a data file. See the section on data files for more information.</p>
+<p><font size=3><B>-l</B><font size=3>, <font size=3><B>--format=FORMAT_FILE<br>
+<span style=" text-indent: 1.3000in;"></span></B>Specifies a format file (also called a layout file.) See the section on format files for what this<br>
+<span style=" text-indent: 1.3000in;"></span>should look like. If no format file is given, format is read from STDIN. mp3index must be<br>
+<span style=" text-indent: 1.3000in;"></span>able to find a valid format. Also accepts --layout for backwards compatibility.</p>
 
-mp3index - generate listings of MPEG audio files
-<A NAME="lbAC">&nbsp;</A>
-<H2>SYNOPSIS</H2>
-
-<B>mp3index</B>
-
-[<I>OPTION</I>]... <I>FILE</I>...
-<A NAME="lbAD">&nbsp;</A>
-<H2>DESCRIPTION</H2>
-
-<P>
-
-
-<P>
-
-Generate a listing for FILEs (the current directory by default).  If a format
-is not named using the --format option, it must be provided on standard input.
-<DL COMPACT>
-<DT><B>-k</B>, <B>--keeppath</B><DD>
-do not strip the paths from FILEs.  You need to do this if you keep your files
-in multiple directories, but if you use this then you'll need to make sure that
-the paths mp3index gets are relative to your root MP3 directory.  You can
-probably do that by running mp3index ./**/*.mp3 from that directory (if you're
-running bash anyway.)
-<DT><B>-N</B>, <B>--noparse</B><DD>
-don't parse the filename for artist and title.  You need this if you have the
-artist in the ID3 tag and the title contains a dash surrounded spaces. ( - )
-<DT><B>-A</B>, <B>--alternatepat=ALTPAT</B><DD>
-instead of using /(.+)? - (.+)..+/ to find the artist and title from the
-filename, use an alternate pattern.  You must specify a valid regular
-expression with the artist in the first set of parentheses and the title in the
-second.  Do not include the /slashes/.
-<DT><B>-f</B>, <B>-ftpurl</B>=<I>FTPURL</I><DD>
-prefix to use for FTP downloads, such as <A HREF="ftp://matthewg.port.net">ftp://matthewg.port.net</A>
-<DT><B>-h</B>, <B>--httpurl=HTTPURL</B><DD>
-prefix to use for HTTP downloads, such as mp3files/
-<DT><B>-p</B>, <B>--playurl=MP3PLAY_URL<DD>
-URL for the mp3play.cgi, such as <A HREF="http://matthewg.port.net/cgi-bin/mp3play.cgi">http://matthewg.port.net/cgi-bin/mp3play.cgi</A>
-<DT>-P</B>, <B>--playall_path=PATH</B><DD>
-full path and filename that the CGI to play all MP3s will be written to.  This
-should end in .cgi or .pl and might need to go in your webserver's cgi-bin
-directory.  You must specify this if specifying a playall_url.
-<DT><B>-U</B>, <B>--playall_url=URL</B><DD>
-URL for the file in playall_path.  If playall_path is
-/htdocs/cgi-bin/playall.cgi, this might be <A HREF="http://yoursite/cgi-bin/playall.cgi.">http://yoursite/cgi-bin/playall.cgi.</A>
-You must specify this if specifying a playall_path.
-<DT><B>-o</B>, <B>--output=OUTPUT_FILE</B><DD>
-You can use multiple -o options to specify multiple output files.  Your layout
-file must have a subroutine for each output file.  If no output files are
-given, output is written to STDOUT.
-<DT><B>-d</B>, <B>--datfile=DATA_FILE</B><DD>
-Specifies a data file.  See the section on data files for more information.
-<DT><B>-l</B>, <B>--format=FORMAT_FILE</B><DD>
-Specifies a format file (also called a layout file.)  See the section on
-format files for what this should look like.  If no format file is given, 
-format is read from STDIN.  mp3index must be able to find a valid format.  
-Also accepts --layout for backwards compatibility.
-<DT><B>-O</B>, <B>--options</B><DD>
-Some formats need additional options.  See the section on format files for
-details.  This should be a carrot-seperated list of options.  Each time you
-specify it, it sets the options for the next output file.  --options=a^b^c
---options=x^y^z sets the first option to a, the second to b, and the third to
-c for the first output file and the first, second, and third options to x, y,
-and z respectively for the second output file.
-<DT><B>-n</B>, <B>--no-winamp</B><DD>
-Don't use WinAmp genres.  The default is to use them.  This will only affect
-things if you have songs with a genre above 78.
-<DT><B>-a</B>, --aggressive<DD>
-Look for an MPEG header aggressively.  You might need this for things with
-weird headers, but if you do use it then it will take forever if it encounters
-something that isn't really an MPEG audio file.
-<DT><B>-D</B>, <B>--describe</B><DD>
-Describe the format file from the format descriptors in it and exit.  See the
-section on format files for more information.
-<DT><B>-v</B>, <B>--verbose</B><DD>
-Show status information.
-<DT><B>--version</B><DD>
-Display the program version and exit.
-<DT><B>--help</B><DD>
-Show information about the program.
-</DL>
-<A NAME="lbAE">&nbsp;</A>
-<H2>FORMAT FILES</H2>
-
-Format files are what mp3index uses to determine what to make the output look
-like.  They are really just normal Perl code which is evaluated at runtime.
-To get the values for the various pieces of information about the files that
-mp3index has access to, they use certain variables which are documented in the
-README.  The only things special about them is that they must contain subroutines called
-outhead, outbody, and outfoot for the first output file, outhead2, outbody2,
-and outfoot2 for the second output file, etc.  outhead and outfoot are called
-once at the beginning and end of a run, while outbody is called once per mp3
-file.  Format files can assume that the desired output file has been selected
-and opened before the output subroutines are called.  They can alter this
-behavior by setting some variables at the time they are evaluated.  These are $noopen, $bodyonly, and
-$passlist.  They are all set to 0 by default.  If set to 1, the first two will
-prevent mp3index from opening the output file, prevent outbody and outfoot from being called.  $passlist causes outbody to be
-called only once and instead of the normal variables, @list will be set to a list of hashrefs.  The keys of the hash are described in the
-sample format file.
-<P>
-All format files must contain format descriptors.  Format descriptors let
-mp3gui and mp3index give the user a description of a format file, the formats
-contained in it, and the options for each format file.  See the README for
-more infromation on format descriptors.
-<A NAME="lbAF">&nbsp;</A>
-<H2>DATA FILES</H2>
-
-See the README for more information on data files.
-<A NAME="lbAG">&nbsp;</A>
-<H2>REPORTING BUGS</H2>
-
-Report bugs to &lt;<A HREF="mailto:matthewg@zevils.com">matthewg@zevils.com</A>&gt;.
-<A NAME="lbAH">&nbsp;</A>
-<H2>SEE ALSO</H2>
-
-The README file and other documentation distributed with mp3tools.
-Also, the mp3tools mailing list at <A HREF="http://www.egroups.com/list/mp3tools">http://www.egroups.com/list/mp3tools</A>
-
-<HR>
-<A NAME="index">&nbsp;</A><H2>Index</H2>
-<DL>
-<DT><A HREF="#lbAB">NAME</A><DD>
-<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
-<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
-<DT><A HREF="#lbAE">FORMAT FILES</A><DD>
-<DT><A HREF="#lbAF">DATA FILES</A><DD>
-<DT><A HREF="#lbAG">REPORTING BUGS</A><DD>
-<DT><A HREF="#lbAH">SEE ALSO</A><DD>
-</DL>
-<HR>
-This document was created by
-<A HREF="http:/cgi-bin/man2html">man2html</A>,
-using the manual pages.<BR>
-Time: 01:37:19 GMT, June 29, 1999
-</BODY>
-</HTML>
+<table width="100%"  rules="none"  frame="none"  cols="3">
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-O</B><font size=3>, <font size=3><B>--options</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Some formats need additional options. See the section on format files for details. This should be a carrot-seperated list of options. Each time you specify it, it sets the options for the next output file. --options=a<sup>^</sup>b<sup>^</sup>c --options=x<sup>^</sup>y<sup>^</sup>z sets the first option to a, the second to</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+</td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>b, and the third to c for the first output file and the first, second, and third options to x, y, and z respectively for the second output file.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-n</B><font size=3>, <font size=3><B>--no-winamp</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Don't use WinAmp genres. The default is to use them. This will only affect things if you have songs with a genre above 78.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-a</B><font size=3>, <font size=3><B>--aggressive</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Look for an MPEG header aggressively. You might need this for things with weird head- ers, but if you do use it then it will take forever if it encounters something that isn't really an MPEG audio file.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-D</B><font size=3>, <font size=3><B>--describe</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Describe the format file from the format descriptors in it and exit. See the section on format<br>
+files for more information.</p>
+</td>
+</tr>
+<tr valign="top" align="left">
+<td valign="top" align="left"  width="17.6923%">
+<p><font size=3><B>-v</B><font size=3>, <font size=3><B>--verbose</p>
+</B><p><font size=3><B>--version</p>
+</B></td>
+<td valign="top" align="left"  width="2.3077%">
+</td>
+<td valign="top" align="left"  width="80.0000%">
+<p><font size=3>Show status information.</p>
+<p><font size=3>Display the program version and exit.</p>
+</td>
+</tr>
+</table>
+<br>
+<!-- Page: 2  -->
+<!-- left  margin: 100 -->
+<!-- right margin: 750 -->
+<p><font size=3><B>--help</B> <font size=3>Show information about the program.</p>
+<a name="FORMAT FILES"></a><h2>FORMAT FILES</h2><p><font size=3>Format files are what mp3index uses to determine what to make the output look like. They are really just normal Perl code which is evaluated at runtime. To get the values for the various pieces of information about the files that mp3index has access to, they use certain variables which are documented in the README. The only things spe- cial about them is that they must contain subroutines called outhead, outbody, and outfoot for the first output file, outhead2, outbody2, and outfoot2 for the second output file, etc. outhead and outfoot are called once at the begin- ning and end of a run, while outbody is called once per mp3 file. Format files can assume that the desired output file has been selected and opened before the output subroutines are called. They can alter this behavior by setting some variables at the time they are evaluated. These are $noopen, $bodyonly, and $passlist. They are all set to 0 by default. If set to 1, the first two will prevent mp3index from opening the output file, prevent outbody and outfoot from being called. $passlist causes outbody to be called only once and instead of the normal variables, @list will be set to a list of hashrefs. The keys of the hash are described in the sample format file.</p>
+<p><font size=3>All format files must contain format descriptors. Format descriptors let mp3gui and mp3index give the user a description of a format file, the formats contained in it, and the options for each format file. See the README for more infromation on format descriptors.</p>
+<a name="DATA FILES"></a><h2>DATA FILES</h2><p><font size=3>See the README for more information on data files.</p>
+<a name="REPORTING BUGS"></a><h2>REPORTING BUGS</h2><p><font size=3>Report bugs to &lt;matthewg@zevils.com&gt;.</p>
+<a name="SEE ALSO"></a><h2>SEE ALSO</h2><p><font size=3>The README file and other documentation distributed with mp3tools. Also, the mp3tools mailing list at http://www.egroups.com/list/mp3tools<br>
+</p>
+</body>
+</html>

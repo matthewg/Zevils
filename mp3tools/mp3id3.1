@@ -1,16 +1,14 @@
-.TH MP3ID3 1 "June 1999" "mp3tools 1.2" "Matthew Sachs"
+.TH MP3ID3 1 "October 2000" "mp3tools 1.3" "Matthew Sachs"
 .SH NAME
 mp3id3 \- view and edit the ID3 tags of an MPEG audio file
 .SH SYNOPSIS
 .B mp3id3
 .SH DESCRIPTION
 .PP
-." Add any additional description here
-.PP
-[\fIOPTION\fR]... \fIFILE\fR...
+[\fIOPTION\fR]... \fIFILES\fR...
 .TP
-If no options are given, mp3id3 will print all ID3 tags for the given file.
-If no file is given, mp3id3 will list the valid genres and their number.
+If no options are given, mp3id3 will print all ID3 tags for the given files.
+If no files are given, mp3id3 will list the valid genres and their number.
 .TP
 \fBNote on \-a, \-A, \-c, \-g, \-s, and \-y options:\fR  To set an ID3 tag,
 you say something like \-\-arist=Beethoven Symphony9.mp3.  However, you can
@@ -23,37 +21,40 @@ proper way to do this is mp3id3 \-a "" Symphony9.mp3.
 List valid genres and exit
 .TP
 \fB\-d\fR, \fB\-\-delete\fR
-Remove all ID3 tags from a file
+Remove all ID3 tags from the files
 .TP
 \fB\-n\fR, \fB\-\-no\-winamp\fR
 Don't use WinAmp genres.  This will only affect things if you have songs with a
 genre above 78.
 .TP
 \fB\-a\fR, \fB\-\-artist\fR[=ARTIST]
-Get or set the ID3 artist tag for the selected file.
+Get or set the ID3 artist tag for the selected files.
 .TP
 \fB\-A\fR, \fB\-\-album\fR[=ALBUM]
-Get or set the ID3 album tag for the selected file.
+Get or set the ID3 album tag for the selected files.
 .TP
 \fB\-c\fR, \fB\-\-comment\fR[=COMMENT]
-Get or set the ID3 comment tag for the selected file.
+Get or set the ID3 comment tag for the selected files.
 .TP
 \fB\-g\fR, \fB\-\-genre\fR[=GENRE]
-Get or set the ID3 genre tag for the selected file.  This can either be a
+Get or set the ID3 genre tag for the selected files.  This can either be a
 number from 0 to 114 (higher values, up to 255, are valid but unknown) or the
 name of the genre as shown by mp3id3 \-\-list.
 .TP
 \fB\-s\fR, \fB\-\-songname\fR[=SONGNAME]
-Get or set the ID3 song name tag for the selected file.
+Get or set the ID3 song name tag for the selected files.
 .TP
 \fB\-y\fR, \fB\-\-year\fR[=YEAR]
-Get or set the ID3 year tag for the selected file.
+Get or set the ID3 year tag for the selected files.
+.TP
+\fB\-t\fR, \fB\-\-track\fR[=TRACK]
+Get or set the ID3v1.1 track number for the selected files.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Display the version and exit.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
-Show information about mp3gui
+Show information about mp3id3
 .SH "REPORTING BUGS"
 Report bugs to <matthewg@zevils.com>.
 .SH "SEE ALSO"

@@ -8,7 +8,7 @@
 
 use MPEG::MP3Info;
 use Getopt::Long;
-$version = "1.2";
+$version = "1.3";
 
 sub prettysize {
 	my ($size, $longname) = (shift, shift);

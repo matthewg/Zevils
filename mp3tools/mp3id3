@@ -5,14 +5,18 @@
 #   See the file COPYING for more information.
 #
 #   Run the program the argument --help for more info, including usage.
+#
+#   dwallach hack (27 July 2000) to support ID3v1.1 track number
+#
+#   John Ripa <jahr@home.com> (2000-10-09) support for multiple files
 
 use MPEG::MP3Info;
 use Getopt::Long;
 
-$version = "1.2";
+$version = "1.3";
 
 sub dispver {
-	print "mp3id3: View and edit the ID3 tag of an MPEG audio file.\nVersion: $version\n";
+	print "mp3id3: View and edit the ID3 tags of MPEG audio files.\nVersion: $version\n";
 	exit 0;
 }
 
@@ -34,18 +38,18 @@ sub delete {
 
 sub help {
 	print <<EOF
-mp3id3 - View and edit the ID3 tag of an MPEG audio file. Version: $version
+mp3id3 - View and edit the ID3 tags MPEG audio files. Version: $version
 
 by Matthew Sachs <matthewg\@zevils.com> - Latest version at
 http://www.zevils.com/linux/.  This program licensed under Version 2
 of the GNU Public License.  See http://www.gnu.org for details.
 
-If no arguments are given, mp3id3 will print all ID3 tags for the given file.
+If no arguments are given, mp3id3 will print all ID3 tags for the given files.
 
-Usage: mp3id3 <MPEG audio file> [-h] [-v] [-l]
+Usage: mp3id3 <MPEG audio files> [-h] [-v] [-l]
 				[-a [artist]] [-A [album]] [-c [comment]] 
 				[-g [genre]] [-s [songname]] [-y [year]]
-				[-n]				
+				[-t [track]] [-n]
 
 	-h,--help		Show this screen
 
@@ -70,6 +74,7 @@ Usage: mp3id3 <MPEG audio file> [-h] [-v] [-l]
 		year
 		comment
 		genre
+		track (if present)
 	If an argument is given a value, that ID3 tag will be set to the given
 	value.  Genre can be given as either a number from 0 to 114 (or higher
 	if you want your genre to be unknown) or name.
@@ -78,7 +83,7 @@ EOF
 	exit 1;
 }
 
-$songname = $artist = $album = $year = $comment = $genre = "-1";
+$track = $songname = $artist = $album = $year = $comment = $genre = "-1";
 
 Getopt::Long::Configure("no_ignore_case");
 
@@ -93,6 +98,7 @@ $errors = &GetOptions("version|v" => \&dispver,
 "comment|c:s" => \$comment,
 "genre|g:s" => \$genre,
 "no-winamp|n" => \$standard,
+"track|t:s" => \$track,
 "help|h" => \&help);
 
 &glist if $list_option;
@@ -104,90 +110,101 @@ if(!$errors) {
 
 &use_winamp_genres unless $standard;
 &glist unless $ARGV[0];
-$mp3 = shift;
-&delete if $delete;
+while($ARGV[0]) {
+	$mp3 = shift;
+	&delete if $delete;
 
-if(($songname eq "-1") && ($artist eq "-1") && ($album eq "-1") && ($genre eq "-1") && ($comment eq "-1") && ($year eq "-1")) {
-	$songname = $artist = $album = $genre = $comment = $year = "";
-}
-
-$tagref = get_mp3tag $mp3;
-
-($xsongname, $xartist, $xalbum, $xyear, $xcomment, $xgenre) = ($tagref->{TITLE}, $tagref->{ARTIST}, $tagref->{ALBUM}, $tagref->{YEAR}, $tagref->{COMMENT}, $tagref->{GENRE});
-$xsongname =~ s/\0//g if $xsongname;
-$xartist =~ s/\0//g if $xartist;
-$xalbum =~ s/\0//g if $xalbum;
-$xyear =~ s/\0//g if $xyear;
-$xcomment =~ s/\0//g if $xcomment;
-$xgenre =~ s/\0//g if $xgenre;
-
-$foo = $^W;
-$^W = 0;
-if($songname eq "") { print "Songname: $xsongname\n"; }
-if($artist eq "") { print "Artist: $xartist\n"; }
-if($album eq "") { print "Album: $xalbum\n"; }
-if($year eq "") { print "Year: $xyear\n"; }
-if($comment eq "") { print "Comment: $xcomment\n"; }
-if($genre eq "") { print "Genre: $xgenre\n"; }
-$^W = $foo;
-
-$doset = 0;
-if($songname ne "" and $songname ne "-1") {
-	$xsongname = $songname;
-	$doset = 1;
-}
-if($artist ne "" and $artist ne "-1") {
-	$xartist = $artist;
-	$doset = 1;
-}
-if($album ne "" and $album ne "-1") {
-	$xalbum = $album;
-	$doset = 1;
-}
-if($comment  ne "" and $comment ne "-1") {
-	$xcomment = $comment;
-	$doset = 1;
-}
-if($year ne "" and $year ne "-1") {
-	$xyear = $year;
-	$doset = 1;
-}
-if($genre ne "" and $genre ne "-1") {
-	if(($genre gt "0" or $genre gt "00" or $genre gt "000") and ($genre lt "256")) {
-		$genre = $MPEG::MP3Info::mp3_genres[$genre];
-	}
-	$xgenre = $genre;
-	$doset = 1;
-}
-
-
-$foo = $^W;
-$^W = 0;
-if($doset == 1) {
-	if (length($xcomment) > 30) {
-		$xcomment = substr($xcomment, 0, 30); warn "Warning: Comment truncated.\n";
+	if(($songname eq "-1") && ($artist eq "-1") && ($album eq "-1") && ($genre eq "-1") && ($comment eq "-1") && ($year eq "-1") && ($track eq "-1")) {
+		$track = $songname = $artist = $album = $genre = $comment = $year = "";
 	}
 
-	if (length($xsongname) > 30) {
-		$xsongname = substr($xsongname, 0, 30);  warn "Warning: Songname truncated.\n";
-	}
+	$tagref = get_mp3tag $mp3;
 
-	if (length($xartist) > 30) {
-		$xartist = substr($xartist, 0, 30);  warn "Warning: Artist truncated.\n";
+	($xsongname, $xartist, $xalbum, $xyear, $xcomment, $xgenre, $xtrack) = ($tagref->{TITLE}, $tagref->{ARTIST}, $tagref->{ALBUM}, $tagref->{YEAR}, $tagref->{COMMENT}, $tagref->{GENRE}, $tagref->{TRACKNUM});
+	$xsongname =~ s/\0//g if $xsongname;
+	$xartist =~ s/\0//g if $xartist;
+	$xalbum =~ s/\0//g if $xalbum;
+	$xyear =~ s/\0//g if $xyear;
+	$xcomment =~ s/\0//g if $xcomment;
+	$xgenre =~ s/\0//g if $xgenre;
+	$xtrack =~ s/\0//g if $xtrack;
+
+	$foo = $^W;
+	$^W = 0;
+	if($songname eq "") { print "Songname: $xsongname\n"; }
+	if($artist eq "") { print "Artist: $xartist\n"; }
+	if($album eq "") { print "Album: $xalbum\n"; }
+	if($year eq "") { print "Year: $xyear\n"; }
+	if($comment eq "") { print "Comment: $xcomment\n"; }
+	if($genre eq "") { print "Genre: $xgenre\n"; }
+	if($track eq "") { print "Track: $xtrack\n"; }
+	$^W = $foo;
+
+	$doset = 0;
+	if($songname ne "" and $songname ne "-1") {
+		$xsongname = $songname;
+		$doset = 1;
+	}
+	if($artist ne "" and $artist ne "-1") {
+		$xartist = $artist;
+		$doset = 1;
+	}
+	if($album ne "" and $album ne "-1") {
+		$xalbum = $album;
+		$doset = 1;
+	}
+	if($comment  ne "" and $comment ne "-1") {
+		$xcomment = $comment;
+		$doset = 1;
+	}
+	if($year ne "" and $year ne "-1") {
+		$xyear = $year;
+		$doset = 1;
+	}
+	if($track ne "" and $track ne "-1") {
+		$xtrack = $track;
+		$doset = 1;
+	}
+	if($genre ne "" and $genre ne "-1") {
+		if(($genre gt "0" or $genre gt "00" or $genre gt "000") and ($genre lt "256")) {
+			$genre = $MPEG::MP3Info::mp3_genres[$genre];
+		}
+		$xgenre = $genre;
+		$doset = 1;
 	}
 
 
-	if (length($xalbum) > 30) {
-		$xalbum = substr($xalbum, 0, 30);  warn "Warning: Album truncated.\n";
-	}
+	$foo = $^W;
+	$^W = 0;
+	if($doset == 1) {
+		if (length($xcomment) > 28) {
+			# changed to 28 to leave room for track
+			$xcomment = substr($xcomment, 0, 28); warn "Warning: Comment truncated.\n";
+		}
 
-	if (length($xyear) > 4) {
-		$xyear = substr($xyear, 0, 4);  warn "Warning: Year truncated.\n";
-	}
+		if (length($xsongname) > 30) {
+			$xsongname = substr($xsongname, 0, 30);  warn "Warning: Songname truncated.\n";
+		}
 
-	set_mp3tag ($mp3, $xsongname, $xartist, $xalbum, $xyear, $xcomment, lc($xgenre));
+		if (length($xartist) > 30) {
+			$xartist = substr($xartist, 0, 30);  warn "Warning: Artist truncated.\n";
+		}
+
+
+		if (length($xalbum) > 30) {
+			$xalbum = substr($xalbum, 0, 30);  warn "Warning: Album truncated.\n";
+		}
+
+		if (length($xyear) > 4) {
+			$xyear = substr($xyear, 0, 4);  warn "Warning: Year truncated.\n";
+		}
+
+		set_mp3tag ($mp3, $xsongname, $xartist, $xalbum, $xyear, $xcomment, lc($xgenre), $track);
+	} else {
+		print "\n"; # Blank line between songs for multiple files
+	}
+	$^W = $foo;
 }
-$^W = $foo;
 
 exit 0;
 
