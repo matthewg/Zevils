@@ -195,6 +195,11 @@ while(list($name, $var) = each($prompts)) {
 		for($i = 0; $i < sizeof($values); $i++) {
 			$value = $values[$i];
 
+			/* 'advanced' gets special handling because its values can become empty */
+			if(($name == "advanced") && ($prompt == "advanced")) {
+				unset($_SESSION[$value]);
+			}
+
 			if(isset($_REQUEST[$value]))
 				$_SESSION[$value] = $_REQUEST[$value];
 			else if($id && isset($oldvalues[$value]))
@@ -203,7 +208,6 @@ while(list($name, $var) = each($prompts)) {
 				$_SESSION[$value] = "";
 		}
 	}
-		
 }
 reset($prompts);
 
