@@ -82,14 +82,15 @@ sub BEGIN {
 	unshift @INC, File::Basename::dirname($0);
 
 	eval {
-		require HTML::FormatText;
-		require HTML::Parse;
-		require MIME::Base64;
 		require Net::OSCAR;
 		require Net::OSCAR::Utility;
 		require Net::OSCAR::Screenname;
 		Net::OSCAR->import(qw(:standard :loglevels));
 		Net::OSCAR::Utility->import(qw(normalize));
+
+		require HTML::FormatText;
+		require HTML::Parse;
+		require MIME::Base64;
 		import MIME::Base64;
 	};
 
