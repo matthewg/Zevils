@@ -22,6 +22,7 @@ function redirect($uri) {
 function pin_check($extension, $pin, $newpin = 0) {
 	global $TEMPLATE;
 	global $FinneganConfig;
+	global $FinneganCiscoConfig;
 	global $extension_ok;
 
 	$ok = 0;
@@ -42,17 +43,17 @@ function pin_check($extension, $pin, $newpin = 0) {
 
 		$row = mysql_fetch_array($result, MYSQL_NUM);
 		if(!$row || !$row[0]) {
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600", 
-					getenv("REMOTE_ADDR")));
-			if(!$result) db_error();
-			$log_row = mysql_fetch_row($result);
+			if(!$FinneganConfig->use_cisco || !$FinneganCiscoConfig->use_xml_service) {
+				$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(start_time) <= 3600", 
+						getenv("REMOTE_ADDR")));
+				if(!$result) db_error();
+				$log_row = mysql_fetch_row($result);
 
-			if($log_row[0] >= 3) {
-				log_ext($extension, "auth", "failure", "too_many_newpins");
-				return "too_many_newpins";
-			} else {
-				$pin = "";
-				if(!$FinneganConfig->use_cisco || !$FinneganCiscoConfig->use_xml_service) {
+				if($log_row[0] >= 3) {
+					log_ext($extension, "auth", "failure", "too_many_newpins");
+					return "too_many_newpins";
+				} else {
+					$pin = "";
 					for($i = 0; $i < 4; $i++) $pin .= rand(0, 9);
 					if(!$row) {
 						if(!mysql_query("INSERT INTO prefs (extension, pin, forgot_pin) VALUES ('$extension', '$pin', 1)")) db_error();
@@ -64,7 +65,10 @@ function pin_check($extension, $pin, $newpin = 0) {
 				}
 				log_ext($extension, "auth", "failure", "gen_pin");
 				return "no_pin";
+			} else {
+				return "no_pin";
 			}
+
 			$extension_ok = 0;
 			return 0;
 		} else {
