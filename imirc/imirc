@@ -1204,7 +1204,7 @@ sub process_irc_message($) {
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
-		$msg = process_ctcp($nnick, $target, $msg);
+		$msg = process_ctcp($nnick, normalize $1, $msg);
 		return unless $msg;
 
 		if($recipient eq "#aimirc-debug" and $debug) {
