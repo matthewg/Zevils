@@ -656,9 +656,10 @@ This is very useful for when you've just gotten a config from Toc, such as upon 
 
 =cut
 
-sub add_buddy($\@;$$) {
+sub add_buddy($$;$$) {
 	my($handle, $nicks, $group, $noconfig, $nickstring, $nick) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	$group ||= "Buddies";
 	debug_print(_hnick($handle) . " is adding $nickstring to buddylist", "buddies", 1);
@@ -679,9 +680,10 @@ Remove NICKS from the buddy list.
 
 =cut
 
-sub remove_buddy($\@) {
+sub remove_buddy($$) {
 	my($handle, $nicks, $nickstring, $nick) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from the buddylist", "buddies", 1);
 	sflap_do($handle, "toc_remove_buddy $nickstring");
@@ -700,9 +702,10 @@ See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_permit($\@;$) {
+sub add_permit($$;$) {
 	my($handle, $nicks, $noconfig, $nickstring, $nick) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is adding $nickstring to permit list", "buddies", 1);
 	sflap_do($handle, "toc_add_permit $nickstring");
@@ -721,9 +724,10 @@ Remove NICKS from the permit list.
 
 =cut
 
-sub remove_permit($\@) {
+sub remove_permit($$) {
 	my($handle, $nicks, $nick, $nickstring) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from permit list", "buddies", 1);
 	foreach $nick(@$nicks) {
@@ -741,9 +745,10 @@ See add_buddy for information about NO_SET_CONFIG.
 
 =cut
 
-sub add_deny($\@;$) {
+sub add_deny($$;$) {
 	my($handle, $nicks, $noconfig, $nick, $nickstring) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is adding $nickstring to deny list", "buddies", 1);
 	sflap_do($handle, "toc_add_deny $nickstring");
@@ -761,9 +766,10 @@ Remove NICKS from the deny list.
 
 =cut
 
-sub remove_deny($\@) {
+sub remove_deny($$) {
 	my($handle, $nicks, $nick, $nickstring) = @_;
 
+	$nicks = \[$nicks] unless ref $nicks;
 	$nickstring = join(" ", @$nicks);
 	debug_print(_hnick($handle) . " is removing $nickstring from deny list", "buddies", 1);
 	foreach $nick(@$nicks) {
