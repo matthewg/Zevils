@@ -632,6 +632,9 @@ sub process_aim_message {
 		}
 
 		if(($ar eq "") and $connection->{away} and (time - $connection->{away_buddies}{$inick} > 60*5)) {
+			my $tmp = $connection->{away};
+			my $aol = substr(get_config($connection->{aimnick})->{Buddies}{$inick}{class}, 0, 1) eq "A";
+			my $tmp .= "[automated reply] " if $aol;
 			message($connection->{socket}, $inick, $connection->{away}, 1);
 		}
 		$connection->{away_buddies}{$inick} = time;
