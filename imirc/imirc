@@ -444,7 +444,7 @@ sub process_aim_message {
 	$cmd = $1; $val = $2;
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):?(.*)/;
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . strerror($1)));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . aim_strerror($1)));
 	} elsif($cmd eq "CONFIG") {
 		update_config($connection->{socket}, $msg);
 	} elsif($cmd eq "IM_IN") {
