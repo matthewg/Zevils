@@ -13,6 +13,7 @@ session_start();
 $oldvalues = array();
 if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUEST["id"])) {
 	$_SESSION["id"] = $_REQUEST["id"];
+	$id = $_SESSION["id"];
 	if(!isset($_REQUEST["prompt"])) { //We only need to load from DB the first time - afterwards, everything's in the query string
 		$result = @mysql_query("SELECT * FROM wakes WHERE extension='$extension' AND wake_id=$id");
 		if(!$result) db_error();

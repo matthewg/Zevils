@@ -17,7 +17,7 @@ if($prompt == "time") {
 } else if($prompt == "date") {
 	cisco_message("Help", "Select the date that this alarm is for.  For the month, enter 1 for January, 2 for February, etc.", $prevurl);
 } else if($prompt == "weekdays") {
-	cisco_message("Help", "Select which days of the week you'd like this alarm to go off on.", $prevurl);
+	cisco_message("Help", "Select which days of the week you'd like this alarm to go off on, then press 'Submit'.", $prevurl);
 } else if($prompt == "cal_type") {
 	cisco_message("Help", "Alarms which use the Brandeis calendar won't go off on days when there are no classes, and will treat a Brandeis Monday as Monday.  Alarms which use the national holidays calendar won't go off on major national holidays.  Alarms which use the normal calendar will always go off.", $prevurl);
 } else {
