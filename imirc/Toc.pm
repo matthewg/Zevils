@@ -260,6 +260,7 @@ sub signon($$;&) {
 
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
 	$msg = quote("toc_signon login.oscar.aol.com 1234 $username  " . roast_password($password) . " english ") . "\"AIMIRC:\\\$Rev" . "ision: ${VERSION} \\\$\"";
+	# $msg = quote("toc_signon zevils.com 1234 $username  " . roast_password($password) . " english ") . "\"AIMIRC:\\\$Rev" . "ision: ${VERSION} \\\$\"";
 	sflap_put($socket, sflap_encode($msg, 0, 1)) or do {
 		debug_print("$username had an error while trying to toc_signon: $@", "signon", 1);
 		$err = "Couldn't write to socket: $@";
