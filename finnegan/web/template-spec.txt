@@ -28,6 +28,7 @@ General template items:
 Main page (wake-up call list, index.php) items:
 
 	viewcalls_start: Start of the 'view wake-up calls' page.  This will be called immediately after 'page_start'.
+	viewcalls_script: JavaScript for the page - goes inside HTML head
 	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
 	no_pin: Tell the user that we've generated a PIN and will be calling them shortly.
 	too_many_newpins: Complain that there have been too many PIN generations triggered from this IP.
@@ -83,6 +84,7 @@ New/Edit Wake-Up Call items (mkwake.php):
 	mkwake_new_start: Start of the 'new wake-up call' page.
 	mkwake_edit_start: Start of the 'edit wake-up call' page.
 		ID: ID of the wake-up call being edited.
+	mkwake_script: JavaScript for the page - goes inside HTML head
 	mkwake_new_end: End of the 'new wake-up call' page.
 	mkwake_edit_end: End of the 'edit wake-up call' page.
 
@@ -150,6 +152,7 @@ New/Edit Wake-Up Call items (mkwake.php):
 
 Documentation items (docs.php):
 	docs_start: Start of the documentation page.
+	docs_script: JavaScript for the page - goes inside HTML head
 	docs_end: End of the documentation page.
 
 	docs_index_start: Start of list of FAQ questions.
@@ -167,4 +170,5 @@ Documentation items (docs.php):
 
 Legal information (legal.php):
 	legal_start
+	legal_script: JavaScript for the page - goes inside HTML head
 	legal_end

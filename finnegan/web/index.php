@@ -10,7 +10,7 @@ ob_start();
 $dbh = get_dbh();
 if(!$dbh) db_error();
 
-echo $TEMPLATE["page_start"];
+echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["viewcalls_script"], $TEMPLATE["page_start"]);
 
 if(isset($_POST["op"]) && $_POST["op"] == "Forgot PIN" && isset($_POST["extension"]) && extension_ok($_POST["extension"])) {
 	echo $TEMPLATE["viewcalls_start_noext"];

@@ -16,7 +16,7 @@ ob_start();
 $dbh = get_dbh();
 if(!$dbh) return db_error();
 
-echo $TEMPLATE["page_start"];
+echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["mkwake_script"], $TEMPLATE["page_start"]);
 check_extension_pin();
 if(!$pin) {
 	$uri = "index.php";

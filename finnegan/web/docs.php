@@ -105,7 +105,7 @@ END_FAQITEM
 require "finnegan-config.inc";
 require "template.inc";
 
-echo $TEMPLATE["page_start"];
+echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["docs_script"], $TEMPLATE["page_start"]);
 
 echo $TEMPLATE["docs_start"];
 

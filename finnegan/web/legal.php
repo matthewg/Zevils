@@ -1,6 +1,6 @@
 <?
 require "template.inc";
-echo $TEMPLATE["page_start"];
+echo preg_replace("/__PAGE_SCRIPT__/", $TEMPLATE["legal_script"], $TEMPLATE["page_start"]);
 echo $TEMPLATE["legal_start"];
 ?>
 

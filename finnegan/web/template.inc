@@ -49,6 +49,8 @@ function showhide(objname, state) { getobjstyle(getobj(objname)).display = state
 function show(objname) { showhide(objname, "block"); }
 function hide(objname) { showhide(objname, "none"); }
 
+__PAGE_SCRIPT__
+
 // -->
 </script>
 </head>
@@ -117,6 +119,67 @@ END_DOCS_START
 </ul>
 <h3>Legal Information</h3>
 END_LEGAL_START
+,
+
+	"viewcalls_script" => <<<END_VIEWCALLS_SCRIPT
+END_VIEWCALLS_SCRIPT
+,
+
+	"mkwake_script" => <<<END_MKWAKE_SCRIPT
+var user_entered_date = false;
+
+//Automatically set the date based on the time, to either today (if {today,enteredtime} is in future) or tomorrow
+//...unless the user has entered some other date
+function timechanged() {
+	var datefield = document.mkwake.date;
+	var thetime = document.mkwake.time.value;
+	var curdate = new Date();
+	var timebits = (new String(thetime)).split(":");
+	var hours;
+	var minutes;
+	var enteredtime;
+	var curtime;
+
+	if(user_entered_date) return;
+
+	if(timebits.length == 2) { //We have an h:mm
+		hours = parseInt(timebits[0]);
+		minutes = parseInt(timebits[1]);
+		if(document.mkwake.ampm[0].checked) { //AM
+			if(hours == "12") hours = 0;
+		} else if(document.mkwake.ampm[1].checked) { //PM
+			if(hours != "12") hours = parseInt(hours) + 12;
+		} else {
+			return;
+		}
+		enteredtime = hours*60*60 + minutes*60;
+
+		curtime = parseInt(curdate.getHours())*60*60 + parseInt(curdate.getMinutes()) - 60*60*2; //Give a two-hour fudge factor
+
+		if(curtime > enteredtime) {
+			curdate = new Date(curdate.getTime() + 1000*60*60*24); // Make 'curdate' tomorrow - getTime() is in milliseconds
+		}
+
+		document.mkwake.date.value = (curdate.getMonth()+1) + "/" + curdate.getDate();
+	}
+}
+
+function datechanged() {
+	if(document.mkwake.date.value == "") {
+		user_entered_date = false;
+	} else {
+		user_entered_date = true;
+	}
+}
+END_MKWAKE_SCRIPT
+,
+
+	"docs_script" => <<<END_DOCS_SCRIPT
+END_DOCS_SCRIPT
+,
+
+	"legal_script" => <<<END_LEGAL_SCRIPT
+END_LEGAL_SCRIPT
 ,
 
 	"wake_list_start" => <<<END_WAKE_LIST_START
@@ -311,9 +374,9 @@ END_MKWAKE_MESSAGE_OPTION
 	"mkwake_form" => <<<END_MKWAKE_FORM
 <p>
 1. Enter a time for the wake-up call.<br />
-Time (h:mm): <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><br />
-<input type="radio" name="ampm" value="AM" __AM__ /> AM<br />
-<input type="radio" name="ampm" value="PM" __PM__ /> PM<br />
+Time (h:mm): <input type="text" name="time" size="6" maxlength="5" value="__TIME__" onchange="timechanged()" /><br />
+<input type="radio" name="ampm" value="AM" __AM__ onchange="timechanged()" onclick="timechanged()" /> AM<br />
+<input type="radio" name="ampm" value="PM" __PM__ onchange="timechanged()" onclick="timechanged()" /> PM<br />
 </p><p>
 2. Select a wake-up message.  This is the message you will hear when you pick up your wake-up call.<br />
 Messages:
@@ -336,7 +399,7 @@ set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br
 that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
 to specify a year; Finnegan will automatically set the wake-up call for the next time the date and time
 roll around (so if it's December, and you enter a date in January, it will go off next month.)<br />
-Date: <input type="text" name="date" id="date" size="6" maxlength="5" value="__DATE__" />
+Date: <input type="text" name="date" id="date" size="6" maxlength="5" value="__DATE__" onchange="datechanged()" />
 </p>
 </div><div id="recur"><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
@@ -385,60 +448,10 @@ Calendar Type: <select name="cal_type">
 <input type="reset" />
 </p>
 <script type="text/javascript">
-//<!-- 
-
+//<!--
 if(!document.mkwake.type[0].checked) hide("onetime");
 if(!document.mkwake.type[1].checked) hide("recur");
-
-var user_entered_date = false;
-
-//Automatically set the date based on the time, to either today (if {today,enteredtime} is in future) or tomorrow
-//...unless the user has entered some other date
-function timechanged() {
-	var datefield = document.mkwake.date;
-	var thetime = document.mkwake.time.value;
-	var curdate = new Date();
-	var timebits = (new String(thetime)).split(":");
-	var hours;
-	var minutes;
-	var enteredtime;
-	var curtime;
-
-	if(user_entered_date) return;
-
-	if(timebits.length == 2) { //We have an h:mm
-		hours = parseInt(timebits[0]);
-		minutes = parseInt(timebits[1]);
-		if(document.mkwake.ampm[0].checked) { //AM
-			if(hours == "12") hours = 0;
-		} else if(document.mkwake.ampm[1].checked) { //PM
-			if(hours != "12") hours = parseInt(hours) + 12;
-		} else {
-			return;
-		}
-		enteredtime = hours*60*60 + minutes*60;
-
-		curtime = parseInt(curdate.getHours())*60*60 + parseInt(curdate.getMinutes()) - 60*60*2; //Give a two-hour fudge factor
-
-		if(curtime > enteredtime) {
-			curdate = new Date(curdate.getTime() + 1000*60*60*24); // Make 'curdate' tomorrow - getTime() is in milliseconds
-		}
-
-		document.mkwake.date.value = (curdate.getMonth()+1) + "/" + curdate.getDate();
-	}
-}
-
-document.mkwake.time.onchange = timechanged;
-document.mkwake.ampm[0].onchange = timechanged;
-document.mkwake.ampm[1].onchange = timechanged;
-document.mkwake.date.onchange = function() {
-	if(this.value == "") {
-		user_entered_date = false;
-	} else {
-		user_entered_date = true;
-	}
-};
-
+if(document.mkwake.date.value != "") user_entered_date = true;
 getobj("messagespan").onclick = function() {
 	message = document.mkwake.message;
 	message.options[message.options.length] = new Option('Secret Message', '0', false, true);
