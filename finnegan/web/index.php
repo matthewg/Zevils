@@ -1,5 +1,6 @@
 <?
 
+require "finnegan-config.inc";
 require "template.inc";
 require "common-funcs.inc";
 
@@ -21,7 +22,16 @@ if(isset($_POST["op"]) && $_POST["op"] == "Forgot PIN" && isset($_POST["extensio
 		echo $TEMPLATE["pin_sent"];
 }
 
+$force_auth_ok = 0;
+if($FinneganConfig->testmode) {
+	if((isset($_POST["force_auth_ok"]) && $_POST["force_auth_ok"]) || (isset($_COOKIE["finnegan-force-auth-ok"]) && $_COOKIE["finnegan-force-auth-ok"])) {
+		$force_auth_ok = 1;
+		setcookie("finnegan-force-auth-ok", 1);
+	}
+}
+
 check_extension_pin();
+if($FinneganConfig->testmode && $force_auth_ok) $extension_ok = 1;
 
 if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	unset($_COOKIE["finnegan-extension"]);
@@ -31,6 +41,7 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	setcookie("finnegan-extension", "", time()-3600);
 	setcookie("finnegan-pin", "", time()-3600);
 	setcookie("finnegan-savepin", "", time()-3600);
+	setcookie("finnegan-force-auth-ok", "", time()-3600);
 
 	log_ext($extension, "delcookie", "success");
 	$extension = "";
@@ -38,8 +49,8 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 }
 
 if($extension_ok) {
+	log_ext($extension, "getwakes", "success");
 	echo $TEMPLATE["viewcalls_start"];
-	if(!$dbh) db_error();
 
 	if(isset($_POST["op"])) {
 		$op = $_POST["op"];

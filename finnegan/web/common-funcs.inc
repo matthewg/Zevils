@@ -1,8 +1,6 @@
 <?
 
-eval(preg_replace(array("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "/hash\\(/", "/^\\\$/m"), array("", "array(", "var \$"), implode('', file('../etc/settings.inc'))));
 eval(preg_replace("/#__PERLONLY_START__(.|\\n)*?#__PERLONLY_END__/", "", implode('', file('../etc/brancal.inc'))));
-$FinneganConfig = new FinneganConfig();
 
 // seed with microseconds
 function make_seed() {
@@ -233,7 +231,7 @@ function log_ext($extension, $event, $result, $data = "") {
 		$data = "'$data'";
 
 	if(!mysql_query(sprintf(
-	   "INSERT INTO log_ext (extension, event, result, data, time, ip) VALUES ('%s', '%s', '%s', %s, NOW(), '%s')",
+	   "INSERT INTO log_ext (extension, event, result, data, start_time, end_time, ip) VALUES ('%s', '%s', '%s', %s, NOW(), NOW(), '%s')",
 	                          $extension, $event, $result, $data, getenv("REMOTE_ADDR")))) db_error();
 }
 
@@ -293,7 +291,7 @@ function pin_ok($extension, $pin, $newpin = 0) {
 
 		$row = mysql_fetch_array($result, MYSQL_NUM);
 		if(!$row || !$row[0]) {
-			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='getwakes' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
+			$result = mysql_query(sprintf("SELECT COUNT(*) FROM log_ext WHERE ip='%s' AND event='auth' AND result='failure' AND data='gen_pin' AND UNIX_TIMESTAMP() - UNIX_TIMESTAMP(time) <= 3600", 
 					getenv("REMOTE_ADDR")));
 			if(!$result) db_error();
 			$log_row = mysql_fetch_row($result);
@@ -313,10 +311,10 @@ function pin_ok($extension, $pin, $newpin = 0) {
 
 				echo $TEMPLATE["no_pin"];
 				echo "<p>(But since we don't actually make calls yet, I'll just tell you that the PIN is $pin.)</p>\n";
-				log_ext($extension, "getwakes", "failure", "gen_pin");
+				log_ext($extension, "auth", "failure", "gen_pin");
 			}
 			$extension_ok = 0;
-			do_end();
+			return 0;
 		} else {
 			$goodpin = $row[0];
 
@@ -353,7 +351,7 @@ function pin_ok($extension, $pin, $newpin = 0) {
 		}
 	}
 
-	log_ext($extension, "getwakes", $ok ? "success" : "failure", $error);
+	log_ext($extension, "auth", $ok ? "success" : "failure", $error);
 
 	return $ok;
 }

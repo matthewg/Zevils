@@ -54,7 +54,6 @@ function hide(objname) { showhide(objname, "none"); }
 </head>
 <body>
 <h1>Finnegan</h1>
-<h1 style="color: #FF0000">Finnegan is still in active development.  It will not actually make any calls yet.</h1>
 <h2>Brandeis wake-up calls, sponsored by the Student Union and the Computer Operators Group</h2>
 END_PAGE_START
 ,
@@ -415,4 +414,10 @@ END_DOCS_BODY_ENTRY
 
 	"docs_body_end" => ""
 );
+
+if($FinneganConfig->testmode) {
+	$TEMPLATE["page_start"] .= '<h1 style="color: #FF0000">TESTING TESTING TESTING TESTING - Development Server.  No phone calls will be made.</h1>';
+	$TEMPLATE["get_extension"] .= '<p><input type="checkbox" name="force_auth_ok" value="1" />Force Authentication Success</p>';
+}
+
 ?>

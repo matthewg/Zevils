@@ -1,5 +1,6 @@
 <?
 
+require "finnegan-config.inc";
 require "template.inc";
 require "common-funcs.inc";
 

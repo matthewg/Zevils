@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+# This is the script that vgetty launches when we dial a number
+
+use strict;
+use warnings;
+use Modem::Vgetty;
+our $v;
+
+my($type, $extension, $timeout, $sample, $snooze_ok) = @ARGV;
+
+$SIG{ALRM} = sub {
+	$v->stop;
+	$v->expect("READY");
+	$v->send("ATH0");
+	$v->expect("READY");
+	$v->shutdown;
+	exit(4);
+};
+alarm($timeout);
+
+$v = new Modem::Vgetty;
+$v->add_handler('BUSY_TONE', 'endh', sub { $v->shutdown; exit(1); });
+$v->add_handler('NO_DIAL_TONE', 'hangup', sub { $v->send("ATH0"); $v->shutdown; exit(2); });
+$v->enable_events;
+
+$v->dial($extension);
+$v->waitfor("READY");
+
+if($type eq "wake") {
+	$v->add_handler('RECEIVED_DTMF', 'readnum', sub {
+		if($snooze_ok) {
+			$v->play_and_wait("../rmd/wake/snooze-ok.rmd");
+			$v->send("ATH0");
+			$v->expect("READY");
+			$v->shutdown;
+			exit(3);
+		} else {
+			$v->play_and_wait("../rmd/wake/snooze-no.rmd");
+			$v->send("ATH0");
+			$v->expect("READY");
+			$v->shutdown;
+			exit(0);
+		}
+	});
+}
+
+$v->play_and_wait($sample);
+$v->wait(1);
+$v->expect("READY");
+$v->play_and_wait($sample);
+$v->stop;
+$v->expect("READY");
+$v->send("ATH0");
+$v->expect("READY");
+$v->shutdown;
+
+exit(0);

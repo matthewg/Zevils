@@ -14,6 +14,7 @@ class FinneganConfig {
 
 
 # Miscellaneous settings
+$testmode = 1; # Turn this off for production servers!  It stops phone calls from being made and allows one to force authentication success.
 $emergency_contacts = array(); # Email these people if there's a problem with the daemon
 $forbidden_extensions = array("62000", "62222", "63000", "63333", "65000");
 
@@ -24,6 +25,7 @@ $pin_regex = '^[0-9]{1,4}$';
 $phonelines = array("usb/ttyACM0");
 $extension_regex = '^[69][0-9]{4}$';
 $max_wake_duration = 120; # Maximum length of a wake-up call
+$max_forgot_pin_duration = 60; # Maximum length of a 'Forgot PIN' call
 $max_snooze_count = 4; # How many times can snooze be activated for a single instance of a wake-up call?
 $snooze_interval = 540; # Length of snooze delay, in settings
 
