@@ -55,7 +55,7 @@ END
 );
 
 if($FinneganConfig->use_cisco && $FinneganCiscoConfig->use_xml_service) {
-	$pin_set_instructions = "See <a href=\"http://phoneapps.brandeis.edu/docs.php#-791461759\">the Finnegan documentation</a> for instructions on accessing the service."
+	$pin_set_instructions = "See <a href=\"http://phoneapps.brandeis.edu/docs.php#-791461759\">the Finnegan documentation</a> for instructions on accessing the service.";
 
 	$TEMPLATE["login"]["no_pin"] = '<p class="status">Please use the wakeup call service on your phone to set a PIN.  ' . $pin_set_instructions . '</p>';
 	$TEMPLATE["login"]["form"] = preg_replace("/leave your PIN blank./", "set a PIN via the wakeup call service on your phone.  $pin_set_instructions", $TEMPLATE["login"]["form"]);
