@@ -700,7 +700,7 @@ sub process_irc_message($) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
-	} elsif(!/#imirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +: *(\S+)/i)) {
+	} elsif(!/#imirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +(?:\d* *)$nickchan(\S+?) +\S+ +: *(\S+)/i)) {
 		my $screenname = new Net::OSCAR::Screenname $1;
 		$screenname =~ s/,.*//;
 		$nick = $2 if $2;
@@ -728,7 +728,7 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_privmsg($usnick, $chan, "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the set imchan command."));
 		}
-	} elsif(/^JOIN +.?$chatchan(\d+)/i or /^SJOIN +\d+ +$chatchan(\d+) +\S+ +:(\S+)/i) {
+	} elsif(/^JOIN +.?$chatchan(\d+)/i or /^SJOIN +\d+ +(?:\d* *)$chatchan(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d; #Only needed for Hybrid?
@@ -2346,6 +2346,7 @@ sub do_signoff($$;$) {
 sub irc_mode($$$) {
 	my($who, $chan, $modes, $modestr) = @_;
 
+	return if $who eq $us and ($servermode eq "ts" or $servermode eq "bahamut") and $modes eq "+o $usnick";
 	$modestr = "";
 	$modestr = ":$who " unless $who eq $us;
 	$modestr .= "MODE $chan $modes";
@@ -2369,8 +2370,10 @@ sub irc_join($$) {
 	$ret .= irc_newnick($user);
 	$user = ircify($user);
 
-	if($servermode eq "ts") {
-		$user = "\@$user" if normalize($user) eq normalize($usnick);
+	# TS requires we use SJOIN when creating a channel
+	# $usnick will always be the first one in.
+	if($servermode eq "ts" or $servermode eq "bahamut" and $user eq $usnick) {
+		$user = "\@$user";
 		$ret .= "SJOIN " . time . " $channel + :$user\r\n";
 	} else {
 		$ret .= ":$user JOIN $channel\r\n";
