@@ -29,7 +29,7 @@ lwalib:
 %.a: $(OBJS)
 	$(MKLIB)
 
-$(APP): $(OBJS) ../lwalib/lwalib.a
+$(APP): $(OBJS) lwalib
 	$(LINK)
 
 
