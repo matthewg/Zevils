@@ -4,6 +4,7 @@ require_once "wins.php";
 require_once "cifs.php";
 
 if($_REQUEST["host"]) {
+	$inodes = array();
 	$host = $_REQUEST["host"];
 	$smb = cifs_connect("minusone", $host, "129.64.99.110");
 	if($smb["error"]) {
@@ -22,12 +23,7 @@ if($_REQUEST["host"]) {
 					if($smb["error"]) {
 						echo " (ERROR: " . $smb["error"] . ")";
 					} else {
-						$files = cifs_readdir($smb, "\\");
-						echo "<ul>";
-						for($i = 0; $i < sizeof($files); $i++) {
-							echo "<li>" . $files[$i] . "</li>\n";
-						}
-						echo "</ul>\n";
+						do_dir($smb, "\\");
 						cifs_disconnect_share($smb);
 					}
 				}
@@ -41,6 +37,39 @@ if($_REQUEST["host"]) {
 } else {
 	$host = "minusone";
 }
+
+function do_dir($smb, $dir) {
+	global $inodes;
+
+	$files = cifs_readdir($smb, $dir);
+	echo "<ul>";
+	for($i = 0; $i < sizeof($files); $i++) {
+		if($files[$i] == "." || $files[$i] == "..") continue;
+		if(substr($dir, strlen($dir) - 1, 1) != "\\") $dir .= "\\";
+		$pathinfo = cifs_pathinfo($smb, "$dir" . $files[$i]);
+		if($smb["error"]) continue;
+		if(isset($inodes["" . $pathinfo["inode_high"]])) {
+			if(isset($inodes["" . $pathinfo["inode_high"]]["" . $pathinfo["inode_low"]])) {
+				continue;
+			} else {
+				$inodes["" . $pathinfo["inode_high"]]["" . $pathinfo["inode_low"]] = 1;
+			}
+		} else {
+			$inodes["" . $pathinfo["inode_high"]] = array();
+			$inodes["" . $pathinfo["inode_high"]]["" . $pathinfo["inode_low"]] = 1;
+		}
+		echo "<li>" . $files[$i];
+		if($pathinfo["is_directory"]) {
+			echo "\\";
+			do_dir($smb, $dir . $files[$i]);
+		} else {
+			echo " (" . $pathinfo["size"] . " bytes)";
+		}
+		echo "</li>\n";
+	}
+	echo "</ul>\n";
+}
+
 ?>
 
 <form method="post" action="php-smb.php">

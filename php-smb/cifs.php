@@ -80,6 +80,7 @@ function cifs_parse_header($packet) {
 
 function cifs_parse_transaction($packet) {
 	$data = cifs_parse_header($packet);
+	if($data["error_code"] != 0) return $data;
 	$data["transaction_data"] = unpack("x7/vparam_length/vparam_offset/x2/vdata_length/vdata_offset/x7", $data["data"]);
 	$data["parameters"] = substr($packet, $data["transaction_data"]["param_offset"], $data["transaction_data"]["param_length"]);
 	$data["data"] = substr($packet, $data["transaction_data"]["data_offset"], $data["transaction_data"]["data_length"]);
@@ -446,6 +447,49 @@ function cifs_readdir(&$smb, $path) {
 	}
 
 	return $files;
+}
+
+function cifs_pathinfo(&$smb, $path) {
+	$data = pack("v", 1); //SMB_QUERY_INFO_STANDARD
+	$data .= pack("V", 0); //reserved
+	$data .= cifs_str2uni($smb, $path);
+
+	$packet = cifs_make_transaction($smb, 2, "", 5, $data, "");
+
+	netbios_send_packet($smb["sock"], $packet);
+	$data = netbios_get_packet($smb["sock"]);
+	$data = cifs_parse_transaction($data["data"]);
+	if($data["error_code"] != 0) {
+		$smb["error"] = cifs_strerror($data);
+		return;
+	} else {
+		$smb["error"] = "";
+	}
+
+	$pathinfo = unpack("x12/Vsize/x4/vattributes", $data["data"]);
+
+	if($pathinfo["attributes"] & 0x10) {
+		$pathinfo["is_directory"] = 1;
+	} else {
+		$pathinfo["is_directory"] = 0;
+	}
+
+
+	$data = pack("v", 0x107); //SMB_QUERY_FILE_ALL_INFO
+	$data .= pack("V", 0); //reserved
+	$data .= cifs_str2uni($smb, $path);
+
+	$packet = cifs_make_transaction($smb, 2, "", 5, $data, "");
+
+	netbios_send_packet($smb["sock"], $packet);
+	$data = netbios_get_packet($smb["sock"]);
+	$data = cifs_parse_transaction($data["data"]);
+
+	$temp = unpack("x58/Vinode_low/Vinode_high", $data["data"]);
+	$pathinfo["inode_low"] = $temp["inode_low"];
+	$pathinfo["inode_high"] = $temp["inode_high"];
+
+	return $pathinfo;
 }
 
 function cifs_str2uni(&$smb, $str) {
