@@ -573,7 +573,7 @@ if($seltype == "CiscoIPPhoneMenu") {
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>Help</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?p=<?echo $prompt?>&amp;x=<?echo preg_replace("/&/", "!", $FinneganCiscoConfig->url_base . "/service/mkwake.php?" . $_SERVER["QUERY_STRING"])?></URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?p=<?echo $prompt?>&amp;x=<?echo preg_replace("/&/", "!", $_SERVER["QUERY_STRING"])?></URL>
 <Position>4</Position>
 </SoftKeyItem>
 <? echo "</$seltype>\n"; ?>

@@ -4,7 +4,7 @@ $cisco = 1;
 require "../../include/finnegan.inc";
 
 $prompt = isset($_REQUEST["p"]) ? $_REQUEST["p"] : "time";
-$prevurl = preg_replace("/!/", "&", $_REQUEST["x"]);
+$prevurl = $FinneganCiscoConfig->url_base . "/service/mkwake.php?" . preg_replace("/!/", "&", $_REQUEST["x"]);
 
 if($prompt == "time") {
 	cisco_message("Help", "Enter the time that you want the alarm to go off at.  You should use a 12-hour time.  The next screen will let you select 'AM' or 'PM'.", $prevurl);
