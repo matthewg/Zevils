@@ -28,7 +28,7 @@ function pin_check($extension, $pin, $newpin = 0) {
 	$ok = 0;
 	$error = "";
 
-	if(pin_syntax_check($pin)) {
+	if($pin && pin_syntax_check($pin)) {
 		return "pin_invalid";
 	} else {
 		if($newpin) {
@@ -200,9 +200,8 @@ function try_auth() {
 		} else {
 			$extension_ok = 1;
 
-			if($pin) {
-				$pin_error = pin_check($extension, $pin);
-			} else {
+			$pin_error = pin_check($extension, $pin);
+			if(!$pin) {
 				$auth_ok = 0;
 				return "";
 			}
