@@ -83,6 +83,7 @@ use POSIX;
 use Carp;
 use Getopt::Long;
 use File::Basename;
+use Fcntl;
 use FormatIMIRC;
 use Symbol;
 
@@ -3099,8 +3100,15 @@ sub nickchan($) { return mkchan($nickchan, shift); }
 
 sub set_blocking($$) {
 	my($socket, $blocking) = @_;
+	my $flags = 0;
 
-	$socket->blocking($blocking);
+	fcntl($socket, F_GETFL, $flags);
+	if($blocking) {
+		$flags &= ~O_NONBLOCK;
+	} else {
+		$flags |= O_NONBLOCK;
+	}
+	fcntl($socket, F_SETFL, $flags);
 }
 
 sub export_buddylist($;$) {
