@@ -24,7 +24,7 @@ $task{$me}{code} = sub {
 	messagedLog("$me begin");
 
 	my $where = "displaystatus != -1";
-	$where .= " AND (section_snum = NULL OR (displaystatus = 0 AND snum = NULL))";
+	$where .= " AND (ISNULL(section_snum) OR (displaystatus = 0 AND ISNULL(snum)))";
 	$where .= " AND time < NOW()";
 
 	my $stories = $slashdb->sqlSelectAllHashref(
@@ -49,7 +49,7 @@ $task{$me}{code} = sub {
 	my $comments = $slashdb->sqlSelectAll(
 		"cid",
 		"comments",
-		"cnum = NULL",
+		"ISNULL(cnum)",
 		"ORDER BY sid, cid"
 	);
 
