@@ -1,0 +1,7 @@
+You must run the nntp_init.pl script from this plugin's directory before you can
+use NNTP support.
+
+Some nntp_ vars have been created that you might want to adjust.
+
+You must install NNTB, available from http://www.zevils.com/programs/nntb/,
+in order to use NNTP support.

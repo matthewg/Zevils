@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS nntp_storynums;
+CREATE TABLE nntp_storynums (
+	sid varchar(16) NOT NULL PRIMARY KEY,
+	snum MEDIUMINT UNSIGNED NULL,
+	section_snum MEDIUMINT UNSIGNED NULL,
+	FOREIGN KEY (sid) REFERENCES stories(sid)
+);
+
+DROP TABLE IF EXISTS nntp_sectiondata;
+CREATE TABLE nntp_sectiondata (
+	section SMALLINT UNSIGNED NOT NULL PRIMARY KEY,
+	ctime DATETIME NOT NULL DEFAULT=CURDATE()
+	FOREIGN KEY (section) REFERENCES sections(id),
+	next_snum MEDIUMINT UNSIGNED NOT NULL DEFAULT=1
+);

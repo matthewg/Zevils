@@ -42,12 +42,41 @@ sub new($;@) {
 	$self->{slash_constants} = getCurrentStatic();
 	$self->{slash_db} = getCurrentDB();
 	$self->{slash_user} = getCurrentUser();
+	$self->{slash_nntp} = getObject("Slash::NNTP") or croak "Couldn't get Slash::NNTP - is the NNTP plugin installed for $self->{slash_slashsite}?";
+
+	croak "You must run the nntp_init.pl script from the Slash NNTP plugin directory before you can use NNTB with Slash for $self->{slash_slashsite}!"
+		unless $self->{slash_db}->getVar("nntp_initialized", "value");
 
 	return $self;
 }
 
-sub groups(;$) {
-	my($time) = @_;
+sub groups($;$) {
+	my($self, $time) = @_;
+	my %ret = ();
+
+	# slash.slashsite.{text,html}
+	#                            .stories
+	#                                    .section
+	#                                            .foo_bar_story
+	#                            .journals.uid
+
+	my $root = $self->groupname("slash.$self->{slash_slashsite}");
+	my $sitename = $self->{slash_db}->getVar("sitename", "value");
+	$ret{"$root.text.stories"} = "$sitename front page stories in plain text";
+	$ret{"$root.html.stories"} = "$sitename front page stories in HTML";
+
+	my %sections = %{$self->{slash_db}->getDescriptions("sections-all")};
+
+	while(my($section, $desc) = each(%sections)) {
+		$section = $self->groupname($section);
+		$ret{"$root.text.stories.$section"} = "$sitename $desc stories in plain text";
+		$ret{"$root.html.stories.$section"} = "$sitename $desc stories in HTML";
+	}
+
+	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
+		my %jusers = @{$self->{slash_db}->sqlSelectAll('uid, MIN(date)', 'journals', '', 'GROUP BY uid')};
+		# timeCalc($date, "%s", 0)
+	}
 }
 
 sub articles($;$) {

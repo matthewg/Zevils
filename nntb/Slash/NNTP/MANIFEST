@@ -1,0 +1,10 @@
+Changes
+NNTP.pm
+Makefile.PL
+MANIFEST
+PLUGIN
+note
+dump
+mysql_prep
+mysql_schema
+test.pl

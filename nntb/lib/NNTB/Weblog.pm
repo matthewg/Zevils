@@ -27,19 +27,25 @@ sub log(@) {
 	::_log("$package: ", @_);
 }
 
+sub groupname($$) {
+	my($self, $group) = @_;
+	$group =~ tr/ ./_/d;
+	return $group;
+}
+
 # These methods count as failing if unimplemented.
 # They are the mandatory methods since weblog modules must override them.
-sub groups(;$) { return 0; }
-sub articles($;$) { return 0; }
-sub article($$) { return 0; }
-sub auth($$) { return 0; }
-sub post($$) { return 0; }
-sub isgroup($) { return 0; }
-sub groupstats($) { return (); }
-sub id2num($$) { return 0; }
-sub num2id($$) { return 0; }
+sub groups($;$) { return 0; }
+sub articles($$;$) { return 0; }
+sub article($$$) { return 0; }
+sub auth($$$) { return 0; }
+sub post($$$) { return 0; }
+sub isgroup($$) { return 0; }
+sub groupstats($$) { return (); }
+sub id2num($$$) { return 0; }
+sub num2id($$$) { return 0; }
 
 # These methods are optional - if unimplemented, they'll return success
-sub logout() { return 1; }
+sub logout($) { return 1; }
 
 1;

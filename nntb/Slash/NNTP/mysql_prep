@@ -1,0 +1,1 @@
+INSERT INTO nntp_sectiontimes (section) SELECT id FROM sections;
