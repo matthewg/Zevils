@@ -28,12 +28,11 @@ EOF
 use strict;
 use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters $chants $usepoll $poll %fdmap);
 
-# Dummy constants because we import these at run-time.
-# Without these dummies, we get errors due to the subs stricture.
-use constant POLLIN => 0;
-use constant POLLOUT => 0;
-use constant POLLERR => 0;
-use constant POLLHUP => 0;
+# Light-blasted thing doesn't like us importing constants at run-time
+sub POLLIN {&IO::Poll::POLLIN};
+sub POLLOUT {&IO::Poll::POLLOUT};
+sub POLLERR {&IO::Poll::POLLERR};
+sub POLLHUP {&IO::Poll::POLLHUP};
 
 # DCC states
 # Iff state & 1, it's a SEND.
@@ -422,7 +421,6 @@ sub loadconf() {
 	if($usepoll) {
 		eval {
 			require IO::Poll;
-			IO::Poll->import(qw(POLLIN POLLOUT POLLHUP POLLERR POLLNVAL));
 		};
 		if($@) {
 			print STDERR "Couldn't load IO::Poll - falling back to select\n";
@@ -540,7 +538,10 @@ sub mainloop() {
 				select($rin, $win, $ein, $timeout) or @getbuff or goto CLEANUP;
 			} else {
 				my $rv = $poll->poll($timeout * 1000); # poll timeout is in milliseconds
-				die "Poll error: $!" if $rv == -1;
+				if($rv == -1) {
+					next if $! == EINTR;
+					die "Poll error: $!";
+				}
 				$rv or @getbuff or goto CLEANUP;
 			}
 
@@ -2311,9 +2312,9 @@ sub oscar_connection_changed($$$) {
 		$poll->mask($connection => POLLIN | POLLOUT);
 	} elsif($status eq "deleted") {
 		$poll->mask($connection => 0);
-		delete $fdmap{fileno($connection->get_filehandle)} if $connection->get_filehandle;
+		delete $fdmap{fileno($connection)} if $connection;
 	}
-	$fdmap{fileno($connection->get_filehandle)} = $connection unless $status eq "deleted";
+	$fdmap{fileno($connection)} = $connection unless $status eq "deleted";
 }
 
 sub oscar_log($$$) {
@@ -3684,3 +3685,4 @@ sub dcc_state_poll_mask($) {
 	return POLLOUT if $state & DCC_STATE_WRITE;
 	return POLLIN;
 }
+
