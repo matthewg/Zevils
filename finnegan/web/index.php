@@ -8,6 +8,7 @@ $page = "viewcalls";
 
 ob_start();
 $dbh = get_dbh();
+if(!$dbh) db_error();
 
 check_extension_pin();
 

@@ -4,13 +4,15 @@ require "db-connect.inc";
 require "template.inc";
 require "common-funcs.inc";
 
-if(isset($_POST["id"]))
+if(isset($_POST["id"])) {
+	$id = $_POST["id"];
 	$page = "mkwake_edit";
-else
+} else
 	$page = "mkwake_new";
 
 ob_start();
 $dbh = get_dbh();
+if(!$dbh) return db_error();
 
 check_extension_pin();
 
@@ -21,9 +23,6 @@ echo preg_replace("/__TITLE__/",
 
 if($extension_ok) {
 	echo $TEMPLATE[$page."_start"];
-
-	if(!$dbh) db_error();
-
 
 	if(isset($_POST["op"])) {
 		$op = $_POST["op"];

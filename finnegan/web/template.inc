@@ -1,122 +1,5 @@
 <?
-/*
- * Description of template items:
- *	page_start: Top of the entire page.
- *		TITLE: Title of the page
- *	viewcalls_start: Start of the 'view wake-up calls' page.  This will be called immediately after 'page_start'.
- *	viewcalls_start_noext: This is called instead of viewcalls_start if we don't know the user's extension.
- *	mkwake_new_start: Start of the 'new wake-up call' page.
- *	mkwake_edit_start: Start of the 'edit wake-up call' page.
- *		ID: ID of the wake-up call being edited.
- *	docs_start: Start of the documentation page.
- *
- *
- *  Wake-up call list.  To give the user the ability to edit their wake-up calls,
- *   submit a POST request to index.php as per the method for creating wake-up calls
- *   below, but use op='edit' instead of op='create', and give an 'id' parameter containing
- *   the wake-up call ID.  Also, for recurring wake-up calls, use parameters named 'cur_xxx'
- *   where 'xxx' is mon/tue/wed/thu/fri/sat/sun to set one-time exceptions to the normal
- *   schedule for the wake.  To delete wake-up calls, use a POST request with op="Delete marked wake-up calls"
- *   and set the parameter named 'id[__ID__]' for each wake to delete.
- *
- *	wake_list_start: Start of a user's wake-up call list
- *		COUNT: Number of wake-up calls that the user has.
- *	wake_list_item_once: A one-shot wake-up call in the wake-up call list
- *		ID: Unique identifier for this wake-up call
- *		DELETE: If 'SELECTED', this wake-up call was flagged for deletion.
- *			Otherwise, blank.  Note that wake-up calls marked for
- *			deletion will be wrapped in <span class="wake-delete">...</span>
- *		TIME: Time that the wake-up call is set for
- *		MESSAGE: Number of the wake-up message that the call is using
- *		DATE: Date that the wake-up call is set for
- *	wake_list_item_recur: A recurring wake-up call in the wake-up call list
- *		ID: As above
- *		DELETE: As above
- *		TIME: As above
- *		MESSAGE: As above
- *		DAYS: List of days of week, with active ones in span class 'weekday-on',
- *			temporarily inactive ones in class 'weekday-off', and temporarily
- *			active ones in class 'weekday-temp'.  For instance, for a wake-up
- *			call which is normally active on Monday, Wednesday, and Thursday,
- *			but this week the user has deactivated Wednesday and checked off
- *			Tuesday instead, DAYS would be set to:
- *				<span class="weekday-on">Mon</span>, <span class="weekday-temp">Tue</span>, <span class="weekday-off">Wed</span>, <span class="weekday-on">Thu</span>
- *		CAL: Type of calendar that the wake-up call uses: 'Regular'/'Brandeis'/'National Holidays'
- *	wake_list_end: End of the wake-up call list
- *
- *	delete_confirm: "Confirm Deletion" button.
- *		This template is called if op='delete' was posted.  It should
- *		post to index.php with op='delete_confirm'.
- *
- *
- *	extension_invalid: Show 'extension invalid' error.
- *	get_extension: Ask for the user's extension.  This should submit a POST request to index.php.
- *		EXTENSION: Value of the user's extension.  May be present if the user entered an invalid extension.
- *		Form parameters:
- *			extension: User's extension
- *			pin: User's PIN (4-digit number).  If the user did not previously have a PIN, and one is present here, a PIN will be set.  Otherwise, this must match the user's previously-set PIN.
- *			savepin: If this parameter is present, the user's PIN will be saved in a cookie.
- *			op: 'Forgot PIN' to have the system call the user's extension and tell the user his/her PIN.
- *
- *	viewcalls_end: End of the 'view wake-up calls' page.  This will be called immediately before 'foot'.
- *	viewcalls_end_noext: This is called instead of viewcalls_start if we don't know the user's extension.
- *	mkwake_new_end: End of the 'new wake-up call' page.
- *	mkwake_edit_end: End of the 'edit wake-up call' page.
- *	docs_end: End of the documentation page.
- *	page_end: End of the entire page.
- *
- *	db_error: Database error.
- *		ERROR: Error message
- *	date_error: Problem with a date/time.
- *		ERROR: Error message
- *	pin_error: Incorrect PIN.
- *	pin_invalid: Syntactically invalid PIN.
- *	pin_empty: User gave PIN, but doesn't have one set.
- *	pin_bruteforce_warn: User will be temporarily locked out of the system if they enter a bad PIN again.
- *	pin_bruteforce: User has had too many recent login failures, and should wait an hour.
- *	pin_sent: System will soon call the user's extension and read out the PIN.
- *	pin_set_old_error: When setting PIN, "old PIN" is wrong.
- *	pin_set_new_mismatch: When setting PIN, pin1 != pin2
- *	pin_set_new_invalid: When setting PIN, new PIN is not syntactically valid.
- *	pin_set_ok: Pin changed.
- *
- *
- * Things that you must do somewhere in your template:
- *
- *	Link to take the user to the page for creating a new wake-up call. (mkwake.php)
- *		The page should post the following data to mkwake.php:
- *			op: 'create'
- *			extension: User's extension
- *			time: Time of the wake-up call
- *			ampm: 'AM' if time is 'AM', otherwise 'PM'
- *			message: Number of the wake-up message the user wants
- *			One-time wake-up calls:
- *				month: Number (1-12) of month for the wake
- *				day: Number (1-31) of day of month for the wake
- *			Recurring wake-up calls:
- *				mon: If present, this call is active on Mondays.
- *				tue: If present, this call is active on Tuesdays.
- *				wed: If present, this call is active on Wednesdays.
- *				thu: If present, this call is active on Thursdays.
- *				fri: If present, this call is active on Fridays.
- *				sat: If present, this call is active on Saturdays.
- *				sun: If present, this call is active on Sundays.
- *				cal_type:
- *					'brandeis': Use the Brandeis calendar for this wake.
- *					'holidays': Use the American calendar for this wake, skipping national holidays.
- *					'normal': Use the regular calendar for this wake.
- *
- *	Link to take the user to a documentation page. (docs.php)
- *
- *	Submitting to index.php with op='Log Out' will clear the user's saved PIN.
- *
- *	Submitting to index.php with op='Set Pin', and parameters 'oldpin', 'pin1', and 'pin2'
- *	will change the user's PIN.  oldpin must match the previous PIN, and pin1 and pin2
- *	must match.
- *
- * You should probably use the page_start/page_end from your template for your documentation
- * and 'new wake-up call' pages.
- */
+//See template-spec.txt for documentation.
 
 $TEMPLATE = array(
 	"page_start" => <<<END_PAGE_START
@@ -125,7 +8,7 @@ $TEMPLATE = array(
 <title>__TITLE__</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <style type="text/css" media="screen">
-	@import url(/finnegan.css);
+	@import url(finnegan.css);
 </style>
 </head>
 <body>

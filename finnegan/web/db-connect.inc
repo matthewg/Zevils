@@ -1,9 +1,9 @@
 <?
 function get_dbh() {
-	$dbh = mysql_connect("localhost", "root", "")
-		or die("Couldn't connect: " . mysql_error($dbh));
+	$dbh = @mysql_connect("localhost", "root", "")
+	if(!$dbh) return $dbh;
 
-	if(!mysql_select_db("finnegan", $dbh)) die("Couldn't select database: " . mysql_error());
+	if(!@mysql_select_db("finnegan", $dbh)) return "";
 
 	return $dbh;
 }
