@@ -1,16 +1,12 @@
 #!/usr/bin/perl
 
+use FindBin;
+use lib $FindBin::Bin;
 use DBI;
 use strict 'vars';
 use Slash;
 
 my ($basedir,$datadir,$rootdir)=getvars("basedir","datadir","rootdir");
-
-
-sub BEGIN {
-        require File::Basename;
-        push @INC, File::Basename::dirname($0);
-}
 
 sub slashdLog
 {

@@ -1,14 +1,10 @@
 #!/usr/bin/perl
 
-require File::Basename;
-my $self = $ENV{SCRIPT_FILENAME} || $0;
-push @INC, File::Basename::dirname($self);                
-push @INC, File::Basename::dirname($self) . "/..";
-
 my $r = Apache->request if $ENV{SCRIPT_NAME};
 
 use DBI;
-use lib '/home/slash';
+use FindBin qw($Bin);
+use lib "$Bin/..";
 use strict;   
 use Slash;
 

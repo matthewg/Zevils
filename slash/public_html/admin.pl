@@ -2,7 +2,8 @@
 
 my $r = Apache->request if $ENV{SERVER_PROTOCOL};
 
-use lib '/home/slash';
+use FindBin qw($Bin);
+use lib "$Bin/..";
 use DBI;
 use Slash;
 use strict vars;

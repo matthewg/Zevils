@@ -2,7 +2,8 @@
 
 my $r = Apache->request unless $ENV{SLASH_UID};
 
-use lib '/home/slash';
+use FindBin qw($Bin);
+use lib "$Bin/..";
 use strict;   
 use DBI;
 use Slash;

@@ -3,7 +3,8 @@
 my $r = Apache->request if $ENV{SCRIPT_NAME};
 
 use DBI;
-use lib '/home/slash';
+use FindBin qw($Bin);
+use lib "$Bin/..";
 use strict;   
 use Slash;
 

@@ -1,13 +1,9 @@
 #!/usr/bin/perl
 my $r = Apache->request unless $ENV{SLASH_UID};
 
-require File::Basename;
-my $self = $ENV{SCRIPT_FILENAME} || $0;
-push @INC, File::Basename::dirname($self);                
-push @INC, File::Basename::dirname($self) . "/..";
-
 use DBI;
-use lib '/home/slash';
+use FindBin qw($Bin);
+use lib "$Bin/..";
 use strict;   
 use Slash;
 
