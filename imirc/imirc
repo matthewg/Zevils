@@ -693,10 +693,10 @@ sub process_irc_message($) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
-	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+) +\S+ +:(\S+)/i)) {
+	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+?) +\S+ +:(\S+)/i)) {
 		my $screenname = normalize($1);
 		$nick = $2 if $2;
-		$nnick =~ tr/\@+//d;
+		$nick =~ tr/\@+//d;
 		$nnick = normalize($nick);
 		$oscar = $aim_connections->{$nnick}->{screennames}->{$screenname}->{oscar} if $aim_connections->{$nick} and $aim_connections->{$nick}->{screennames}->{$screenname};
 		my $dude;
