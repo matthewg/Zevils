@@ -57,11 +57,13 @@ if(isset($_POST["submit"])) {
 		$error = 1;
 		echo $TEMPLATE["mkwake"]["ampm_invalid"];
 	}
-	if(isset($_POST["ampm"])) $ampm = $_POST["ampm"];
-	if($ampm == "AM")
-		$am = "checked";
-	else
-		$pm = "checked";
+	if(isset($_POST["ampm"])) {
+		$ampm = $_POST["ampm"];
+		if($ampm == "AM")
+			$am = "checked";
+		else
+			$pm = "checked";
+	}
 
 	if(!isset($_POST["message"]) || !preg_match('/^-?\d+$/', $_POST["message"]) || $_POST["message"] < -1 || $_POST["message"] > 6) {
 		$error = 1;
