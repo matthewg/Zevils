@@ -901,7 +901,7 @@ sub set_config($$) {
 	my($handle, $config) = @_;
 	$config{_hnick($handle)} = $config;
 
-	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
+	sflap_put($handle, sflap_encode("toc_set_config {" . quote(conf2str($config)) . "}", 0, 1));
 }
 sub _setup($) { 
 	my $handle = shift;
@@ -1132,10 +1132,10 @@ sub sflap_put($$) {
 
 =item conf2str(CONFIG-HASHREF)
 
-Takes a hashref to a config-hash (in the same format returned by signon) and a permit
-type (the same one that signon returns) and makes a string of the type that Toc wants for
-the toc_set_config command.  You almost definately should not be calling this directly, but
-instead calling set_config.  Returns the toc_set_config-format string.
+Takes a hashref to a config-hash (in the same format returned by signon) and makes a string
+of the type that Toc wants for the toc_set_config command.  You almost definately should
+not be calling this directly (well, unless you want to export the buddylist,) but instead
+calling set_config.  Returns the toc_set_config-format string.
 
 =cut
 
@@ -1163,7 +1163,7 @@ sub conf2str(\%) {
 	foreach $buddy (keys %{$config->{deny}}) {
 		$msg .= "d $buddy\n";
 	}
-	$msg = "toc_set_config {" . quote($msg) . "}";
+	#$msg = "toc_set_config {" . quote($msg) . "}";
 	#warn "$msg\n";
 	debug_print("conf2str: " . Dumper($config), "config", 2);
 	return $msg;
