@@ -15,4 +15,7 @@ Alexander Zimmermann for finding the copy-n-paste error in mp3id3.
 
 Everyone who tried the 1.1 prerelease.
 
+Theodore Y. Tso (tytso@mit.edu) contributed a patch that fixed genre listing
+in mp3id3.
+
 I'm probably leaving some people out...
