@@ -3,10 +3,14 @@
 header("Content-type: text/xml");
 header("Expires: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
 
-ob_start();
+ob_start("nlstrip");
 db_start();
 
 $extension = get_extension();
+
+function nlstrip($contents) {
+	return str_replace("\n", "", $contents);
+}
 
 function get_extension() {
 	global $PHONE_MODEL;
@@ -59,7 +63,7 @@ function get_extension() {
 }
 
 function cisco_message($title, $msg, $url = "") {
-	ob_end_clean();
+	ob_clean();
 
 	if(!$url) $url = current_url();
 ?>

@@ -75,6 +75,7 @@ sub load_samples {
 }
 
 load_settings;
+$Finnegan::Config::Cisco::wake_method = "multicast";
 die "Wake method isn't unicast/multicast\n" unless $Finnegan::Config::Cisco::wake_method =~ /cast/;
 load_samples;
 $SIG{HUP} = sub { log_debug("Reloading settings and samples..."); load_settings; load_samples; };
@@ -106,11 +107,11 @@ foreach my $message (map { $_->{id} } @$Finnegan::Config::messages, {id => 0}) {
 	if($Finnegan::Config::Cisco::wake_method eq "multicast") {
 		$sockets[$message] = {
 			rtp => RTP->new(),
-			mcast => IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::multicast_port_base + $message*2),
+			mcast => IO::Socket::Multicast->new(LocalPort => $Finnegan::Config::Cisco::rtp_port_base + $message*2),
 		};
 		die "Couldn't create multicast socket: $@\n" unless $sockets[$message]->{mcast};
-		$sockets[$message]->{mcast}->mcast_add($Finnegan::Config::Cisco::multicast_addr) or die "Couldn't add multicast address: $@\n";
-		$sockets[$message]->{mcast}->mcast_dest($Finnegan::Config::Cisco::multicast_addr.":".($Finnegan::Config::Cisco::multicast_port_base + $message*2));
+		$sockets[$message]->{mcast}->mcast_add($Finnegan::Config::Cisco::rtp_ip); # or die "Couldn't add multicast address: $@\n";
+		$sockets[$message]->{mcast}->mcast_dest($Finnegan::Config::Cisco::rtp_ip.":".($Finnegan::Config::Cisco::rtp_port_base + $message*2));
 		$sockets[$message]->{mcast}->mcast_loopback(0);
 	} else {
 		$socket = IO::Socket::INET->new(PeerAddr => $destination) or die "Couldn't connect to $destination: $@\n";
