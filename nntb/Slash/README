@@ -5,3 +5,9 @@ To install:
 	make
 	make install
 	/usr/local/slash/bin/install-plugins -u slash
+
+Configuration parameters:
+	datadir: Path to your slash installation; /usr/local/slash by default.
+	slashsites: Path to your slash.sites file; $datadir/slash.sites by default.
+	slashsite: Which slash site this entry is for; the first entry in
+		slashsites will be used by default.
