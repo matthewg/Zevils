@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines $kill_impersonaters);
 
 
 # DCC states
@@ -128,6 +128,7 @@ $dcc = 1;
 $shortcircuit = 1;
 $numeric = num2base64(42);
 $require_qlines = 1;
+$kill_impersonaters = 1;
 $debug = 0;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
@@ -293,7 +294,8 @@ sub loadconf() {
 		"oldnick=s" => \$oldnick,
 		"ignoreuhosts=s" => \$ignoreuhosts,
 		"ignorehosts=s\@" => \@ignorehosts,
-		"require_qlines:i" => \$require_qlines
+		"require_qlines:i" => \$require_qlines,
+		"kill_impersonaters:i" => \$kill_impersonaters,
 	);
 
 	if(!$errors) {
@@ -1666,7 +1668,7 @@ sub process_irc_message($) {
 		my $newnick = $1;
 		my(@args) = split(/\s+/, $2);
 
-		if($newnick =~ /^$prefix/i) {
+		if($kill_impersonaters and $newnick =~ /^$prefix/i) {
 			irc_send(irc_kill($usnick, $newnick, "Attempt to impersonate an AOL Instant Messenger user"));
 			return;
 		}
