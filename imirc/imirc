@@ -370,23 +370,28 @@ $| = 1;
 if(-d $directory and -r $directory) {
 	local $/ = undef;
 	if($savebuddies > 1 and -d "$directory/buddylists" and -r "$directory/buddylists") {
-		foreach $buddylist(glob("$directory/buddylists/*")) {
+		opendir(DHANDLE, "$directory/buddylists");
+		while($buddylist = readdir DHANDLE) {
 			next if $buddylist =~ /\.\.?$/; #Skip . and ..
 			open(BUDDYLIST, "<$buddylist");
 			$buddylists{basename $buddylist} = <BUDDYLIST>;
 			close BUDDYLIST;
 		}
+		close DHANDLE;
 	}
 	if($saveprofiles > 1 and -d "$directory/profiles" and -r "$directory/profiles") {
-		foreach $profile(glob("$directory/profiles/*")) {
+		opendir(DHANDLE, "$directory/profiles");
+		while($profile = readdir DHANDLE) {
 			next if $profile =~ /\.\.?$/; #Skip . and ..
 			open(PROFILE, "<$profile");
 			$profiles{basename $profile} = <PROFILE>;
 			close BUDDYLIST;
 		}
+		closedir DHANDLE;
 	}
 	if($savepounces > 1 and -d "$directory/pounces" and -r "$directory/pounces") {
-		foreach $pounce(glob("$directory/pounces/*")) {
+		opendir(DHANDLE, "$directory/profiles");
+		while($pounce = readdir DHANDLE) {
 			next if $pounce =~ /\.\.?$/; #Skip . and ..
 			open(POUNCE, "<$pounce");
 			$pounces = <POUNCE>;
@@ -396,6 +401,7 @@ if(-d $directory and -r $directory) {
 				push @{$pounces{basename $pounce}}, {who => $who, what => $what};
 			}
 		}
+		closedir DHANDLE;
 	}
 
 } else {
