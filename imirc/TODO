@@ -1,6 +1,16 @@
-Multiple buddies at once in add_buddy/remove_buddy
-savebuddies/loadbuddies for buddylist backup
-Add support for Undernet P10 protocol
-Optional minimal libfaim - for password changes and such?????
-file transfer -> DCC?
-Handle colors as well as bold, etc.?
+In Progress:
+	Multiple buddies at once in add_buddy/remove_buddy
+	Minimize "flashing"
+
+Real Soon Now:
+	savebuddies/loadbuddies for buddylist backup
+	Add support for Undernet P10 protocol, Unreal IRCd
+	TOC PAUSE
+
+Pending/Maybe:
+	file transfer -> DCC?
+	Handle colors as well as bold, etc.?
+	Code cleanup? (Where?)
+
+Wishlist:
+	Fix #aimirc-debug reload command
