@@ -18,10 +18,7 @@ if(!$dbh) return db_error();
 
 check_extension_pin();
 
-echo preg_replace("/__TITLE__/",
-	"Finnegan: Wake-up Calls by the Brandeis University Student Union",
-	$TEMPLATE["page_start"]
-);
+echo $TEMPLATE["page_start"];
 
 if($extension_ok) {
 	echo preg_replace("/__ID__/", $id, $TEMPLATE[$page."_start"]);

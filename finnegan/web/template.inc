@@ -8,7 +8,7 @@ $TEMPLATE = array(
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
 <html>
 <head>
-<title>__TITLE__</title>
+<title>Finnegan: Brandeis wake-up calls</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <style type="text/css" media="screen">
 	@import url(finnegan.css);

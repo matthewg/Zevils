@@ -4,7 +4,6 @@ finnegan template specification
 General template items:
 
 	page_start: Top of the entire page.
-		TITLE: Title of the page
 	page_end: End of the entire page.
 
 	db_error: Database error.

@@ -26,10 +26,7 @@ if(isset($_POST["op"]) && $_POST["op"] == "Log Out") {
 	$extension = "";
 }
 
-echo preg_replace("/__TITLE__/",
-	"Finnegan: Wake-up Calls by the Brandeis University Student Union",
-	$TEMPLATE["page_start"]
-);
+echo $TEMPLATE["page_start"];
 
 if($extension_ok) {
 	echo $TEMPLATE["viewcalls_start"];
