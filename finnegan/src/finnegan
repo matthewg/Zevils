@@ -182,6 +182,14 @@ sub db_error($$) {
 	my $errstr = "Database error: $str - " . $sth->errstr;
 	log_error($errstr);
 }
+sub can_make_call() {
+	if($Finnegan::Config::use_cisco) {
+		return 0 unless $phonecalls < $Finnegan::Config::Cisco::max_simultaneous_calls;
+	} else {
+		return 0 unless scalar keys %phonelines_avail;
+	}
+	return 1;
+}
 
 # -1. Reload Brandeis calendar data, if necessary.
 # 0. Update next_trigger.  Note that we don't attempt to figure out the correct date for recurring wakes, we do that ad-hoc.
@@ -248,18 +256,10 @@ while(1) {
 		$get_newwakes->finish;
 	}
 
-	if($Finnegan::Config::use_cisco) {
-		if($phonecalls >= $Finnegan::Config::Cisco::max_simultaneous_calls) {
-			log_debug("Max simultaneous call count reached - sleeping");
-			sleep 10;
-			next;
-		}
-	} else {
-		if(!(scalar keys %phonelines_avail)) {
-			log_debug("No phonelines available - starting over");
-			sleep 10;
-			next;
-		}
+	if(!can_make_call()) {
+		log_debug("Max simultaneous call count reached - sleeping");
+		sleep 10;
+		next;
 	}
 
 
@@ -277,11 +277,7 @@ while(1) {
 	foreach my $row (@rows) {
 		next unless $row;
 
-		if($Finnegan::Config::use_cisco) {
-			last if $phonecalls >= $Finnegan::Config::Cisco::max_simultaneous_calls;
-		} else {
-			last unless scalar keys %phonelines_avail;
-		}
+		last unless can_make_call();
 		log_debug("Got " . $row->{wake_id});
 		next if $row->{unix_trigger} > time();
 
@@ -360,11 +356,7 @@ while(1) {
 
 	log_debug("Done with wakes");
 
-	if(
-	   ($Finnegan::Config::use_cisco and $phonecalls < $Finnegan::Config::Cisco::max_simultaneous_calls)
-	or
-	   (!$Finnegan::Config::use_cisco and scalar(keys(%phonelines_avail)))
-	) {
+	if(can_make_call()) {
 		my $row = @rows ? shift(@rows) : undef;
 		if(!$row or $row->{unix_trigger} > time()+60) {
 			log_debug("Checking forgot_pins");
@@ -380,7 +372,7 @@ while(1) {
 
 			foreach $row (@pin_rows) {
 				next unless $row;
-				last unless scalar keys %phonelines_avail;
+				last unless can_make_call();
 				make_call("forgotpin", $row);
 			}
 		}
