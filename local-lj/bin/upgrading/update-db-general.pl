@@ -2048,7 +2048,7 @@ register_alter(sub {
     # Add support for anonymous polls
     unless (column_type("poll", "anonymous")) {
         do_alter("poll",
-                 "ALTER TABLE poll ADD poll BIT NOT NULL DEFAULT '0'");
+                 "ALTER TABLE poll ADD anonymous BIT NOT NULL DEFAULT '0'");
     }
 });
 
