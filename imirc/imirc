@@ -1551,9 +1551,7 @@ Buddy {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
-		$screenname = "";
-		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
-		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+		$screenname = normalize($aim_connections{$nnick}{screenname});
 
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
@@ -1612,6 +1610,7 @@ Buddy {
 				} else {
 					message($sndata->{socket}, $target, $msg);
 				}
+				irc_send(irc_privmsg($usnick, "matthewg", "Setting \$nicks{$target}{$screenname} to time"));
 				$nicks{$target}{$screenname} = time if $nicks{$target}{$screenname} != -1;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
@@ -2819,6 +2818,8 @@ sub got_im($$$$) {
 			message($socket, $nnick, $tmp, 1);
 			$sndata->{away_buddies}{$nnick} = time;
 		}
+		$screenname = normalize($screenname);
+		irc_send(irc_privmsg($usnick, "matthewg", "Setting \$nicks{".noprefix($nnick)."}{$screenname} to time"));
 		$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
 }
 
