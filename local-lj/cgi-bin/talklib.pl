@@ -7,6 +7,9 @@
 # img: htdocs/img/btn_next.gif, htdocs/img/btn_tellafriend.gif
 # </LJDEP>
 
+use HTML::TreeBuilder;
+use HTML::FormatText;
+
 use strict;
 package LJ::Talk;
 
@@ -2402,6 +2405,91 @@ sub check_rate {
     }
 
     return 1;
+}
+
+# <LJFUNC>
+# name: LJ::html2txt
+# des: Converts HTML to text, displaying link URLs in per-paragraph footnote
+#      style.
+# args: html
+# des-html: The HTML to convert.
+# </LJFUNC>
+sub html2txt($) {
+	my($html) = @_;
+
+	my $tree = HTML::TreeBuilder->new_from_content($html);
+	my $linkcount = 0;
+	my @footlinks;
+
+	# Change this:
+	#	Some text, including <a href="url">a link</a>.
+	# To this:
+	#	Some text, including [0]{a link}.
+	#
+	#	[0] url
+
+	foreach my $node (@{$tree->extract_links("a")}) {
+		my($link, $elem) = @$node;
+
+		$link = "[$linkcount] $link";
+		my($text) = $elem->content_refs_list();
+		$$text = "[$linkcount]{$$text}";
+		$linkcount++;
+
+		#print "Okay, got link\n";
+
+		while($elem and $elem->tag ne "p") { $elem = $elem->parent; }
+		if(!$elem or !$elem->parent) { # No enclosing <p> - put it at the end
+			#print "No enclosing p - adding to footlinks\n";
+			push @footlinks, $link;
+			next;
+		}
+
+		# $elem is now the paragraph that had the link.
+		# If it is the first link of the paragraph, insert a new para next to it.
+		# Append the link to $elem's sibling.
+
+		#print "Alright, found paragraph\n";
+
+		$elem->postinsert(HTML::Element->new_from_lol(['p', ['blockquote']])) unless $elem->{__WEBLOG_putpara};
+		$elem->{__WEBLOG_putpara} = 1;
+
+		# Find the paragraph we want to put our link into.
+		my @elem_siblings = $elem->parent->content_list;
+		while(@elem_siblings and $elem_siblings[0] != $elem) {
+			shift @elem_siblings;
+		}
+
+		#print "Find para redux\n";
+
+		if(!@elem_siblings) { # Couldn't find it
+			push @footlinks, $link;
+			#print "Added to footlinks\n";
+			next;
+		}
+
+		shift @elem_siblings;
+		$elem = $elem_siblings[0]->find_by_tag_name("blockquote");
+
+		#print "push_content($link)\n";
+		$elem->push_content($link, ['br']);
+	}
+
+	# Sometimes, for whatever reason, we can't add a link where we want to.
+	# We stick these guys at the end.
+	if(@footlinks) {
+		my $body = $tree->find_by_tag_name("body");
+		$body->push_content(['br']);
+		$body->push_content(
+			['p', ['blockquote', 
+				map {("$_", ['br']);} @footlinks
+			]]
+		);
+	}
+
+	my $ret = HTML::FormatText->new(leftmargin => 0, rightmargin => 76)->format($tree);
+	warn "Returning: $ret\n";
+	return $ret;
 }
 
 1;
