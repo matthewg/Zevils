@@ -26,7 +26,7 @@ END
 	"body_start" => "",
  
 	"body_entry" => <<<END
-<a name="__NUM__" /><h4>__NUM__. __NAME__</h4>
+<a name="__NUM__" /><h4>__NAME__</h4>
 <p class="faq_item">
 __CONTENTS__
 </p>
