@@ -82,7 +82,7 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type, $max_sno
 	}
 
 	$cols[] = "max_snooze_count";
-	if(isset($max_snooze_count)) {
+	if(isset($max_snooze_count) && $max_snooze_count != "") {
 		$values[] = $max_snooze_count;
 	} else {
 		$values[] = "NULL";
