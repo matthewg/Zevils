@@ -419,6 +419,8 @@ $SIG{CHLD} = \&REAPER;
 
 $| = 1;
 
+$timeticks = 0;
+
 unless($reload) {
 	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
 	do { irc_send($ircservers{$servermode}{pass}) if $ourpass and $ircservers{$servermode}{uspass}; } or die "Couldn't send PASS: $!\n";
@@ -508,21 +510,22 @@ unless($reload) {
 			exit 1;
 		}
 
-		if((time % 100) == 0) { #Cleanup nicks
-			#Toc::debug_print("Reaping nicks...", "nicks", 3);
+		if(($timeticks % 100) == 0) { #Cleanup nicks
+			$timeticks = 1;
+			Toc::debug_print("Reaping nicks...", "nicks", 3);
 			ANICK: foreach $anick(keys %nicks) {
 				next if $anick eq $usnick;
 				$kill = 1;
-				#Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
+				Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
 				foreach $bnick(keys %{$nicks{$anick}}) {
-					#Toc::debug_print("\t\t$bnick was using $anick...", "nicks", 3);
+					Toc::debug_print("\t\t$bnick was using $anick...", "nicks", 3);
 					next ANICK if $kill == 0;
 					if($nicks{$anick}{$bnick} == -1) {
 						$kill = 0;
-						#Toc::debug_print("\t\t\tpermenantly.", "nicks", 3);
+						Toc::debug_print("\t\t\tpermenantly.", "nicks", 3);
 					} elsif ((time - $nicks{$anick}{$bnick}) < 3600) {
 						$kill = 0;
-						#Toc::debug_print("\t\t\tsince " . time - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
+						Toc::debug_print("\t\t\tsince " . time - $nicks{$anick}{$bnick} . " seconds ago.", "nicks", 3);
 					}
 				}
 				if($kill == 1) {
@@ -530,9 +533,11 @@ unless($reload) {
 					irc_send(":$prefix$anick QUIT :Waah, nobody wants me (reaped)\r\n");
 					Toc::debug_print("\t$anick, HAVE A NICE AFTERLIFE. ($anick reaped)", "nicks", 1);
 				} else {
-					#Toc::debug_print("\t$anick, YOU LIVE FOR NOW.", "nicks", 3);
+					Toc::debug_print("\t$anick, YOU LIVE FOR NOW.", "nicks", 3);
 				}
 			}
+		} else {
+			$timeticks++;
 		}
 	}
 }
