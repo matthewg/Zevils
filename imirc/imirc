@@ -11,8 +11,11 @@ use HTML::Parse;
 use POSIX;
 use Toc qw(:all);
 
-# YOU MUST SET THESE VARIABLES!!
+$home = (getpwent)[7];
 
+#Defaults
+$prefix = "AIM-"
+$usnick = "AIMServ";
 $us = "aimserv.matthewg.port.net"; #IRC server name to claim to be
 $them = "127.0.0.1"; #Hostname of IRC server to connect to
 $themport = 6667;
@@ -22,9 +25,8 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 			#You can try something else, but I don't think the
 			#default method works.
 
-# End configuration
-
-
+require "/etc/aimirc.conf" if -r "/etc/aimirc.conf";
+require "$home/.aimirc" if -r "$home/.aimirc";
 
 $version = "0.25";
 
@@ -77,8 +79,8 @@ $upstream->print("SERVER $us 1 :AOL Instant Messenger services\r\n");
 do { chomp($in = $upstream->getline); } until $in =~ /^PASS (.+) :1/;
 if($1 ne $theirpass) { die("Upstream server gave the wrong password!\n"); }
 
-$upstream->print(irc_newnick("AIMServ"));
-$upstream->print(":$us MODE AIMServ +o\r\n");
+$upstream->print(irc_newnick($usnick));
+$upstream->print(":$us MODE $usnick +o\r\n");
 
 $aimselect = IO::Select->new();
 $ircselect = IO::Select->new();
@@ -106,7 +108,7 @@ while(1 == 1) {
 			}
 			if($kill == 1) {
 				delete $nicks{normalize($anick)};
-				$upstream->print(":AIM-$anick QUIT :AIM-$anick\r\n");
+				$upstream->print(":$prefix-$anick QUIT :$prefix-$anick\r\n");
 			}
 		}
 	}
@@ -131,7 +133,7 @@ sub irc_newnick { #NICK nickname 1 932410331 nickname hostname server 0 :Info
 }
 
 sub process_irc_message {
-	if(/:([^ ]+) PRIVMSG aimserv :(.+)/i) { #$1 sent $2 to aimserv
+	if(/:([^ ]+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
 		$nick = $1; $msg = $2;
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
@@ -139,10 +141,10 @@ sub process_irc_message {
 		$cmd ||= $msg; #For cmds w/o param
 		#warn "Cmd: $cmd\nParam: $param: Extra: $extra\n\n";
 		unless($aim_connections{$nick} or ($cmd eq "signon") or ($cmd eq "restart") or ($cmd eq "help")) {
-			$upstream->print(irc_privmsg("AIMServ", $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
+			$upstream->print(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
 			@ret = signon $param, $extra, sub {
-				$upstream->print(irc_privmsg("AIMServ", $nick, $_[0]))
+				$upstream->print(irc_privmsg($usnick, $nick, $_[0]))
 			};
 			if($ret[0] == 0) {
 				$aim_connections{$nick}{nick} = $nick;
@@ -166,46 +168,46 @@ sub process_irc_message {
 				}
 				$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
 				$aimselect->add($aim_connections{$nick}{socket});
-				$upstream->print(irc_privmsg("AIMServ", $nick, "You are now connected to AOL Instant Messenger."));
+				$upstream->print(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger."));
 				unless($nicks{normalize($param)}) {
-					$upstream->print(irc_newnick("AIM-" . normalize($param)));
+					$upstream->print(irc_newnick($prefix . normalize($param)));
 					$nicks{normalize($param)}{$nick} = -1;
 				}
 			} else {
-				$upstream->print(irc_privmsg("AIMServ", $nick, $err));
+				$upstream->print(irc_privmsg($usnick, $nick, $err));
 			}
 		} elsif ($cmd eq "buddylist") {
 			for $buddy(keys %{$aim_connections{$nick}{groups}{Buddies}}) {
-				$upstream->print(irc_privmsg("AIMServ", $nick, "$buddy ($aim_connections{$nick}{groups}{Buddies}{$buddy}{group})"));
+				$upstream->print(irc_privmsg($usnick, $nick, "$buddy ($aim_connections{$nick}{groups}{Buddies}{$buddy}{group})"));
 			}
 		} elsif ($cmd eq "onbuddies") {
 			for $buddy(keys %{$aim_connections{$nick}{groups}{Buddies}}) {
-				$upstream->print(irc_privmsg("AIMServ", $nick, "$buddy ($aim_connections{$nick}{groups}{Buddies}{$buddy}{group})")) if ($aim_connections{$nick}{groups}{Buddies}{$buddy}{online} == 1);
+				$upstream->print(irc_privmsg($usnick, $nick, "$buddy ($aim_connections{$nick}{groups}{Buddies}{$buddy}{group})")) if ($aim_connections{$nick}{groups}{Buddies}{$buddy}{online} == 1);
 			}
 		} elsif ($cmd eq "restart") {
 			do { $upstream->close; exec($0, @args); } if $param eq $ourpass;
-			$upstream->print(irc_privmsg("AIMServ", $nick, "Bas password."));
+			$upstream->print(irc_privmsg($usnick, $nick, "Bas password."));
 		} elsif ($cmd eq "permitlist") {
-			$upstream->print(irc_privmsg("AIMServ", $nick, join(" ", keys(%{$aim_connections{$nick}{groups}{permit}}))));
+			$upstream->print(irc_privmsg($usnick, $nick, join(" ", keys(%{$aim_connections{$nick}{groups}{permit}}))));
 		} elsif ($cmd eq "denylist") {
-			$upstream->print(irc_privmsg("AIMServ", $nick, join(" ", keys(%{$aim_connections{$nick}{groups}{deny}}))));
+			$upstream->print(irc_privmsg($usnick, $nick, join(" ", keys(%{$aim_connections{$nick}{groups}{deny}}))));
 		} elsif ($cmd eq "signoff") {
 				delete $nicks{normalize($aim_connections{$nick}{aimnick})};
-				$upstream->print(":AIM-" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
+				$upstream->print(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
 				$aim_connections{$nick}{socket}->close if $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick};
-				$upstream->print(irc_privmsg("AIMServ", $nick, "Bye!"));
+				$upstream->print(irc_privmsg($usnick, $nick, "Bye!"));
 		} elsif ($cmd eq "buddyinfo") {
 			$param = lc($param);
 			$group = $aim_connections{$nick}{groups}{Buddies}{$param}{group};
 			if($aim_connections{$nick}{groups}{Buddies}{$param}) {
-				$upstream->print(":AIMServ PRIVMSG $nick :");
+				$upstream->print(":$usnick PRIVMSG $nick :");
 				$upstream->print("Group: $group\t") if $group ne "Buddies";
 				$upstream->print("Signon time: " . localtime($aim_connections{$nick}{groups}{Buddies}{$param}{signon}) . "\tIdle time: $aim_connections{$nick}{groups}{Buddies}{$param}{idle} minutes\tUser class: ");
 				$upstream->print(parseclass($aim_connections{$nick}{groups}{Buddies}{$param}{class}) . "\r\n");
 			} else {
-				$upstream->print(irc_privmsg("AIMServ", $nick,  "That persion is either not on your buddy list or not signed on."));
+				$upstream->print(irc_privmsg($usnick, $nick,  "That persion is either not on your buddy list or not signed on."));
 			}
 		} elsif ($cmd eq "add_buddy") {
 			$param = lc($param);
@@ -218,7 +220,7 @@ sub process_irc_message {
 			delete $aim_connections{$nick}{groups}{Buddies}{$param};
 			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_remove_buddy $param"));
 			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
-			$upstream->print(irc_privmsg("AIMServ", $nick, "$param has departed"));
+			$upstream->print(irc_privmsg($usnick, $nick, "$param has departed"));
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			$param = lc($param);
 			$extra = "norm" if $extra ne "anon";
@@ -241,13 +243,13 @@ sub process_irc_message {
 				sflap_put($aim_connections{$nick}{socket}, sflap_encode($msg, 0, 1));
 			}
 		} elsif ($cmd eq "get_permit_mode") {
-			$upstream->print(irc_privmsg("AIMServ", $nick, $aim_connections{$nick}{permtype}));
+			$upstream->print(irc_privmsg($usnick, $nick, $aim_connections{$nick}{permtype}));
 		} elsif ($cmd eq "set_permit_mode") {
 			$aim_connections{$nick}{permtype} = $param;
 			sflap_put($aim_connections{$nick}{socket}, sflap_encode("m $param\r\n"));
 			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
 		} elsif ($cmd eq "list_permit_modes") {
-			$upstream->print(irc_privmsg("AIMServ", $nick, "1=Permit All, 2=Deny All, 3=Permit only those on permit list"));
+			$upstream->print(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit only those on permit list"));
 		} elsif ($cmd eq "chat") {
 			$msg = quote("toc_chat_send $param ") . "\"" . quote(txt2html($extra)) . "\"";
 			sflap_put($aim_connections{$nick}{socket}, sflap_encode($msg, 0, 1));
@@ -281,14 +283,14 @@ sub process_irc_message {
 			if($param and $param ne "set_dir") {
 				sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_set_dir \"$param\"", 0, 1));
 			} else {
-				$upstream->print(irc_privmsg("AIMServ", $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				$upstream->print(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
 		} elsif ($cmd eq "dir_search") {
 			$param = quote($param); $param .= quote($extra) if $extra;
 			if($param and $param ne "dir_search") {
 				sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_dir_search \"$param\"", 0, 1));
 			} else {
-				$upstream->print(irc_privmsg("AIMServ", $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				$upstream->print(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:email:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
 		} elsif ($cmd eq "bold") {
 			$aim_connections{$nick}{bold} = $param;
@@ -301,15 +303,15 @@ sub process_irc_message {
 		} elsif ($cmd eq "add") {
 			$param =~ tr/ //d; $inick = lc($param);
 			unless($nicks{normalize($inick)}) {
-				$upstream->print(irc_newnick("AIM-$param"));
+				$upstream->print(irc_newnick($prefix . $param));
 			}
 			$nicks{$inick}{$nick} = time;
 		} elsif ($cmd eq "help") {
-			$foo = ":AIMServ PRIVMSG $nick";
-			$upstream->print("$foo :AIMServ $version, (c)1999 Matthew Sachs.\r\n");
+			$foo = ":$usnick PRIVMSG $nick";
+			$upstream->print("$foo :aimirc $version, (c)1999 Matthew Sachs.\r\n");
 			$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
 			$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
-			$upstream->print("$foo :The following commands are available (use /msg AIMServ command params to send):\r\n");
+			$upstream->print("$foo :The following commands are available (use /msg $usnick command params to send):\r\n");
 			$upstream->print("$foo :NOTE: Remove all spaces from nicks.  nick is an AIM nick, not an IRC one.\r\n");
 			$upstream->print("$foo :help - show this screen\r\n");
 			$upstream->print("$foo :signon nick pass - sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands\r\n");
@@ -339,9 +341,9 @@ sub process_irc_message {
 			$upstream->print("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n");
 			#$upstream->print("$foo :color 0/1 - When set to 1 (the default), HTML color (<FONT COLOR=...>)  tags will be translated to their IRC formatting equivalent.\r\n");
 		} else { #TODO: DIRECTORY SUPPORT, SETTING IDLE SUPPORT
-			$upstream->print(irc_privmsg("AIMServ", $nick, "Unknown command - /msg AIMServ help for help."));
+			$upstream->print(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne "aimserv")
+	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
 		$nick = $1; $target = normalize(aimnick($2)); $msg = $3;
 		$msg = quote("toc_send_im $target ") . "\"" . quote(txt2html($msg)) . "\"";
 		sflap_put($aim_connections{$nick}{socket}, sflap_encode($msg, 0, 1));
@@ -376,7 +378,7 @@ sub process_aim_message {
 	#connection{socket, permtype, groups, thread}
 	$msg = sflap_get($connection->{socket});
 	if($msg eq "-1") {
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "Error reading: $err"));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "Error reading: $err"));
 		return;
 	}
 	#warn "AIM got $msg for $connection->{nick}\n";
@@ -384,21 +386,21 @@ sub process_aim_message {
 	$cmd = $1; $val = $2;
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):(.*)/;
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "Error $1: " . aim_strerror($1)));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "Error $1: " . aim_strerror($1)));
 	} elsif($cmd eq "CONFIG") {
 		($connection->{permtype}, $connection->{groups}) = str2conf($msg);
 	} elsif($cmd eq "IM_IN") {
 		$val =~ /([^:]+):(.):(.*)/;
 		($inick = $1) =~ tr/ //d;
 		unless($nicks{normalize($inick)}) {
-			$upstream->print(irc_newnick("AIM-$inick"));
+			$upstream->print(irc_newnick($prefix . $inick));
 		}
 		($2 eq "T") ? ($ar = " [automatic response]") : ($ar = "");
 		@lines = html2txt($3, $nick);
-		$upstream->print(irc_privmsg("AIM-$inick", $connection->{nick}, $lines[0]));
+		$upstream->print(irc_privmsg($prefix . $inick, $connection->{nick}, $lines[0]));
 		shift @lines;
 		foreach $line(@lines) {
-			$upstream->print(irc_privmsg("AIM-$inick", $connection->{nick}, "[continued]\t\t$line"));
+			$upstream->print(irc_privmsg($prefix . $inick, $connection->{nick}, "[continued]\t\t$line"));
 		}
 		if(($ar eq "") and $connection->{away} and not $connection->{away_buddies}{$inick}) {
 			$connection->{away_buddies}{$inick} = 1;
@@ -409,56 +411,56 @@ sub process_aim_message {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
 		($inick = $1) =~ tr/ //d; $inick = lc($inick);
 		if($2 eq "T") {
-			$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "$inick has arrived")) unless $connection->{groups}{Buddies}{$inick}{online};
-			$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "$inick has gone away")) if substr($connection->{groups}{Buddies}{$inick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
-			$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "$inick is no longer away")) if substr($connection->{groups}{Buddies}{$inick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
+			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$inick has arrived")) unless $connection->{groups}{Buddies}{$inick}{online};
+			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$inick has gone away")) if substr($connection->{groups}{Buddies}{$inick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
+			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$inick is no longer away")) if substr($connection->{groups}{Buddies}{$inick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
 			$connection->{groups}{Buddies}{$inick}{evil} = $3;
 			$connection->{groups}{Buddies}{$inick}{signon} = $4;
 			$connection->{groups}{Buddies}{$inick}{idle} = $5;
 			$connection->{groups}{Buddies}{$inick}{class} = $6;
 			$connection->{groups}{Buddies}{$inick}{online} = 1;
-			$upstream->print(irc_newnick("AIM-$inick")) unless $nicks{normalize($inick)};
+			$upstream->print(irc_newnick($prefix . $inick)) unless $nicks{normalize($inick)};
 			$nicks{normalize($inick)}{$connection->{nick}} = -1;
 		} else {
-			$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "$inick has departed"));
+			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$inick has departed"));
 			delete $connection->{groups}{Buddies}{$inick};
 			delete $nicks{normalize($inick)}{$connection->{nick}};
 			delete $nicks{normalize($inick)} unless keys %{$nicks{normalize($inick)}};
-			$upstream->print(":AIM-$inick QUIT :AIM-$inick\r\n") unless scalar keys %{$nicks{normalize($inick)}};
+			$upstream->print(":$prefix$inick QUIT :$prefix$inick\r\n") unless scalar keys %{$nicks{normalize($inick)}};
 		}
 	} elsif($cmd eq "EVILED") {
 		$val =~ /([^:]+):(.*)/;
 		$connection->{evil} = $1;
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, $2 || "Anonymous" . " has just evilled you.  Your new evil level is $1%."));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, $2 || "Anonymous" . " has just evilled you.  Your new evil level is $1%."));
 	} elsif($cmd eq "CHAT_JOIN") {
 		$val =~ /([^:]+):(.*)/;
 		$connection->{chats}{$1} = $2;
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "You have joined chat $2.  Chat id is $1."));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "You have joined chat $2.  Chat id is $1."));
 	} elsif($cmd eq "'CHAT_IN") {
 		$val =~ /([^:]+):([^:]+):(.+):(.*)/;
-		$upstream->print(":AIMServ PRIVMSG $connection->{nick} :$2 ");
+		$upstream->print(":$usnick PRIVMSG $connection->{nick} :$2 ");
 		($3 eq "T" or $3 eq "t") ? ($upstream->print("whispered")) : ($upstream->print("said"));
 		@lines = html2txt($4, $nick);
 		$upstream->print(" in chat $connection->{chats}{$1}: $lines[0]\r\n");
 		shift @lines;
 		foreach $line(@lines) {
-			$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "[continued]\t\t$line"));
+			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "[continued]\t\t$line"));
 		}
 	} elsif($cmd eq "CHAT_UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):(.+)/;
-		$upstream->print(":AIMServ PRIVMSG $connection->{nick} :The following users have ");
+		$upstream->print(":$usnick PRIVMSG $connection->{nick} :The following users have ");
 		($2 eq "T") ? ($upstream->print("joined")) : ($upstream->print("left"));
 		$upstream->print(" chat $connection->{chats}{$1}: $3\r\n");
 	} elsif($cmd eq "CHAT_INVITE") {
 		$val =~ /([^:]+):([^:]+):([^:]+):(.*)/;
 		$connection->{chats}{$2} = 1;
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "$3 has invited us to chatroom $1 ($4).  To accept, /msg AIMServ join $2"));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 ($4).  To accept, /msg $usnick join $2"));
 	} elsif($cmd eq "CHAT_LEFT") {
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "Chat $connection->{chats}{$val} has been dropped."));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "Chat $connection->{chats}{$val} has been dropped."));
 		delete $connection->{chats}{$val};
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
-		$upstream->print(irc_privmsg("AIMServ", $connection->{nick}, "AOL wants you to go to the URL http://toc-d01.blue.aol.com:5190/$1"));
+		$upstream->print(irc_privmsg($usnick, $connection->{nick}, "AOL wants you to go to the URL http://toc-d01.blue.aol.com:5190/$1"));
 	}
 }
 
@@ -528,6 +530,6 @@ sub txt2html {
 sub aimnick {
 	my($nick) = shift;
 	$nick = lc($nick);
-	$nick =~ s/^AIM-//i;
+	$nick =~ s/^$prefix//i;
 	return $nick;
 }
