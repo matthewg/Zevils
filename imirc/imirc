@@ -295,12 +295,16 @@ sub process_irc_message {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
-				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
-				delete $aim_connections{$aim_connections{$nick}{socket}->fileno};
-				$aimselect->remove($aim_connections{$nick}{socket});
-				signoff($aim_connections{$nick}{socket});
-				delete $aim_connections{$nick};
-				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
+				if($aim_connections{$nick}) {
+					irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
+					if($aim_connections{$nick}{socket}) {
+						delete $aim_connections{$aim_connections{$nick}{socket}->fileno};
+						$aimselect->remove($aim_connections{$nick}{socket});
+						signoff($aim_connections{$nick}{socket});
+					}
+					delete $aim_connections{$nick};
+					irc_send(irc_privmsg($usnick, $nick, "Bye!"));
+				}
 		} elsif ($cmd eq "buddyinfo") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname")) unless $param;
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
