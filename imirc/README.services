@@ -1,0 +1,22 @@
+=====Using IMIRC with Services=====
+
+If you have services, or anything else like a system announcement bot that
+sends out a PRIVMSG to any user connecting to the server, IMIRC will get
+caught in an infinite loop with it; it will complain that your announcer sent
+it in invalid command.  If the announcer sends a PRIVMSG in response to this,
+the result is an infinite loop.  The accepted fix for that is to have bots
+like IMServ use NOTICE instead of PRIVMSG for sending replies, but some broken
+clients like WebTV (which a significant percentage of IMIRC's userbase uses)
+don't display NOTICEs.
+
+See the $ignoreuhosts and @ignorehosts options in the IMIRC configuration file
+for ways to combat this.  To see if you are having this problem, start up IMIRC
+with the parameters --debug 2 --fork 0 --debuglevel irc=99.
+
+There's another issue to consider if you are running services.  People must
+not be allowed to register nicks or channels used by IMIRC.  Nicks are taken
+care of by the Q: lines and IMServ's auto-KILLing of people who try to
+imitate AIM users.  However, channels are not.  It is *STRONGLY* recommended
+that you configure your services to not allow channels starting with $nickchan
+(#aimchan-) or $chatchan (#aimchat-) to be registered.  IMIRC and services
+could both be easily crippled by malicious users registering chat channels.
