@@ -961,7 +961,7 @@ sub format_text_mail {
         LJ::CleanHTML::clean_event(\$entrytext, { 'preformatted' => $parent->{opt_preformatted},
                                   'cuturl' => LJ::item_link($item->{entryu}{user}, $dtalkid, $item->{anum}), });
     }
-    $text .= indent(html2txt($entrytxt), ">") . "\n\n";
+    $text .= indent(html2txt($entrytext), ">") . "\n\n";
 
     $text .= "Their reply was:\n\n";
     if ($comment->{subject}) {
