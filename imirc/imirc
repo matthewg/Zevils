@@ -405,8 +405,8 @@ if($ssl) {
 	};
 
 	if($@) {
-		print STDERR "Couldn't require SSLv3.\n";
-		print STDERR "Probably due to a problem with IO::Socket::SSL.  Here's what Perl thinks:\n";
+		print STDERR "Couldn't load Perl module SSLv3.\n";
+		print STDERR "This is probably due to a problem with IO::Socket::SSL.  Here's what Perl thinks:\n";
 		print STDERR "$@\n";
 		print STDERR "\n\n";
 		print STDERR "And here's what that probably means...\n\n";
@@ -790,11 +790,14 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
 			$param = normalize $param;
-			irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password")) unless $param and $extra;
-			if($aim_connections{$nnick} and $aim_connections{$nnick}{screennames}{$param}) {
-				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password"));
 			} else {
-				do_signon($param, $extra, $usnick, $nick);
+				if($aim_connections{$nnick} and $aim_connections{$nnick}{screennames}{$param}) {
+					irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
+				} else {
+					do_signon($param, $extra, $usnick, $nick);
+				}
 			}
 		} elsif ($cmd eq "buddylist") {
 			my(%groups, $buddy, $group);
@@ -827,89 +830,134 @@ sub process_irc_message($) {
 		} elsif ($cmd eq "signoff") {
 			do_signoff($nnick, $aim_connections{$nnick}{socket}) if $aim_connections{$nnick};
 		} elsif ($cmd eq "buddyinfo") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname")) unless $param;
-			%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
-			$param = lc($param);
-			$group = $temp{Buddies}{$param}{group};
-			if($temp{Buddies}{$param}) {
-				local $^W = 0;
-				$msg = ":$usnick PRIVMSG $nick :";
-				$msg .= "Group: $group\t" if $group and $group ne "Buddies";
-				$msg .= "Signon time: " . localtime($temp{Buddies}{$param}{signon}) . "\tIdle time: $temp{Buddies}{$param}{idle} minutes\tUser class: ";
-				$msg .= parseclass($temp{Buddies}{$param}{class}) . "\r\n";
-				irc_send($msg);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname"));
 			} else {
-				irc_send(irc_privmsg($usnick, $nick,  "That persion is either not on your buddy list or not signed on."));
+				%temp = deref(get_config($aim_connections{$nnick}{aimnick}));
+				$param = lc($param);
+				$group = $temp{Buddies}{$param}{group};
+				if($temp{Buddies}{$param}) {
+					local $^W = 0;
+					$msg = ":$usnick PRIVMSG $nick :";
+					$msg .= "Group: $group\t" if $group and $group ne "Buddies";
+					$msg .= "Signon time: " . localtime($temp{Buddies}{$param}{signon}) . "\tIdle time: $temp{Buddies}{$param}{idle} minutes\tUser class: ";
+					$msg .= parseclass($temp{Buddies}{$param}{class}) . "\r\n";
+					irc_send($msg);
+				} else {
+					irc_send(irc_privmsg($usnick, $nick,  "That persion is either not on your buddy list or not signed on."));
+				}
 			}
 		} elsif ($cmd eq "add_buddy") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: add_buddy screenname [group]")) unless $param;
-			$param = lc($param);
-			$group = $extra || "Buddies";
-			add_buddy($aim_connections{$nnick}{socket}, $param, $group);
-		} elsif ($cmd eq "remove_buddy") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname")) unless $param;
-			$param = lc($param);
-			remove_buddy($aim_connections{$nnick}{socket}, $param);
-			irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
-		} elsif ($cmd eq "evil" or $cmd eq "warn") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname [anon]")) unless $param;
-			$param = lc($param);
-			if($extra ne "anon") {
-				$extra = 0;
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_buddy screenname [group]"));
 			} else {
-				$extra = 1;
+				$param = lc($param);
+				$group = $extra || "Buddies";
+				add_buddy($aim_connections{$nnick}{socket}, $param, $group);
 			}
-			evil($aim_connections{$nnick}{socket}, $param, $extra);
+		} elsif ($cmd eq "remove_buddy") {
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname"));
+			} else {
+				$param = lc($param);
+				remove_buddy($aim_connections{$nnick}{socket}, $param);
+				irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
+			}
+		} elsif ($cmd eq "evil" or $cmd eq "warn") {
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname [anon]"));
+			} else {
+				$param = lc($param);
+				if($extra ne "anon") {
+					$extra = 0;
+				} else {
+					$extra = 1;
+				}
+				evil($aim_connections{$nnick}{socket}, $param, $extra);
+			}
 		} elsif ($cmd eq "add_permit") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname")) unless $param;
-			$param = lc($param);
-			add_permit($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname"));
+			} else {
+				$param = lc($param);
+				add_permit($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "add_deny") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname")) unless $param;
-			$param = lc($param);
-			add_deny($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname"));
+			} else {
+				$param = lc($param);
+				add_deny($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "remove_deny") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname")) unless $param;
-			$param = lc($param);
-			remove_deny($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname"));
+			} else {
+				$param = lc($param);
+				remove_deny($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "remove_permit") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname")) unless $param;
-			$param = lc($param);
-			remove_permit($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname"));
+			} else {
+				$param = lc($param);
+				remove_permit($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "join") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_id OR join chat_name")) unless $param;
-			$extra ? chat_join($aim_connections{$nnick}{socket}, "$param $extra") : chat_join($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_id OR join chat_name"));
+			} else {
+				$extra ? chat_join($aim_connections{$nnick}{socket}, "$param $extra") : chat_join($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "get_permit_mode") {
 			irc_send(irc_privmsg($usnick, $nick, $aim_connections{$nnick}{permtype}));
 		} elsif ($cmd eq "set_permit_mode") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode")) unless $param;
-			$aim_connections{$nnick}{permtype} = $param;
-			permtype($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode"));
+			} else {
+				$aim_connections{$nnick}{permtype} = $param;
+				permtype($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "list_permit_modes") {
 			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
 		} elsif ($cmd eq "whisper") {
 			$extra =~ /(\S+) (.*)/;
-			irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text")) unless $param and $1 and $2;
-			chat_whisper($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
+			unless($param and $1 and $2) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text"));
+			} else {
+				chat_whisper($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
+			}
 		} elsif ($cmd eq "chat_evil" or $cmd eq "chat_warn") {
 			$extra =~ /(\S+) ?(.*)/;
-			irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd chat_id screenname [anon]")) unless $param and $extra;
-			$foo = undef;
-			$foo = "norm" if $2 ne "anon";
-			$foo ne "norm" ? $foo = 1 : $foo = 0;
-			chat_evil($aim_connections{$nnick}{socket}, $param, $1, $foo);
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd chat_id screenname [anon]"));
+			} else {
+				$foo = undef;
+				$foo = "norm" if $2 ne "anon";
+				$foo ne "norm" ? $foo = 1 : $foo = 0;
+				chat_evil($aim_connections{$nnick}{socket}, $param, $1, $foo);
+			}
 		} elsif ($cmd eq "info" or $cmd eq "get_info") {
-			$param = lc($param);
-			irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname")) unless $param;
-			get_info($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname"));
+			} else {
+				$param = lc($param);
+				get_info($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "set_info") {
 			my $text;
-			irc_send(irc_privmsg($usnick, $nick, "Usage: set_info info")) unless $param;
-			$extra ? ($text = "$param $extra") : ($text = $param);
-			set_info($aim_connections{$nnick}{socket}, $text);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: set_info info"));
+			} else {
+				$extra ? ($text = "$param $extra") : ($text = $param);
+				set_info($aim_connections{$nnick}{socket}, $text);
+			}
 		} elsif ($cmd eq "get_dir") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname")) unless $param;
-			get_directory($aim_connections{$nnick}{socket}, $param);
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname"));
+			} else {
+				get_directory($aim_connections{$nnick}{socket}, $param);
+			}
 		} elsif ($cmd eq "set_dir") {
 			$param = "$param $extra" if $extra;
 			if($param and $param ne "set_dir") {
@@ -947,12 +995,15 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
 			}
 		} elsif ($cmd eq "add") {
-			irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname")) unless $param;
-			unless($nicks{noprefix $param}) {
-				irc_send(irc_newnick($prefix . normalize $param));
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname"));
+			} else {
+				unless($nicks{noprefix $param}) {
+					irc_send(irc_newnick($prefix . normalize $param));
+				}
+				truncwarn($nick, $param);
+				$nicks{noprefix $param}{$nnick} = time;	
 			}
-			truncwarn($nick, $param);
-			$nicks{noprefix $param}{$nnick} = time;
 		} elsif ($cmd eq "sendidle") {
 			unless($param == 0 or $param == 1) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: sendidle (0|1)"));
@@ -1034,12 +1085,16 @@ sub process_irc_message($) {
 				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
 			}
 		} elsif($cmd eq "webpage") {
-			irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick)));
+			irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick))) if $param;
 		} elsif($cmd eq "switchname") {
-			if(switchnick($nnick, normalize $param)) {
-				irc_send(irc_privmsg($usnick, $nnick, "You are not signed on under that screenname!"));
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nnick, "Usage: switchname screenname"));
 			} else {
-				irc_send(irc_privmsg($usnick, $nnick, "Your default screenname is now $param."));
+				if(switchnick($nnick, normalize $param)) {
+					irc_send(irc_privmsg($usnick, $nnick, "You are not signed on under that screenname!"));
+				} else {
+					irc_send(irc_privmsg($usnick, $nnick, "Your default screenname is now $param."));
+				}
 			}
 		} elsif($cmd eq "signoffall") {
 			do_signoff_all($nnick);
