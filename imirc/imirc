@@ -3086,6 +3086,7 @@ sub loadbuddies($$$) {
 					@buddies = keys %$buddygroup;
 				} else {
 					@buddies = @$buddygroup;
+				}
 				@{$buddies{$group}} = @buddies;
 
 				foreach my $buddy(@buddies) {
