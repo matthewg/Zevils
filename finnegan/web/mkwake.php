@@ -46,7 +46,7 @@ if(isset($_POST["submit"])) {
 			$onetime = "checked";
 	}
 
-	if(!preg_match('/^(\d{1,2}):(\d\d)$/', $_POST["time"], $matches)) echo "time check";
+	preg_match('/^(\d{1,2}):(\d\d)$/', $_POST["time"], $matches);
 	if(!isset($_POST["time"]) || !preg_match('/^(\d{1,2}):(\d\d)$/', $_POST["time"], $matches) || $matches[1] < 1 || $matches[1] > 12 || $matches[2] > 59) {
 		$error = 1;
 		echo $TEMPLATE["mkwake"]["time_invalid"];
