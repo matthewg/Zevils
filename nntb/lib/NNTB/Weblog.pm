@@ -216,6 +216,8 @@ sub fail($$) {
 This method converts HTML to plain text.  It handles links in a style similar
 to that of Debian Weekly News.
 
+You B<MAY> override this method.
+
 =cut
 
 sub html2txt($$) {
