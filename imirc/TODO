@@ -1,3 +1,12 @@
+Are there any "nick-wide" things that we shouldn't send to SNchan?  i.e.
+do_signoff_all?
+
+alarm, timeouts... 
+
+Various reaping/creation issues
+	nick collides
+	reap during chat
+
 Damn, bloody thing uses too much CPU...
 I think its these constant read attempts on the AIM connections.  Plus it has
 to set up the SIGALRM stuff too (well it doesn't /have to/ - it /does/).  Maybe

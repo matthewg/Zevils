@@ -2042,9 +2042,9 @@ sub do_signon($$$$) {
 	$nnick = normalize($tnick);
 
 	if($verbose_signon) {
-		@ret = signon $nparam, $textra, \&socksub, sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
+		@ret = signon $nparam, $textra, socksub(), sub { irc_send(irc_privmsg($tusnick, $tnick, $_[0])) };
 	} else {
-		@ret = signon $nparam, $textra, \&socksub;
+		@ret = signon $nparam, $textra, socksub();
 	}
 	if($ret[0] == 0) {
 		$aim_connections{$nnick}{nick} = $nnick;
@@ -2135,18 +2135,18 @@ sub do_signoff($$;$) {
 }
 
 # We use this so we can handle both SSL and non-SSL.
-sub socksub {
+sub socksub() {
 	if($ssl) {
-		SSLv3->new(
-			PeerAddr => $tocserver,
-			PeerPort => $tocport,
+		return "SSLv3->new(
+			PeerAddr => \"$tocserver\",
+			PeerPort => \"$tocport\",
 			SSL_verify_mode => 0x00,
-		);
+		);";
 	} else {
-		IO::Socket::INET->new(
-			PeerAddr => $tocserver,
-			PeerPort => $tocport,
-		);
+		return "IO::Socket::INET->new(
+			PeerAddr => \"$tocserver\",
+			PeerPort => \"$tocport\",
+		);";
 	}
 }
 

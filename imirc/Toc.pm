@@ -330,7 +330,7 @@ with $_[0] set to the text of the message.
 
 =cut
 
-sub signon($$&;&) {
+sub signon($$;$&) {
 	my($username, $password, $socksub, $status) = @_;
 	my($socket, $msg, $config, $buddy, $flags, $alarm);
 
@@ -351,6 +351,8 @@ sub signon($$&;&) {
 
 		if(ref $socksub eq "CODE") {
 			$socket = &$socksub;
+		} elsif($socksub) {
+			$socket = eval $socksub;
 		} else {
 			$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898');
 		}
@@ -403,7 +405,6 @@ sub signon($$&;&) {
 	$err ||= $@ if $@;
 	alarm 0;
 	return -1 if $err;
-	Carp::croak($@) if $@;
 
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
 	$msg = sflap_get($socket, 1);
