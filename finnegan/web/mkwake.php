@@ -69,13 +69,11 @@ if(isset($_POST["submit"])) {
 	}
 	if(isset($_POST["message"])) $message = $_POST["message"];
 
-	if(isset($_POST["max_snooze_count"])) {
-		if(!preg_match('/^\d*$/', $_POST["max_snooze_count"])) {
-			$error = 1;
-			echo $TEMPLATE["mkwake"]["max_snooze_count_invalid"];
-		} else {
-			$max_snooze_count = $_POST["max_snooze_count"];
-		}
+	if(!isset($_POST["max_snooze_count"]) || !preg_match('/^\d*$/', $_POST["max_snooze_count"])) {
+		$error = 1;
+		echo $TEMPLATE["mkwake"]["max_snooze_count_invalid"];
+	} else {
+		$max_snooze_count = $_POST["max_snooze_count"];
 	}
 
 	if($type == "one-time") {
@@ -238,7 +236,7 @@ echo preg_replace(array(
 		$recur, $onetime,
 		$am, $pm,
 		$message_links, $message_options,
-		isset($max_snooze_count) ? $max_snooze_count : "", $date,
+		isset($max_snooze_count) ? $max_snooze_count : $FinneganConfig->max_snooze_count, $date,
 		$weekdays["mon"], $weekdays["tue"], $weekdays["wed"], $weekdays["thu"], $weekdays["fri"], $weekdays["sat"], $weekdays["sun"],
 		$caltype_brandeis, $caltype_holidays, $caltype_normal
 	), $TEMPLATE["mkwake"]["form"]
