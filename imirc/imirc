@@ -57,14 +57,70 @@ sub BEGIN {
 	}
 
 	package HTML::FormatAIMIRC;
-	
+
 		@ISA = qw(HTML::FormatText);
-		
+
+		#Since we want to be able to trap all tags, we define a custom AUTOLOAD and format
+		sub AUTOLOAD {
+			my $sub = $AUTOLOAD;
+			my $elem = shift;
+			my $attr;
+			my $output;
+
+			$sub =~ s/^.+::(.+)_(start|end)$/$1/ or return 0;
+
+			if($2 eq "end") {
+				if($elem->{_original_html} =~ m!/$sub!) {
+					#Ooh, now this is a fun hack.
+					#It's not smart enough to know whether to make unknown tags containers.
+					#So, if someone grins at you: <g> you'll still get a g_end call.
+					#Which normally would do produce <g></g>
+					#
+					#But what about those times when you really want the closing tags?
+					#Well we store the original HTML in the FormatAIMIRC object and use that to check.
+	
+					push @{$elem->{output}}, "</$sub>";
+				}
+			} else {
+				#Get all attributes (<tag attr=val attr2=val2>)
+				foreach $attr(keys %{$_[0]}) {
+					next if $attr =~ /^_/;
+					$output .= " $attr=$_[0]->{$attr}";
+				}
+				push @{$elem->{output}}, "<$sub$output>";
+			}
+			return $elem;
+		}
+
+		sub format {
+			my($self, $html) = @_;
+			$self->begin();
+			$html->traverse(sub {
+				my($node, $start, $depth) = @_;
+				if (ref $node) {
+					my $tag = $node->tag;
+					my $func = $tag . '_' . ($start ? "start" : "end");
+					return $self->$func($node);
+				} else {  
+					$self->textflow($node);
+				}
+				1;
+			});
+			$self->end();
+			join('', @{$self->{output}});
+		}
+
 		sub hr_start {
 			my $self = shift;
 			$self->vspace(1);
 			$self->out("=" x 30);
 			$self->vspace(1);
+		}
+
+		sub img_start {
+			my($self, $elem) = @_;
+
+			$self->out("[IMAGE " . ($elem->attr('alt') || $elem->attr('src')) . "]");
 		}
 
 		#We can't get at the HREF inside of sub out, so set it here.
@@ -475,7 +531,6 @@ sub irc_privmsg {
 	$from = substr($from, 0, $ircservers{$servermode}{nicklen});
 	if($from ne $usnick and not $nicks{normalize($from)}) {
 		irc_send(irc_newnick($from));
-		$nicks{normalize($from)} = 1;
 	}
 
 	foreach $line(split(/[\r\n]+/, $msg)) {
@@ -489,7 +544,8 @@ sub irc_newnick {
 	$nick =~ tr/ //d;
 	$user = $nick;
 	$user =~ s/^$prefix//;
-	$nicks{$nick}{$usnick} = time unless $nicks{$nick};
+	return if $nicks{normalize($nick)};
+	$nicks{normalize($nick)}{$usnick} = time unless $nicks{normalize($nick)};
 	$shortnick = substr($nick, 0, $ircservers{$servermode}{nicklen});
 
 	$longnicks{normalize($shortnick)} = $nick;
@@ -503,7 +559,10 @@ sub process_irc_message {
 	if(/^ERROR :(.+)/) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
-	} elsif(/:([^ ]+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
+	} elsif(/^:(\S+) KILL (\S+)/i) {
+		delete $nicks{normalize($2)};
+		delete $nicks{$2};
+	} elsif(/^:(\S+) PRIVMSG $usnick :(.+)/i) { #$1 sent $2 to $usnick
 		$nick = $1; $msg = $2;
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
@@ -856,6 +915,8 @@ sub process_irc_message {
 		$aimselect->remove($aim_connections{$1}{socket}) if $aim_connections{$1}{socket};
 		signoff($aim_connections{$1}{socket}) if $aim_connections{$1}{socket};
 		delete $aim_connections{$1};
+		delete $nicks{normalize($1)};
+		delete $nicks{$1};
 	} elsif(/^PING/) {
 		irc_send("PONG $us\r\n");
 	}
@@ -982,13 +1043,17 @@ sub process_aim_message {
 }
 
 sub html2txt {
-	my ($msg, $nick, $parsetree, @lines) = @_;
+	my ($msg, $nick, $parsetree, @lines, $formatter) = @_;
 	my($linkct, $link, $elem, $node) = 0;
 
-	$parsetree = HTML::TreeBuilder->new->parse($msg);
+	$parsetree = HTML::TreeBuilder->new;
+	$parsetree->{_ignore_unknown} = 0;
+	$parsetree->parse($msg);
 	$parsetree->eof;
 
-	$msg = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096)->format($parsetree);
+	$formatter = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096);
+	$formatter->{_original_html} = $msg; #We use this to determine whether to add a closing tag for "unknown tags"
+	$msg = $formatter->format($parsetree);
 	$parsetree->delete;
 	return $msg;
 }
