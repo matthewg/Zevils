@@ -51,6 +51,7 @@ void FCH::printHelp()
 			"-f <file> --file <file>       	         the name of the sound file\n"
 			"-d <destination> --dest <destination>   address of party to call; [alias@][transport$]host[:port]\n"
 			"-T <timeout> --timeout <timeout>        time to allow for placing a call, in seconds\n"
+			"-M <timeout> --max-time <timeout>       maximum length for the call, in seconds\n"
 			"-v <string> --voicemail <string>        destination display name which indicates call has been forwarded to voicemail\n"
 			"-s <file> --snoozefile <file>           the name of the sound file to play when snooze is activated\n"
 			"-g <addr> --gatekeeper <addr>           the IP address or DNS name of the gatekeeper\n"
@@ -81,6 +82,7 @@ void FCH::Main()
 			"f-file:"
 			"d-dest:"
 			"T-timeout:"
+			"M-max-time:"
 			"v-voicemail:"
 			"s-snoozefile:"
 			"g-gatekeeper:"
@@ -96,7 +98,7 @@ void FCH::Main()
 			"u-user:"
 		);
 
-	if (!args.HasOption('f') || !args.HasOption('d') || !args.HasOption('T') || !args.HasOption('v') || !args.HasOption('s') || args.HasOption('h')) 
+	if (!args.HasOption('f') || !args.HasOption('d') || !args.HasOption('M') || !args.HasOption('T') || !args.HasOption('v') || !args.HasOption('s') || args.HasOption('h')) 
 	{
 		printHelp();
 		SetTerminationValue(1);		
@@ -132,6 +134,11 @@ void FCH::Main()
 	progConf.voicemail = args.GetOptionString('v');
 	progConf.snoozeFile = args.GetOptionString('s');
 	if(sscanf(args.GetOptionString('T'), "%d", &progConf.timeout) != 1) {
+		printHelp();
+		SetTerminationValue(1);
+		return;
+	}
+	if(sscanf(args.GetOptionString('M'), "%d", &progConf.max_time) != 1) {
 		printHelp();
 		SetTerminationValue(1);
 		return;

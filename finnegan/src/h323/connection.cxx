@@ -36,6 +36,8 @@ void MyConnection::OnEstablished()
 	PTRACE(1, "connection established");
 	alarm(0);
 	signal(SIGALRM, SIG_IGN);
+	signal(SIGALRM, connSignalHandler);
+	alarm(progConf.max_time);
 }
 
 void MyConnection::OnUserInputIndication(const H245_UserInputIndication & pdu)

@@ -570,10 +570,10 @@ sub make_call($$) {
 			my $timeout;
 			my $snooze_ok = 0;
 			if($type eq "wake") {
-				$timeout = $Finnegan::Config::max_wake_duration - 10;
+				$timeout = $Finnegan::Config::max_wake_duration;
 				$snooze_ok = 1 if $row->{snooze_count} < $Finnegan::Config::max_snooze_count;
 			} else {
-				$timeout = $Finnegan::Config::max_forgot_pin_duration - 10;
+				$timeout = $Finnegan::Config::max_forgot_pin_duration;
 			}
 
 			my @command;
@@ -583,8 +583,9 @@ sub make_call($$) {
 					"--file", "../tmp/$$.$audio_ext",
 					"--dest", $row->{extension} . "@" . $Finnegan::Config::Cisco::h323_gateway,
 					"--timeout", $Finnegan::Config::Cisco::call_timeout,
+					"--max-time", $timeout,
 					"--voicemail", $Finnegan::Config::Cisco::voicemail_name,
-					"--snoozefile", "$audio_dir/wake/thanks.$audio_ext",
+					"--snoozefile", $snooze_ok ? "$audio_dir/wake/thanks.$audio_ext" : "$audio_dir/wake/snooze-no.$audio_ext",
 					"--no-gatekeeper",
 				);
 				push @command, "--user", $Finnegan::Config::Cisco::my_ext if $Finnegan::Config::Cisco::my_ext;
@@ -593,75 +594,47 @@ sub make_call($$) {
 				@command = ("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.$audio_ext", $snooze_ok);
 			}
 
+			my $success = 0;
+			my $snooze = 0;
+
 			if(system(@command)) {
 				if($? == -1) {
-					$end->("failure", "Failed to execute VM shell: $!");
-					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-					exit 1;
+					$end->("failure", "Failed to execute: $!");
 				} elsif($? & 127) {
-					$end->("failure", "VM shell died with signal " . ($? & 127));
-					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-					exit 1;
+					$end->("failure", "Died with signal " . ($? & 127));
 				} else {
 					my $status = $? >> 8;
 
-					if($status == 0) { # Success
-						if($type eq "wake") {
-							if($row->{date}) {
-								$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
-							} else {
-								$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
-							}
-						} else {
-							$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgopint " . $row->{extension}, $update_forgotpin);
-						}
-						$end->("success", "done");
-						exit 0;
+					if($status == 0 or ($status == 3 and !$snooze_ok)) { # Success
+						$end->("success", "");
+						$success = 1;
 					} elsif($status == 3) { # Snooze
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
 						$end->("success", "snooze");
-						exit 0;
+						$success = 1;
+						$snooze = 1;
 					} elsif($status == 1) { # Busy
 						$end->("failure", "busy signal");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
 					} elsif($status == 2) { # No dial tone
 						$end->("failure", "no dial tone");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
 					} elsif($status == 4) { # Timed out
 						$end->("failure", "time out - snooze");
-						if($type eq "wake") {
-							if($snooze_ok) {
-								$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-							} else {
-								if($row->{date}) {
-									$delete_wake->execute($row->{wake_id}) || db_error("Couldn't delete wake " . $row->{wake_id}, $delete_wake);
-								} else {
-									$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
-								}
-							}
-						}
-						exit 1;
 					} elsif($status == 5) { # Alternate signal interruption
-						$end->("failure", "VM shell interrupted");
-						$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						exit 1;
+						$end->("failure", "Shell interrupted");
 					} else {
 						$end->("failure", "unknown exit code $status");
 						log_error("unknown wake exit code");
-						if($type eq "wake") {
-							$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-						}
-						exit 1;
 					}
 				}
+			} else {
+				$success = 1;
+				$end->("success", "");
+			}
+
+
+			$snooze = 1 if !$success and $snooze_ok;
+
+			if($snooze) {
+				$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 			} else {
 				if($type eq "wake") {
 					if($row->{date}) {
@@ -670,11 +643,11 @@ sub make_call($$) {
 						$update_wake->execute($row->{wake_id}) || db_error("Couldn't update wake " . $row->{wake_id}, $update_wake);
 					}
 				} else {
-					$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgopint " . $row->{extension}, $update_forgotpin);
+					$update_forgotpin->execute($row->{extension}) || db_error("Couldn't update forgotpin " . $row->{extension}, $update_forgotpin);
 				}
-				$end->("success", "");
-				exit 0;
 			}
+
+			exit ($success ? 0 : 1);
 		}
 	}
 }

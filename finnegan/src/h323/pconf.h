@@ -17,6 +17,7 @@ struct ProgConf
 	PString      voicemail;
 	PString      snoozeFile;
 	int          timeout;
+	int          max_time;
 	PStringArray userAliases;
 }; 
 

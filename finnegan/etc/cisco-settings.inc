@@ -38,9 +38,7 @@ $rtp_port_base = 20480;
 
 # Miscellaneous timeouts
 $call_timeout = 40; # After this many seconds, auto-snooze
-$max_wake_timeouts = 8; # After this many call timeouts, give up
-$post_timeout = 60; # After this many seconds of trying to reach the phone, auto-snooze
-$max_unreachable_count = 8; # After this many phone contact timeouts, give up
+# See also max_wake_duration and max_snooze_count in settings.in
 
 
 #__PHPONLY_START__
