@@ -1,3 +1,12 @@
+Mar 25 2000, 0.95-pre90:
+	SSL for TOC connections
+	Chatroom channels are done
+	Better support for TS IRC servers
+	IRC connection uses non-blocking I/O
+	Users are now informed when a screenname is truncated due to
+	   nickname length limitations
+
+
 Mar 20 2000, 0.95-pre3:
 	Bugfixes by the barrelfull
 	We now send keepalive packets and (optionally, by default) idle times
