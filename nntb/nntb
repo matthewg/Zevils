@@ -221,14 +221,14 @@ EOF
 				do_log("$package gave us empty root - not using", LOG_ERROR);
 				exit 1;
 			} elsif(exists($blogs{lc($blog_obj->root)})) {
-				do_log("Duplicate root ", $obj->root, " for $package", LOG_ERROR);
+				do_log("Duplicate root ", $blog_obj->root, " for $package", LOG_ERROR);
 				exit 1;
 			} elsif(my(@dups) = grep {
 				  index(lc($blog_obj->root), lc($_->root)) != -1 or
 				  index(lc($_->root), lc($blog_obj->root)) != -1
 				} values %blogs
 			) {
-				do_log("Root ", $obj->root, " is a substring of the following roots: ", (map { $_->root } @dups), LOG_ERROR);
+				do_log("Root ", $blog_obj->root, " is a substring of the following roots: ", (map { $_->root } @dups), LOG_ERROR);
 				exit 1;
 			} else {
 				$blogs{lc($blog_obj->root)} = $blog_obj;
@@ -327,13 +327,13 @@ sub got_client() {
 
 	select CLIENT;
 	$| = 1; # Auto-flush the output.
-	print "200 " . hostname() . " NNTB server $version ready\n";
+	nntp_put("200 ", hostname(), " NNTB server $version ready");
 
-	do_log("Got a client from $client_ip\n", LOG_INFO);
+	do_log("Got a client from $client_ip", LOG_INFO);
 	$_->got_client() foreach values %blogs;
 
 	GETLINE: while(<CLIENT>) {
-		s/[\r\n]{1,2}$/;
+		s/[\r\n]{1,2}$//;
 		do_log("From NNTP: $_", LOG_DEBUG);
 		my $text = $_;
 		my @params = split;
@@ -353,7 +353,7 @@ sub got_client() {
 						last SWITCH;
 					} else {
 						$currmsg = $params[0];
-						$msgid = $blog->num2id($group, $currmsg) if $blog;
+						$msgid = $blog->num2id($currgroup, $currmsg) if $blog;
 						if(!$msgid) {
 							nntp_put(ERR_NOARTICLE);
 							next;
@@ -469,7 +469,7 @@ sub got_client() {
 						}
 					}
 					nntp_put(".");
-				} elsif(!$params[0] or lc($params[0]) eq "active" {
+				} elsif(!$params[0] or lc($params[0]) eq "active") {
 					nntp_put("215 list of newsgroups follows");
 
 					if($params[1]) { # RFC 2980 - this is a wildmat
@@ -477,7 +477,7 @@ sub got_client() {
 					} else {
 						foreach $blog (values %blogs) {
 							my %groups = $blog->groups();
-							foreach my $group(keys %groups)) {
+							foreach my $group(keys %groups) {
 								my($first, $last) = $blog->groupstats($group);
 								my $can_post = $blog->can_post($group) ? "y" : "n";
 								nntp_put("$group $first $last $can_post");
@@ -488,7 +488,6 @@ sub got_client() {
 				} else {
 					nntp_put("500 Command not implemented");
 				}
-				last SWITCH;
 			} elsif (/^newgroups$/) {
 				nntp_put("231 list of new newsgroups follows");
 
@@ -500,23 +499,20 @@ sub got_client() {
 
 				foreach $blog (values %blogs) {
 					my %groups = $blog->groups($time);
-					foreach my $group(keys %groups)) {
-							my($first, $last) = $blog->groupstats($group);
-							my $can_post = $blog->can_post($group) ? "y" : "n";
-							nntp_put("$group $first $last $can_post");
-						}
+					foreach my $group(keys %groups) {
+						my($first, $last) = $blog->groupstats($group);
+						my $can_post = $blog->can_post($group) ? "y" : "n";
+						nntp_put("$group $first $last $can_post");
 					}
 					nntp_put(".");
 				}
-
-				last SWITCH;
 			} elsif (/^newnews$/) {
 				my $groupglob = shift @params;
 				my $time = params2time(@params);
 
-				my @globs = split(/,/ $groupglob);
+				my @globs = split(/,/, $groupglob);
 				my @posglobs = grep { not /^!/ } @globs;
-				my @negglobs = map { s/^!// } grep { /^! } @globs;
+				my @negglobs = map { s/^!// } grep { /^!/ } @globs;
 
 				my @ret;
 				foreach my $glob(@posglobs) {
@@ -531,7 +527,6 @@ sub got_client() {
 				nntp_put("230 list of new articles by message-id follows");
 				nntp_put($_) foreach @ret;
 				nntp_put(".");
-				last SWITCH;
 			} elsif (/^post$/) {
 				my (@message);
 				nntp_put("340 send article to be posted. End with <CR-LF>.<CR-LF>");
@@ -589,22 +584,17 @@ sub got_client() {
 						nntp_put("441 posting failed");
 					}
 				}
-
-				last SWITCH;
 			} elsif (/^quit$/) {
 				nntp_put("205 closing connection - goodbye!");
 				last GETLINE;
 			} elsif (/^slave$/) {
 				nntp_put("202 slave status noted");
-				last SWITCH;
 			} elsif (/^mode$/) {
-				nnrp_put("200 OK");
-				last SWITCH;
+				nntp_put("200 OK");
 			} elsif (/^date$/) {
 				my @gmtime = gmtime(time); $gmtime[5] += 1900; $gmtime[4]++;
 				my @time = reverse @gmtime[0..5];
 				nntp_put(sprintf("111 %4u%2u%2u%2u%2u%2u", @time));
-				last SWITCH;
 
 			# Commands below here are from RFC 2980
 
@@ -624,8 +614,6 @@ sub got_client() {
 				my %articles = $blog->articles($group);
 				nntp_put($_) foreach keys %articles;
 				nntp_put(".");
-
-				last SWITCH;
 			} elsif (/^authinfo$/) {
 				if (lc($params[0]) eq "pass" and !"user") {
 					nntp_put("482 USER required");
@@ -652,7 +640,6 @@ sub got_client() {
 			} else {
 				nntp_put("501 Command not understood");
 			}
-			last SWITCH;
 		}
 	} #No more input from client
 
@@ -666,17 +653,19 @@ sub xover($$$;$$) {
 	my($response, $currgroup, $articles, $header, $pattern) = @_;
 	my @articles;
 	my @nums;
+	my $blog;
 
 	if($articles =~ /^</) { # Message-ID
 		$blog = findblog($articles);
 		if(!$blog) {
 			nntp_put("430 No such article");
-			last SWITCH:
+			last SWITCH;
 		}
 
 		@articles = ($articles);
 	} else { # (Range of) message numbers
 		return nntp_put("412 No newsgroup currently selected") unless $currgroup;
+		$blog = findblog($currgroup);
 
 		$articles =~ /(\d+)(-?)(\d*)/;
 		my($first, $dash, $last) = ($1, $2, $3);
@@ -725,7 +714,7 @@ sub params2time(@) {
 	my($hours, $minutes, $seconds) = ($1, $2, $3);
 
 	my @timeparms = ($seconds, $minutes, $hours, $day, $month, $year);
-	my $time = ($gmt eq "GMT") ? timegm(@timeparms) : timelocal(@timeparms);
+	$time = ($gmt eq "GMT") ? timegm(@timeparms) : timelocal(@timeparms);
 
 	return $time;
 }
