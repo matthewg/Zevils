@@ -15,7 +15,11 @@ public:
 	virtual void Main(); 
 	void printHelp();  
 	static int exitCode;
+	static int alarmTime;
 	static PSyncPoint terminationSync;
+	static PSyncPoint alarmSync;
+
+	PDECLARE_NOTIFIER(FCH, FCH, AlarmMain);
 };  
 
 

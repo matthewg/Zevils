@@ -5,6 +5,7 @@
 #include "pconf.h"
 #include "wavchan.h"
 #include "finnegan-call-h323.h"
+#include "connection.h"
 
 class MyEndPoint: public H323EndPoint 
 {

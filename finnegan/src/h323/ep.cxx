@@ -200,6 +200,7 @@ BOOL MyEndPoint::OnStartLogicalChannel(H323Connection & connection,
 
 	PTRACE(1, "Started logical channel " << dir << " " 
 		<< channel.GetCapability() );
+
 	return true;
 } 
 

@@ -26,6 +26,8 @@ void signalHandler(int sig)
 
 
 PSyncPoint FCH::terminationSync;
+PSyncPoint FCH::alarmSync;
+int FCH::alarmTime;
 int FCH::exitCode;
 
 // ***********************************************************************
@@ -35,7 +37,10 @@ PCREATE_PROCESS(FCH)
 FCH::FCH(): 
 	PProcess("vt", "finnegan-call-h323", FINH323_VER_MAJOR, FINH323_VER_MINOR,
 			FINH323_VER_STATUS, FINH323_VER_BUILD)
-{ FCH::exitCode = 0; }
+{
+	FCH::exitCode = 0;
+	FCH::alarmTime = 0;
+}
 
 
 // **********************************************************************
@@ -147,6 +152,9 @@ void FCH::Main()
 	if (args.HasOption('u')) 
 		progConf.userAliases = args.GetOptionString('u').Lines(); 
 
+	// Create the alarm thread
+	PThread::Create(PCREATE_NOTIFIER(AlarmMain), 0, AutoDeleteThread);
+
 	// Allocate and initialise H.323 endpoint
 	MyEndPoint endpoint(progConf); 
 
@@ -163,5 +171,35 @@ void FCH::Main()
 
 
 // ***********************************************************************
+
+
+void alarmSignalHandler(int sig)
+{
+	switch(sig) {
+	        case SIGALRM:
+			PTRACE(1, "Got SIGALRM");
+	                FCH::exitCode = 4;
+	                FCH::terminationSync.Signal();
+	                break;
+	}
+}
+
+void FCH::AlarmMain(FCH & caller, int val)
+{
+	PTRACE(1, "alarm start");
+	while(1) {
+		FCH::alarmSync.Wait();
+
+		PTRACE(1, "Setting alarm time.");
+
+		alarm(0);
+		signal(SIGALRM, SIG_IGN);
+
+		if(FCH::alarmTime != 0) {
+			signal(SIGALRM, alarmSignalHandler);
+			alarm(FCH::alarmTime);
+		}
+	}
+}
 
 

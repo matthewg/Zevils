@@ -23,7 +23,6 @@ class MyConnection: public H323Connection
 
 public:
 	MyConnection(const ProgConf & conf, H323EndPoint & thePoint, unsigned callReference);
-	~MyConnection();
 	virtual void OnEstablished();
 	virtual void OnUserInputIndication(const H245_UserInputIndication & pdu);
 	virtual BOOL OnReceivedSignalNotify(const H323SignalPDU & pdu);
