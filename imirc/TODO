@@ -1,4 +1,10 @@
+===Try to do these before 0.95===
+
+Have AIM chats appear as IRC chatrooms.
+
 Support for using SSL on the AIM connections.
+
+===Wait until after 0.95===
 
 Admin:
 	#aimirc-admin -- seperate from #aimirc-debug
