@@ -43,7 +43,7 @@ with the error C<Unknown ABNF rule: RULENAME>.
 
 =over 4
 
-=item new
+=item new ( [RULES] )
 
 Creates a new C<Parse::ABNF> object.  A C<Parse::ABNF> object contains a complete grammar.  It
 has an internally consistant set of rules which all reduce to what in ABNF parlance
@@ -53,6 +53,9 @@ get down to the definitions of the numeric values that each byte has to have.
 
 A rule is a single definition in a grammar.  "A word consists of one or more letters" is
 a rule.
+
+If the C<RULES> parameter is present, those rules will be added to the object as if
+you had called the C<add> method after creating the object.
 
 =back
 
@@ -69,6 +72,8 @@ C<Invalid ABNF Syntax: Unknown rule 'FOO'>, so use C<eval { ... }> if you don't 
 that to be a fatal error.
 
 The termination of each rule with CRLF is optional for this method.
+
+You can modify existing rules by simply adding them with their new values.
 
 =item delete ( RULES )
 
@@ -125,11 +130,55 @@ use vars qw($VERSION);
 use Lingua::EN::Inflect qw(PL);
 use Carp;
 
-sub new {
+sub new($;@) {
 	my $class = ref($_[0]) || $_[0] || "Parse::ABNF";
-	@_ == 1 or croak "usage: new $class";
 	my $self = {};
 	bless $self, $class;
+	$self->add(@{$_[1]}) if @_ > 1;
+}
+
+sub add($@) {
+	my ($self, @rules) = @_;
+	my $rule;
+
+}
+
+sub delete($@) {
+	my($self, @rules) = @_;
+	my $rule;
+
+}
+
+sub text($$) {
+	my($self, $rule) = @_;
+
+	#PL("foo", 2);
+}
+
+sub regex($$) {
+	my($self, $rule) = @_;
+
+}
+
+sub abnf($$) {
+	my($self, $rule) = @_;
+
+}
+
+sub rules($;$) {
+	my($self, $rule) = @_;
+	my $rule;
+
+}
+
+sub matches($$$) {
+	my($self, $rule, $data) = @_;
+
+	if($data =~ /$self->regex($rule)/) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 1;
