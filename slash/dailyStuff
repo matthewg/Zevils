@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+require 'ctime.pl';          
+use Slash;
+
+$dbh||=sqlconnect();
+my ($basedir,$datadir)=getvar("basedir","datadir");
+
+
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime();
+$mon++; # make things 1-12 instead of 0-11
+$mday--; # we really want yesterday
+my $l=sprintf("log%02d%02d%02d.txt",$mon,$mday,$year);                   
+$l=@ARGV[0] unless @ARGV[0] eq "";
+
+my $unique;
+
+open LOGS,"$datadir/logs/$l";
+
+while(<LOGS>) {
+	my ($host, $time, $agent, $op, $data)=split("\t",$_);
+	chomp($data);
+	if($op eq "articles" or $op eq "comments") { $articles{$data}++; }
+        elsif($op eq "index") { $indexes{home}++; }
+	elsif($data eq "index") { $indexes{$op}++ }
+	$totalHits++;
+
+	$_=$agent;
+	if(/linux/i) {
+		$plat{linux}++;
+	} elsif(/mac/i) {
+		$plat{mac}++;
+	} elsif(/win/i) {
+		$plat{win}++;
+	} elsif(/sun/i or /sco/i or /irix/i or /solaris/) {
+		$plat{unix}++;
+	} else {
+		$plat{other}++;
+	}
+
+	if(/mozilla/i) {
+		if(/compat/i) {
+			$browser{ie}++;
+		} else {
+			$browser{netscape}++;
+		}
+	} elsif(/lynx/i) {
+		$browser{lynx}++;
+	} else {
+		$browser{other}++;
+	}
+
+}
+
+
+
+my ($sdTotalHits)=getvars("totalhits");
+$sdTotalHits=$sdTotalHits+$totalHits;
+
+open STATSFILE, ">$basedir/stats.inc";
+print STATSFILE "
+
+<H2>Yesterday's Statistics</H2>
+<P>Yesterday we served up $totalHits pages.
+Grand Total is $sdTotalHits . 
+
+
+<H2>Platforms</H2>
+<TABLE><TR>
+  <TD align=right>Linux </TD>
+  <TD>$plat{linux}</TD>
+</TR><TR>
+  <TD align=right>Win </TD>
+  <TD>$plat{win} </TD>
+</TR><TR>
+  <TD align=right>Mac </TD>
+  <TD>$plat{mac} </TD>
+</TR><TR>
+  <TD align=right>Other Unix </TD>
+  <TD>$plat{unix} </TD>
+</TR><TR>
+  <TD align=right>Other </TD>
+  <TD>$plat{other} </TD>
+</TR>
+</TABLE>
+
+
+<h2>Browsers</H2>
+<TABLE>
+<TR>
+  <TD align=right>Netscape </TD>
+  <TD>$browser{netscape} </TD>
+
+</TR><TR>
+
+  <TD align=right>IE </TD>
+  <TD>$browser{ie} </TD>
+</TR><TR>
+  <TD align=right>Lynx </TD>
+  <TD>$browser{lynx} </TD>
+</TR><TR>
+  <TD align=right>Other </TD>
+  <TD>$browser{other} </TD>
+</TR>
+</TABLE>
+
+";
+
+print STATSFILE "<TABLE>";
+foreach (keys %indexes) { print STATSFILE "<TR><TD>$_ </TD><TD>$indexes{$_}</TD></TR>\n"; }
+print STATSFILE "</TABLE>";
+
+
+my $email="Slashdot Stats for $l
+-----------------------
+homepage=$indexes{home}
+total=$totalHits
+unique=$unique
+total hits=$sdTotalHits
+indexes:
+";
+foreach (keys %indexes) { $email.="\n\t$_=$indexes{$_}" }
+$email.="\n-----------------------\n";
+
+foreach $key (sort { $articles{$b} <=> $articles{$a} } keys %articles) {
+	$value=$articles{$key};
+	$dbh->do("UPDATE stories SET
+			hits=hits+$value
+			WHERE sid='$key'
+			");		
+	my $c=$dbh->prepare("SELECT title,aid FROM stories
+				where sid='$key'");
+	$c->execute;
+	my ($title,$author)=$c->fetchrow;
+	if($value > 100) {
+		$email.= "$value\t $key $title by $author\n";
+	}
+	$c->finish;
+}
+
+setvar("totalhits","$sdTotalHits");
+$dbh->do("DELETE from pollvoters");
+
+$email.="Archiving Comments...\n";
+# Find all stories over 60 days where writestatus != 5
+my $c=$dbh->prepare("SELECT sid,time,section,title FROM stories
+                        WHERE writestatus<5 AND writestatus >= 0
+			AND to_days(now()) - to_days(time) > 30");
+$c->execute();
+while(my ($sid,$date,$section,$title)=$c->fetchrow()) {
+        $email.= "archiving: $sid $title \n";
+        prog2file("$basedir/article.pl sid=$sid\\\&ssi=yes\\\&mode=archive",
+                                 "$basedir/$section/$sid"."_F.shtml");
+
+        unlink("$basedir/$section/$sid".".shtml");
+        symlink("$basedir/$section/$sid"."_F.shtml",
+		"$basedir/$section/$sid".".shtml");
+        $dbh->do("DELETE FROM comments WHERE sid='$sid'");
+        $dbh->do("UPDATE stories SET writestatus=10 WHERE sid='$sid'");
+}
+
+prog2file("$basedir/hof.pl ssi=yes","$basedir/hof.shtml");
+
+
+use Socket;
+sub sendEmail2
+{
+        my ($addr, $subject, $content) = @_;
+
+	use Socket;
+        socket (SMTP, PF_INET, SOCK_STREAM, getprotobyname('tcp'))
+                or die "socket $!";
+        connect (SMTP, sockaddr_in(25, inet_aton("127.0.0.1")))
+                or die "connect $!";
+
+        my $line = <SMTP>;
+        send SMTP, "helo localhost\n", 0;
+        $line = <SMTP>;
+        send SMTP, "MAIL FROM:localhost\@nobodnobodyy\n", 0;
+        $line = <SMTP>;
+        send SMTP, "RCPT TO:$addr NOTIFY=NEVER\n", 0;
+        $line = <SMTP>;
+        send SMTP, "DATA\n", 0;
+        $line = <SMTP>;
+        send SMTP, "Subject: $subject\n$content\n.\n", 0;
+        $line = <SMTP>;
+        send SMTP, "To: $addr\n", 0;
+        $line = <SMTP>;
+        send SMTP, "From: Slashdot\n", 0;
+        $line = <SMTP>;                  
+        send SMTP, "quit\n", 0;
+}
+            
+
+sub generateDailyMail
+{
+        my $c=$dbh->prepare("SELECT sid,title,section,aid,tid,
+                                date_format(time,\"W M d, \@h:ip\"),dept
+                               FROM stories
+                              WHERE to_days(now()) - to_days(time) = 1
+				AND displaystatus=0
+                           ORDER BY time DESC");
+        $c->execute();
+        my $r="Slash Daily Headline Mailer
+
+";
+        while(my ($sid,$title,$section,$aid,$tid,$time,$dept)=$c->fetchrow()) {
+                $r.="
+$title
+     from the $dept dept.
+     posted by $aid on $time ($tid)
+     $rootdir/$section/$sid"."_F.shtml
+";
+        }
+        $c->finish();
+        return $r;
+}
+
+      
+
+sub mailingList
+{
+	my %p;
+	$p{flat}=generateDailyMail();
+	$p{thread}=$p{flat};
+	$p{thread}=~s/_F//g;
+
+	my $c=$dbh->prepare("SELECT realemail,mode,nickname FROM users WHERE maillist=1");
+	$c->execute();
+	while(my ($email,$mode,$nickname)=$c->fetchrow()) {
+        	sendEmail2($email,"24 Hours of Slashdot Headlines For $nickname","
+     $p{$mode}
+     You are getting this message because you subscribed to it.
+     If you want to unsubscribe from this, go to $rootdir/users.pl
+     You can login as $nickname and disable the mailing from there.
+");
+	}
+	$c->finish();     
+}
+
+# Send a message to the shite admin.
+sendEmail2("root\@localhost","$sitename Stats Report ($l)", $email);
+# Take a little nap so that slashd can catch up
+sleep (120);
+# Time to start sending email
+mailingList();
+
+           

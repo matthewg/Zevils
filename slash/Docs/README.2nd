@@ -1,0 +1,269 @@
+Welcome to Slash-FAQ version 0.95.0
+
+***************************************************************************
+THIS FAQ IS BETA! INFORMATION CONTAINED WITHIN IS NOT GUARANTEED ACCURATE!
+***************************************************************************
+
+Table of Contents
+
+1.0  Slash Basics
+     1.1 What is Slash
+     1.2 Where to find Slash
+     1.3 FAQ Basics
+     1.4 About this FAQ
+
+2.0  Slash Set-Up
+     2.1 What's Needed
+     2.2 Getting Ready for Slash
+     2.3 Configuring Your System for Slash
+     2.4 Slash Installation
+     2.5 Testing Slash
+     2.6 Troubleshooting
+     2.7 Getting Help
+     2.8 Other Resources
+
+3.0  Credits, Miscellaneous, and Errata.
+     3.1 Credits
+     3.2 Errata
+     3.3 Miscellaneous
+
+
+1.0 Slash Basics
+
+1.1 What is Slash?
+
+Slash is the collection of Perl scripts and code that drives Slashdot
+(http://slashdot.org/).
+
+1.2 Where to find Slash
+
+Slash is available at http://slashdot.org/slash/code/
+
+1.3 FAQ Basics
+
+This FAQ assumes you are going to set up Slash on a server under your own
+control and administration.  It assumes you will be compiling everything
+from source, instead of using pre-compiled binaries.  It assumes you have
+Perl 5 of a version compatible with the version  of mod_perl  The author of
+this FAQ only has experience using Slash on Red Hat 5.2  and 6.0 and with
+pre-compiled MySQL database software.  The information in this FAQ can and
+probably will not work with every possible situation and configuration.
+
+This FAQ assumes you are using at least slash-0.3-pre-jt2 which fixes many
+serious bugs in the base slash-0.3-pre as available on Slashdot.org  This
+is done to avoid adding a lot of complexity to the FAQ on how to correct
+these bugs, and to make installation easier for people with less
+experience.  Slash-0.3-pre-jt2 is available at ||ADDRESS||
+
+You are welcome to submit FAQ comments, additions, and changes for using
+Slash with different software, databases, webservers, etc. to the FAQ
+maintainer for inclusion into the FAQ at the address below.
+
+1.4 About this FAQ
+
+This is Slash-FAQ version 0.95.0, written and maintained by James
+Turinsky.  Please send questions, comments, additions, and changes
+relating to the FAQ to slash-faq@SomeSites.com.  Please do not demand help,
+whine, threaten, or otherwise be disturbing to him as he maintains this
+FAQ and participates on the slash-help list in his spare time as most other
+people on the list do.
+
+
+2.0 Slash Set-Up
+
+2.1 What's Needed
+
+The first thing you need is a Slash tarball.  Hopefully you got it from a
+link above or another site.
+The next thing you need are the following packages:
+
+[source code]
+
+Apache webserver source tarball
+mod_perl Apache module source tarball
+MySQL source code
+source code
+
+[Perl modules]
+
+Apache-DBI (Apache::DBI)
+ApacheMysql (Apache::Mysql)
+DBI (Bundle::DBI)
+Data-Dumper (Data::Dumper)
+Devel-Symdump (Devel::Symdump)
+HTML-Parser (HTML::Parser)
+MIME-Base64 (MIME::Base64)
+Msql-Mysql-modules (Bundle::DBD::mysql)
+Net-TFTP
+URI (Bundle::URI
+libnet (Bundle::libnet)
+libwww-perl (Bundle::LWP)
+
+The Apache source is available from http://www.apache.org/ or any of their
+mirrors.  mod_perl source is available at  http://perl.apache.org/dist and
+http://www.cpan.org/.  The Perl  modules are available at
+http://www.cpan.org/ or using CPAN.pm from  the command line as
+
+$ perl -mCPAN -e shell
+
+which should start up CPAN.
+
+2.2 Getting Ready for Slash
+
+You need to untar Apache and mod_perl and compile Apache with mod_perl
+either as a DSO (Dynamically Shared Object) or into the httpd binary.  You
+*must* use "Perl_SSI=1" as an option when you make mod_perl or Slash will
+not work correctly.
+
+Exactly how to compile Apache and mod_perl is covered in the  documentation
+included with the packages, and there are numerous FAQs covering how to do
+so on the Web also.  Please ask the Apache and  mod_perl people on their
+mailing lists, newsgroups, and IRC channels.  They can answer your
+questions relating to Apache and mod_perl with better answers than can
+most of the people using Slash.
+
+The next step is to install MySQL from source (though RPM binaries have
+been known to work.  If you choose to install from RPM, please make sure
+you install the server, client, and development/include files packages).
+Once you've installed MySQL and verified that MySQL is working according to
+the appropriate documentation, install the Perl modules above using CPAN.pm
+or individual packages from a CPAN mirror. 
+
+2.3 Configuring Your System for Slash
+
+The first thing you should do is put something similar to the following in
+your Apache configuration (probably httpd.conf):
+
+<FilesMatch *.pl>
+SetHandler perl-script
+PerlHandler Apache::Registry
+PerlModule Apache::DBI
+PerlModule Apache::Mysql
+PerlModule DBD::mysql
+</FilesMatch>
+
+You will also want to have .shtml files be server-parsed.  Make sure this
+is turned on.
+
+2.4 Slash Installation
+
+Create a user named "slash".  The Slash tarball will extract and create
+slash/ so you will probably want to untar it into /home or wherever the
+home directory for slash is.  This will hopefully create the proper files
+and directories.
+
+The first step is to set up the Slash database.  You will need to create a
+database named "slash" with mysqladmin, and you will probably want to have
+a password too.  The simple way is to do
+
+$ mysqladmin [-uuser] [-ppassword] create slash
+
+Check the MySQL documentation for details.  The next step is to actually
+add the basic data to the database.  This is done by changing to the
+directory where slash.sql is located, and doing
+
+$ mysql [-uuser] [-ppassword] slash <slash.sql
+
+This should import the basic information into the slash database.  To
+verify this, check by doing
+
+$ mysqlshow [-uuser] [-ppassword] slash
+
+This should dump the information in the slash database to the screen.
+
+Now Slash.pm must be edited to make it connect to your database.  Open
+Slash.pm in your favorite browser and find the section that looks like:
+
+$dbh ||= DBI->connect("DBI:mysql:slash", "root", "");
+
+This is the format of the things you may need to change:
+
+("DBI:mysql:(database name)", "(database user)", "(database password)") 
+
+Substitute your database name/user/password in the appropriate place and
+save Slash.pm.
+
+2.5 Testing Slash
+
+If you have done everything above correctly, you should be ready to test.
+Check that Apache (httpd) and MySQL are running first, then open
+http://(your address)/~slash/admin.pl in a browser.  If everything is set
+up correctly, you should get a login/password web page.  This is where
+you login to administer Slash.  Check the README for the user and password
+to login with.
+
+You will need to find a way to run slashd as the user slash.  The easy way
+during testing is to run 
+
+$ ./slashd &
+
+from /home/slash.
+
+2.6 Troubleshooting
+
+If you have problems building Apache, mod_perl, MySQL, or any of the Perl
+modules, please contact their authors or other help sources.  This FAQ
+isn't able to include detailed information that is already in the
+documentation for those items.
+
+Be sure to check the permissions for slash's directory.  /home/slash should
+be mode 701 and the directories below that should be mode 755.  The *.pl
+files should also be 755.
+
+If you receive errors such as "cannot use "" as a HASH while strict refs in
+use at <file> at line ##, the current solution is to open up that file and
+comment out the strict refs at the top by putting a # in front of it.  This
+may not be wise according to some people, but Slash works fine without it.
+
+If you receive errors such as "Mysql server has gone away" you should check
+that you have installed the appropriate Perl modules and configured Apache
+accordingly.
+
+Make sure slashd is running as the user slash.  This is important!  slashd
+handles the updating of your pages, so if it is not running, weird things
+will happen.
+
+The Apache log files are a valuable resource, as well as the Slash logs.
+
+Please see the README for additional information.
+
+2.7 Getting Help
+
+If you need help with the installation of Slash, please contact the
+slash-help mailing list at slash-help@projects.is.asu.edu.  Questions
+directly relating to the code should probably go to malda@slashdot.org.
+Please do not bug Mr. Malda for support.  He is busy improving Slash and
+running Slashdot so he doesn't have time to provide support.  Remember to
+try to be polite, clear, and kind when mailing the list.  The list members
+participate in their spare time, and it is likely that whines, threats,
+demands, spams, and the like will be ignored by them.
+
+2.8 Other Resources
+
+The list archives and slash-help list tools are located at
+http://projects.is.asu.edu/mailman/listinfo/slash-help
+
+||OTHER RESOURCES||
+
+
+3.0 Credits, Miscellaneous, and Errata.
+
+3.1 Credits
+
+Rob Malda (slash and http://Slashdot.org)
+Paul Vallee (early slash support & http://ontopofIT.com)
+Temple Hoff (slash support and slash-help mailing list maintainer,
+http://dev.is.asu.edu/~slash/)
+James Turinsky (the guy that wrote/maintains this, http://LilithFair.org
+and some other stuff)
+||OTHER CREDITS||
+
+3.2 Errata
+
+||Errata?||
+
+3.3 Miscellaneous
+
+||Miscellaneous||
+
+This FAQ last revised at 1:23pm EDT June 23, 1999.

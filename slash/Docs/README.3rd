@@ -1,0 +1,60 @@
+Last fine-tuning steps, extracted from advice on slash-help... 
+These have all been included in pre0.3-3 except #12...  ~djd
+
+1) Start with the modified pre0.3 tarball from JT (pre0.3-jt2) and 
+   install as normal, then...
+
+2) change slashlog.pl line 19 
+   from:
+	if (open(FHandle, ">>/home/slashdot/logs/".$l)){
+   to:
+	if (open(FHandle, ">>/home/slash/logs/".$l)){
+
+3) change sub getSection at line 121 of Slash.pm to:
+	{
+        my($section)=@_;
+        return { title=>$slogan,artcount=>30,issue=>3 } unless $section;
+        return sqlSelectHashref("*","sections",
+                "section=".$dbh->quote($section));
+	}
+
+4) Add the following in Slash.pm at line 1184 [just before the fetchrow()]:
+	$cursor->execute();
+
+5) Change line 337 of admin.pl 
+   from:
+	WHERE ('$aid'=aid) AND '$sid'=sid");
+   to:
+	WHERE (aid='$aid') AND sid='$sid'");
+
+6) Change line 327 of users.pl 
+   from:
+	print "Password is to short and was not changed.";	
+   to:
+	print "Password is too short and was not changed.";
+
+7) Add the following line in pollBooth.pl at line 217 [just before fetchrow()]:
+	$cursor->execute();
+
+8) Add the following line in index.pl at line 80 [just before fetchrow()]:
+	$c->execute();
+
+9) Change slashd line 7
+   from:
+	my ($basedir,$datadir)=getvars("basedir","datadir");
+   to:
+	my ($basedir,$datadir,$rootdir)=getvars("basedir","datadir","rootdir");
+
+10) Change slashd line 174 from sub newultra()
+    from:
+	http://slashdot.org/$section/$sid.shtml
+    to:
+	$rootdir/$section/$sid.shtml
+
+11) in mysql, run this update:
+	UPDATE sectionblocks SET title = 
+		'<A href=\"features\"><FONT color=ffffff>Features</FONT></A>' 
+		WHERE bid = 'features';
+
+12) run this once in mysql:
+	create index stories_time_ndx on stories (time) ;

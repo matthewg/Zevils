@@ -1,0 +1,128 @@
+Welcomet to Slash- the Slashdot Like Automated Storytelling Homepage
+Copyright 1999 Rob Malda and Block Stackers Inc.
+malda@slashdot.org
+
+LICENSE
+  There isn't technically a license in this file, and we're still working
+  out the details.  Please don't screw us over on this folks, we're working
+  real hard.  The license is do-whatever-the-hell-you-want, but if you use
+  our code, you must put our logo on the site and link it back to
+  http://slashdot.org.  If you /really/ don't want the logo, you can give
+  me money.  Also, you probably need to register mysql if you use it- it's
+  cool, its fast, and they deserve some money.  You can give me money
+  too.  I don't have any.
+
+SUPPORT
+  There isn't any.  This is use-at-your-own-risk trial by fire stuff.  If
+  you want help, I might be able to consult.  Or maybe I can find someone
+  who can.  Contact for rates.
+
+REQUIREMENTS
+  You need mod_perl installed and running, and set up to let the registry
+  handle any .pl files.  You need mysql installed and running properly,
+  and DBI needs to be working.  Some random fun stuff from my home directory
+  might provide you with a clue with stuff you might want/need:
+
+  ApacheDBI-0.81.tar.gz
+  ApacheMysql-0.3.tar.gz
+  DBI-1.06.tar.gz
+  Data-Dumper-2.10.tar.gz
+  Devel-Symdump-2.00.tar.gz
+  HTML-Parser-2.21.tar.gz
+  MIME-Base64-2.09.tar.gz
+  Msql-Mysql-modules-1.2014.tar.gz
+  Net-TFTP-0.10.tar.gz
+  URI-1.00.tar.gz
+  libnet-1.0605.tar.gz
+  libwww-perl-5.41.tar.gz
+  mod_perl-1.17.tar.gz
+  mysql-3.22.14b-gamma.tar
+
+  The perl modules came from CPAN.  Mysql, Apache and mod_perl came from
+  their respective homes.
+  
+
+INSTALLATION
+  Add a user to your unix box.  We'll use 'slash' as our example.
+
+  Add a database named 'slash'.  You probably want a db user too.
+
+  copy the files from the tarball to /home/slash
+
+  make sure /home/slash/public_html is visible from outside, and mod_perl
+    is executing .pl files from it properly as mod_perl scripts.
+
+  import the tables from the 'tables' directory- probably cat'ing
+    the tables files to mysql -u slash slash -B.  Before you do
+    this, make /sure/ you glance over them (especially the 'vars' table;
+    there are several things that you /will/ need to change if you
+    want things to work right.
+
+  slashd
+    The slash daemon runs in the background (as user 'slash') and updates
+    articles.  Make that happen however you please.  The first time you
+    run it, it will create headers and stuff. 
+
+  dailyStuff
+    Surprise!  dailyStuff runs at midnigt.  slashd should handle that
+    for you.
+ 
+  Other Stuff:
+    You'll probably want to look at admin.pl.  Log in with 'God' and 'Townshend'
+    and poke around.  Tons of stuff to do in there.  Add some real users.  Del
+    God's account probably.  Create some real polls.  Add some stories.
+    Add whatever sections will make sense.  Edit the Blocks associated with
+    each section.  Editing header, footer, titlebar and fancybox will help
+    you create a site that doesn't look like a lame Slashdot knockoff.
+
+  
+CONFIGURATION
+  Ok Slash is pretty flexible.  You could do a lot of crazy stuff
+  with fairly little effort.  Unfortunately I don't have time to
+  explain it all right now so just start messing with it and
+  maybe in a few months this space will eactually be useful.
+  
+THINGS WORTH KNOWING:
+What are vars?
+	Variables.  Little textual bits of info.  Data. Yum Yum.
+
+What are blocks?
+	Big variables.  These are used to control a variety of
+	messages throughout a Slash site, as well as things like
+	what appears in the little squares on the right hand
+	side of the pages.  Some contain code that gets evald.
+    	Some control look and feel.
+
+What are stories?
+	stories are little bits of text people can read.
+
+What are sections?
+	sections are big groups of stories related somehow.
+
+How do I administer stuff?
+	http://yoursite/admin.pl, the default account is 'God' 
+    	'Townshend'.  Login and play.  Its fun.  
+
+TODO:
+	My god the list is so long I wouldn't know where to start.
+ 	My TODO list contains the following:
+
+-  Mode=isolate for comments
+- Stats per topic
+- rejection notice of submissions
+- Bulkier Submission Editor (multiple views?)
+- Preview on Submission
+- Better Customized Homepage stuff (my slashdot yada yada)
+- better formatting controls for authors (Plaintext/Html on preview?)
+- Author Bio/Info somehow (join through to user account?)
+- Topic Editor/Image Importer
+- Sectional topic Icons for isolated sections
+- Make things GMT or UTC
+- Story Chaining/Grouping/Issues/Editions/Whatever
+
+	and there is much more.  Although documenting what we've got
+	might be a nice start.  Like explaining what <update> does
+	or how to automatically attach an image or upload a file.
+	Or how to ad users.  Or what security is.  Or how to give
+	a user moderator access.  This list goes on and on :)
+
