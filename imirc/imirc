@@ -1837,7 +1837,7 @@ sub process_irc_message($$) {
 				delete $aim_connections->{$nick}->{away};
 				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 					delete $aim_connections->{$nick}->{screennames}->{$screenname}->{away_buddies};
-					$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->set_away();
+					$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->set_away("");
 				}
 			}
 		}
