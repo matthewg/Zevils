@@ -1,6 +1,6 @@
 package NNTB::Common;
 
-$VERSION = 0.01; 
+$VERSION = 0.01;
 @ISA = qw(Exporter);
 @EXPORT = qw(
 	LOG_ERROR LOG_WARNING LOG_NOTICE LOG_INFO LOG_DEBUG
