@@ -13,6 +13,7 @@ use warnings;
 use vars qw($version @args %config %blogs $client_ip $confversion);
 use NNTB::Common;
 use NNTB::Weblog;
+use NNTB::Weblog::Slash;
 
 $version = "0.01";
 
