@@ -1,3 +1,34 @@
+Collaboration:
+	There's an access list, see?  You can add AIM screennames,
+	IRC nick!user@host (with wildcards), AIM chatrooms, and/or IRC channels
+	to this access list.  The access list is not saved across
+	signoffs/signons (or then again maybe it is... but probably not.  And
+	it almost definately won't be saved across killing/restarting aimirc.)
+
+	Now there are four permission levels that you can add these entities at.
+	read, write, alter, and control.  Each entity also needs a list of AIM
+	thingies that this access level applies to.  These Access Control Lists
+	can have AIM screennames and chatrooms.  So maybe AIM-FooBar will
+	have read for everything, but write for AIM-Baz.
+
+	So now someone who is on your access list sends the collaborate command.
+	There will be another name for this command: spy.  This can be done by
+	sending /msg aimserv spy MattSachs to start spying on MattSachs, or
+	by sending an IM to MattSachs: *AIMIRC spy (or something like that.)
+
+	Alright, let's stick with the example of AIM-FooBar who has global read
+	and AIM-Baz write for MattSachs.  AIM-FooBar has sent the spy command.
+	So now SomeDude sends an IM to MattSachs.  AIM-Baz gets a copy.  The
+	IM the AIM-FooBar would get might look something like:
+		[aimirc] {SomeDude -> MattSachs} Hey!
+	I suppose that would be configurable via aimirc.conf.
+
+	Now AIM-FooBar wants to take advantage of his write access and send
+	IMs coming from MattSachs.  Probably by sending an IM to MattSachs that
+	looks something like *AIMIRC send Baz Hi there!
+
+	Do you get the idea?
+
 DANGER!!  EVIL SUBTLE BUG!?!?  Hrm, there might be something wrong in the
 main loop.
 
