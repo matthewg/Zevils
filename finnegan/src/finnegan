@@ -95,7 +95,7 @@ $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; 
 
 
 
-our($call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid);
+our($extension_debug, $call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid);
 sub prepare_statements() {
 	my $callcap;
 	if($Finnegan::Config::use_cisco) {
@@ -104,6 +104,7 @@ sub prepare_statements() {
 		$callcap = scalar(keys %phonelines_total);
 	}
 
+	$extension_debug = $dbh->prepare("SELECT debug FROM prefs WHERE extension=?");
 	$get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
 	$get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger LIMIT ".($callcap*2));
 	$get_forgotpins = $dbh->prepare("SELECT * FROM prefs WHERE forgot_pin=1");
@@ -579,20 +580,30 @@ sub make_call($$) {
 				$timeout = $Finnegan::Config::max_forgot_pin_duration;
 			}
 
+			my $rv = $extension_debug->execute($row->{extension});
+			my $prefs = $extension_debug->fetchrow_hashref();
+			my $debug = $prefs->{debug};
+
 			my @command;
 			if($Finnegan::Config::use_cisco) {
-				@command = (
-					"h323/obj_linux_x86_r/finnegan-call-h323",
+				if($debug) {
+					push @command, "h323/obj_linux_x86_d/finnegan-call-h323";
+				} else {
+					push @command, "h323/obj_linux_x86_r/finnegan-call-h323";
+				}
+
+				push @command, 
 					"--file", "../tmp/$$.$audio_ext",
 					"--dest", $row->{extension} . "@" . $Finnegan::Config::Cisco::h323_gateway,
 					"--timeout", $Finnegan::Config::Cisco::call_timeout,
 					"--max-time", $timeout,
 					"--voicemail", $Finnegan::Config::Cisco::voicemail_name,
 					"--snoozefile", "$audio_dir/wake/thanks.$audio_ext",
-					"--no-gatekeeper",
-				);
+					"--no-gatekeeper";
 				push @command, "--user", $Finnegan::Config::Cisco::my_ext if $Finnegan::Config::Cisco::my_ext;
 				push @command, "--user", $Finnegan::Config::Cisco::my_name if $Finnegan::Config::Cisco::my_name;
+
+				push @command, "-t", "-t" if $debug;
 			} else {
 				@command = ("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.$audio_ext", $snooze_ok);
 			}
@@ -607,6 +618,13 @@ sub make_call($$) {
 			if(!defined($pid)) {
 				$end->("failure", "Couldn't fork: $!");
 			} elsif(!$pid) {
+				if($debug) {
+					close STDOUT;
+					close STDERR;
+					open(STDOUT, ">>", "../tmp/".$row->{extension}.".debug");
+					open(STDERR, ">&STDOUT");
+				}
+
 				exec(@command) or die "Couldn't exec: $!\n";
 			} else {
 				$SIG{ALRM} = sub { die "Got SIGALRM\n"; };
