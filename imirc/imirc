@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 $license = <<EOF
-Copyright (c) 1999-2000 Matthew Sachs.  All Rights Reserved.
+Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of version 2 of the GNU General Public License
@@ -60,6 +60,7 @@ sub process_ctcp($$$$);
 sub irc_ctcp($$$;$);
 sub loadbuddies($$);
 sub irc_dcc($$$$$$);
+sub safename($);
 sub savedat($);
 sub num2base64($);
 sub base642num($);
@@ -124,8 +125,7 @@ use Carp;
 use Getopt::Long;
 use LWP::Simple;
 use File::Basename;
-use AIMIRC::Format;
-use AIMIRC::Identifier;
+use FormatAIMIRC;
 
 $Carp::Verbose = 1;
 
@@ -835,12 +835,6 @@ sub process_irc_message($) {
 		}
 	}
 
-	$screenname = $connection = $sndata = "";
-	$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
-	$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
-
-
-
 	if(/^ERROR +:(.+)/) {
 		print STDERR "IRC server error: $1\n";
 		exit 1;
@@ -849,7 +843,7 @@ sub process_irc_message($) {
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
 	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+) +\S+ +:(\S+)/i)) {
-		$screenname = $1;
+		my $screenname = $1;
 		$nick = $2 if $2;
 		$nnick =~ tr/\@+//d;
 		$nnick = normalize($nick);
@@ -984,7 +978,7 @@ sub process_irc_message($) {
 			}
 		}
 	} elsif(!/#aimirc-debug/i and /^PART +#aimirc-(\S+)/i) {
-		$screenname = $1;
+		my $screenname = $1;
 		my $dude;
 
 		if(exists $aim_connections{$nnick}{screennames}{$screenname} and $aim_connections{$nnick}{screennames}{$screenname}{inchan}) {
@@ -996,7 +990,11 @@ sub process_irc_message($) {
 			irc_send(irc_part($usnick, "#aimirc-$screenname"));
 		}
 	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +#aimirc-(\S+) +:?(.+)/i)) {
-		my($cmd, $param, $extra, $connection, $sndata, %config);
+		my($cmd, $param, $extra, $connection, $screenname, $sndata, %config);
+
+		$screenname = $connection = $sndata = "";
+		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
+		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
 
 		Toc::debug_print("Received IRC command from '$screenname'", "irc", 2);
 
@@ -1511,7 +1509,7 @@ Buddy {
 				irc_send("$foo :\tremove_pounce number - Remove pounce number.  You can find the number for the pounce you wish to remove by doing a list_pounces.\r\n", 1);
 				irc_send("$foo :\tlist_pounces - List your remaining pounces.\r\n", 1);
 			} else {
-				irc_send("$foo :aimirc $version, (c)1999-2000 Matthew Sachs.\r\n", 1);
+				irc_send("$foo :aimirc $version, (c)1999-2001 Matthew Sachs.\r\n", 1);
 				irc_send("$foo :aimirc homepage: http://www.zevils.com/programs/aimirc/\r\n", 1);
 				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
@@ -1553,6 +1551,10 @@ Buddy {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
+		$screenname = $connection = $sndata = "";
+		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
+		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
 		$msg = process_ctcp($nnick, normalize $1, $msg, $screenname);
@@ -1942,7 +1944,7 @@ sub html2txt($;$) {
 	$parsetree->parse($msg);
 	$parsetree->eof;
 
-	$formatter = new AIMIRC::Format (leftmargin => 0, rightmargin => 4096);
+	$formatter = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096);
 	$formatter->{_original_html} = $msg; #We use this to determine whether to add a closing tag for "unknown tags"
 	$msg = $formatter->format($parsetree);
 	$parsetree->delete;
@@ -2353,10 +2355,10 @@ sub timestuff($) {
 
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %nicks) {
-		$anick = normalize $anick;
-		next if $anick eq normalize($usnick);
+		next if normalize($anick) eq normalize($usnick);
 		next if exists $irc_connections{noprefix($anick)};
 		next if $anick =~ /^chat-\d+/;
+		$anick = normalize($anick);
 		$kill = 1;
 		Toc::debug_print("\tSO WE MEET AGAIN, $anick.", "nicks", 3);
 		foreach $bnick(keys %{$nicks{$anick}}) {
@@ -2690,6 +2692,15 @@ sub irc_dcc($$$$$$) {
 	}
 }
 
+# Make a screenname safe to be used in a filename.
+# This is probably not needed, but just because you're paranoid it doesn't
+# meant they're not out to get you.
+sub safename($) {
+	my($dangerous_name) = shift;
+	$dangerous_name =~ tr!<>|/\0!!d;
+	return $dangerous_name;
+}
+
 sub savedat($) {
 	my($screenname, $pounce) = shift;
 
@@ -2811,6 +2822,24 @@ sub got_im($$$$) {
 		$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
 }
 
+
+# Sanitize a screenname for IRC
+sub ircify($) {
+	my $screenname = shift;
+
+	#Yes, I am aware that the RFC mandates a max of 9 characters.
+	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen});
+
+	#Enforce RFC1459 compliance.
+	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
+	#But there's really no right thing to do in that case I suppose.
+	#That's why it deserves the adjective "pathological".
+	#
+	$screenname =~ s/^[^a-zA-Z]+//; #Nicks must start with [a-ZA-Z]
+	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
+
+	return $screenname;
+}
 
 sub bounce_join($$) {
 	my($nick, $chan) = @_;

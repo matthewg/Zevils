@@ -1,3 +1,4 @@
+
 Thanks to:
 	AOL (PROTOCOL and TiK were very helpful in making this.  Oh yeah and they made TOC and opened it up.)
 	The gaim team (I prefer reading C to reading TCL for those rough spots in the PROTOCOL)
@@ -15,4 +16,4 @@ Thanks to:
 	VBScript (Debugging, Several ideas)
 	Brendan Bowden (Debugging)
 	Jayson (Debugging)
-	vsync (#aimirc-screenname reaping fix, IM sending reap fix)
+	vsync (#aimirc-screenname reaping fix, IM send reap fix)
