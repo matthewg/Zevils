@@ -127,23 +127,25 @@ If the C<matches> method were called on an object with that ruleset with C<RULE>
 C<DATA> set to C<"\tHello, world!  Wanna augment my BNF?\n">, and C<MATCHRULES> set to C<("sentence", "word")>,
 the return value would be:
 
-    ( sentence => (
-        (
-            [ word => "Hello," ],
-            " ",
-            [ word => "world" ],
-            "!  "
-        ),
-        (
-            [ word => "Wanna" ],
-            " ",
-            [ word => "augment" ],
-            " ",
-            [ word => "my" ],
-            " ",
-            [ word => "BNF" ],
-            "?"
-        )
+    ( sentence =>
+        [
+            [
+                { word => "Hello," },
+                " ",
+                { word => "world" },
+                "!  "
+            ],
+            [
+                { word => "Wanna" },
+                " ",
+                { word => "augment" },
+                " ",
+                { word => "my" },
+                " ",
+                { word => "BNF" },
+                "?"
+            ]
+        ]
     )
 
 =back
