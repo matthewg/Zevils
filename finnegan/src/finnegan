@@ -594,7 +594,6 @@ sub make_call($$) {
 			my $success = 0;
 			my $snooze = 0;
 
-			undef $SIG{CHLD};
 			my $pid = fork();
 			if(!defined($pid)) {
 				$end->("failure", "Couldn't fork: $!");
