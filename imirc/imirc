@@ -596,7 +596,20 @@ sub mainloop() {
 
 			if($do_irc or @getbuff) {
 				debug_print("Processing IRC...", "irc", 2);
-				process_irc_message(irc_recv(1));
+				my $irc_msg = irc_recv(1);
+				if($irc_msg) {
+					if($irc_msg =~ s/^:(\S+)(!\S+@\S+)?\s+//) {
+						$nick = new Net::OSCAR::Screenname $1;
+					} else {
+						$nick = new Net::OSCAR::Screenname $themname;
+					}
+					eval {
+						process_irc_message($irc_msg, $nick);
+					};
+					if($@) {
+						irc_send(irc_privmsg($usnick, $nick, "Error while processing your request: $@"));
+					}
+				}
 			}
 
 			$currtime = time;
@@ -774,7 +787,7 @@ sub irc_privmsg($$$;$$$) {
 }
 
 # Process an incoming IRC message
-sub process_irc_message($) {
+sub process_irc_message($$) {
 	my($screenname, $nick, $sndata, $oscar);
 
 	my $us_or_old = "$usnick";
@@ -782,12 +795,8 @@ sub process_irc_message($) {
 
 	$_ = shift;
 	return unless $_;
+	$nick = shift;
 
-	if(s/^:(\S+)(!\S+@\S+)?\s+//) {
-		$nick = new Net::OSCAR::Screenname $1;
-	} else {
-		$nick = new Net::OSCAR::Screenname $themname;
-	}
 	if($aim_connections->{$nick}) {
 		foreach my $tmpscreenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 			$sndata = $aim_connections->{$nick}->{screennames}->{$tmpscreenname};
