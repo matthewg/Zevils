@@ -536,8 +536,6 @@ if($prompt == "time") {
 <DefaultValue><? if(isset($_SESSION["max_snooze_count"])) echo $_SESSION["max_snooze_count"]; ?></DefaultValue>
 </InputItem>
 
-?>
-
 <? } else if($prompt == "cal_type") {
 
 	if($_SESSION["cal_type"]) echo "<MenuItem>\n<Name>Current Value (".$_SESSION["cal_type"].")</Name>\n<URL>$url&amp;cal_type=".$_SESSION["cal_type"]."</URL>\n</MenuItem>\n";
