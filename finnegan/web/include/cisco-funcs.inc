@@ -7,7 +7,10 @@ db_start();
 $extension = "92896";
 
 function cisco_error($title, $msg) { _cisco_text($title, $msg, "error"); }
-function cisco_message($title, $msg, $url = "index.xml") { _cisco_text($title, $msg, "message", $url); }
+function cisco_message($title, $msg, $url = "") {
+	if(!$url) $url = $FinneganCiscoConfig->url_base."/service/index.php";
+	_cisco_text($title, $msg, "message", $url);
+}
 
 function _cisco_text($title, $msg, $type, $url = "") {
 	ob_end_clean();
@@ -27,7 +30,14 @@ END
 		echo "<Name>OK</Name>\n<URL>$url</URL>\n";
 	}
 
-	echo "</SoftKeyItem>\n</CiscoIPPhoneText>\n";
+?>
+</SoftKeyItem>
+<SoftKeyItem>
+<Name>About</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
+</SoftKeyItem>
+</CiscoIPPhoneText>
+<?
 	exit;
 }
 
