@@ -40,6 +40,9 @@ if(isset($_REQUEST["id"])) {
 				echo $FinneganCiscoConfig->url_base."/service/wakes.php";
 		?></URL>
 		</SoftKeyItem>
+
+		</CiscoIPPhoneText>
+<?
 	}
 } else {
 	cisco_message("Select Alarm", "Please select an alarm to delete.", $FinneganCiscoConfig->url_base."/service/wakes.php");

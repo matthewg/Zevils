@@ -28,7 +28,7 @@ function get_extension() {
 		} else {
 			$extension = $matches[1];
 
-			if(preg_match("!Product ID.*?<TD>(.*)!mi", $phonepage, $matches)) {
+			if(preg_match("!Product ID.*?<TD>(.*)!mi", $phonepage, $matches))
 				$PHONE_MODEL = $matches[1];
 			else
 				$PHONE_MODEL = "";
