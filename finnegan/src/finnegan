@@ -52,6 +52,7 @@ if(!$Finnegan::Config::testmode) {
 
 $SIG{CHLD} = sub {
 	my $pid = wait;
+	return if $pid == -1;
 	my $phoneline = $kidmap{$pid};
 	log_debug("Recovered phoneline $phoneline (PID $pid)");
 	if($phoneline) {
