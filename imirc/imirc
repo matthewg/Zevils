@@ -145,6 +145,7 @@ $saveprofiles = 2;
 $savepounces = 2;
 $checkpoint = 60;
 $directory = "$home/.aimirc.dat";
+$shortcircuit = 1;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
 
@@ -227,6 +228,7 @@ $errors = &GetOptions(
 	"savepounces:i" => \$savepounces,
 	"checkpoint=i" => \$checkpoint,
 	"directory=s" => \$directory,
+	"shortcircuit:i" => \$shortcircuit,
 );
 
 if(!$errors) {
@@ -1395,7 +1397,7 @@ Buddy {
 			chat_send($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
-				if($irc_connections{$nnick} and $shortcircuit) {
+				if($irc_connections{normalize $recipient} and $shortcircuit) {
 					irc_send(irc_privmsg($aim_connections{$nnick}{aimnick}, $recipient, html2txt(txt2html($msg))));
 				} else {
 					message($aim_connections{$nnick}{socket}, $target, $msg);
@@ -1875,11 +1877,11 @@ sub do_signon($$$$) {
 			set_away($aim_connections{$nnick}{screennames}{$nparam}{socket}, $irc_away{$nnick});
 		}
 		if($pounces{safename $nparam}) {
-			$aim_connections{$nnick}{screennames}{$nparam}{pounces} = $pounces{safename $nnick};
-			irc_send(irc_privmsg($usnick, $nnick, "You have " . scalar @{$pounces{safename $nnick}} . " pounces.")) if scalar @{$pounces{safename $nnick}};
+			$aim_connections{$nnick}{screennames}{$nparam}{pounces} = $pounces{safename $nparam};
+			irc_send(irc_privmsg($usnick, $nnick, "You have " . scalar @{$pounces{safename $nparam}} . " pounces.")) if scalar @{$pounces{safename $nparam}};
 		}
 		if($profiles{safename $nparam}) {
-			set_info($aim_connections{$nnick}{screennames}{$nparam}{socket}, $profiles{safename $nnick});
+			set_info($aim_connections{$nnick}{screennames}{$nparam}{socket}, $profiles{safename $nparam});
 			irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set."));
 		}
 	} else {
