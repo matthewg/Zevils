@@ -36,9 +36,9 @@ like this:
 	N:127.0.0.1:password:imserv.your_irc_network.com::50
 
 	You also need Q: lines for $usnick, $oldnick, and $prefix*:
-	Q:*:Reserved for IMIRC:IMServ
-	Q:*:Reserved for IMIRC:AIMServ
-	Q:*:Reserved for IMIRC:AIM-*
+	Q:IMServ:Reserved for IMIRC
+	Q:AIMServ:Reserved for IMIRC
+	Q:AIM-*:Reserved for IMIRC
 
 	Now you should be able to run IMIRC.  If you want to make your IMIRC
 	available to the public, go to
