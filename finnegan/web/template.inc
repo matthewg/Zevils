@@ -321,14 +321,9 @@ Messages:
 __MESSAGE_LINKS__
 </ol><p>
 <span id="messagespan">Message:</span>
-<select name="message" id="message">
+<select name="message">
 __MESSAGE_OPTIONS__
 </select>
-<script type="text/javascript">getobj("messagespan").onclick = function() {
-	obj = getobj("message");
-	obj.options[obj.options.length] = new Option('Secret Message', '0', false, true);
-};
-</script>
 </p><p id="typesel">
 3. Would you like this to be a one-time wake-up call or a recurring wake-up call?  A one-time wake-up call
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
@@ -341,8 +336,9 @@ set a recurring wake-up call to call you every Tuesday and Friday at 8:42 AM.<br
 that this wake-up call is for.  For instance, for a March 20th wake-up call, enter 3/20.  You don't need
 to specify a year; Finnegan will automatically set the wake-up call for the next time the date and time
 roll around (so if it's December, and you enter a date in January, it will go off next month.)<br />
-Date: <input type="text" name="date" size="6" maxlength="5" value="__DATE__" />
-</p></div><div id="recur"><p>
+Date: <input type="text" name="date" id="date" size="6" maxlength="5" value="__DATE__" />
+</p>
+</div><div id="recur"><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
 would you like this wake-up call to call you on?<br />
 Standard Active Weekdays: <br />
@@ -389,9 +385,66 @@ Calendar Type: <select name="cal_type">
 <input type="reset" />
 </p>
 <script type="text/javascript">
-	if(!document.mkwake.type[0].checked) hide("onetime");
-	if(!document.mkwake.type[1].checked) hide("recur");
-	</script>
+//<!-- 
+
+if(!document.mkwake.type[0].checked) hide("onetime");
+if(!document.mkwake.type[1].checked) hide("recur");
+
+var user_entered_date = false;
+
+//Automatically set the date based on the time, to either today (if {today,enteredtime} is in future) or tomorrow
+//...unless the user has entered some other date
+function timechanged() {
+	var datefield = document.mkwake.date;
+	var thetime = document.mkwake.time.value;
+	var curdate = new Date();
+	var timebits = (new String(thetime)).split(":");
+	var hours;
+	var minutes;
+	var enteredtime;
+	var curtime;
+
+	if(user_entered_date) return;
+
+	if(timebits.length == 2) { //We have an h:mm
+		hours = parseInt(timebits[0]);
+		minutes = parseInt(timebits[1]);
+		if(document.mkwake.ampm[0].checked) { //AM
+			if(hours == "12") hours = 0;
+		} else if(document.mkwake.ampm[1].checked) { //PM
+			if(hours != "12") hours = parseInt(hours) + 12;
+		} else {
+			return;
+		}
+		enteredtime = hours*60*60 + minutes*60;
+
+		curtime = parseInt(curdate.getHours())*60*60 + parseInt(curdate.getMinutes()) - 60*60*2; //Give a two-hour fudge factor
+
+		if(curtime > enteredtime) {
+			curdate = new Date(curdate.getTime() + 1000*60*60*24); // Make 'curdate' tomorrow - getTime() is in milliseconds
+		}
+
+		document.mkwake.date.value = (curdate.getMonth()+1) + "/" + curdate.getDate();
+	}
+}
+
+document.mkwake.time.onchange = timechanged;
+document.mkwake.ampm[0].onchange = timechanged;
+document.mkwake.ampm[1].onchange = timechanged;
+document.mkwake.date.onchange = function() {
+	if(this.value == "") {
+		user_entered_date = false;
+	} else {
+		user_entered_date = true;
+	}
+};
+
+getobj("messagespan").onclick = function() {
+	message = document.mkwake.message;
+	message.options[message.options.length] = new Option('Secret Message', '0', false, true);
+};
+// -->
+</script>
 END_MKWAKE_FORM
 ,
 
