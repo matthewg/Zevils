@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use Data::Dumper;
+
+$foo = "foo";
+@foo = qw(foo bar);
+%foo = (foo => 'bar', baz => 'buzz');
+
+%hash = %::;
+
+Dumper(\%hash);
+%hash = tgh2ahh(%hash);
+Dumper(\%hash);
+
+sub tgh2ahh { #typeglob hash => anonymous hash hash
+	my(%tgh) = @_;
+	my(%ahh, $curr, $cur2);
+
+	foreach $curr(keys %tgh) {
+		%{$ahh{$curr}} = (
+			scalar => ${"$tgh{$curr}"},
+			list => @{"$tgh{$curr}"},
+			hash => %{"$tgh{$curr}"},
+			sub => \&{"$tgh{$curr}"},
+			glob => $tgh{$curr},
+		);
+	}
+	warn "Curr:\n";
+	foreach $curr(keys %ahh) {
+		print "$curr:\n";
+		foreach $cur2(keys %{$ahh{$curr}}) {
+			next if $cur2 eq "glob";
+			print "\t$cur2\t$ahh{$curr}{$cur2}\n";
+		}
+	}
+	return %ahh;
+}
