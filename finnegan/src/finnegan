@@ -71,7 +71,7 @@ $SIG{CHLD} = sub {
 	if($Finnegan::Config::use_cisco) {
 		log_debug("Call from PID $$ ended");
 		$phonecalls--;
-		unlink("../tmp/$pid.wav") unless $Finnegan::Config::nocalls;
+		#unlink("../tmp/$pid.wav") unless $Finnegan::Config::nocalls;
 	} else {
 		my $phoneline = $kidmap{$pid};
 		log_debug("Recovered phoneline $phoneline (PID $pid)");
@@ -97,8 +97,15 @@ $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; 
 
 our($call_wake, $get_newwakes, $get_wakes, $get_forgotpins, $update_forgotpin, $delete_wake, $update_wake, $snooze_wake, $update_nexttime, $log_error, $log_wake_start, $log_wake_end, $log_forgot_pin_start, $log_forgot_pin_end, $get_insertid);
 sub prepare_statements() {
+	my $callcap;
+	if($Finnegan::Config::use_cisco) {
+		$callcap = $Finnegan::Config::Cisco::max_simultaneous_calls;
+	} else {
+		$callcap = scalar(keys %phonelines_total);
+	}
+
 	$get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
-	$get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger LIMIT ".(scalar(keys %phonelines_total)*2));
+	$get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger LIMIT ".($callcap*2));
 	$get_forgotpins = $dbh->prepare("SELECT * FROM prefs WHERE forgot_pin=1");
 	$update_forgotpin = $dbh->prepare("UPDATE prefs SET forgot_pin=0 WHERE extension=?");
 	$delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
@@ -270,7 +277,11 @@ while(1) {
 	foreach my $row (@rows) {
 		next unless $row;
 
-		last unless scalar keys %phonelines_avail;
+		if($Finnegan::Config::use_cisco) {
+			last if $phonecalls >= $Finnegan::Config::Cisco::max_simultaneous_calls;
+		} else {
+			last unless scalar keys %phonelines_avail;
+		}
 		log_debug("Got " . $row->{wake_id});
 		next if $row->{unix_trigger} > time();
 
@@ -433,9 +444,9 @@ sub make_call($$) {
 		my $audio_ext;
 		my $audio_dir;
 
-		if($Finnegan::Config::cisco) {
-			$audio_ext = "wav";
-			$audio_dir = "../wav-mono8";
+		if($Finnegan::Config::use_cisco) {
+			$audio_ext = "raw";
+			$audio_dir = "../raw-mono8";
 		} else {
 			$audio_ext = "rmd";
 			$audio_dir = "../rmd";
@@ -533,6 +544,11 @@ sub make_call($$) {
 		close OUTSAMPLE;
 		log_debug("Done with samples.");
 
+		if($audio_ext eq "raw") {
+			system("sox -u -b -r 8000 -c 1 ../tmp/$$.raw ../tmp/$$.wav");
+			unlink("../tmp/$$.raw");
+			$audio_ext = "wav";
+		}
 
 		if($Finnegan::Config::nocalls) {
 			log_debug("Output sample is in ../tmp/$$.$audio_ext");

@@ -6,9 +6,10 @@ use warnings;
 foreach (@ARGV) {
 	my $wav = $_;
 	my $down = $wav;
-	$down =~ s!wav/!wav-mono8/!;
+	$down =~ s!wav/!raw-mono8/!;
+	$down =~ s!.wav$!.raw!;
 	print "Converting $wav to $down...\n";
 	unlink($down);
 	system("mkdir -p `dirname $down`");
-	system("sox $wav -r 8000 -c 1 $down resample");
+	system("sox $wav -u -b -r 8000 -c 1 $down resample");
 }

@@ -79,7 +79,7 @@ void FCH::Main()
 
 	args.Parse( 
 			"f-file:"
-			"d-destination:"
+			"d-dest:"
 			"T-timeout:"
 			"v-voicemail:"
 			"s-snoozefile:"
@@ -99,6 +99,7 @@ void FCH::Main()
 	if (!args.HasOption('f') || !args.HasOption('d') || !args.HasOption('T') || !args.HasOption('v') || !args.HasOption('s') || args.HasOption('h')) 
 	{
 		printHelp();
+		SetTerminationValue(1);		
 		return;
 	} 
 
@@ -132,6 +133,7 @@ void FCH::Main()
 	progConf.snoozeFile = args.GetOptionString('s');
 	if(sscanf(args.GetOptionString('T'), "%d", &progConf.timeout) != 1) {
 		printHelp();
+		SetTerminationValue(1);
 		return;
 	}
 
