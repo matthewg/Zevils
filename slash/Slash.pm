@@ -330,7 +330,7 @@ sub getadmininfo
 	} else {
 		sqlUpdate("sessions","session=".$dbh->quote($session),(-lasttime=>'now()'));
 	}
-	$c->finish();
+	$c->finish() if $c;
 	return ($aid, $seclev,$section,$url);
 }
 
