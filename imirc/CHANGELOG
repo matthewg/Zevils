@@ -1,3 +1,8 @@
+Feb 17 2002, 1.5-rc7.1
+	*Cleaned up connection handling
+	*poll and select methods now use mostly similar code paths
+	*Optimized select-handling as well as poll
+
 Feb 17 2002, 1.5-rc7
 	*Many README enhancements
 	*New feature, $usepoll, should increase performance and
