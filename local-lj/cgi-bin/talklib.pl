@@ -1437,6 +1437,8 @@ sub enter_comment {
     return $jtalkid;
 }
 
+=pod
+
 sub can_post_talk {
     my ($u
 
@@ -1467,6 +1469,8 @@ sub can_post_talk {
                     $bmlerr->("$SC.error.postshared");
                 }
 }
+
+=cut
 
 # XXX these strings should be in talk, but moving them means we have
 # to retranslate.  so for now we're just gonna put it off.
