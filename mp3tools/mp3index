@@ -49,7 +49,7 @@ sub describe {
 			/[^ \t]+[ \t]+(\d+)[ \t]+([^ \t]+)[ \t]+(.+)/;
 			$formatnum = $1;
 			$descriptions[$formatnum] = $3	if lc($2) eq "desc";
-			$options[$formatnum] = [split(/\^/, $3)]	if lc($2) eq "options";
+			$options[$formatnum] = [split(/\^/, $3)] if lc($2) eq "options";
 		}
 	}
 	$numformats ||= $#descriptions;
@@ -159,7 +159,7 @@ Version $version
 
 Usage: mp3index [-f URL] [-h URL] [-o OUTPUT] [-d DATFILE] [-l FORMAT_FILE] 
 		[-p mp3play URL] [-O1 OPTIONS] [-n] [-k] [-N] [-A pat]
-		[-U M3U_FILE]... [FILES]
+		[-M M3U_FILE]... [FILES]
 
 You can use either the short or long forms with one or two dashes in
 whatever combination you want.  However, you can't combine options as in
@@ -176,31 +176,34 @@ mp3index -fh.
 					make sure that the paths mp3index
 					gets are relative from your root
 					MP3 directory.  You can probably do
-					that by running mp3index ./**/*mp3 from
-					that directory (if you're running bash
-					anyway.)
+					that by running mp3index ./**/*mp3
+					from that directory (if you're
+					running bash, anyway.)
 
 	-N, --noparse			Don't parse the filename for artist
 					and title.  You need this if you have
-					the artist in the MP3 tag and the title
-					contains the pattern / - /
+					the artist in the MP3 tag and the
+					title contains the pattern / - /
 
-	-A, --alternatepat=ALTPAT	Instead of using /(.+?) - (.+)\..+/ to
-					find the artist and title from the
+	-A, --alternatepat=ALTPAT	Instead of using /(.+?) - (.+)\..+/
+					to find the artist and title from the
 					filename, use an alternate pattern.
 					You must specify a valid regular
-					expression with the artist in the first
-					set of parens and the title in the
-					second.  Do not include the /slashes/
+					expression with the artist in the
+					first set of parens and the title
+					in the second.  Do not include the
+					/slashes/
 
 	-f, --ftpurl=FTPURL		Prefix to use for FTP downloads,
-					such as ftp://matthewg.port.net/~mp3	
+					such as
+					ftp://matthewg.port.net/~mp3	
 
 	-h, --httpurl=HTTPURL		Prefix to use for HTTP downloads,
 					such as mp3files/
 
 	-p, --playurl=mp3play URL	URL for the mp3play.cgi program.
-					(ex: http://mysite/cgi-bin/mp3play.cgi)
+					(ex:
+					http://mysite/cgi-bin/mp3play.cgi)
 
 	-P, --playall_path=path		Full path and filename that the CGI
 					to play all MP3s will be written to.
@@ -211,10 +214,11 @@ mp3index -fh.
 
 	-U, --playall_url=URL		URL for the file in playall_path.
 					If playall_path is 
-					/htdocs/cgi-bin/playall.cgi, this might
-					be http://www.yoursite.com/cgi-bin/
-					playall.cgi .  You must specify this if
-					specifying a playall_path.
+					/htdocs/cgi-bin/playall.cgi, this
+					might be
+					http://www.yoursite.com/cgi-bin/
+					playall.cgi .  You must specify this
+					if specifying a playall_path.
 
 	-o, --output=OUTPUT_FILE	You can use multiple -o options to
 					specify multiple output files.
@@ -226,13 +230,14 @@ mp3index -fh.
 	-d, --datfile=DATA_FILE		Specifies a data file.  See README
 					for how to use.
 
-	-l, --format=FORMAT_FILE	Specifies a format file (also called a
-					layout file.)  See README for what this
-					should look like.  If no format file is
-					given, format is read from STDIN.
-					However, the program must be able
-					to find a valid format.  Also accepts
-					--layout for backwards compatibility.
+	-l, --format=FORMAT_FILE	Specifies a format file (also called
+					a layout file.)  See README for what
+					this should look like.  If no format
+					file is given, format is read from
+					STDIN.  However, the program must be
+					able to find a valid format.  Also
+					accepts --layout for backwards
+					compatibility.
 
 	-O, --options=OPTIONS		Some formats need more options.
 					See README for details on this.
@@ -241,36 +246,37 @@ mp3index -fh.
 					specify it, it sets the options
 					for the next output file.
 					--options=a^b^c --options=x^y^z
-					sets \$options[0] to a, $options[1] to 
-					b, and \$options[2] c for the first
-					output file.  For the second output,
-					the options will be x, y, and z.
+					sets \$options[0] to a, \$options[1]
+					to b, and \$options[2] c for the
+					first output file.  For the second
+					output, the options will be x, y,
+					and z.
 
 	-n, --no-winamp			Don't use WinAmp genres.  The default
-					is to use them.  This will only affect
-					things if you have songs with a genre
-					above 78.
+					is to use them.  This will only
+					affect things if you have songs with
+					a genre above 78.
 
 	-a, --aggressive		Look for an MPEG header aggressively.
 					You might need this for things with
 					weird headers, but if you do use it
-					then it will take forever if you use it
-					on something that really isn't an MPEG
-					audio file.
+					then it will take forever if you use
+					it on something that really isn't an
+					MPEG audio file.
 
 	-D, --describe			Describe the format file from the
-					format descriptors in it.  See README
-					for more information on format
-					descriptors.
+					format descriptors in it.  See
+					README for more information on
+					format descriptors.
 
 	-v, --verbose			Show status information.
 
-	-U,--m3u=M3U_FILE		Get a list of MPEG audio files to index
-					from M3U_FILE.  If M3U_FILE is "-",
-					standard input will be used.  This
-					option may be specified more than
-					once, in which case multiple M3U
-					files will be used.
+	-M,--m3u=M3U_FILE		Get a list of MPEG audio files to
+					index from M3U_FILE.  If M3U_FILE
+					is "-", standard input will be used.
+					This option may be specified more
+					than once, in which case multiple
+					M3U files will be used.
 
 	FILES are the MPEG audio files to index.  You must either specify
 	one or more FILES or use the --m3u option.
@@ -307,7 +313,7 @@ $errors = &GetOptions("version|V" => \&dispver,
 "noparse|N" => \$noparse,
 "alternatepat|A=s" => \$altpat,
 "help|usage" => \&help,
-"m3u|U=s\@" => \@m3u_files,
+"m3u|M=s\@" => \@m3u_files,
 );
 
 #"format|layout|l=s@" => \@FMTFILE,

@@ -67,6 +67,11 @@ specify it, it sets the options for the next output file.  --options=a^b^c
 c for the first output file and the first, second, and third options to x, y,
 and z respectively for the second output file.
 .TP
+\fB\-M\fR, \fB\-\-m3u=M3U_FILE\fR
+Get a list of MPEG audio files to index from M3U_FILE.  If M3U_FILE is "-"
+standard input will be used.  This option may be specified more than once,
+in which case multiple M3U files will be used.
+.TP
 \fB\-n\fR, \fB\-\-no\-winamp\fR
 Don't use WinAmp genres.  The default is to use them.  This will only affect
 things if you have songs with a genre above 78.
