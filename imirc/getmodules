@@ -18,7 +18,6 @@ sub BEGIN {
 	}		
 }
 
-use warnings;
 use File::Basename;
 
 my $dirname = dirname($0);
