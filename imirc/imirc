@@ -1822,8 +1822,10 @@ sub process_irc_message($) {
 	} elsif(/^SERVER +(\S+)/) {
 		# If there was no prefix, this is name of upstream server.
 		# Else, upstream is just informing us about one of its links
-		$themname = $1 unless $nick;
-		checkstats();
+		if(!$nick) {
+			$themname = $1;
+			checkstats();
+		}
 	}
 }
 
