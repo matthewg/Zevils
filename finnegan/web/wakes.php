@@ -64,6 +64,7 @@ while($count && ($row = mysql_fetch_assoc($result))) {
 	$time = "$time_array[0] $time_array[1]";
 
 	if($row["date"]) {
+		$button = ""; # Doesn't make sense to disable one-time wakes!
 		$date = date_to_user($row["date"]);
 		if(!$date) {
 			echo preg_replace("/__DATE__/", $row["date"], $TEMPLATE["global"]["date_error"]);

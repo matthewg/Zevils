@@ -26,7 +26,7 @@ delete wake-up calls, check the box in the row for each wake-up call
 you'd like to delete, and then click the button mark 'Delete marked wake-up calls'
 below.
 </p><p>
-You can disable a wake-up call to temporarily stop it from being sent.
+You can disable a recurring wake-up call to temporarily stop it from being sent.
 Disabled wake-up calls are shown below as shaded and italicized.
 </p>
 <table rules="cols">
