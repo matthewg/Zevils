@@ -211,7 +211,7 @@ sub groupname($@) {
 	my($self, @groupparts) = @_;
 	my $input = join(".", @groupparts);
 	foreach my $group(@groupparts) {
-		$group =~ tr! .*?\\,!______!;
+		$group =~ tr! .*?\\,/!_______!;
 		$group =~ s/^!/_/;
 	}
 	my $group = join(".", @groupparts);

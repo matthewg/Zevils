@@ -656,10 +656,11 @@ sub got_client(*) {
 						$headers{references} = (split(/\s+/, $headers{references}))[-1];
 					}
 
+					undef $blog->{errstr};
 					if($blog->post(\%headers, $body)) {
 						nntp_put("240 article posted ok");
 					} else {
-						nntp_put("441 posting failed");
+						nntp_put($blog->{errstr} || "441 posting failed");
 					}
 				}
 			} elsif (/^quit$/) {

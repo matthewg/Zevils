@@ -165,6 +165,7 @@ sub parsegroup($$) {#
 			return "story" unless wantarray;
 			$ret[2] = "story";
 			$ret[0] = $groupparts[3];
+			$ret[0] =~ tr!_!/!;
 		}
 	} elsif(lc($groupparts[1]) eq "journals") {
 		return ($groupparts[2] ? "journal" : "journals") unless wantarray;
@@ -249,11 +250,11 @@ sub groups($;$) {
 
 
 	foreach my $story (values %$stories) {
-		my $sectgroup = $self->groupname("$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
+		my $storygroup = $self->groupname("$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'), $story->{sid});
 		my $topic = $self->{slash_db}->getTopic($story->{tid}, 'name');
 
-		$ret{"$textroot.stories.$sectgroup.$story->{sid}"} = "$story->{title} ($topic)";
-		$ret{"$htmlroot.stories.$sectgroup.$story->{sid}"} = "$story->{title} ($topic)";
+		$ret{"$textroot.stories.$storygroup"} = "$story->{title} ($topic)";
+		$ret{"$htmlroot.stories.$storygroup"} = "$story->{title} ($topic)";
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
@@ -701,6 +702,7 @@ sub is_group($$) {
 		return 0 unless lc($self->groupname($section_data->{section})) eq $section;
 
 		my $sid = shift @groupparts or return 1;
+		$sid =~ tr!_!/!;
 		$self->log("SID $sid", LOG_DEBUG);
 		return 0 unless my $story = $self->{slash_db}->getStory($sid);
 		return 0 unless $story->{section} eq $section;
