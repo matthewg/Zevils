@@ -1,3 +1,13 @@
+Mar  1 2002, 1.5
+	*Protect against crashes in process_irc_message
+	*Unreal, P0210 protocol fixes
+	*JOIN-handling refactored
+	*Make sure that $usnick has +o in #imirc-debug
+	*Better handling of incomplete IRC messages
+	*Buddylist parsing (loadbuddies) fixes
+	*globmatch now anchors pattern
+	*Check for $usnick eq $oldnick
+
 Feb 25 2002, 1.5-rc8
 	*"session opened in another location" problem fixes
 	*Added "help credits" IMServ command
