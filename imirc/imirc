@@ -2148,7 +2148,7 @@ sub do_signoff($$;$) {
 	$oscar->signoff() unless $already_off or !$oscar;
 
 	if($aim_connections->{$nick}) {
-		$usercount--;
+		$usercount-- if $aim_connections->{$nick}->{screennames}->{$screenname}->{ison};
 		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname", "", "", $screenname)) unless $already_off or not $screenname;
 		delete $aim_connections->{$nick}->{screennames}->{$screenname} if $screenname;
 		if(haskeys $aim_connections->{$nick}->{screennames}) {
