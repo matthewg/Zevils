@@ -356,7 +356,7 @@
         }
         $ret .= "</select></p>\n";
 
-        $ret .= "<p><input name='anonymous' type='checkbox'";
+        $ret .= "<p><input name='anonymous' type='checkbox' value='1'";
         $ret .= " selected" if $poll->{'anonymous'};
         $ret .= ">The results of this poll are anonymous.</p>\n";
   
