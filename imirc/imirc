@@ -237,7 +237,7 @@ use Toc qw(:all);
 $SIG{__DIE__}  = sub { croak $_[0] };
 
 $home = (getpwuid($>))[7];
-$version = $VERSION = "0.95";
+$version = $VERSION = "0.96";
 
 @args = @ARGV;
 

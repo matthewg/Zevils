@@ -1,19 +1,5 @@
 Add support for Undernet P10 protocol
-
-Admin:
-	#aimirc-admin -- seperate from #aimirc-debug
-	Allow admins to be authenticated by any one of the following methods:
-		being in #aimirc-admin (+k)
-			let pass be set independantly of $uspass
-		being an IRC operator (all-global, all-local, and/or
-		  local-on-upstream
-		sending /msg aimserv admin ($adminpass || $uspass)
-
-Better behavior as an IRC server (read the RFC ;))
-
 Multi-screenname (you can be signed on as multiple S/N's at once) ???
-
 Optional minimal libfaim - for password changes and such?????
-
 file transfer -> DCC?
 Handle colors as well as bold, etc.?

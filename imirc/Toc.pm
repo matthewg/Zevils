@@ -27,7 +27,7 @@ use HTML::Parse;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '0.95';
+$VERSION = '0.96';
 
 =pod
 
