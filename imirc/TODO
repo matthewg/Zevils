@@ -1,7 +1,7 @@
+*WHY ISN'T THIS PARSED RIGHT:*
+	<blah>test<BR><test>2<BR><yoyo>3
+
 Real Soon Now/First Priority:
-	TOC PAUSE
-	Make more mention of the fact that you need to set_info after
-	  every signon in documentation/help message. - only if server-side-saves disabled
 	ChanServ/AIMServ conflict
 		MODE loop detection, README.ChanServ, services patches
 
@@ -23,7 +23,6 @@ Maybe/Third Priority:
 	(#aimirc-debug or IRC or AIMServ?) stats command
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
-	Code cleanup? (Where?)
 	Write a TOC server and a set of stress tests and regression tests.
 
 Wishlist:

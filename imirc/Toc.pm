@@ -17,6 +17,8 @@ package Toc;
 #
 # AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
 
+use strict;
+use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS %config $err %pausequeue);
 use Fcntl;
 use POSIX qw(:errno_h);
 use Carp qw(cluck);
@@ -25,9 +27,9 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password set_pause get_pause);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '0.96';
+$VERSION = '0.98';
 
 =pod
 
@@ -44,9 +46,12 @@ Call this when you get a toc CONFIG message.
 
 sub update_config($$) {
 	my($handle, $conf) = @_;
+
 	
 	$config{_hnick($handle)} = str2conf($conf);
 	_setup($handle);
+	sflap_do($handle, "toc_init_done") unless $config{_hnick($handle)}{gotconf};
+	$config{_hnick($handle)}{gotconf} = 1;
 }
 
 =pod
@@ -243,6 +248,7 @@ sub sflap_get($;$) {
 		debug_print("sflap_get (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
 		if($type eq "signon") {
 			@signon_hdr = unpack("NnnA*", $buff);
+			$signon_hdr[3] ||= "";
 			debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
 		}
 
@@ -281,7 +287,7 @@ sub sflap_get($;$) {
 	return -1 if $err;
 	if($@) {
 		alarm 0;
-		croak unless $@ eq "alarm\n";
+		croak($@) unless $@ eq "alarm\n";
 		$err = "sflap_get timed out";
 		return -1;
 	}
@@ -370,7 +376,7 @@ sub signon($$&;&) {
 
 		debug_print("$username is now in SFLAP mode", "signon", 2);
 
-		$flags = '';
+		$flags = 0;
 		fcntl($socket, F_GETFL, $flags) or do {
 			$err = "Couldn't get flags for socket: $!";
 			debug_print("$username couldn't get flags for socket: $!", "signon", 1);
@@ -427,35 +433,6 @@ sub signon($$&;&) {
 	};
 
 	debug_print("$username has sent toc_signon", "signon", 2);
-
-	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
-	$msg = sflap_get($socket, 1);
-	if($err) {
-		return -1;
-	}
-	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . aim_strerror($1, $2);
-		debug_print("$username had an error after toc_signon: $err", "signon", 1);
-		return -1;
-	}
-	$msg = sflap_get($socket, 1);
-	return -1 if $err;
-	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . aim_strerror($1, $2);
-		debug_print("$username had an error after toc_signon and get: $err", "signon", 1);
-		return -1;
-	}
-	$config = str2conf($msg);
-	$msg =~ s/^CONFIG://;
-	$config{$username} = $config;
-	$config{$username}{gotconf} = 1 if $msg;
-	$config{$username}{permtype} = $config->{permtype};
-
-	_setup($socket);
-	sflap_do($socket, "toc_init_done");
-
-	debug_print(_hnick($socket) . " has succesfully signed on", "signon", 1);
-
 	return (0, $socket, $config);
 }
 
@@ -917,8 +894,8 @@ Returns the normalized string.
 =cut
 
 sub normalize($) {
-	my$temp = shift;
-	$temp =~ tr/ //d;
+	my $temp = shift;
+	$temp =~ tr/ //d if $temp;
 	return lc($temp);
 }
 
@@ -989,6 +966,43 @@ sub parseclass($) {
 
 =pod
 
+=item set_pause(HANDLE, VALUE)
+
+Use a VALUE of 1 when TOC sends the PAUSE message, a VALUE of 0 when TOC sends
+SIGN_ON after a pause.
+
+=cut
+
+sub set_pause($$) {
+	my($socket, $value, $msg) = @_;
+
+	if($value) {
+		$config{_hnick($socket)}{paused} = 1;
+	} else {
+		delete $config{_hnick($socket)}{paused};
+		foreach $msg(@{$pausequeue{_hnick($socket)}}) {
+			sflap_put($socket, $msg, 1);
+		}
+		_setup($socket);
+		sflap_do($socket, "toc_init_done");
+	}
+}
+
+=item get_pause(HANDLE)
+
+Returns 1 if the connection is paused, 0 otherwise.
+
+=cut
+
+sub get_pause($) {
+	my $socket = shift;
+
+	return 1 if exists $config{_hnick($socket)}{paused} and $config{_hnick($socket)}{paused} == 1;
+	return 0;
+}
+
+=pod
+
 =item roast_password(STRING)
 
 Roast Toc password STRING.  Toc passwords must be roasted before being sent to Toc.
@@ -998,7 +1012,8 @@ You shouldn't need to call this directly.  Returns the roasted password.
 =cut
 
 sub roast_password($) {
-	my $pass = shift;
+	my($pass, $roast, $pos, $rp, $x) = shift;
+
 	$roast = "Tic/Toc";
 	$pos = 2;
 	$rp = "0x";
@@ -1101,8 +1116,10 @@ will be stored in $Net::Toc::err if an error occurs.
 
 =cut
 
-sub sflap_put($$) {
-	my($handle, $msg, $type, @signon_hdr, $rv) = @_; #msg must already be encoded
+sub sflap_put($$;$) {
+	my($handle, $msg, $direct, $type, @signon_hdr, $rv, $paused, $seqno, $foo) = @_; #msg must already be encoded
+
+	$paused = get_pause($handle);
 
 	eval {
 		$err = "Undefined handle";
@@ -1112,9 +1129,13 @@ sub sflap_put($$) {
 		local $SIG{ALRM} = sub { die "alarm\n"; };
 		alarm 5;
 
-		my($seqno) = ++${*$handle}{'net_toc_seqno'};
 		my @hdr = unpack("CCnn", substr($msg, 0, 6));
-		$hdr[2] = $seqno;
+		if($direct) {
+			$seqno = $hdr[2];
+		} else {
+			my($seqno) = ++${*$handle}{'net_toc_seqno'};
+			$hdr[2] = $seqno;
+		}
 
 		if($hdr[1] == 1) {
 			$type = "signon";
@@ -1125,33 +1146,37 @@ sub sflap_put($$) {
 		} else {
 			$type = $hdr[1];
 		}
-		debug_print("sflap_put (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+		debug_print("sflap_put " . ($direct ? "direct " : "") . "(" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1) unless $paused;
 		$foo = $msg;
 		substr($foo, 0, 6) = "";
 		if($type eq "signon") {
 			@signon_hdr = unpack("NnnA*", $foo);
-			debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
+			debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2) unless $paused;
 		} elsif($type ne "keep_alive") {
-			debug_print("\tdata: $foo\n", "sflap", 2);
+			debug_print("\tdata: $foo\n", "sflap", 2) unless $paused;
 		}
+	
+		substr($msg, 0, 6) = pack("CCnn", @hdr) unless $direct;
 
-		substr($msg, 0, 6) = pack("CCnn", @hdr);
-
-		undef $rv;
-		$! = EAGAIN;
-		while(!defined($rv) && $! == EAGAIN) {
-			$rv = $handle->syswrite($msg, length $msg);
-			if($rv != length $msg) {
-				#print STDERR "Incomplete write (wrote $rv of " . length $msg . ")\n";
-				substr($msg, 0, $rv) = "";
-				undef $rv;
-				$! = EAGAIN;
-			} elsif(!defined($rv) && $! != EAGAIN) {
-				$err = "Couldn't write: $!";
-				$handle->close if $handle;
-				alarm 0;
-				return -1;
-			}
+		if(get_pause($handle)) {
+			push @{$pausequeue{_hnick($handle)}}, $msg;
+		} else {
+			undef $rv;
+			$! = EAGAIN;
+			while(!defined($rv) && $! == EAGAIN) {
+				$rv = $handle->syswrite($msg, length $msg);
+				if($rv != length $msg) {
+					#print STDERR "Incomplete write (wrote $rv of " . length $msg . ")\n";
+					substr($msg, 0, $rv) = "";
+					undef $rv;
+					$! = EAGAIN;
+				} elsif(!defined($rv) && $! != EAGAIN) {
+					$err = "Couldn't write: $!";
+					$handle->close if $handle;
+					alarm 0;
+					return -1;
+				}
+			}	
 		}
 		alarm 0;
 	};
@@ -1159,7 +1184,7 @@ sub sflap_put($$) {
 	return -1 if $err;
 	if($@) {
 		alarm 0;
-		croak unless $@ eq "alarm\n";
+		croak($@) unless $@ eq "alarm\n";
 		$err = "sflap_put timed out";
 		return -1;
 	}
@@ -1223,6 +1248,7 @@ sub str2conf($) {
 	my($confstr) = shift;
 	my($line, $type, $val, $config, $permtype, $currgroup);
 	#warn "Confstr: $confstr\n";
+	$confstr ||= "";
 	my @lines = split(/\n/, $confstr);
 	$lines[0] =~ s/^CONFIG://;
 	foreach $line(@lines) {
