@@ -1,3 +1,14 @@
+More thoughts on crypto and such:
+	When we send a message to someone for the first time after signing on,
+	put a special HTML comment in that IM.  <!-- aimirc [capabilities] -->
+	[capabilities] is whatever capabilities we have (new versions get more,
+	and you can turn them off in aimirc.conf)  One such capability is
+	crypto.  To enable crypto support, you'd probably have to generate a
+	keypair.  If two people on the same aimirc server are talking to the
+	same person on another aimirc server, we can arrange for that person
+	to only need to send their public key once.  I'll need to look into
+	the different crypto modules available for Perl.
+
 Collaboration:
 	There's an access list, see?  You can add AIM screennames,
 	IRC nick!user@host (with wildcards), AIM chatrooms, and/or IRC channels
@@ -32,7 +43,7 @@ Collaboration:
 DANGER!!  EVIL SUBTLE BUG!?!?  Hrm, there might be something wrong in the
 main loop.
 
-Multithread support.
+Multithread (or fork even) support.
 
 Support for TS protocol
 
