@@ -855,15 +855,15 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				$group = $extra || "Buddies";
-				add_buddy($aim_connections{$nnick}{socket}, $param, $group);
+				add_buddy($aim_connections{$nnick}{socket}, \[split(/,/, $param)], $group);
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname"));
 			} else {
 				$param = lc($param);
-				remove_buddy($aim_connections{$nnick}{socket}, $param);
-				irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
+				remove_buddy($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
+				# irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			unless($param) {
@@ -882,28 +882,28 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname"));
 			} else {
 				$param = lc($param);
-				add_permit($aim_connections{$nnick}{socket}, $param);
+				add_permit($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname"));
 			} else {
 				$param = lc($param);
-				add_deny($aim_connections{$nnick}{socket}, $param);
+				add_deny($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname"));
 			} else {
 				$param = lc($param);
-				remove_deny($aim_connections{$nnick}{socket}, $param);
+				remove_deny($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname"));
 			} else {
 				$param = lc($param);
-				remove_permit($aim_connections{$nnick}{socket}, $param);
+				remove_permit($aim_connections{$nnick}{socket}, \[split(/,/, $param)]);
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
@@ -1036,14 +1036,17 @@ sub process_irc_message($) {
 				irc_send("$foo :set_permit_mode newmode - Set your permit mode.\r\n", 1);
 				irc_send("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n", 1);
 			} elsif($param eq "buddies") {
-				irc_send("$foo :add_permit nick - Add nick to your permit list, removing from deny list.\r\n", 1);
-				irc_send("$foo :add_deny nick - Add nick to your deny list, removing from permit list.\r\n", 1);
+				irc_send("$foo :NOTE: For the commands that take nick[,nick2,...nickN] as a parameter, you must have only commas between the screennames.\r\n", 1);
+				irc_send("$foo :You may NOT have spaces between the screennames!\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :add_permit nick[,nick2,...,nickN] - Add nick (possibly multiple nicks) to your permit list, removing from deny list.\r\n", 1);
+				irc_send("$foo :add_deny nick[,nick2,...,nickN] - Add nick (possibly multiple nicks) to your deny list, removing from permit list.\r\n", 1);
 				irc_send("$foo :buddyinfo name - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
-				irc_send("$foo :add_buddy nick [group] - Add nick to your buddy list.  If you give a group, buddy will be added to that group.\r\n", 1);
-				irc_send("$foo :remove_buddy nick - Remove nick from your buddy list.\r\n", 1);
+				irc_send("$foo :add_buddy nick[,nick2,...,nickN] [group] - Add nick (possibly multiple nicks) to your buddy list.  If you give a group, buddy will be added to that group.\r\n", 1);
+				irc_send("$foo :remove_buddy nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from your buddy list.\r\n", 1);
 				irc_send("$foo :evil nick [anon] (or warn nick [anon]) - Warn nick, optionally anonymously.\r\n", 1);
-				irc_send("$foo :remove_permit nick - Remove nick from permit list.\r\n", 1);
-				irc_send("$foo :remove_deny nick - Remove nick from deny list.\r\n", 1);
+				irc_send("$foo :remove_permit nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from permit list.\r\n", 1);
+				irc_send("$foo :remove_deny nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from deny list.\r\n", 1);
 				irc_send("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n", 1);
 				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
 				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
@@ -1052,6 +1055,10 @@ sub process_irc_message($) {
 				irc_send("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n", 1);
 				irc_send("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n", 1);
 				irc_send("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :To invite someone into a chat, use the IRC INVITE command on their AIM- screenname.\r\n", 1);
+				irc_send("$foo :Example: /invite AIM-SomeDude #aimchat-1234\r\n", 1);
+				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
 				irc_send("$foo :get_info nick - Get info for nick.\r\n", 1);
 				irc_send("$foo :set_info new info - Set your info.\r\n", 1);
@@ -1225,7 +1232,7 @@ sub process_aim_message($$$) {
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):?(.*)/;
 		Toc::debug_print("Error $1: " . aim_strerror($1, $2), "errors", 1);
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "Error $1 with screenname $screenname: " . aim_strerror($1, $2)));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "${multinick}Error $1: " . aim_strerror($1, $2)));
 	} elsif($cmd eq "CONFIG") {
 		update_config($socket, $msg);
 	} elsif($cmd eq "IM_IN") {
