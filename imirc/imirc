@@ -1151,7 +1151,7 @@ User {
 					$config .= " allowList " . join(" ", $oscar->get_permitlist) . "\n";
 					$config .= " blockList " . join(" ", $oscar->get_denylist) . "\n";
 					$config .= " pref ";
-					if($oscar->visiblity == 1) {
+					if($oscar->visibility == 1) {
 						$config .= "AllowAll";
 					} elsif($oscar->visibility == 2) {
 						$config .= "DenyAll";
