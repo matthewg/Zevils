@@ -24,7 +24,7 @@ while($wake = mysql_fetch_assoc($wakes)) {
 	echo "<MenuItem>\n";
 	if($wake["date"]) {
 		$date = date_to_user($wake["date"]);
-		echo "<Name>$time; $date</Name>\n";
+		echo "<Name>$x$time; $date</Name>\n";
 	} else {
 		$days = explode(",", $wake["weekdays"]);
 		for($i = 0; $i < count($days); $i++) $days[$i] = ucfirst($days[$i]);
