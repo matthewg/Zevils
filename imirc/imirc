@@ -248,27 +248,28 @@ sub process_irc_message {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password")) unless $param and $extra;
 			if($aim_connections{$nick}) {
 				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger as $aim_connections{$nick}{aimnick} - please sign off first if you wish to sign on under a different screename, or use a different IRC connection."));
-			}
-			@ret = signon $param, $extra, sub {
-				irc_send(irc_privmsg($usnick, $nick, $_[0]))
-			};
-			if($ret[0] == 0) {
-				$aim_connections{$nick}{nick} = $nick;
-				$aim_connections{$nick}{aimnick} = $param;
-				$aim_connections{$nick}{socket} = $ret[1];
-				$aim_connections{$nick}{permtype} = $ret[2]->{permtype};
-				%temp = %{$ret[2]};
-				$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
-
-				$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
-				$aimselect->add($aim_connections{$nick}{socket});
-				irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger."));
-				unless($nicks{normalize($param)}) {
-					irc_send(irc_newnick($prefix . normalize($param)));
-					$nicks{normalize($param)}{$nick} = -1;
-				}
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, $err));
+				@ret = signon $param, $extra, sub {
+				irc_send(irc_privmsg($usnick, $nick, $_[0]))
+				};
+				if($ret[0] == 0) {
+					$aim_connections{$nick}{nick} = $nick;
+					$aim_connections{$nick}{aimnick} = $param;
+					$aim_connections{$nick}{socket} = $ret[1];
+					$aim_connections{$nick}{permtype} = $ret[2]->{permtype};
+					%temp = %{$ret[2]};
+					$aim_connections{$nick}{bold} = $aim_connections{$nick}{italic} = $aim_connections{$nick}{underlined} = $aim_connections{$nick}{color} = 1;
+	
+					$filenos[$aim_connections{$nick}{socket}->fileno] = $nick;
+					$aimselect->add($aim_connections{$nick}{socket});
+					irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger."));
+					unless($nicks{normalize($param)}) {
+						irc_send(irc_newnick($prefix . normalize($param)));
+						$nicks{normalize($param)}{$nick} = -1;
+					}
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, $err));
+				}
 			}
 		} elsif ($cmd eq "buddylist") {
 			my(%groups, $buddy, $group);
