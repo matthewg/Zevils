@@ -8,11 +8,13 @@ $extension = "6000";
 
 function cisco_error($title, $msg) { _cisco_text($title, $msg, "error"); }
 function cisco_message($title, $msg, $url = "") {
+	global $FinneganCiscoConfig;
 	if(!$url) $url = $FinneganCiscoConfig->url_base."/service/index.php";
 	_cisco_text($title, $msg, "message", $url);
 }
 
 function _cisco_text($title, $msg, $type, $url = "") {
+	global $FinneganCiscoConfig;
 	ob_end_clean();
 
 	

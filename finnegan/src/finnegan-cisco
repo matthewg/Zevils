@@ -6,12 +6,14 @@ no warnings 'once';
 use POSIX;
 use DBI;
 use Sys::Syslog;
+use LWP::UserAgent;
+use XML::Parser;
 
 our $db_connected = 0;
 our %kidmap = (); # PID -> log_id
 
 sub log_debug($);
-sub activate_wake($$);
+sub activate_wake($);
 
 sub load_settings {
 	open(SETTINGS, "../etc/settings.inc") or die "Couldn't open settings: $!\n";
@@ -53,20 +55,112 @@ $SIG{INT} = $SIG{QUIT} = $SIG{ABRT} = $SIG{ALRM} = $SIG{TERM} = sub { exit 255; 
 
 
 
-my $get_newwakes = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger)");
-my $get_wakes = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger) AS 'unix_trigger' FROM wakes WHERE next_trigger <= NOW() + INTERVAL 60 SECOND AND ((ISNULL(trigger_snooze) OR trigger_snooze < snooze_count) OR trigger_date != CURDATE()) ORDER BY unix_trigger");
+my $get_wakes_new = $dbh->prepare("SELECT * FROM wakes WHERE ISNULL(next_trigger_time)");
+my $timeout_wakes = $dbh->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL, this_timeout_count=this_timeout_count+1 WHERE this_trigger_time + INTERVAL $Finnegan::Config::Cisco::call_timeout SECOND <= NOW()");
+my $get_wakes_bad = $dbh->prepare("SELECT * FROM wakes WHERE this_timeout_count >= $Finnegan::Config::Cisco::max_wake_timeouts OR this_unreachable_count >= $Finnegan::Config::Cisco::max_unreachable_count");
+my $get_wakes_ready = $dbh->prepare("SELECT *, UNIX_TIMESTAMP(next_trigger_time) AS 'unix_trigger' FROM wakes WHERE next_trigger_time <= NOW() AND ISNULL(this_trigger_time) ORDER BY next_trigger_time");
+my $get_wakes_repost = $dbh->prepare("SELECT wake_id, extension, this_post_count, UNIX_TIMESTAMP(this_trigger_time) AS 'unix_trigger' FROM wakes WHERE NOT ISNULL(this_trigger_time)");
+
+my $initialize_wake = $dbh->prepare("UPDATE wakes SET next_trigger_time=?, this_trigger_time=NULL, this_timeout_count=0, this_unreachable_count=0, this_post_count=0 WHERE wake_id=?");
+my $activate_wake = $dbh->prepare("UPDATE wakes SET this_trigger_time=NOW(), this_post_count=0 WHERE wake_id=?");
+my $repost_wake = $dbh->prepare("UPDATE wakes SET this_post_count=this_post_count+1 WHERE wake_id=?");
+my $unreachable_wake = $dbh->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL, this_unreachable_count=this_unreachable_count+1 WHERE wake_id=?");
 my $delete_wake = $dbh->prepare("DELETE FROM wakes WHERE wake_id=?");
-my $activate_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
-my $update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(CURDATE() + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
-my $snooze_wake = $dbh->prepare("UPDATE wakes SET snooze_count=snooze_count+1, next_trigger=NOW() + INTERVAL 9 MINUTE WHERE wake_id=?");
-my $update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
+my $snooze_wake = $dbh->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL WHERE wake_id=?");
+
 my $log_error = $dbh->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
 my $log_wake_start = $dbh->prepare("INSERT INTO log_wake (wake_id, extension, event, start_time) VALUES (?, ?, 'activate', NOW())");
 my $log_wake_end = $dbh->prepare("UPDATE log_wake SET end_time=NOW(), result=?, data=? WHERE log_id=?");
 my $get_insertid = $dbh->prepare("SELECT LAST_INSERT_ID()");
 
+package LWP::UserAgent::Finnegan;
+our @ISA = qw(LWP::UserAgent);
+sub get_basic_credentials { return ($Finnegan::Config::Cisco::post_username, $Finnegan::Config::Cisco::post_password); }
+package main;
+
+my $http_agent = LWP::UserAgent::Finnegan->new;
+$http_agent->timeout($Finnegan::Config::Cisco::post_timeout);
+$http_agent->agent("finnegan-cisco/0.1 " . $http_agent->_agent);
+
+my $xml_parser = XML::Parser->new(Style => "Tree");
+
 my %daymap = ("Sun" => 1, "Mon" => 2, "Tue" => 3, "Wed" => 4, "Thu" => 5, "Fri" => 6, "Sat" => 7);
 my @daymap_inv = ("", sort { $daymap{$a} <=> $daymap{$b} } keys %daymap);
+
+sub initialize_wake($;$) {
+	my $row = shift;
+	my $waketime = shift;
+	return unless $row;
+
+	if(!$waketime) {
+		if($row->{date}) {
+			$waketime = $row->{date} . " " . $row->{time};
+		} else {
+			$row->{time} =~ /(\d+):(\d+)/;
+			my @currtime = localtime(time());
+			my @waketime;
+			@waketime[3, 4, 5] = @currtime[3, 4, 5];
+
+			my $currsecs = $currtime[2]*60+$currtime[1];
+			my $wakesecs = $waketime[2]*60+$waketime[1];
+
+			@waketime = localtime(mktime(@waketime) + 60*60*24) if $currsecs > $wakesecs; # Not today - tomorrow
+
+			$waketime = strftime("%Y-%m-%d %H:%M:%S", @waketime);
+		}
+	}
+	log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
+
+	if(!$initialize_wake->execute($waketime, $row->{wake_id})) {
+		db_error("Couldn't update next_trigger_time", $initialize_wake);
+	}
+}
+
+sub finished_wake($) {
+	my $row = shift;
+	if($row->{date}) {
+		$delete_wake->execute($row->{wake_id});
+	} else {
+		initialize_wake($row);
+	}
+}
+
+sub post_to_phone($@) {
+	my($extension, @uri) = @_;
+
+	if($Finnegan::Config::nocalls) {
+		log_debug("Posting to $extension: " . join(", ", @uri));
+		return "";
+	}
+
+	my $ip = "127.0.0.1";
+
+	my $xml = "<CiscoIPPhoneExecute>\n";
+	$xml .= "<ExecuteItem URL=\"$_\"/>\n" foreach @uri;
+	$xml .= "</CiscoIPPhoneExecute>\n";
+	my $response = $http_agent->post("http://$ip/CGI/Execute", {XML => $xml});
+	if($response->is_success) {
+		my $parsetree;
+		eval { $parsetree = $xml_parser->parse($response->content); };
+		return $@ if $@;
+
+		my $error = "";
+
+		my $response_items = $parsetree->[0];
+		shift @$response_items;
+		while(@$response_items) {
+			my($tag, $value) = splice(@$response_items, 0, 2);
+			next unless $tag eq "ResponseItem";
+			my $attrs = $value->[0];
+			$error .= printf("%s: %d/%s. ", $attrs->{URL}, $attrs->{Status}, $attrs->{Data}) if $attrs->{Status} != 0;
+		}
+
+		return $error;
+	} else {
+		return $response->status_line;
+	}
+}
+
 
 sub log_wake_start($$) {
 	my($wake_id, $extension) = @_;
@@ -74,14 +168,14 @@ sub log_wake_start($$) {
 		warn "$$: Starting wake $wake_id for extension $extension\n";
 	}
 	$log_wake_start->execute($wake_id, $extension);
-        ($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
+	my ($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
 	$log_wake_start->finish;
 	return $log_wake_id;
 }
 sub log_wake_end($$$) {
 	my($result, $data, $log_id) = @_;
 	if($Finnegan::Config::testmode) {
-		warn "$$: Ending wake, log $log_wake_id\n";
+		warn "$$: Ending wake, log $log_id\n";
 	}
 	$log_wake_end->execute($result, $data, $log_id);
 	$log_wake_end->finish;
@@ -107,13 +201,14 @@ sub db_error($$) {
 	log_error($errstr);
 }
 
-# -1. Reload Brandeis calendar data, if necessary.
-# 0. Update next_trigger.  Note that we don't attempt to figure out the correct date for recurring wakes, we do that ad-hoc.
-# 1. Get wakes
-# 2. Check to see if we should call any now
-# 3. If so, call them
-# 4. Reap the TFTP directory
-# 5. Sleep 10 seconds
+# 1. Reload Brandeis calendar data, if necessary.
+# 2. Initialize wakes. [get_wakes_new, initialize_wake]
+# 3. Time out any wakes which need to be timed out. [timeout_wakes]
+# 4. Get all wakes which have exceeded timeout/unreachable parameters. [get_wakes_bad]
+# 5. Activate anything that needs it. [get_wakes_ready, activate_wake]
+# 6. Send POST to any phones which need to be told to start playing the sound file again. [get_wakes_repost, repost_wake]
+# 7. Reap the TFTP directory
+# 8. Sleep 5 seconds
 while(1) {
 	log_debug("Checking brancal time");
 	my $bctime = (stat "../etc/brancal.inc")[9];
@@ -135,62 +230,41 @@ while(1) {
 	}
 
 
-	log_debug("Getting new wakes");
-	my $newwakes = $get_newwakes->execute();
+	log_debug("Initializing wakes");
+	my $newwakes = $get_wakes_new->execute();
 	if(!$newwakes) {
-		db_error("Couldn't get new wakes", $get_newwakes);
+		db_error("Couldn't get new wakes", $get_wakes_new);
 	} else {
-		while(my $row = $get_newwakes->fetchrow_hashref) {
-			$row->{time} =~ /(\d+):(\d+)/;
-			my @waketime = (0, $2, $1, 0, 0, 0);
-			my $waketime;
-			if($row->{date}) {
-				my @dateparts = split(/-/, $row->{date});
-				@waketime[3, 4, 5] = @dateparts[2, 1, 0];
-				$waketime[4]--;
-				$waketime[5] -= 1900;
-				log_debug("mktime " . join(", ", @waketime));
-				$waketime = mktime(@waketime);
-			} else {
-				my @currtime = localtime(time());
-				@waketime[3, 4, 5] = @currtime[3, 4, 5];
-
-				my $currsecs = $currtime[2]*60+$currtime[1];
-				my $wakesecs = $waketime[2]*60+$waketime[1];
-
-				$waketime = mktime(@waketime);
-				$waketime += 60*60*24 if $currsecs > $wakesecs; # Not today - tomorrow
-			}
-			log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
-
-			if(!$update_nexttime->execute($waketime, $row->{wake_id})) {
-				db_error("Couldn't update trigger_time", $update_nexttime);
-			}
+		while(my $row = $get_wakes_new->fetchrow_hashref) {
+			initialize_wake($row);
 		}
-		$get_newwakes->finish;
+		$get_wakes_new->finish;
 	}
 
+	log_debug("Timing out wakes");
+	$timeout_wakes->execute();
 
-	log_debug("Getting wakes");
-	my $wakes = $get_wakes->execute();
+	log_debug("Getting bad wakes");
+	my $bad_wakes = $get_wakes_bad->execute();
+	if($bad_wakes) {
+		while(my $row = $get_wakes_bad->fetchrow_hashref) {
+			finished_wake($row);
+		}
+		$get_wakes_bad->finish;
+	}
+
+	log_debug("Getting ready wakes");
+	my $wakes = $get_wakes_ready->execute();
 	if(!$wakes) {
-		db_error("Couldn't get wakes", $get_wakes);
+		db_error("Couldn't get wakes", $get_wakes_ready);
 		next;
 	}
 
-	my @rows;
-	push @rows, $_ foreach $get_wakes->fetchrow_hashref;
-	$get_wakes->finish;
-
-	foreach my $row (@rows) {
-		next unless $row;
-
-		log_debug("Got " . $row->{wake_id});
-		next if $row->{unix_trigger} > time();
+	while(my $row = $get_wakes_ready->fetchrow_hashref) {
+		log_debug("Got wake " . $row->{wake_id});
 
 		# If it's a non-snoozed recurring wait, we have to make sure that it should get tapped today
 		if(!$row->{date} and !$row->{snooze_count}) {
-			log_debug("Checking recurring wake weekday");
 			my $go_today = 1;
 
 			my($weekday, $hour, $date) = split(/:/, strftime("%w:%H:%Y-%m-%d", localtime(time())));
@@ -234,29 +308,73 @@ while(1) {
 				
 				$tomorrow[1]--;
 				$tomorrow[2] -= 1900;
-				my $waketime = mktime(0, $2, $1, @tomorrow);
-				if(!$update_nexttime->execute($waketime, $row->{wake_id})) {
-					db_error("Couldn't update trigger_time", $update_nexttime);
-				}
+				initialize_wake($row, strftime("%Y-%m-%d %H:%M:%S", 0, $2, $1, @tomorrow));
 
 				next;
 			}
 		}
 
 		if(!$activate_wake->execute($row->{wake_id})) {
-			db_error("Couldn't update trigger_date", $call_wake);
+			db_error("Couldn't update trigger_date", $activate_wake);
 		}
 
 		# Yay, make a call
 		activate_wake($row);
 	}
+	$get_wakes_ready->finish;
 
 
-	log_debug("Done with wakes");
-	# REAP TFTP DIR
+	log_debug("Reposting wakes");
+	my $repost_wakes = $get_wakes_repost->execute();
+	if(!$repost_wakes) {
+		db_error("Couldn't get wakes", $get_wakes_repost);
+		next;
+	}
+
+	my $time = time();
+	while(my $row = $get_wakes_repost->fetchrow_hashref) {
+		my $wakefile = $Finnegan::Config::Cisco::tftp_dir . "/fin-".$row->{wake_id}.".ul";
+		my $wakesize = (stat($wakefile))[7];
+		if(!$wakesize) {
+			log_error("Couldn't stat $wakefile: $!");
+			next;
+		}
+
+		my $wakelength = $wakesize/8000;
+		print "Comparing " . ($row->{unix_trigger} + $wakelength*($row->{this_post_count}+1)) . " <= $time\n";
+		next unless $row->{unix_trigger} + $wakelength*($row->{this_post_count}+1) <= $time;
+
+		if(!$repost_wake->execute($row->{wake_id})) {
+			db_error("Couldn't repost wake", $repost_wake);
+			next;
+		}
+
+		log_debug("Reposting wake " . $row->{wake_id});
+		my $error = post_to_phone($row->{extension}, "Play:${Finnegan::Config::Cisco::tftp_prefix}fin-".$row->{wake_id}.".ul");
+		log_error($error) if $error;
+	}
+	$get_wakes_repost->finish;
+
+
+	log_debug("Reaping TFTP directory");
+	if(!opendir(TFTP, $Finnegan::Config::Cisco::tftp_dir)) {
+		log_error("Couldn't open TFTP directory: $!");
+	} else {
+		while(my $file = readdir(TFTP)) {
+			next unless $file =~ /^fin-\d+\.ul$/;
+			my $mtime = (stat($Finnegan::Config::Cisco::tftp_dir . "/$file"))[9];
+			if($mtime + $Finnegan::Config::Cisco::call_timeout + 300 < $time) {
+				log_debug("Unlinking TFTP file $file");
+				unlink $Finnegan::Config::Cisco::tftp_dir."/$file" || log_error("Couldn't unlink TFTP file $file: $!");
+			}
+		}
+		closedir(TFTP);
+	}
+
+
 
 	log_debug("Waiting...");
-	sleep 10;
+	sleep 5;
 }
 
 sub activate_wake($) {
@@ -272,11 +390,17 @@ sub activate_wake($) {
 		$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 		return 1;
 	} elsif($pid) {
-		$kidmap{$pid} = $log_id;
-		log_debug("Kid is $pid (log ID $log_id)");
 		return 0;
 	} else {
 		$db_connected = 0; # Don't log "Finnegan going down!" when we exit.
+		my $dbh2 = $dbh->clone; # We can't use parent's DB connection, parent still needs it
+		$dbh->{InactiveDestroy} = 1; # Don't kill parent's statement handles on exit
+
+		$log_wake_end = $dbh2->prepare("UPDATE log_wake SET end_time=NOW(), result=?, data=? WHERE log_id=?");
+		$log_error = $dbh2->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
+		$unreachable_wake = $dbh2->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL, this_unreachable_count=this_unreachable_count+1 WHERE wake_id=?");
+		$snooze_wake = $dbh2->prepare("UPDATE wakes SET next_trigger_time=NOW() + INTERVAL 9 MINUTE, this_trigger_time=NULL WHERE wake_id=?");
+
 
 		my @samples = ();
 		my($hour, $minute, $ampm) = split(/:/, strftime("%I:%M:%p", localtime(time())));
@@ -293,29 +417,28 @@ sub activate_wake($) {
 		}
 
 		@samples = (
-			"../g77-mulaw/messages/$message.ul",
-			"../g77-mulaw/wake/timeis.ul",
-			"../g77-mulaw/wake/hours/$hour.ul"
+			"../g711-mulaw/messages/$message.ul",
+			"../g711-mulaw/wake/timeis.ul",
+			"../g711-mulaw/wake/hours/$hour.ul"
 		);
 
 		if($minute > 0) {
 			if($minute > 0 and $minute < 20) {
-				push @samples, "../g77-mulaw/wake/ten-minutes/0.ul" if $minute < 10;
-				push @samples, "../g77-mulaw/wake/one-minutes/$minute.ul";
+				push @samples, "../g711-mulaw/wake/ten-minutes/0.ul" if $minute < 10;
+				push @samples, "../g711-mulaw/wake/one-minutes/$minute.ul";
 			} else {
 				$minute =~ /(.)(.)/;
-				push @samples, "../g77-mulaw/wake/ten-minutes/".($1*10).".ul";
-				push @samples, "../g77-mulaw/wake/one-minutes/$2.ul" if $2;
+				push @samples, "../g711-mulaw/wake/ten-minutes/".($1*10).".ul";
+				push @samples, "../g711-mulaw/wake/one-minutes/$2.ul" if $2;
 			}
 		}
 
-		push @samples, "../g77-mulaw/wake/$ampm.ul";
+		push @samples, "../g711-mulaw/wake/$ampm.ul";
 
-		push @samples, "../g77-mulaw/wake/snooze.ul";
-		push @samples, "../g77-mulaw/wake/edit.ul";
+		push @samples, "../g711-mulaw/wake/edit.ul";
 
-		if(!open(OUTSAMPLE, ">", $Finnegan::Config::Cisco::tftp_base . $Finnegan::Config::Cisco::tftp_path . "/fin-$$.ul")) {
-			log_wake_end("failure", "Couldn't open output sample fin-$$.ul: $!", $log_id);
+		if(!open(OUTSAMPLE, ">", $Finnegan::Config::Cisco::tftp_dir . "/fin-" . $row->{wake_id} . ".ul")) {
+			log_wake_end("failure", "Couldn't open output sample fin-".$row->{wake_id}.".ul: $!", $log_id);
 			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 			exit 1;
 		}
@@ -338,29 +461,20 @@ sub activate_wake($) {
 		log_debug("Done with samples.");
 
 
-		my $failuretext = undef;
 		if($Finnegan::Config::nocalls) {
-			log_debug("Output sample is in fin-$$.ul");
+			log_debug("Output sample is in fin-".$row->{wake_id}.".ul");
 		} else {
-			if(system("./finnegan-call-cisco", $type, $row->{extension}, 10, $Finnegan::Config::Cisco::tftp_base . $Finnegan::Config::Cisco::tftp_path . "/fin-$$.ul") != 0) {
-				my $status = $? >> 8;
+			my $error = post_to_phone($row->{extension},
+				"Play:${Finnegan::Config::Cisco::tftp_prefix}fin-".$row->{wake_id}.".ul",
+				$Finnegan::Config::Cisco::url_base . "/wake/dowake.php?id=" . $row->{wake_id}
+			);
 
-				if($? == -1) {
-					$failuretext = "Failed to execute wake script: $!";
-				} elsif($? & 127) {
-					$failuretext = "Wake script died with signal " . ($? & 127);
-				} else {
-					$failuretext = "";
-				}
+			if($error) {
+				log_wake_end("failure", "Unreachable: $error", $log_id);
+				$unreachable_wake->execute($row->{wake_id});
 			}
 		}
 
-
-		if(!defined($failuretext)) {
-			exit 0;
-		} else {
-			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
-			exit 1;
-		}
+		exit 0;
 	}
 }

@@ -232,6 +232,8 @@ if(!$title) {
 
 }
 
+if($prompt == "init") $prompt = "time";
+
 $url = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prompt";
 if($prompt != "time") $url .= "&amp;time=$time";
 if($prompt != "ampm") $url .= "&amp;ampm=$ampm";

@@ -12,14 +12,15 @@ CREATE TABLE wakes (
 	date DATE NULL,
 	weekdays SET('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun') NULL,
 	cal_type SET('normal', 'holidays', 'Brandeis') NULL,
-	snooze_count INT NOT NULL DEFAULT 0,
-	trigger_date DATE NULL,
-	trigger_snooze INT NULL,
-	next_trigger DATETIME NULL,
-	INDEX (time),
-	INDEX (date),
-	INDEX (weekdays),
-	INDEX (next_trigger),
+	next_trigger_time DATETIME NULL,
+	this_trigger_time DATETIME NULL,
+	this_unreachable_count INT NOT NULL DEFAULT 0,
+	this_timeout_count INT NOT NULL DEFAULT 0,
+	this_post_count INT NOT NULL DEFAULT 0,
+	INDEX (next_trigger_time),
+	INDEX (this_trigger_time),
+	INDEX (this_unreachable_count),
+	INDEX (this_timeout_count),
 	INDEX (extension)
 );
 
@@ -36,9 +37,6 @@ CREATE TABLE log_wake (
 	ip VARCHAR(15) NULL,
 	INDEX (extension),
 	INDEX (wake_id),
-	INDEX (event),
-	INDEX (result),
-	INDEX (start_time)
 );
 
 CREATE TABLE log_ext (
@@ -53,7 +51,6 @@ CREATE TABLE log_ext (
 	ip VARCHAR(15) NULL,
 	INDEX (extension),
 	INDEX (event),
-	INDEX (result),
 	INDEX (start_time)
 );
 
