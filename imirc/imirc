@@ -122,7 +122,7 @@ eval { require Data::Dumper; };
 
 use Toc qw(:all);
 
-$SIG{__DIE__}  = sub { croak $_[0] };
+$SIG{__DIE__}  = sub { going_down; croak $_[0] };
 
 $home = (getpwuid($>))[7];
 $version = $VERSION = "0.98";
@@ -268,7 +268,7 @@ sub loaddat() {
 }
 
 sub loadconf() {
-	my($errors, $foundconfig, $conffile, %temp, $server);
+	my($errors, $foundconfig, $conffile, %temp, $server, $output);
 	#First we check to see what config files to use.
 	#Then we use the config files.
 	#Then we process command-line options.
@@ -284,6 +284,7 @@ sub loadconf() {
 		"license" => \&license,
 		"config|C=s\@" => \@conffiles,
 		"help|h" => \&help,
+		"output=s" => \$output
 	);
 
 	@conffiles = @default_conffiles unless $conffiles[0];
@@ -291,6 +292,13 @@ sub loadconf() {
 	if(!$errors) {
 		print STDERR "Try $0 --help if you need help.\n";
 		exit 1;
+	}
+
+	if(defined $output) {
+		close STDOUT;
+		close STDERR;
+		open(STDOUT, ">$output") or die "Couldn't open STDOUT: $!\n";
+		open(STDERR, ">&STDOUT") or die "Couldn't open STDERR: $!\n";
 	}
 
 	#Okay, try loading the config files
@@ -1775,7 +1783,7 @@ sub process_aim_message($$$) {
 		Toc::debug_print("$connection->{nick} has been invited to chat $1 ($4) [$2] by $3", "chat", 2);
 		$chatinvites{$2} = $connection->{nick};
 		$chatnames{$2} = $screenname;
-		irc_send("INVITE $connection->{nick} :#aimchat-$2\r\n");
+		irc_send(":$usnick INVITE $connection->{nick} :#aimchat-$2\r\n");
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2"));
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
