@@ -33,20 +33,28 @@ sub new {
 }
 
 # This has a race condition - could it be made atomic?
-sub nextSnum($;$) {
-	my $section = shift;
+sub next_num($$;$) {
+	my($self, $type, $what) = @_;
 
-	if(!$section) {
+	if($type eq "snum") {
 		my $snum = $self->getVar("nntp_next_snum", "value");
 		$self->setVar("nntp_next_snum", $snum + 1);
 		return $snum;
-	} else {
-		my($snum) = $self->sqlSelectAll("next_snum", "nntp_sectiondata", "section=$section");
+	} elsif($type eq "section_snum") {
+		my $section = $what;
+		my($snum) = @{$self->sqlSelectAll("next_snum", "sections", "section=$section")};
 		return undef unless $snum;
-		$self->sqlUpdate("nntp_sectiondata", {next_snum => $snum + 1}, "section=$section");
+		$self->sqlUpdate("sections", {next_snum => $snum + 1}, "section=$section");
 		return $snum;
+	} elsif($type eq "cnum") {
+		my $sid = $what;
+		my($cnum) = @{$self->sqlSelectAll("next_cnum", "stories", "sid=$sid")};
+		return undef unless $cnum;
+		$self->sqlUpdate("stories", {next_cnum => $cnum + 1}, "sid=$sid");
+		return $cnum;
 	}
 }
+
 
 sub DESTROY {
 	my($self) = @_;

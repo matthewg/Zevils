@@ -2,5 +2,5 @@ name=NNTP
 description="NNTP support"
 mysql_schema=mysql_schema
 mysql_dump=dump
-mysql_prep=mysql_prep
 note=note
+task=nntp.pl

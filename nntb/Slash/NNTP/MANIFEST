@@ -5,6 +5,6 @@ MANIFEST
 PLUGIN
 note
 dump
-mysql_prep
 mysql_schema
 test.pl
+nntp.pl
