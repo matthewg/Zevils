@@ -11,12 +11,31 @@ sub BEGIN {
 use IO::Handle;
 use IO::Socket;
 use IO::Select;
-use HTML::FormatText;
-use HTML::Parse;
 use POSIX;
 use Toc qw(:all);
 use Carp;
 $Carp::Verbose = 1;
+
+undef $@;
+eval {
+	require HTML::FormatText;
+	require HTML::Parse;
+};
+
+if($@) {
+	print STDERR "You do not have the HTML::FormatText and HTML::Parse modules installed.\n";
+	print STDERR "There are at least three possible ways to install these modules:\n";
+	print STDERR "1) [preferred] Get them as a package from your OS vendor or Linux distributor.\n";
+	print STDERR "        In Debian, you can install the libhtml-tree-perl package.\n";
+	print STDERR "        I'm not sure about anything else.\n";
+	print STDERR "2) Use the CPAN module to install it.  Run perl -MCPAN -e shell and \n";
+	print STDERR "        type install HTML::Tree when you get to the CPAN prompt.\n";
+	print STDERR "3) Download the source from CPAN and install it.  The source is located\n";
+	print STDERR "        at http://www.perl.com/CPAN/modules/by-module/HTML/ in a file\n";
+	print STDERR "        called HTML-Tree-VERSION.tar.gz where VERSION is the latest version\n";
+	print STDERR "        of HTML-Tree.\n";
+	die "\n";
+}
 
 $SIG{__DIE__}  = sub { croak $_[0] };
 
