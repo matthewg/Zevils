@@ -44,10 +44,9 @@ Main page (wake-up call list, index.php) items:
 	wake_list_start: Start of a user's wake-up call list
 		COUNT: Number of wake-up calls that the user has.
 	wake_list_item_once: A one-shot wake-up call in the wake-up call list
+		DELETE_CLASS: If this wake-up call was flagged for deletion, 'class="wake-deleted"'.  Otherwise, blank.
 		ID: Unique identifier for this wake-up call
-		DELETE: If 'selected', this wake-up call was flagged for deletion.
-			Otherwise, blank.  Note that wake-up calls marked for
-			deletion will be wrapped in <span class="wake-delete">...</span>
+		DELETE: If 'checked', this wake-up call was flagged for deletion.  Otherwise, blank.
 		TIME: Time that the wake-up call is set for
 		MESSAGE: Number of the wake-up message that the call is using
 		DATE: Date that the wake-up call is set for
@@ -93,11 +92,11 @@ New/Edit Wake-Up Call items (mkwake.php):
 	mkwake_new_end: End of the 'new wake-up call' page.
 	mkwake_edit_end: End of the 'edit wake-up call' page.
 
+	id_invalid: Wake-up call not found
 	time_invalid: Error for 'time' is invalid
 	ampm_invalid: Error for 'must specify AM or PM'
 	message_invalid: ...
-	day_invalid: ...
-	month_invalid: ...
+	date_invalid: ...
 	weekdays_invalid: Must specify at least one weekday.
 	cal_type_invalid: ...
 	type_invalid: Error for invalid type, or data given does not match type (no month/day for recur, no weekdays for one-time)
@@ -110,14 +109,14 @@ New/Edit Wake-Up Call items (mkwake.php):
 
 	mkwake_form: Form for user to enter a new call or edit an existing one.
 		TIME
-		RECUR: If wake is recurring, 'selected'
+		RECUR: If wake is recurring, 'checked'
 		ONETIME: Ditto
-		AM: If time is in AM, 'selected'
+		AM: If time is in AM, 'checked'
 		PM: Ditto
 		MESSAGE: Number of the message
 		DATE
-		MON, TUE, WED, THU, FRI, SAT, SUN: If that weekday is selected, 'selected'
-		CALTYPE_BRANDEIS: If this calendar type is active, 'selected'
+		MON, TUE, WED, THU, FRI, SAT, SUN: If that weekday is selected, 'checked'
+		CALTYPE_BRANDEIS: If this calendar type is active, 'checked'
 		CALTYPE_HOLIDAYS
 		CALTYPE_NORMAL
 		XXX_CUR: Ditto, but for 'currently active' weekdays.  Only for editing existing wakes;
@@ -130,6 +129,7 @@ New/Edit Wake-Up Call items (mkwake.php):
 		ampm: 'AM' if time is 'AM', otherwise 'PM'
 		message: Number of the wake-up message the user wants
 		type: 'recur' or 'one-time'
+		submit: non-empty
 		One-time wake-up calls:
 			date: Date for the wake, in mm/dd form
 		Recurring wake-up calls:
@@ -142,7 +142,7 @@ New/Edit Wake-Up Call items (mkwake.php):
 			sun: If present, this call is active on Sundays.
 			xxx_cur: Set 'currently active' days of week.  Only for editing existing wakes.
 			cal_type:
-				'brandeis': Use the Brandeis calendar for this wake.
+				'Brandeis': Use the Brandeis calendar for this wake.
 				'holidays': Use the American calendar for this wake, skipping national holidays.
 				'normal': Use the regular calendar for this wake.
 	On a successful create/edit, mkwake.php will simply redirect to index.php.

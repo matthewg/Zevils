@@ -108,27 +108,39 @@ if($extension_ok) {
 	echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wake_list_start"]);
 	while($count && ($row = mysql_fetch_assoc($result))) {
 		$delete = "";
+		$delete_class = "";
 		if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls" && isset($_POST["id"][$row["wake_id"]])) {
-			$delete = "SELECTED";
-			echo '<span class="wake-delete">';
+			$delete = "checked";
+			$delete_class = 'class="wake-deleted"';
 		}
+
+		$time_array = time_to_user($row["time"]);
+		if(!$time_array[0]) {
+			echo preg_replace("/__DATE__/", $row["time"], $TEMPLATE["date_error"]);
+			do_end();
+		}
+		$time = "$time_array[0] $time_array[1]";
+
 		if($row["date"]) {
 			$date = date_to_user($row["date"]);
 			if(!$date) {
 				echo preg_replace("/__DATE__/", $row["date"], $TEMPLATE["date_error"]);
 				do_end();
 			}
+
 			echo preg_replace(
-				array("/__ID__/",
+				array("/__DELETE_CLASS__/",
+				      "/__ID__/",
 				      "/__DELETE__/",
 				      "/__TIME__/",
 				      "/__MESSAGE__/",
 				      "/__DATE__/"),
-				array($row["wake_id"],
+				array($delete_class,
+				      $row["wake_id"],
 				      $delete,
-				      $row["time"],
+				      $time,
 				      $row["message"],
-				      "$date[0] $date[1]"),
+				      $date),
 				$TEMPLATE["wake_list_item_once"]
 			);
 		} else {
@@ -164,15 +176,17 @@ if($extension_ok) {
 				$cal = "Brandeis";
 
 			echo preg_replace(
-				array("/__ID__/",
+				array("/__DELETE_CLASS__/",
+				      "/__ID__/",
 				      "/__DELETE__/",
 				      "/__TIME__/",
 				      "/__MESSAGE__/",
 				      "/__DAYS__/",
 				      "/__CAL__/"),
-				array($row["wake_id"],
+				array($delete_class,
+				      $row["wake_id"],
 				      $delete,
-				      $row["time"],
+				      $time,
 				      $row["message"],
 				      $daytext,
 				      $cal),

@@ -5,6 +5,7 @@ function errmsg($msg) { return "<p class=\"error\">$msg  Check <a href=\"docs.ph
 
 $TEMPLATE = array(
 	"page_start" => <<<END_PAGE_START
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
 <html>
 <head>
 <title>__TITLE__</title>
@@ -77,13 +78,13 @@ you'd like to delete, and then click the button mark 'Delete marked wake-up call
 below.
 </p>
 <table rules="cols">
-<thead><tr><th></th><th></th><th>Time</th><th>Date/Days</th><th>Calendar Type</th></tr></thead>
+<thead><tr><th></th><th></th><th>Time</th><th>Date (mm/dd)/Days</th><th>Calendar Type</th></tr></thead>
 <tbody>
 END_WAKE_LIST_START
 ,
 
 	"wake_list_item_once" => <<<END_WAKE_LIST_ITEM_ONCE
-<tr>
+<tr __DELETE_CLASS__>
 	<td><input type="checkbox" name="id[__ID__]" value="1" __DELETE__ /></td>
 	<td><a href="mkwake.php?id=__ID__;extension=__EXTENSION__">Edit</a></td>
 	<td>__TIME__</td>
@@ -94,9 +95,9 @@ END_WAKE_LIST_ITEM_ONCE
 ,
 
 	"wake_list_item_recur" => <<<END_WAKE_LIST_ITEM_RECUR
-<tr>
+<tr __DELETE_CLASS__>
 	<td width="5%"><input type="checkbox" name="id[__ID__]" value="1" __DELETE__ /></td>
-	<td width="15%"><a href="mkwake.php?id=__ID__;extension=__EXTENSION__">Edit</a></td>
+	<td width="15%"><a href="mkwake.php?id=__ID__">Edit</a></td>
 	<td width="20%">__TIME__</td>
 	<td width="35%">__DAYS__</td>
 	<td width="25%">__CAL__</td>
@@ -211,11 +212,11 @@ has not called you, please contact <a href=\"mailto:finnegan@brandeis.edu\">finn
 END_PIN_SENT
 ,
 
+	"id_invalid" => errmsg("Wake-up call not found."),
 	"time_invalid" => errmsg("Please enter a valid time."),
 	"ampm_invalid" => errmsg("Please specify 'AM' or 'PM'."),
 	"message_invalid" => errmsg("Please enter a valid wake-up message number."),
-	"day_invalid" => errmsg("Please enter a valid day."),
-	"month_invalid" => errmsg("Please enter a valid month."),
+	"date_invalid" => errmsg("Please enter a valid date."),
 	"weekdays_invalid" => errmsg("Please select one or more days of the week."),
 	"cal_type_invalid" => errmsg("Please select a valid calendar type."),
 	"type_invalid" => errmsg("Please select a type of wake-up call.  If you've selected a recurring wake-up call, do not enter a date, and select which days of the week the wake-up call should be activate on.  If you've selected a one-time wake-up call, enter a date, and do not select days of the week."),
@@ -226,7 +227,7 @@ END_PIN_SENT
 	"mkwake_form" => <<<END_MKWAKE_FORM
 <p>
 1. Enter a time for the wake-up call.<br />
-Time: <input type="text" size="6" maxlength="5" value="__TIME__" /><br />
+Time: <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><br />
 <input type="radio" name="ampm" value="AM" __AM__ /> AM<br />
 <input type="radio" name="ampm" value="PM" __PM__ /> PM<br />
 </p><p>
@@ -237,7 +238,7 @@ Messages:
 <li>"This is your wake-up call."</li>
 <li>"WAKE UP!!"</li>
 </ol><p>
-Message: <input type="text" size="3" maxlength="2" value="__MESSAGE__" />
+Message: <input type="text" name="message" size="3" maxlength="2" value="__MESSAGE__" />
 </p><p>
 3. Would you like this to be a one-time wake-up call or a recurring wake-up call?  A one-time wake-up call
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you
@@ -268,7 +269,7 @@ Brandeis Mondays as Monday.  Calls which use the "National Holidays" calendar
 won't call you on national holidays.  Calls which use the "Normal" calendar
 don't do anything special.<br />
 Calendar Type: <select name="cal_type">
-<option value="brandeis" __CALTYPE_BRANDEIS__>Brandeis</option>
+<option value="Brandeis" __CALTYPE_BRANDEIS__>Brandeis</option>
 <option value="holidays" __CAPTYPE_HOLIDAYS__>National Holidays</option>
 <option value="normal" __CALTYPE_NORMAL__>Normal</option>
 </select>

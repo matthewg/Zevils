@@ -82,24 +82,24 @@ function pin_ok($extension, $pin, $newpin = 0) {
 	return $ok;
 }
 
-// 22:00:04 -> 10:00 PM
+// 22:00:04 -> ("10:00", "PM")
 function time_to_user($sql_time) {
 	if(!preg_match('/^(\d\d):(\d\d):\d\d$/', $sql_time, $matches)) return "";
 	$hours = $matches[1];
 	$minutes = $matches[2];
 	if($hours == 0) {
-		return "12:$minutes AM";
+		return array(sprintf("%d:%02d", 12, $minutes), "AM");
 	} else if($hours < 12) {
-		return "$hours:$minutes AM";
+		return array(sprintf("%d:%02d", $hours, $minutes), "AM");
 	} else if($hours == 12) {
-		return "$hours:$minutes PM";
+		return array(sprintf("%d:%02d", $hours, $minutes), "PM");
 	} else if($hours < 24) {
 		$hours -= 12;
-		return "$hours:$minutes PM";
+		return array(sprintf("%d:%02d", $hours, $minutes), "PM");
 	} else if($hours == 24) { //24:00:00
-		return "12:00 AM";
+		return array("12:00", "AM");
 	} else {
-		return "";
+		return array("", "");
 	}
 }
 
@@ -123,25 +123,22 @@ function time_to_sql($user_time, $ampm) {
 	}
 }
 
-$months = array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
-$inv_months = array("Jan" => 1, "Feb" => 2, "Mar" => 3, "Apr" => 4, "May" => 5, "Jun" => 6, "Jul" => 7, "Aug" => 8, "Sep" => 9, "Oct" => 10, "Nov" => 11, "Dec" => 12);
-
-// YYYY-01-02 -> ("Jan", 2)
+// YYYY-01-02 -> ("3/20")
 function date_to_user($sql_date) {
 	global $months;
 	if(!preg_match('/^\d\d\d\d-(\d\d)-(\d\d)$/', $sql_date, $matches)) return "";
 	$month = 0+$matches[1];
 	$day = $matches[2];
-	return array($months[$month-1], $day);
+	return "$month/$day";
 }
 
 // ("Jan", 2) -> YYYY-01-02
-function date_to_sql($month, $day) {
+function date_to_sql($user_date) {
 	global $inv_months;
-	if(!isset($inv_months[$month])) return "";
+	if(!preg_match('/^(\d{1,2})\/(\d\d)$/', $user_date, $matches)) return "";
+	if($matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) return "";
 
-	
-	return "1984-" . $inv_months[$month] . "-$day";
+	return sprintf("1984-%02d-%02d", $matches[1], $matches[2]);
 }
 
 function do_end() {
