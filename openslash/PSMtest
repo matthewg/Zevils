@@ -4,7 +4,7 @@ use Slash::PSM;
 use Data::Dumper;
 
 $slashsite = Slash::PSM->new(1, "newsd", "mattdot");
-require 'pdump';
+#require 'pdump';
 #print Dumper($slashsite);
 $slashsite->Section("articles");
 $slashsite->Topic("news");
