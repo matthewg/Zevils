@@ -230,6 +230,7 @@ Date: <input type="text" name="date" size="6" maxlength="5" value="__DATE__" />
 </p><p>
 4b. <strong>Skip this step for one-time wake-up calls.</strong> Which days of the week
 would you like this wake-up call to call you on?<br />
+Standard Active Weekdays: <br />
 <input type="checkbox" name="mon" value="1" __MON__ /> Monday<br />
 <input type="checkbox" name="tue" value="1" __TUE__ /> Tuesday<br />
 <input type="checkbox" name="wed" value="1" __WED__ /> Wednesday<br />
@@ -257,6 +258,7 @@ days here.  You might want to do this if a class has been cancelled one day.
 This isn't very useful for new wake-up calls, and if you're creating a new
 wake-up call you can safely ignore it, but you can use the 'Edit'
 link to set this later.<br />
+Current Active Weekdays:<br />
 <input type="checkbox" name="mon_cur" value="1" __MON_CUR__ /> Monday<br />
 <input type="checkbox" name="tue_cur" value="1" __TUE_CUR__ /> Tuesday<br />
 <input type="checkbox" name="wed_cur" value="1" __WED_CUR__ /> Wednesday<br />
