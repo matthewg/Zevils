@@ -262,65 +262,37 @@ sub loadconf() {
 
 	Getopt::Long::Configure("no_pass_through");
 
-	my %cfghash;
-
 	$errors = &GetOptions(\%cfghash,
-		"us=s",
-		"them=s",
-		"themport=i",
-		"ourpass=s",
-		"theirpass=s",
-		"servermode=s",
-		"prefix=s",
-		"usnick=s",
-		"time=i",
-		"fork:i",
-		"verbose|v",
-		"debug:i",
-		"debuglevel=s\%",
-		"user_loglevel:i",
-		"sendidle:i",
-		"oscarserver=s",
-		"oscarport=i",
-		"dccip=s",
-		"dcc:i",
-		"shortcircuit:i",
-		"numeric=s",
-		"chatchan=s",
-		"nickchan=s",
-		"oldnick=s",
+		"us=s" => \$us,
+		"them=s" => \$them,
+		"themport=i" => \$themport,
+		"ourpass=s" => \$ourpass,
+		"theirpass=s" => \$theirpass,
+		"servermode=s" => \$servermode,
+		"prefix=s" => \$prefix,
+		"usnick=s" => \$usnick,
+		"time=i" => \$time,
+		"fork:i" => \$fork,
+		"verbose|v" => \$verbose,
+		"debug:i" => \$debug,
+		"debuglevel=s\%" => \%debuglevel,
+		"user_loglevel:i" => \$user_loglevel,
+		"sendidle:i" => \$sendidle,
+		"oscarserver=s" => \$oscarserver,
+		"oscarport=i" => \$oscarport,
+		"dccip=s" => \$dccip,
+		"dcc:i" => \$dcc,
+		"shortcircuit:i" => \$shortcircuit,
+		"numeric=s" => \$numeric,
+		"chatchan=s" => \$chatchan,
+		"nickchan=s" => \$nickchan,
+		"oldnick=s" => \$oldnick,
 	);
 
 	if(!$errors) {
 		print STDERR "Try $0 --help if you need help.\n";
 		exit 1;
 	}
-
-	print "usnick: $usnick\n";
-
-	# If we don't do this, all the options not set on the command line
-	# will be set to undef.
-	#
-	foreach my $option(qw(
-		us them themport ourpass theirpass servermode
-		prefix usnick time fork verbose debug debuglevel
-		user_loglevel sendidle oscarserver oscarport dccip
-		dcc shortcircuit numeric chatchan nickchan oldnick
-	)) {
-		no strict 'refs';
-		next unless defined($cfghash{$option});
-		print "Got cfgopt $option == $cfghash{$option}\n";
-		if($option eq "debuglevel") {
-			foreach my $key(keys %{$cfghash{debuglevel}}) {
-				$debuglevel{$key} = $cfghash{debuglevel}{$key};
-			}
-		} else {
-			${"$option"} = $cfghash{$option};
-		}
-	}
-
-	print "usnick: $usnick\n";
-
 
 	%temp = %ircservers; #Preserve custom ircservers
 
@@ -1406,7 +1378,7 @@ sub process_irc_message($) {
 					irc_send("$foo :newnick nick - Create a new nickname on irc.\r\n", 1);
 					irc_send("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 1 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n", 1);
 					irc_send("$foo :showlevels - List all debugging channels and their levels.\r\n", 1);
-                                        irc_send("$foo :rehash - Reload /etc/imirc.conf and $home/.imirc .\r\n", 1);
+        irc_send("$foo :rehash - Reload /etc/imirc.conf and $home/.imirc .\r\n", 1);
 					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to IMIRC without having to do a full restart.\r\n", 1);
 					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this IMIRC server, text will be sent over that AIM connection.\r\n", 1);
 					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
