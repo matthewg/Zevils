@@ -113,8 +113,9 @@ while(1 == 1) {
 	@aims = $aimselect->has_error(.01);
 	foreach $aim(@aims) {
 		$connection = $aim_connections{$filenos[$aim->fileno]};
+		$fileno = $aim->fileno;
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "You have been signed off of AIM.")) if $connection;
-		delete $aim_connections{$filenos[$aim->fileno]} if $aim and $aim->fileno;
+		delete $aim_connections{$filenos[$fileno]};
 		delete $aim_connections{$connection->{nick}} if $connection and $connection->{nick};
 		$aimselect->remove($connection);
 		signoff($connection);
@@ -221,10 +222,10 @@ sub process_irc_message {
 			%temp = deref(get_config($aim_connections{$nick}{aimnick}));
 			irc_send(irc_privmsg($usnick, $nick, join(" ", keys(%{$temp{deny}}))));
 		} elsif ($cmd eq "signoff") {
+				$aimselect->remove($aim_connections{$nick}{socket});
 				delete $nicks{normalize($aim_connections{$nick}{aimnick})};
 				irc_send(":$prefix" . normalize($aim_connections{$nick}{aimnick}) . " QUIT\r\n");
 				signoff($aim_connections{$nick}{socket});
-				$aimselect->remove($aim_connections{$nick}{socket});
 				delete $aim_connections{$nick}{socket};
 				delete $aim_connections{$nick};
 				irc_send(irc_privmsg($usnick, $nick, "Bye!"));
