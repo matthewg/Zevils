@@ -6,7 +6,7 @@ sub BEGIN {
         require File::Basename;
         my $self = $ENV{SCRIPT_FILENAME} || $0;
         push @INC, File::Basename::dirname($self);                
-        push @INC, File::Basenane::dirname("$self/..");
+        push @INC, File::Basename::dirname("$self/..");
 }
 
 use strict;
