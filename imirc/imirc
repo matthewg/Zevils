@@ -1010,6 +1010,19 @@ sub process_irc_message($) {
 			} else {
 				$aim_connections{$nnick}{report_idle} = $param;
 			}
+		} elsif ($cmd eq "format_nickname") {
+			unless($param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: format_nickname screenname"));
+			} else {
+				$param .= " $extra" if $extra;
+				format_nickname $aim_connections{$nnick}{socket}, $param;
+			}
+		} elsif ($cmd eq "change_password") {
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: change_password old_password new_password"));
+			} else {
+				change_password $aim_connections{$nnick}{socket}, $param, $extra;
+			}
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
@@ -1044,6 +1057,8 @@ sub process_irc_message($) {
 				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
 				irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
 				irc_send("$foo :sendidle (0|1) - Send the TOC server your idle information?\r\n", 1);
+				irc_send("$foo :format_nickname nickname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
+				irc_send("$foo :change_password old_password new_password - Change your AIM password\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
@@ -1250,7 +1265,7 @@ sub process_aim_message($$$) {
 		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
 	} elsif($cmd eq "UPDATE_BUDDY") {
 		$val =~ /([^:]+):(.):([^:]+):([^:]+):([^:]+):(.+)/;
-		$inick = $1; $inick =~ tr/ //d;
+		$inick = $xinick = $1; $inick =~ tr/ //d;
 		$nnick = lc($inick);
 		$ircnick = lc($prefix) . $nnick;
 		Toc::debug_print("$connection->{nick} UPDATE_BUDDY: $val", "buddies", 1);
@@ -1259,20 +1274,20 @@ sub process_aim_message($$$) {
 			%temp = deref(get_config($screenname));
 			{
 				local $^W = 0;
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$inick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$inick is no longer away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has gone away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($6, 2, 1) eq "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick is no longer away")) if substr($temp{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($6, 2, 1) ne "U";
 			}
 
 			irc_send(irc_newnick($prefix . $inick)) unless haskeys($nicks{noprefix $nnick});
 			unless($temp{Buddies}{$nnick}{online}) {
 				truncwarn($connection->{nick}, $inick);
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$inick has arrived"));
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
 			}
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 1);
 			$nicks{noprefix $nnick}{$connection->{nick}} = -1;
 		} else {
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 0);
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$inick has departed"));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has departed"));
 			delete $nicks{noprefix $nnick}{$connection->{nick}};
 			unless(haskeys($nicks{noprefix $nnick})) {
 				irc_send(":$prefix$inick QUIT :I signed off of AIM (UPDATE_BUDDY)\r\n");
@@ -1361,6 +1376,20 @@ sub process_aim_message($$$) {
 		$html =~ s/<I>Legend:.*//m;
 		Toc::debug_print($html, "html", 2);
 		irc_send(irc_privmsg($usnick, $connection->{nick}, html2txt($html, $connection->{nick})));
+	} elsif($cmd eq "ADMIN_NICK_STATUS") {
+		$val =~ /([^:]+):?(.*)/;
+		if($1 != 0) {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nick status - return code $1 (params $2)"));
+		} else {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nickname successfully reformatted."));
+		}
+	} elsif($cmd eq "ADMIN_PASSWD_STATUS") {
+		$val =~ /([^:]+):?(.*)/;
+		if($1 != 0) {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password status - return code $1 (params $2)"));
+		} else {
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password successfully changed."));
+		}
 	}
 }
 
