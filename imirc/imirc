@@ -2919,7 +2919,7 @@ sub ircify($;$) {
 	my $chan = shift;
 
 	#Yes, I am aware that the RFC mandates a max of 9 characters.
-	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen});
+	$screenname = substr($screenname, 0, $ircservers{$servermode}{nicklen}) unless $chan;
 
 	#Enforce RFC1459 compliance.
 	#Note that this does the wrong thing in the pathological case of nicks which don't match /[a-zA-Z]/
