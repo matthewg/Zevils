@@ -304,7 +304,7 @@ $connectmode_fork = 0;
 if($connectmode == 0 or $connectmode == 2) {
 	print STDERR "Testing fork mode support (IPC::Shareable)...\n" if $verbose;
 	undef $@;
-	eval { require IPC::Shareable; }
+	eval { require IPC::Shareable; };
 	if($@) {
 		print STDERR "Can't use fork mode: $@\n" if $verbose;
 	} else {
