@@ -1247,7 +1247,7 @@ sub format_text_mail {
                                   "           ",
                                   $comment->{subject}) . "\n\n";
     }
-    $text .= indent(html2txt($comment->{body}));
+    $text .= indent(LJ::html2txt($comment->{body}));
     $text .= "\n\n";
 
     my $can_unscreen = $comment->{state} eq 'S' && 
