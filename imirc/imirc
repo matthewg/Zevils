@@ -40,7 +40,6 @@ sub haskeys($);
 sub irc_subparms($;$$);
 sub irc_privmsg($$$;$$$);
 sub process_irc_message($);
-sub process_aim_message($$$);
 sub html2txt($;$);
 sub irc_send($;$);
 sub deref($);
@@ -63,7 +62,6 @@ sub safename($);
 sub savedat($);
 sub num2base64($);
 sub base642num($);
-sub got_im($$$$);
 sub irc_mode($$$);
 sub irc_join($$);
 sub irc_kick($$$;$);
@@ -1808,7 +1806,7 @@ sub oscar_im_in($$$$) {
 		$tmp = "[automated reply] " if $buddat and $buddat->{aol};
 		$tmp .= $irc_away->{$nick};
 		$oscar->send_im($from, $tmp, 1);
-		$sndata->{away_buddyies}->{$from} = time;
+		$sndata->{away_buddies}->{$from} = time;
 	}
 	$nicks->{$from}->{$screenname} = time if $nicks->{$from}->{$screenname} and $nicks->{$from}->{$screenname} != -1;
 }
