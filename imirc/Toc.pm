@@ -331,6 +331,7 @@ sub signon($$&;&) {
 	my($username, $password, $socksub, $status) = @_;
 	my($socket, $msg, $config, $buddy, $flags, $alarm);
 
+	$err = "";
 	$alarm = "";
 	$username = normalize($username);
 	unless($username and $password) {
