@@ -13,7 +13,7 @@ class FinneganCiscoConfig {
 #__PHPONLY_END__
 
 # Basic configuration
-$url_base = "http://10.10.0.10/finnegan/cisco"; # Base of URLs to point phones at
+$url_base = "http://10.10.1.3/finnegan/cisco"; # Base of URLs to point phones at
 $tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
 $tftp_prefix = ""; # Prefix which will be prepended to any TFTP file paths we send to the phones
 $wake_method = "h323"; # How we send wakeup calls to phones; valid values are "multicast", "unicast", "h323", and "tftp".

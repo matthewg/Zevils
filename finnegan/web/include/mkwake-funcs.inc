@@ -2,6 +2,7 @@
 
 function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "") {
 	global $FinneganConfig;
+	global $FinneganCiscoConfig;
 	global $TEMPLATE;
 	global $NO_CLASSES;
 	global $BRANDEIS_DAYS;

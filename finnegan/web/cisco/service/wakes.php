@@ -16,6 +16,11 @@ while($wake = mysql_fetch_assoc($wakes)) {
 	$time_array = time_to_user($wake["time"]);
 	$time = "$time_array[0] $time_array[1]";
 
+	if($wake["disabled"])
+		$x = "[OFF] ";
+	else
+		$x = "[ON]  ";
+
 	echo "<MenuItem>\n";
 	if($wake["date"]) {
 		$date = date_to_user($wake["date"]);
@@ -32,7 +37,7 @@ while($wake = mysql_fetch_assoc($wakes)) {
 		else if($wake["cal_type"] == "Brandeis")
 			$cal = "Brandeis";
 
-		echo "<Name>$time; $daytext; $cal</Name>\n";
+		echo "<Name>$x$time; $daytext; $cal</Name>\n";
 	}
 
 	echo "<URL>QueryStringParam:id=".$wake["wake_id"]."</URL>\n";
@@ -51,14 +56,13 @@ while($wake = mysql_fetch_assoc($wakes)) {
 <URL><? echo $FinneganCiscoConfig->url_base ?>/service/rmwake.php</URL>
 <Position>2</Position>
 </SoftKeyItem>
-<SoftKeyItem>
-<Name>Back</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/index.php</URL>
+<Name>En/Disable</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/togglewake.php</URL>
 <Position>3</Position>
 </SoftKeyItem>
 <SoftKeyItem>
-<Name>About</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php?prevurl=<?echo htmlentities(current_url())?></URL>
+<Name>Back</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/index.php</URL>
 <Position>4</Position>
 </SoftKeyItem>
 </CiscoIPPhoneMenu>

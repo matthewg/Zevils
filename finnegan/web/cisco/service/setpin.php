@@ -45,8 +45,8 @@ if(isset($_REQUEST["pin"])) {
 <Position>3</Position>
 </SoftKeyItem>
 <SoftKeyItem>
-<Name>About</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php?prevurl=<?echo htmlentities(current_url())?></URL>
+<Name>Help</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?x=<?echo htmlentities($FinneganCiscoConfig->url_base . "/service/setpin.php")?></URL>
 <Position>4</Position>
 </SoftKeyItem>
 </CiscoIPPhoneInput>

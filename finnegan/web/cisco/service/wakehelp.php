@@ -4,10 +4,10 @@ $cisco = 1;
 require "../../include/finnegan.inc";
 
 $prompt = isset($_REQUEST["p"]) ? $_REQUEST["p"] : "time";
-$prevurl = preg_replace("/!/", "&", $_REQUEST["prevurl"]);
+$prevurl = preg_replace("/!/", "&", $_REQUEST["x"]);
 
 if($prompt == "time") {
-	cisco_error("Help", "Enter the time that you want the alarm to go off at.  You should use a 12-hour time, and ignore the colon, so if you wanted an alarm for 1:05 PM, you would enter '105'.", $prevurl);
+	cisco_error("Help", "Enter the time that you want the alarm to go off at.  You should use a 12-hour time.  The next screen will let you select 'AM' or 'PM'.", $prevurl);
 } else if($prompt == "ampm") {
 	cisco_error("Help", "Select 'AM' or 'PM'.", $prevurl);
 } else if($prompt == "message") {
@@ -15,7 +15,7 @@ if($prompt == "time") {
 } else if($prompt == "type") {
 	cisco_error("Help", "One-time alarms go off once, on a particular day.  You can set them up to a year in advance.  Recurring alarms go off every day, on days of the week that you select (e.g. 'every Monday and Wednesday'.)", $prevurl);
 } else if($prompt == "date") {
-	cisco_error("Help", "Select the date that this alarm is for.", $prevurl);
+	cisco_error("Help", "Select the date that this alarm is for.  For the month, enter 1 for January, 2 for February, etc.", $prevurl);
 } else if($prompt == "weekdays") {
 	cisco_error("Help", "Select which days of the week you'd like this alarm to go off on.", $prevurl);
 } else if($prompt == "cal_type") {

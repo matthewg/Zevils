@@ -24,6 +24,11 @@ require "../../include/finnegan.inc";
 <URL><?echo $FinneganCiscoConfig->url_base?>/service/setpin.php</URL>
 </MenuItem>
 
+<MenuItem>
+<Name>About</Name>
+<URL><?echo $FinneganCiscoConfig->url_base?>/service/about.php</URL>
+</MenuItem>
+
 <SoftKeyItem>
 <Name>Select</Name>
 <URL>SoftKey:Select</URL>
@@ -33,13 +38,7 @@ require "../../include/finnegan.inc";
 <SoftKeyItem>
 <Name>Exit</Name>
 <URL>SoftKey:Exit</URL>
-<Position>2</Position>
-</SoftKeyItem>
-
-<SoftKeyItem>
-<Name>About</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php?prevurl=<?echo htmlentities(current_url())?></URL>
-<Position>4</Position>
+<Position>3</Position>
 </SoftKeyItem>
 
 </CiscoIPPhoneMenu>

@@ -2,7 +2,6 @@
 
 $cisco = 1;
 require "../../include/finnegan.inc";
-header("Expires: -1"); //Don't add to history
 
 if($_REQUEST["id"]) {
 	$id = preg_replace("/[^0-9]/", "", $_REQUEST["id"]);

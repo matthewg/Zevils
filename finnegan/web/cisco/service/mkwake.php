@@ -20,14 +20,18 @@ if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUE
 		$wake = mysql_fetch_assoc($result);
 
 		$time_array = time_to_user($wake["time"]);
-		$oldvalues["time"] = preg_replace("/:/", "", $time_array[0]);
+		preg_match("/(\d+):(\d+)/", $time_array[0], $matches);
+		$oldvalues["hr"] = $matches[1];
+		$oldvalues["min"] = $matches[2];
 		$oldvalues["ampm"] = $time_array[1];
 
-		$oldvalues["date"] = preg_replace("/\\//", "", date_to_user($wake["date"]));
-		if($oldvalues["date"])
+		if(preg_match("/(\\d+)\\/(\\d+)/", date_to_user($wake["date"]), $matches)) {
 			$oldvalues["type"] = "one-time";
-		else
+			$oldvalues["mon"] = $matches[1];
+			$oldvalues["day"] = $matches[2];
+		} else {
 			$oldvalues["type"] = "recurring";
+		}
 
 		$oldvalues["message"] = $wake["message"];
 
@@ -66,17 +70,15 @@ $prompts = array(
 	"time" => array(
 		"next" => "ampm",
 		"prev" => "",
-		"validate" => create_function('$time', <<<END
-			if(!preg_match('/^(\d\d?)(\d\d)$/', \$time, \$matches)) {
-				return "Invalid Time";
+		"values" => array("hr", "min"),
+		"validate" => create_function('$values', <<<END
+			\$hours = \$values[0];
+			\$minutes = \$values[1];
+
+			if(\$hours < 0 || \$hours > 12 || \$minutes < 0 || \$minutes > 59) {
+				return "Invalid Time: \$hours:\$minutes";
 			} else {
-				\$hours = \$matches[1];
-				\$minutes = \$matches[2];
-				if(\$hours < 0 || \$hours > 12 || \$minutes < 0 || \$minutes > 59) {
-					return "Invalid Time";
-				} else {
-					return "";
-				}
+				return "";
 			}
 END
 		)
@@ -117,17 +119,15 @@ END
 	), "date" => array(
 		"next" => "done",
 		"prev" => "type",
-		"validate" => create_function('$date', <<<END
-			if(!preg_match('/^(\d\d?)(\d\d)$/', \$date, \$matches)) {
+		"values" => array("mon", "day"),
+		"validate" => create_function('$values', <<<END
+			\$month = \$values[0];
+			\$day = \$values[1];
+
+			if(\$month < 1 || \$month > 12 || \$day < 1 || \$day > 31) {
 				return "Invalid Date";
 			} else {
-				\$month = \$matches[1];
-				\$day = \$matches[2];
-				if(\$month < 1 || \$month > 12 || \$day < 1 || \$day > 31) {
-					return "Invalid Date";
-				} else {
-					return "";
-				}
+				return "";
 			}
 END
 		)
@@ -162,12 +162,19 @@ END
 
 while(list($name, $var) = each($prompts)) {
 	if($name != "weekdays") {
-		if(isset($_REQUEST[$name]))
-			$_SESSION[$name] = $_REQUEST[$name];
-		else if($id && isset($oldvalues[$name]))
-			$_SESSION[$name] = $oldvalues[$name];
-		else if(!isset($_SESSION[$name]))
-			$_SESSION[$name] = "";
+		$values = array($name);
+		if(isset($var["values"])) $values = $var["values"];
+
+		for($i = 0; $i < sizeof($values); $i++) {
+			$value = $values[$i];
+
+			if(isset($_REQUEST[$value]))
+				$_SESSION[$value] = $_REQUEST[$value];
+			else if($id && isset($oldvalues[$value]))
+				$_SESSION[$value] = $oldvalues[$value];
+			else if(!isset($_SESSION[$value]))
+				$_SESSION[$value] = "";
+		}
 	}
 		
 }
@@ -201,15 +208,31 @@ if(isset($_REQUEST["weekdays"])) {
 }
 
 if(!isset($prompt)) $prompt = "";
-if($prompt && $process && $_SESSION[$prompt]) {
-	$title = $prompts[$prompt]["validate"]($_SESSION[$prompt]);
-	if(!$title) { //No error - advance prompt
-		$prompt = $prompts[$prompt]["next"];
-		if(!$prompt) {
-			if($_SESSION["type"] == "one-time")
-				$prompt = $prompt_onetime_start;
-			else
-				$prompt = $prompt_recur_start;
+if($prompt && $process) {
+	$dome = 1;
+	$values = array($prompt);
+	if(isset($prompts[$prompt]["values"])) $values = $prompts[$prompt]["values"];
+	if(sizeof($values) == 1) {
+		$vallist = $_SESSION[$values[0]];
+		if(!$vallist) $dome = 0;
+	} else {
+		$vallist = array();
+		for($i = 0; $i < sizeof($values); $i++) {
+			$vallist[$i] = $_SESSION[$values[$i]];
+			if(!$vallist[$i]) $dome = 0;
+		}
+	}
+
+	if($dome) {
+		$title = $prompts[$prompt]["validate"]($vallist);
+		if(!$title) { //No error - advance prompt
+			$prompt = $prompts[$prompt]["next"];
+			if(!$prompt) {
+				if($_SESSION["type"] == "one-time")
+					$prompt = $prompt_onetime_start;
+				else
+					$prompt = $prompt_recur_start;
+			}
 		}
 	}
 } else if(!$prompt) {
@@ -226,18 +249,19 @@ if($prompt == "done") {
 	$error = "";
 	$weekday_map = array("Sun" => 1, "Mon" => 2, "Tue" => 3, "Wed" => 4, "Thu" => 5, "Fri" => 6, "Sat" => 7);
 
-	if(preg_match('/^(\d\d?):?(\d\d)$/', $_SESSION["time"], $matches))
-		$time = "$matches[1]:$matches[2]";
-	else
+	if(!preg_match('/^[0-9]{1,2}$/', $_SESSION["hr"]) || !preg_match('/^[0-9]{1,2}$/', $_SESSION["min"]))
 		$error = "Invalid Time";
+	else
+		$time = sprintf("%d:%02d", $_SESSION["hr"], $_SESSION["min"]);
 	if($_SESSION["ampm"] != "AM" && $_SESSION["ampm"] != "PM") $error = "Invalid Time";
-	$sql_time = time_to_sql($_SESSION["time"], $_SESSION["ampm"]);
+	$sql_time = time_to_sql($time, $_SESSION["ampm"]);
 
 	if(!preg_match('/^-?\d+$/', $_SESSION["message"])) $error = "Invalid Message";
 
 	if($_SESSION["type"] == "one-time") {
-		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $_SESSION["date"], $matches))
-			$sql_date = date_to_sql("$matches[1]/$matches[2]", $sql_time);
+		$date = $_SESSION["mon"] . "/" . $_SESSION["day"];
+		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $date, $matches))
+			$sql_date = date_to_sql($date, $sql_time);
 		else
 			$error = "Invalid Date";
 		$sql_cal_type = "";
@@ -331,10 +355,20 @@ if($seltype == "CiscoIPPhoneInput") echo "<URL>$url</URL>\n";
 if($prompt == "time") {
 
 ?>
+
+<Prompt>AM/PM will be on next screen</Prompt>
+
 <InputItem>
-<DisplayName>Time (806 = 8:06 PM)</DisplayName>
-<QueryStringParam>time</QueryStringParam>
-<? if($_SESSION["time"]) echo "<DefaultValue>".$_SESSION["time"]."</DefaultValue>\n"; ?>
+<DisplayName>Hours</DisplayName>
+<QueryStringParam>hr</QueryStringParam>
+<? if($_SESSION["hr"]) echo "<DefaultValue>".$_SESSION["hr"]."</DefaultValue>\n"; ?>
+<InputFlags>N</InputFlags>
+</InputItem>
+
+<InputItem>
+<DisplayName>Minutes</DisplayName>
+<QueryStringParam>min</QueryStringParam>
+<? if($_SESSION["min"]) echo "<DefaultValue>".$_SESSION["min"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
 </InputItem>
 
@@ -356,8 +390,11 @@ if($prompt == "time") {
 	if($_SESSION["message"]) echo "<MenuItem>\n<Name>Current Value (".($_SESSION["message"] == -1 ? 2 : $_SESSION["message"]+2).")</Name>\n<URL>$url&amp;message=".$_SESSION["message"]."</URL>\n</MenuItem>\n";
 	echo "<MenuItem>\n<Name>Random Message</Name>\n<URL>$url&amp;message=-1</URL>\n</MenuItem>\n";
 	for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
+		$messagetext = substr($FinneganConfig->messages[$i]["message"], 0, 62);
+		if(strlen($FinneganConfig->messages[$i]["message"]) > 62) $messagetext .= chr(133); //ellipsis
+
 		printf("<MenuItem>\n<Name>%s</Name>\n<URL>%s</URL>\n</MenuItem>\n",
-			$FinneganConfig->messages[$i]["message"],
+			$messagetext,
 			"$url&amp;message=".$FinneganConfig->messages[$i]["id"]
 		);
 	}
@@ -379,9 +416,16 @@ if($prompt == "time") {
 <? } else if($prompt == "date") { ?>
 
 <InputItem>
-<DisplayName>Date (102 = Jan. 2nd)</DisplayName>
-<QueryStringParam>date</QueryStringParam>
-<? if($_SESSION["date"]) echo "<DefaultValue>".$_SESSION["date"]."</DefaultValue>\n"; ?>
+<DisplayName>Month</DisplayName>
+<QueryStringParam>mon</QueryStringParam>
+<? if($_SESSION["mon"]) echo "<DefaultValue>".$_SESSION["mon"]."</DefaultValue>\n"; ?>
+<InputFlags>N</InputFlags>
+</InputItem>
+
+<InputItem>
+<DisplayName>Day</DisplayName>
+<QueryStringParam>day</QueryStringParam>
+<? if($_SESSION["day"]) echo "<DefaultValue>".$_SESSION["day"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
 </InputItem>
 
@@ -465,7 +509,7 @@ if($seltype == "CiscoIPPhoneMenu") {
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>Help</Name>
-<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?p=<?echo $prompt?>&amp;prevurl=<?echo preg_replace("/&/", "!", current_url())?></URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?p=<?echo $prompt?>&amp;x=<?echo preg_replace("/&/", "!", $FinneganCiscoConfig->url_base . "/service/mkwake.php?" . $_SERVER["QUERY_STRING"])?></URL>
 <Position>4</Position>
 </SoftKeyItem>
 <? echo "</$seltype>\n"; ?>
