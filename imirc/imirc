@@ -1820,7 +1820,7 @@ sub process_irc_message($$) {
 		my $target = noprefix($longnicks->{$2}); my $msg = $4;
 		my $recipient = $2;
 		$msg = process_ctcp($nick, $recipient, $msg, $screenname, $notice);
-		return unless $msg;
+		return if $msg eq "";
 
 		if($recipient eq "#imirc-debug" and $debug) {
 			$msg =~ s/^($usnick)\S*\s+//i;
