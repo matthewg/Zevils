@@ -177,7 +177,7 @@ END
 		"prev" => "",
 		"values" => array("max_snooze_count"),
 		"validate" => create_function('$max_snooze_count', <<<END
-			if(isset($max_snooze_count) && !preg_match('/^[0-9]*$/', \$max_snooze_count)) {
+			if(isset(\$max_snooze_count) && !preg_match('/^[0-9]*$/', \$max_snooze_count)) {
 				return "Invalid Snooze Count";
 			} else {
 				return "";
