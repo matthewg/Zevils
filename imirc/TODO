@@ -1,3 +1,5 @@
+Support for Undernet J09, TS protocols
+
 You know how it only sends one auto-away reply per time you're away per
 AOLnick?  Have it also be per $time (default is 5 minutes.)
 
