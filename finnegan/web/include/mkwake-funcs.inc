@@ -163,7 +163,7 @@ function is_time_free($id, $sql_time, $weekday = "", $cal_type = "", $date = "")
 
 		while($row = mysql_fetch_row($result)) {
 			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[1], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
-				#echo "Conflict with wake $row[0]<br>\n";
+				echo "Conflict with wake $row[0]<br>\n";
 				$okay = 0;
 				break;
 			}
