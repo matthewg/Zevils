@@ -1439,7 +1439,7 @@ sub process_irc_message($) {
 				$oscar->chat_decline($chats{$1}->{url});
 				delete $chats{$1};
 			}
-		} elsif($cmd eq "clonebuddies}) {
+		} elsif($cmd eq "clonebuddies") {
 			local @ARGV = split(/\s+/, "$param $extra");
 			my $merge = 0;
 			my $errors = &GetOptions(
@@ -1449,7 +1449,7 @@ sub process_irc_message($) {
 
 			if(!$errors or @ARGV != 2) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: clonebuddies [--merge] to|from screennam", "", "", $screenname));
-			} elsif($extra eq $aim_connections->{$nick}->{aimnick} {
+			} elsif($extra eq $aim_connections->{$nick}->{aimnick}) {
 				irc_send(irc_privmsg($usnick, $nick, "Can't use clonebuddies on your default screenname.", "", "", $screenname));
 			} elsif(!exists($aim_connections->{$nick}->{screennames}->{$extra})) {
 				irc_send(irc_privmsg($usnick, $nick, "You can only use clonebuddies with a screenname that you are currently signed on under.", "", "", $screenname));
@@ -2959,7 +2959,7 @@ sub export_buddylist($;$) {
  version 1
 }
 User {
- screenName $screenname\n";
+ screenName $oscar->screenname\n";
 		if($oscar->profile) {
 			$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
 			$config .= "  dataLength ".length($oscar->profile)."\n";
