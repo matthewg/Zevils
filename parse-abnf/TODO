@@ -1,0 +1,4 @@
+-Give a reason when matches fails.
+-Merge values:
+	foo "bar" "baz" should be an OPS AGGREGATOR which contains (an op and a CHARVAL AGGREGATOR with two values).
+	Currently we get an OPS AGGREGATOR which contains an op and two CHARVAL AGGREGATORS with one value each.
