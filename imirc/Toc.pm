@@ -25,7 +25,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.96';
 
@@ -61,6 +61,34 @@ sub signoff($) {
 	my($handle) = shift;
 	delete $config{_hnick($handle)};
 	$handle->close if $handle;
+}
+
+=pod
+
+=item format_nickname(HANDLE, STRING)
+
+Reformat a user's nickname.
+
+=cut
+
+sub format_nickname($$) {
+	my($handle, $nick) = @_;
+
+	sflap_put($handle, sflap_encode("toc_format_nickname \"" . quote($nick) . "\"", 0, 1));
+}
+
+=pod
+
+=item change_password(HANDLE, OLD_PASS, NEW_PASS)
+
+Change the user's password.
+
+=cut
+
+sub change_password($$$) {
+	my($handle, $oldpass, $newpass, $msg) = @_;
+	$msg = "toc_change_passwd \"" . quote($oldpass) . "\" \"" . quote($newpass) . "\"";
+	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
 =pod
@@ -112,6 +140,14 @@ sub aim_strerror($$) {
 		return "Warning of $params not currently available";
 	} elsif($errno == 903) {
 		return "A message has been dropped, you are exceeding the server speed limit";
+	} elsif($errno == 911) {
+		return "Error validating input";
+	} elsif($errno == 912) {
+		return "Invalid account";
+	} elsif($errno == 913) {
+		return "Error encountered while processing request";
+	} elsif($errno == 914) {
+		return "Service unavailable";
 	} elsif($errno == 950) {
 		return "Chat in $params is unavailable.";
 	} elsif($errno == 960) {
@@ -366,9 +402,9 @@ sub signon($$&;&) {
 	$config{$username} = $config;
 	$config{$username}{permtype} = $permtype;
 
+	_setup($socket);
 	sflap_do($socket, "toc_init_done");
 
-	_setup($socket);
 	debug_print(_hnick($socket) . " has succesfully signed on", "signon", 1);
 
 	return (0, $socket, $config);
