@@ -233,7 +233,7 @@ while(1) {
 			}
 			log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
 
-			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", $waketime), $row->{wake_id})) {
+			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", localtime($waketime)), $row->{wake_id})) {
 				db_error("Couldn't update trigger_time", $update_nexttime);
 			}
 		}
@@ -320,7 +320,7 @@ while(1) {
 				$tomorrow[1]--;
 				$tomorrow[2] -= 1900;
 				my $waketime = mktime(0, $2, $1, @tomorrow);
-				if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", $waketime), $row->{wake_id})) {
+				if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", localtime($waketime)), $row->{wake_id})) {
 					db_error("Couldn't update trigger_time", $update_nexttime);
 				}
 
