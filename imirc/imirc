@@ -104,6 +104,7 @@ use POSIX;
 use Carp;
 use Getopt::Long;
 use File::Basename;
+use File::Spec;
 use Fcntl;
 use FormatIMIRC;
 use Symbol;
@@ -1547,6 +1548,17 @@ sub process_irc_message($) {
 				irc_send("$foo :\tadd_pounce buddy text - Pounce on screenname with a message of text.\r\n", 1);
 				irc_send("$foo :\tremove_pounce buddy - Remove pounce on buddy.\r\n", 1);
 				irc_send("$foo :\tshow_pounce buddy - Shows the text of a pounce.\r\n", 1);
+			} elsif($param eq "credits") {
+				open(CREDITS, File::Spec->catfile(File::Basename::dirname($0), "CREDITS"))
+					or do {
+						irc_send("$foo :Couldn't open CREDITS: $!\r\n", 1);
+						return;
+					};
+				while(<CREDITS>) {
+					chomp;
+					irc_send("$foo :$_\r\n", 1);
+				}
+				close CREDITS;
 			} else {
 				irc_send("$foo :IMIRC $version, (c)1999-2002 Matthew Sachs.\r\n", 1);
 				irc_send("$foo :IMIRC homepage: http://www.zevils.com/programs/imirc/\r\n", 1);
@@ -1556,6 +1568,7 @@ sub process_irc_message($) {
 				irc_send("$foo :\tbasics - basic commands\r\n", 1);
 			 	irc_send("$foo :\tbuddies - buddylist manipulation, etc.\r\n", 1);
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
+				irc_send("$foo :\tcredits - some of the many people who've helped with IMIRC\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
 				irc_send("$foo :\tmultinick - using IMIRC with multiple AIM screennames from one IRC connection.\r\n", 1);
 				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
