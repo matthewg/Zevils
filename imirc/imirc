@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts %nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 
 # DCC states
@@ -113,6 +113,8 @@ $themport = 6667;
 $ourpass = "foo";
 $theirpass = "bar";
 $servermode = "dal2";
+@ignorehosts = qw(services.*);
+$ignoreuhosts = 1;
 $time = 60*5; #Five minutes
 $user_loglevel = OSCAR_DBG_WARN;
 @default_conffiles = ("/etc/aimirc.conf", "/etc/imirc.conf", "$home/.aimirc", "$home/.imirc");
@@ -287,6 +289,8 @@ sub loadconf() {
 		"chatchan=s" => \$chatchan,
 		"nickchan=s" => \$nickchan,
 		"oldnick=s" => \$oldnick,
+		"ignoreuhosts" => \$ignoreuhosts,
+		"ignorehosts" => \@ignorehosts,
 	);
 
 	if(!$errors) {
@@ -438,6 +442,9 @@ sub mainloop() {
 		irc_send(irc_mode($usnick, "#imirc-debug", "+nsk $ourpass"));
 		$imircdebug = 1;
 		$longnicks->{'#imirc-debug'} = '#imirc-debug';
+
+		@uhosts = ();
+		irc_send(irc_stats($usnick, "U"));
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
@@ -861,6 +868,8 @@ sub process_irc_message($) {
 		}
 	} elsif(!/#imirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra);
+
+		return if ignorenick($nick);
 
 		$screenname = $sndata = "";
 		$screenname = $2 if exists $aim_connections->{$nick}->{screennames}->{$2};
@@ -1654,8 +1663,9 @@ sub process_irc_message($) {
 				}
 			}
 		}
-	} elsif(/^NICK +(\S+)/) { #Nick change
-		my $newnick = "";
+	} elsif(/^NICK +(\S+) *(.*)/) { #Nick change
+		my $newnick = $1;
+		my(@args) = split(/\s+/, $2);
 		if($aim_connections->{$nick}) {
 			$newnick = new Net::OSCAR::Screenname $1;
 			foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
@@ -1675,9 +1685,29 @@ sub process_irc_message($) {
 					$dccqueue[$i]->{from} = $newnick;
 				}
 			}
+		} elsif(@args > 1) { # Get server that nick is from
+			my $template = $ircservers{$servermode}{nick};
+			my @targs;
+			my $server = "";
+
+			# Ignore NICK TheNick
+			(undef, undef, @targs) = split(/\s+/, $template);
+
+			# Find template-arg that is $us - that is where server lies
+			for(my $i = 0; $i < scalar @targs; $i++) {
+				next unless $targs[$i] eq $us;
+				$server = $args[$i];
+				last;
+			}
+
+			$nickservers{$newnick} = lc($server);
+		} else {
+			$nickservers{$newnick} = $nickservers{$nick};
+			delete $nickservers{$nick};
 		}
 	} elsif(/^QUIT/) {
 		delete $irc_away->{$nick};
+		delete $nickservers{$nick};
 
 		my($dcc, $i);
 		for($i = $#dccqueue; $i >= 0; $i--) {
@@ -1690,6 +1720,8 @@ sub process_irc_message($) {
 		do_signoff_all($nick) if $aim_connections->{$nick};
 	} elsif(/^PING/) {
 		irc_send(irc_pong());
+	} elsif(/^248 +$usnick +U +(\S+)/) { # STATS U reply
+		push @uhosts, $1;
 	}
 }
 
@@ -2434,6 +2466,11 @@ sub irc_recv(;$) {
 	return $ret;
 }
 
+sub irc_stats($$) {
+	my($who, $what) = @_;
+	return ":$who STATS $what\r\n";
+}
+
 # Warn if a screenname is being mangled to work with IRC
 sub manglewarn($$$) {
 	my($who, $what, $screenname) = @_;
@@ -2469,7 +2506,7 @@ sub timestuff($) {
 
 	debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %$nicks) {
-		next if $anick eq $usnick;
+		next if $anick eq $usnick or $anick eq $oldnick;
 		next if exists $irc_connections->{noprefix($anick)};
 		next if $anick =~ /^chat-\d+/;
 		$kill = 1;
@@ -3180,4 +3217,28 @@ sub oscar_cfgparse($) {
 		}
 	}
 	return $data;
+}
+
+sub ignorenick($) {
+	my $nick = shift;
+
+	if($ignoreuhosts) {
+		my $server = $nickservers{$nick};
+		return 1 if grep {$_ eq $server} map {lc($_)} @uhosts;
+	}
+
+	if(@ignorehosts) {
+		my $server = $nickservers{$nick};
+		foreach my $globhost(@ignorehosts) {
+			# Transform glob into regex
+			my $host = $globhost;
+			$host =~ s/\.]/\\./g;
+			$host =~ s/\?/./g;
+			$host =~ s/\*/.*/g;
+
+			return 1 if $server =~ /$host/i;
+		}
+	}
+
+	return 0;
 }
