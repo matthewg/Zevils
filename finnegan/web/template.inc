@@ -189,6 +189,7 @@ END_GET_EXTENSION
 	"extension_forbidden" => errmsg("That extension is not allowed to receive wake-up calls."),
 	"db_error" => errmsg("There was a problem with the database: <tt>__ERROR__</tt>. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
 	"date_error" => errmsg("There was a problem with a date or time: '<tt>__DATE__</tt>'. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
+	"lock_error" => errmsg("There was a problem checking if the wake-up time you requested is available. Please try again later.  If the problem persists, please report it to <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>."),
 	"pin_invalid" => errmsg("The PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
 	"pin_set_new_invalid" => errmsg("Your PIN could not be set because the new PIN you entered is invalid.  A PIN must be between one and four digits long, and can only contain the digits 0 through 9."),
 	"pin_error" => errmsg("The PIN you entered is incorrect.  If you've forgotten your PIN, please click the \"Forgot PIN\" button, and the system will call you with your PIN."),

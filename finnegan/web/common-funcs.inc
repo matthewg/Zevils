@@ -1,5 +1,133 @@
 <?
 
+function is_time_free($sql_time, $weekday = "", $date = "") {
+	global $TEMPLATE;
+	global $extension;
+
+	$phonelines = 1;
+	$seconds_per_week = 604800;
+	$wake_duration = 120;
+	$max_snooze = 4;
+	$snooze_duration = 540;
+
+	/* This function determines if it's safe to add a wake-up call
+	 * at a particular time.  If $date isn't set, we treat one-time
+	 * wakes as if they were recurring wakes which go off on whatever
+	 * day of the week their date is.  We do this because if a one-time
+	 * wake would cause a conflict with a recurring wake on one particular
+	 * day, well, that timeslot is not free.
+	 *
+	 * We convert the times of all applicable wakes into the format
+	 * "seconds since the weekly epoch", which is "number of seconds
+	 * since midnight on Sunday".  From now on, all math is modulo
+	 * 604800 (number of seconds in a week), so things will wrap
+	 * back around to Sunday instead of going from Saturday to
+	 * Blurblesday.
+	 *
+	 * Then, we construct an array of intervals.  An interval is
+	 * a set of (start_time, end_time, counter) tuples.  Each wake will result
+	 * in five intervals, as per docs/timeslices.  We do the intervals
+	 * for the timeslot we're checking, and then we go through the
+	 * existing wakes, and every time one of the intervals overlaps
+	 * with one of the intervals for the new wake, we increment
+	 * the counter for that tuple.  If any of the wake-tuples have
+	 * a count greater than the number of phonelines available to
+	 * the system, the timeslot is not available.
+	 *
+	 * We use flock to guarantee that only one caller can be in this
+	 * function at once, to avoid race conditions.
+	 */
+
+	$fp = fopen(".lock", "w+");
+	if(!$fp || flock($fp, LOCK_EX)) {
+		echo $TEMPLATE["lock_error"];
+		return 0;
+	}
+
+	//finepoch: (weekday-1) * 86400 + hours*60*60 + minutes*60
+
+	//First, get the one-time wakes.
+	if($date) {
+		preg_match('/(\d+)-(\d+)-(\d+)/', $date, $date_matches);
+		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
+		$weekday = strftime("%w", mktime($time_matches[1], $time_matches[2], 0, $date_matches[2], $date_matches[3], $date_matches[1])) + 1;
+
+		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE NOT ISNULL(date) AND extension='$extension' AND (DAYOFYEAR(date) - DAYOFYEAR('$date')) % 366 < 7");
+	} else {
+		preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
+		$result = @mysql_query("SELECT (DAYOFWEEK(date)-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE NOT ISNULL(date) AND extension='$extension'");
+	}
+	if(!$result) {
+		flock($fp, LOCK_UN);
+		fclose($fp);
+		db_error();
+	}
+
+	$fintime = ($weekday-1) * 86400 + $time_matches[1]*60*60 + $time_matches[0]*60;
+	$wake_intervals = _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration);
+
+	$okay = 1;
+
+	//Get the one-shots
+	while($row = mysql_fetch_row($result)) {
+		if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[0], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+			$okay = 0;
+			break;
+		}
+	}
+
+	if($okay) {
+		$weekday_names = array("", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat");
+		$weekday_name = $weekday_names[$weekday];
+		$result = @mysql_query("SELECT ($weekday-1)*86400 + HOUR(time)*60*60 + MINUTE(time)*60 AS 'fintime' FROM wakes WHERE ISNULL(date) AND extension='$extension' AND (FIND_IN_SET('$weekday_name',std_weekdays)>0 OR FIND_IN_SET('$weekday_name',cur_weekdays)>0)");
+		if(!$result) {
+			flock($fp, LOCK_UN);
+			fclose($fp);
+			db_error();
+		}
+
+		while($row = mysql_fetch_row($result)) {
+			if(_finepoch_check($phonelines, $wake_intervals, _finepoch_intervals($row[0], $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration))) {
+				$okay = 0;
+				break;
+			}
+		}	
+	}
+
+	flock($fp, LOCK_UN);
+	fclose($fp);
+
+	return $okay;
+}
+
+function _finepoch_check($phonelines, &$wake_intervals, $cur_intervals) {
+	for($i = 0; $i < sizeof($wake_intervals); $i++) {
+		if(
+			($cur_intervals[0] >= $wake_intervals[0] && $cur_intervals[1] <= $wake_intervals[1]) ||
+			($cur_intervals[1] >= $wake_intervals[0] && $cur_intervals[1] <= $wake_intervals[1])
+		) {
+			if(++$wake_intervals[2] >= $phonelines) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+function _finepoch_intervals($fintime, $seconds_per_week, $wake_duration, $max_snooze, $snooze_duration) {
+	$ret = array();
+	//intervals == sum(n=0->4): C(t-n*11*60, (t+120)-n*9*60)
+
+	for($i = 0; $i <= $max_snooze; $i++) {
+		$ret[$i] = array($fintime + $i*$snooze_duration, $fintime+$wake_duration + $i*($snooze_duration+$wake_duration), 0);
+		echo "<tt>Got interval (".$ret[$i][0].", ".$ret[$i][1]."</tt><br />\n";
+	}
+	echo "<tt>=======</tt><br />\n";
+
+	return $ret;
+}
+
 function db_error() {
 	global $TEMPLATE;
 	echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);

@@ -10,6 +10,7 @@ General template items:
 		ERROR: Error message
 	date_error: Problem with a date/time.
 		ERROR: Error message
+	lock_error: Problem obtaining lock for validating availability of wake timeslot.
 	pin_error: Incorrect PIN.
 	pin_invalid: Syntactically invalid PIN.
 	pin_empty: User gave PIN, but doesn't have one set.

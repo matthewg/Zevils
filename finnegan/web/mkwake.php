@@ -138,12 +138,35 @@ if($extension_ok) {
 			}
 		}
 
+		$sql_time = time_to_sql($time, $ampm);
+
 		if(!$error) {
-			$time = time_to_sql($time, $ampm);
+			if($date) {
+				if(!is_time_free($sql_time, "", date_to_sql($date, $sql_time))) {
+					$error = 1;
+					echo $TEMPLATE["time_unavailable_onetime"];
+				}
+			} else {
+				$weekday_names = array("", "sun", "mon", "tue", "wed", "thu", "fri", "sat");
+				$baddays = array();
+				for($i = 1; $i < sizeof($weekday_names); $i++) {
+					if($weekdays[$weekday_names[$i]] || $weekdays_cur[$weekday_names[$i]]) {
+						if(!is_time_free($sql_time, $i)) {
+							$error = 1;
+							$baddays[] = ucfirst($weekday_names[$i]);
+						}
+					}
+				}
+
+				if($error) echo preg_replace("/__DAYS__/", implode(", ", $baddays), $TEMPLATE["time_unavailable_recur"]);
+			}
+		}
+
+		if(!$error) {
 
 			if($type == "one-time") {
 				$cols = array("extension", "time", "message", "date");
-				$values = array("'$extension'", "'$time'", $message, "'".date_to_sql($date, $time)."'");
+				$values = array("'$extension'", "'$sql_time'", $message, "'".date_to_sql($date, $sql_time)."'");
 			} else {
 				$sql_weekdays = array();
 				while(list($day, $val) = each($weekdays)) {
@@ -156,7 +179,7 @@ if($extension_ok) {
 				}
 
 				$cols = array("extension", "time", "message", "std_weekdays", "cur_weekdays", "cal_type");
-				$values = array("'$extension'", "'$time'", $message, "'".implode(",", $sql_weekdays)."'", "'".implode(",", $sql_weekdays_cur)."'", "'".$_POST["cal_type"]."'");
+				$values = array("'$extension'", "'$sql_time'", $message, "'".implode(",", $sql_weekdays)."'", "'".implode(",", $sql_weekdays_cur)."'", "'".$_POST["cal_type"]."'");
 			}
 
 			if(!$id) {
