@@ -1893,12 +1893,14 @@ sub oscar_im_in($$$$) {
 	$recipient = nickchan($screenname) if $sndata->{inchan} == 2;
 	irc_send(irc_privmsg($inick, $recipient, $msg, "", $notice, $screenname));
 
-	if(!$away and $irc_away->{$nick} and (time - $sndata->{away_buddies}->{$from} > $time)) {
-		my $tmp = "";
-		my $buddat = $oscar->buddy($from);
-		$tmp = "[automated reply] " if $buddat and $buddat->{aol};
-		$tmp .= $irc_away->{$nick};
-		$oscar->send_im($from, $tmp, 1);
+	if(!$away and $irc_away->{$nick}) {
+		if(time - $sndata->{away_buddies}->{$from} > $time) {
+			my $tmp = "";
+			my $buddat = $oscar->buddy($from);
+			$tmp = "[automated reply] " if $buddat and $buddat->{aol};
+			$tmp .= $irc_away->{$nick};
+			$oscar->send_im($from, $tmp, 1);
+		}
 		$sndata->{away_buddies}->{$from} = time;
 	}
 	$nicks->{$from}->{$screenname} = time if $nicks->{$from}->{$screenname} and $nicks->{$from}->{$screenname} != -1;
