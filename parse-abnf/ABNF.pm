@@ -209,9 +209,11 @@ $VERSION = '0.01';
 
 use strict;
 use warnings;
-use vars qw($VERSION $ABNF);
+use vars qw($VERSION $ABNF $tablevel);
 use Lingua::EN::Inflect qw(PL);
 use Carp;
+
+$tablevel = -1;
 
 # Well, if you're reading the source code, you probably want to know something about the internals of this beast.
 # First, a warning to the educated: I have no formal knowledge of parsing, so my terminology probably differs from yours.
@@ -284,7 +286,7 @@ use constant CORE_RULES => ( #As defined in RFC 2234 appendix A
 		]
 	},
 	HTAB => { type => OP_TYPE_NUMVAL, value => [chr(0x09)] }, 								# horizontal tab
-	LF => { type => OP_TYPE_NUMVAL, value => [chr(\x0A)] }, 								# linefeed
+	LF => { type => OP_TYPE_NUMVAL, value => [chr(0x0A)] }, 								# linefeed
 	LWSP => { # linear white space (past newline)
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
@@ -364,15 +366,60 @@ sub rules($;$) {
 
 sub matches($$$;@) {
 	my($self, $rule, $tmpdata, @matchrules) = @_;
+	my $nomatchself = 1;
+	my $ret;
 	our $data;
 	$data = $tmpdata;
+	$tablevel = -1;
 
-	$self->_matches($rule, @matchrules);
+	if(@matchrules) { # $rule needs to be in @matchrules, so we use this hack to compensate
+		my $tmprule;
+		foreach $tmprule(@matchrules) {
+			if($tmprule eq $rule) {
+				$nomatchself = 0;
+				last;
+			}
+		}
+	}
+	push @matchrules, $rule;
+	$ret = $self->_matches($rule, $rule, @matchrules);
+	if(@matchrules and $nomatchself) {
+		return $ret->{$rule};
+	} else {
+		return $ret;
+	}
 }
 
-sub _matches($$;@) {
-	my($self, $rule, @matchrules) = @_;
+sub tabify($) {
+	no strict qw(vars);
+	my $what = shift;
+	my $tabstr;
+
+	$tabstr = "\n" . "\t" x ($tablevel+1);
+	return "\t"x($tablevel+1) . join($tabstr, split(/\n/, $what)) . "\n" . "\t"x$tablevel;
+}
+
+sub obj($) {
+	my $obj = shift;
+
+	return ref($obj) ? ("\n".tabify(Data::Dumper::Dumper($obj))) : $obj;
+}
+
+sub _matches($$$;@) {
+	my($self, $rule, $tokname, @matchrules) = @_;
 	no strict qw(vars); # We need this because $data comes from matches which the compiler doesn't know yet.
+	my $matcheddata = "";
+	
+	my $foodata = $data;
+	chomp $foodata;
+
+	my $litrule = 0;
+	if(!ref($rule)) {
+		$litrule = $rule;
+
+	}
+		$tablevel++;
+		#warn "\t"x$tablevel . "_matches called with rule=$rule, data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -380,13 +427,18 @@ sub _matches($$;@) {
 		$matchrules{$matchrule} = 1;
 	}
 
-	my $tokname;
+	$tokname = "" unless exists $matchrules{$tokname};
+
 	unless(ref($rule)) { # $rule may be a hashref to an op
-		$tokname = $rule;
 		$rule = $self->{$rule} or croak "Unknown ABNF rule: $rule";
 	}
 
 	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata);
+	if($rule->{type} == OP_TYPE_OPS and $tokname eq $litrule) {
+		$retval = {};
+	} else {
+		$retval = [];
+	}
 
 	# What, I go to the trouble of writing a parser for you and now you want me to comment it?
 	# Especially the really complex critical methods?  Fine, I guess you don't care if your little
@@ -411,7 +463,6 @@ sub _matches($$;@) {
 	# a match.  But maybe halfway through the aggregator, a match will fail which causes the whole aggregator
 	# to fail.  And maybe we have another branch of an alternator that we can fall back on.  So data needs
 	# to be restored to the state it was in before we started down the failed aggregator.
-	
 
 	$maxreps = exists($rule->{maxreps}) ? $rule->{maxreps} : 1;
 	$minreps = exists($rule->{minreps}) ? $rule->{minreps} : 1;
@@ -426,43 +477,82 @@ sub _matches($$;@) {
 				if($rule->{type} == OP_TYPE_NUMVAL) {
 					$didmatch = substr($data, 0, length($matchvalue)) eq $matchvalue;
 				} elsif($rule->{type} == OP_TYPE_CHARVAL) {
-					 $didmatch = substr(lc($data), 0, length($matchvalue)) eq lc($matchvalue);
+					$didmatch = substr(lc($data), 0, length($matchvalue)) eq lc($matchvalue);
 				} else {
 					croak "Invalid ABNF operand type: ".$rule->{type};
 				}
 				if($didmatch) {
-					push @$retval, $data if exists($matchrules{$tokname});
+					push @$retval, $matchvalue if exists($matchrules{$tokname});
+					$matcheddata .= $matchvalue;
 					$data = substr($data, length($matchvalue)); # Exorcise the bit that we matched from the start of $data
+				} else {
+					undef $didmatch;
 				}
 
 			} else {
-				$didmatch = $self->_matches($matchvalue, @matchrules);
-				if($didmatch and exists($matchrules{$tokname})) {
-					if(ref($rule)) {
-						push @$retval, $didmatch;
+				my $nexttok;
+
+				if(ref($matchvalue)) {
+					$nexttok = $tokname;
+				} else {
+					if(exists($matchrules{$matchvalue})) {
+						$nexttok = $matchvalue;
 					} else {
-						push @{$retval->{$rule}}, $didmatch;
+						$nexttok = $tokname;
+					}
+				}
+
+				$didmatch = $self->_matches($matchvalue, $nexttok, @matchrules);
+				#$tablevel--;
+				if($didmatch and exists($matchrules{$tokname})) {
+					if($litrule eq $tokname) {
+						push @{$retval->{$tokname}}, (ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
+					} else {
+						push @$retval, (ref($didmatch) eq "ARRAY") ? @$didmatch : $didmatch;
 					}
 				}
 			}
 
 			# We have a couple of terminal conditions for matching this op...
-			last MATCHVALUE if $mode == OP_MODE_ALTERNATOR and $didmatch;
-			last MATCHVALUE if $mode == OP_MODE_AGGREGATOR and not $didmatch;
+			last MATCHVALUE if $mode == OP_MODE_ALTERNATOR and defined $didmatch;
+			last REP if $mode == OP_MODE_AGGREGATOR and not defined $didmatch;
 		}
 
-		if(!$didmatch) {
-			$data = $prevdata;
-			if($rep+1 >= $minreps) {
+		if(not defined $didmatch) {
+			if($rep >= $minreps) {
 				$didmatch = 1;
 				last REP;
 			} else {
-				return 0;
+				undef $didmatch;
+				last REP;
 			}
 		}
 	}
 
-	return @matchrules ? $retval : 1;
+	if(not defined $didmatch) {
+		if($rep >= $minreps) {
+			$didmatch = 1;
+		}
+	}
+
+	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? "(matcheddata==$matcheddata) with the following retval:".obj($retval) : "undef") ."\n";
+	$tablevel--;
+
+	if(not defined $didmatch) {
+		$data = $prevdata;
+		return undef;
+	}
+
+	if(@matchrules) {
+		if(ref($retval) eq "HASH" and scalar keys %$retval) {
+			return $retval;
+		} elsif(ref($retval) eq "ARRAY" and scalar @$retval) {
+			return $retval;
+		}
+		return $matcheddata;
+	}
+
+	return 1;
 }
 
 
@@ -495,7 +585,9 @@ use constant ABNF_PARSETREE => {
 			}
 		]
 	},
-	rule => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(rulename defined-as elements c-nl)] },
+	rule => { type => OP_TYPE_OPS, mode => OP_MODE_AGGREGATOR, value => [qw(rulename defined-as elements),
+
+	] },
 	rulename => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
@@ -623,7 +715,7 @@ use constant ABNF_PARSETREE => {
 	option => {
 		type => OP_TYPE_OPS,
 		mode => OP_MODE_AGGREGATOR,
-		value => [{type => "terminal", value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [']']}]
+		value => [{type => OP_TYPE_NUMVAL, value => ['[']}, "maybe-some-c-wsp", "alternation", "maybe-some-c-wsp", {type => OP_TYPE_NUMVAL, value => [']']}]
 	},
 	'char-val' => {
 		type => OP_TYPE_OPS,
