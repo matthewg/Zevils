@@ -602,9 +602,9 @@ sub process_irc_message {
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif($debug and /:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
+	} elsif(/:(\S+) PRIVMSG (\S+) :(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
 		$nick = $1; $target = normalize(aimnick($2)); $msg = $3;
-		if($2 eq "#aimirc-debug") {
+		if($2 eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
 			if($msg eq "restart" and $1) {
 				phoenix;
