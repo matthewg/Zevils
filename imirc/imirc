@@ -567,6 +567,7 @@ sub process_irc_message {
 					$upstream->print("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n");
 					$upstream->print("$foo :reload - Evaluates $0.  This should let you make almost any change to Toc.pm or aimirc without having to do a full restart.\r\n");
 					$upstream->print("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n");
+					$upstream->print("$foo :inject text - Act as though we got text from the IRC server.\r\n");
 					$upstream->print("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n");
 				} else {
 					$upstream->print("$foo :Debugging support is not enabled.  Edit /etc/aimirc.conf or $home/.aimirc and send SIGHUP to PID $$.\r\n");
@@ -605,6 +606,8 @@ sub process_irc_message {
 				&reload;
 			} elsif($msg =~ /^showlevels/) {
 				foreach $level(keys %debug) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "$level: $debug{$level}")); }
+			} elsif($msg =~ /^inject (.+)/ and $1) {
+				process_irc_message($1);
 			} elsif($msg =~ /^raw (\S+) (.+)/ and $1 and $2) {
 				if($1 eq "irc") {
 					irc_send("$2\r\n");
