@@ -857,8 +857,6 @@ sub process_irc_message($) {
 		$screenname = $2 if exists $aim_connections->{$nick}->{screennames}->{$2};
 		$screenname ||= $aim_connections->{$nick}->{aimnick} if exists $aim_connections->{$nick};
 
-		debug_print("Received IRC command from '$screenname'", "irc", 2) if $screenname;
-
 		my $msg = process_ctcp($nick, $usnick, $3, $screenname);
 		return unless $msg;
 
@@ -870,6 +868,8 @@ sub process_irc_message($) {
 		$nick = lc($nick);
 		$param ||= "";
 
+		debug_print("Received IRC command $cmd from '$screenname'", "irc", 2) if $screenname;
+
 		if($aim_connections->{$nick}) {
 			my $connection = $aim_connections->{$nick} if exists $aim_connections->{$nick} and ref $aim_connections->{$nick};
 			$sndata = $connection->{screennames}->{$screenname} if $connection;
@@ -877,11 +877,12 @@ sub process_irc_message($) {
 
 			# Let the user talk to buddies in #aimirc-screenname
 			# This triggers inchan==2 mode
-			if($cmd =~ /$prefix?(.+?)\x02?:\x02?/ and $sndata->{inchan}) {
+			if($cmd =~ /(?:$prefix)?(.+?)\x02?:\x02?/ and $sndata->{inchan}) {
 				my $recipient = $1;
 				$sndata->{inchan} = 2 unless $sndata->{inchan} == 3;
 				$msg =~ s/.*?:\x02? //;
 				send_im($oscar, $recipient, $msg);
+				return;
 			}
 		}
 
@@ -1444,11 +1445,11 @@ Buddy {
 		} elsif($cmd eq "imchan") {
 			if($sndata->{inchan}) {
 				if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
-					irc_send(irc_privmsg($usnick, $nick, normalize("#aimirc-$screenname"), "Incoming IMs for this screenname will now appear in this channel."));
-					$sndata->{imchan} = 2;
+					irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will now appear in this channel.", "", "", $screenname));
+					$sndata->{inchan} = 2;
 				} else {
-					irc_send(irc_privmsg($usnick, $nick, normalize("#aimirc-$screenname"), "Incoming IMs for this screenname will no longer appear in this channel, even if you send someone an IM through this channel."));
-					$sndata->{imchan} = 3;
+					irc_send(irc_privmsg($usnick, $nick, "Incoming IMs for this screenname will no longer appear in this channel, even if you send someone an IM through this channel.", "", "", $screenname));
+					$sndata->{inchan} = 3;
 				}
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must join ".normalize("#aimirc-$screenname")." to use this feature.", "", "", $screenname));
@@ -2757,7 +2758,8 @@ sub ircify($) {
 sub bounce_join($$) {
 	my($nick, $chan) = @_;
 	irc_send(irc_join($usnick, $chan));
-	irc_send(irc_mode($us, $chan, "+isntob $usnick *!*@*"));
+	irc_send(irc_mode($us, $chan, "+o $usnick"));
+	irc_send(irc_mode($usnick, $chan, "+isntb *!*@*"));
 	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for aimirc usage."));
 	$chantimer{$chan} = time;
 }
@@ -2878,6 +2880,7 @@ sub send_im($$$) {
 	my($oscar, $target, $msg) = @_;
 	my $screenname = $oscar->screenname;
 
+	debug_print("$screenname -> $target: $msg", "im", 2);
 	if($irc_connections->{$target} and $shortcircuit) {
 		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
 	} else {
