@@ -5,6 +5,7 @@
 use strict;
 use warnings;
 use vars qw($version @args %config);
+use NNTB::Common;
 
 $version = "0.01";
 
@@ -14,14 +15,10 @@ sub BEGIN {
 	unshift @INC, dirname($0)."/lib";
 }
 
-use constant LOG_ERROR => 0;
-use constant LOG_WARNING => 1;
-use constant LOG_NOTICE => 2;
-use constant LOG_INFO => 3;
-use constant LOG_DEBUG => 4;
-sub log(@) {
+sub log(@) { _log("NNTB: ", @_); }
+sub _log(@) {
 	return unless $config{loglevel} >= pop;
-	print LOG @_, "\n";
+	print LOG scalar(localtime), "  ", @_, "\n";
 }
 
 
