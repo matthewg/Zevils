@@ -122,7 +122,7 @@ eval { require Data::Dumper; };
 
 use Toc qw(:all);
 
-$SIG{__DIE__}  = sub { going_down; croak $_[0] };
+$SIG{__DIE__}  = sub { croak $_[0] };
 
 $home = (getpwuid($>))[7];
 $version = $VERSION = "0.98";
