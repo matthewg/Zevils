@@ -107,10 +107,10 @@ END
 ;
 
 }
-if($FinneganConfig->nocalls) {
-	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
-} else if($FinneganConfig->testmode) {
-	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">Phone calls will be made!</h1>';
-}
+#if($FinneganConfig->nocalls) {
+#	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">No phone calls will be made.</h1>';
+#} else if($FinneganConfig->testmode) {
+#	$TEMPLATE["global"]["start"] .= '<h1 style="color: #FF0000">Phone calls will be made!</h1>';
+#}
 
 ?>
