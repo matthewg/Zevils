@@ -413,7 +413,7 @@ function date_to_sql($user_date, $sql_time) {
 	if($matches[1] < 1 || $matches[1] > 12 || $matches[2] < 1 || $matches[2] > 31) return "";
 
 	$year = strftime("%Y");
-	$cur_time = time();
+	$cur_time = time() - 60*60*24; //Fudge factor
 	$sql_time = preg_match('/(\d+):(\d+)/', $sql_time, $time_matches);
 	$user_time = mktime($time_matches[1], $time_matches[2], 0, $matches[1], $matches[2], $year);
 	if($cur_time > $user_time) $year++;
