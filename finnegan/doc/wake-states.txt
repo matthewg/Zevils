@@ -47,7 +47,7 @@ Transitions:
 Meaning: The wake was activated, and we're waiting for a response from the user.
 Database indicators: NOT ISNULL(next_trigger_time) AND NOT ISNULL(this_trigger_time)
 Transitions:
-	A: Achieved when this_trigger_time + message_length*this_post_count < NOW()
+	P: Achieved when this_trigger_time + message_length*this_post_count < NOW()
 	S: Achieved by the user hitting the snooze.php page via phone softbutton.
 		next_trigger_time is set (+9min)
 		this_trigger_time is cleared
