@@ -723,7 +723,7 @@ sub process_irc_message($) {
 			irc_send(irc_mode($usnick, normalize("#aimirc-$screenname"), "+ints"));
 			foreach $dude(keys %$nicks) {
 				next unless $nicks->{$dude}->{$screenname};
-				irc_send(irc_join(ircify($prefix.$dude), normailze("#aimirc-$screenname")));
+				irc_send(irc_join(ircify($prefix.$dude), normalize("#aimirc-$screenname")));
 				irc_send(irc_mode($usnick, normalize("#aimirc-$screenname"), "+v $prefix$dude")) if $oscar->buddy($dude);
 			}
 			irc_send(irc_privmsg($usnick, normalize("#aimirc-$screenname"), "You can talk to people by saying somedude: hi (or ${prefix}somedude: hi).  This will automatically make IMs sent to you appear in this channel.  Having incoming IMs appear in this channel can also be set via the imchan command."));
