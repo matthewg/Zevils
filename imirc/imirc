@@ -1043,7 +1043,7 @@ sub process_irc_message($) {
 			} elsif($irc_connections->{$param} and !$aim_connections->{$irc_connections->{$param}}->{screennames}->{$param}->{ison}) {
 				irc_send(irc_privmsg($usnick, $nick, "A signon attempt for that screenname is already in progress."));
 			} else {
-				if($aim_connections->{$nick}->{scrennames}->{$param}) {
+				if($aim_connections->{$nick}->{screennames}->{$param}) {
 					irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger under that screenname."));
 				} else {
 					irc_send(irc_privmsg($usnick, $nick, "Signing on to AOL Instant Messenger..."));
@@ -2823,13 +2823,13 @@ sub timestuff($) {
 
 # Signoff all screennames for a particular IRCnick
 sub do_signoff_all($) {
-	my ($nnick, $screenname, $nick) = @_;
+	my $nick = shift;
 
-	foreach $screenname(keys %{$aim_connections->{$nnick}->{screennames}}) {
-		do_signoff($nnick, $aim_connections->{$nnick}->{screennames}->{$screenname}->{oscar});
+	foreach my $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
+		do_signoff($nick, $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar});
 	}
 	irc_send(irc_privmsg($usnick, $nick, "All connections signed off of AOL Instant Messenger."));
-	delete $aim_connections->{$nnick};
+	delete $aim_connections->{$nick};
 }
 
 # Notify signed-on users that we're going down
@@ -3390,7 +3390,7 @@ sub send_im($$$$) {
 	irc_send(irc_newnick($prefix.$target));
 	$nicks->{$target}->{$screenname} = time unless $nicks->{$target}->{$screenname} == -1;
 	debug_print("$screenname -> $target: $msg", "im", 2);
-	if($irc_connections->{$target} and $shortcircuit) {
+	if($irc_connections->{$target} and $aim_connections->{$irc_connections->{$target}} and $shortcircuit) {
 		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, ($notice ? "<!-- NOTICE -->" : "") . txt2html($msg));
 	} else {
 		$oscar->send_im($target, ($notice ? "<!-- NOTICE -->" : "") . txt2html($msg)) if $oscar;
