@@ -365,9 +365,13 @@ function cifs_make_transaction(&$smb, $transact_ver, $name, $setup, $parameters,
 	$packet .= pack("V", 0); //timeout
 	$packet .= pack("v", 0); //reserved
 
-	$paramoffset = 64 + strlen($name) + strlen($setup);
+	if($smb["unicode"]) {
+		$padlength = 1;
+	} else {
+		$padlength = 0;
+	}
+	$paramoffset = 63 + strlen($name) + strlen($setup) + $padlength;
 	$dataoffset = $paramoffset + strlen($parameters);
-	$padlength = 1;
 
 
 	$packet .= pack("v", strlen($parameters)); //parameter byte count this packet
@@ -390,7 +394,7 @@ function cifs_readdir(&$smb, $path) {
 	$data .= pack("v", 0x2); //flags - close search if end reached
 	$data .= pack("v", 0x103); //SMB_FIND_FILE_NAMES_INFO
 	$data .= pack("V", 0);
-	if(substr($path, strlen($path) - 1, 1) != "/") $path .= "/";
+	if(substr($path, strlen($path) - 1, 1) != "\\") $path .= "\\";
 	$data .= cifs_str2uni($smb, "$path*");
 
 	$packet = cifs_make_transaction($smb, 2, "", 1, $data, "");

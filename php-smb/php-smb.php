@@ -22,7 +22,7 @@ if($_REQUEST["host"]) {
 					if($smb["error"]) {
 						echo " (ERROR: " . $smb["error"] . ")";
 					} else {
-						$files = cifs_readdir($smb, "/");
+						$files = cifs_readdir($smb, "\\");
 						echo "<ul>";
 						for($i = 0; $i < sizeof($files); $i++) {
 							echo "<li>" . $files[$i] . "</li>\n";
