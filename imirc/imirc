@@ -780,8 +780,8 @@ sub process_irc_message($) {
 			delete $chatnames{$1};
 			delete $chatjoined{$1};
 		}
-	} elsif(/^PRIVMSG +$usnick\@\S+ +:?(.+)/i) { #$1 sent $2 to $usnick
-		$msg = $1;
+	} elsif(/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i) {
+		$msg = $2;
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) (\S+)( ?.*)/ or $cmd = $msg;
 		$cmd = $1 unless $cmd; $param = $2 if $2; $extra = substr($3, 1) || "" if $3;
@@ -1125,9 +1125,9 @@ sub process_irc_message($) {
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif(/^PRIVMSG +(\S+)\@\S+ +:?(.+)/i) { #$1 sent $3 to $2 (where $2 ne $usnick)
-		$target = noprefix($longnicks{normalize($1)}); $msg = $2;
-		$recipient = normalize($1);
+	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $2 (where $2 ne $usnick)
+		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
+		$recipient = normalize($2);
 
 		if($recipient eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
