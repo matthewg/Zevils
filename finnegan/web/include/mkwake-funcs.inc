@@ -185,7 +185,7 @@ function _finepoch_check($wake_id, $phonelines, &$wake_intervals, $cur_intervals
 				($cur_intervals[$j][0] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1]) ||
 				($cur_intervals[$j][1] >= $wake_intervals[$i][0] && $cur_intervals[$j][1] <= $wake_intervals[$i][1])
 			) {
-				#echo "interval match $wake_id/$j,$i<br>\n";
+				echo "interval match $wake_id/$j,$i<br>\n";
 				$min_snooze_count = $i;
 				if($j < $i) $min_snooze_count = $j;
 				if(++$wake_intervals[$i][2] >= $phonelines*($min_snooze_count/$FinneganConfig->max_snooze_count+1)) {
