@@ -4,6 +4,11 @@ $cisco = 1;
 require "../../include/finnegan.inc";
 require "../../include/mkwake-funcs.inc";
 
+ini_set("session.use_cookies", 0);
+session_id($extension);
+session_start();
+
+
 // Initialize variables for editing an existing wake
 $oldvalues = array();
 if(isset($_REQUEST["id"]) && $_REQUEST["id"] && preg_match('/^[0-9]+$/', $_REQUEST["id"])) {
@@ -50,7 +55,6 @@ if($playmsg) redirect("Play:".$FinneganCiscoConfig->tftp_prefix."finmsg-$message
 $title = "";
 
 // Process wake-setting state...
-$values = array();
 $prompt_start = "time";
 $prompt_onetime_start = "date";
 $prompt_recur_start = "weekdays";
@@ -156,37 +160,37 @@ END
 while(list($name, $var) = each($prompts)) {
 	if($name != "weekdays") {
 		if(isset($_REQUEST[$name]))
-			$values[$name] = $_REQUEST[$name];
+			$_SESSION[$name] = $_REQUEST[$name];
 		else if($id && isset($oldvalues[$name]))
-			$values[$name] = $oldvalues[$name];
+			$_SESSION[$name] = $oldvalues[$name];
 		else
-			$values[$name] = "";
+			$_SESSION[$name] = "";
 	}
 		
 }
 reset($prompts);
 
 $the_weekdays = array("Mon" => "Monday", "Tue" => "Tuesday", "Wed" => "Wednesday", "Thu" => "Thursday", "Fri" => "Friday", "Sat" => "Saturday", "Sun" => "Sunday");
-$values["weekdays"] = array();
+$_SESSION["weekdays"] = array();
 while(list($weekday, $val) = each($the_weekdays)) {
 	if(isset($_REQUEST["weekdays"]) && isset($_REQUEST["weekdays"][$weekday]))
-		$values["weekdays"][$weekday] = $_REQUEST["weekdays"][$weekday];
+		$_SESSION["weekdays"][$weekday] = $_REQUEST["weekdays"][$weekday];
 	else if($id && isset($oldvalues["weekdays"][$weekday]))
-		$values["weekdays"][$weekday] = $oldvalues["weekdays"][$weekday];
+		$_SESSION["weekdays"][$weekday] = $oldvalues["weekdays"][$weekday];
 	else
-		$values["weekdays"][$weekday] = "";
+		$_SESSION["weekdays"][$weekday] = "";
 
-	if(!isset($values["weekdays"][$weekday])) $values["weekdays"][$weekday] = "";
+	if(!isset($_SESSION["weekdays"][$weekday])) $_SESSION["weekdays"][$weekday] = "";
 }
 reset($the_weekdays);
 
 if(!isset($prompt)) $prompt = "";
-if($prompt && $process && $values[$prompt]) {
-	$title = $prompts[$prompt]["validate"]($values[$prompt]);
+if($prompt && $process && $_SESSION[$prompt]) {
+	$title = $prompts[$prompt]["validate"]($_SESSION[$prompt]);
 	if(!$title) { //No error - advance prompt
 		$prompt = $prompts[$prompt]["next"];
 		if(!$prompt) {
-			if($values["type"] == "one-time")
+			if($_SESSION["type"] == "one-time")
 				$prompt = $prompt_onetime_start;
 			else
 				$prompt = $prompt_recur_start;
@@ -206,17 +210,17 @@ if($prompt == "done") {
 	$error = "";
 	$weekday_map = array("Sun" => 1, "Mon" => 2, "Tue" => 3, "Wed" => 4, "Thu" => 5, "Fri" => 6, "Sat" => 7);
 
-	if(preg_match('/^(\d\d?):?(\d\d)$/', $values["time"], $matches))
+	if(preg_match('/^(\d\d?):?(\d\d)$/', $_SESSION["time"], $matches))
 		$time = "$matches[1]:$matches[2]";
 	else
 		$error = "Invalid Time";
-	if($values["ampm"] != "AM" && $values["ampm"] != "PM") $error = "Invalid Time";
-	$sql_time = time_to_sql($values["time"], $values["ampm"]);
+	if($_SESSION["ampm"] != "AM" && $_SESSION["ampm"] != "PM") $error = "Invalid Time";
+	$sql_time = time_to_sql($_SESSION["time"], $_SESSION["ampm"]);
 
-	if(!preg_match('/^-?\d+$/', $values["message"])) $error = "Invalid Message";
+	if(!preg_match('/^-?\d+$/', $_SESSION["message"])) $error = "Invalid Message";
 
-	if($values["type"] == "one-time") {
-		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $values["date"], $matches))
+	if($_SESSION["type"] == "one-time") {
+		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $_SESSION["date"], $matches))
 			$sql_date = date_to_sql("$matches[1]/$matches[2]", $sql_time);
 		else
 			$error = "Invalid Date";
@@ -224,12 +228,12 @@ if($prompt == "done") {
 		$sql_weekdays = array();
 	} else {
 		$sql_date = "";
-		if($values["cal_type"] != "Brandeis" && $values["cal_type"] != "holidays" && $values["cal_type"] != "normal") $error = "Invalid Calendar Type";
-		$sql_cal_type = $values["cal_type"];
+		if($_SESSION["cal_type"] != "Brandeis" && $_SESSION["cal_type"] != "holidays" && $_SESSION["cal_type"] != "normal") $error = "Invalid Calendar Type";
+		$sql_cal_type = $_SESSION["cal_type"];
 
 		reset($weekdays);
 		$sql_weekdays = array();
-		while(list($day, $val) = each($values["weekdays"])) {
+		while(list($day, $val) = each($_SESSION["weekdays"])) {
 			if($val) $sql_weekdays[] = $day;
 		}
 	}
@@ -239,12 +243,12 @@ if($prompt == "done") {
 		$title = $error;
 		$prompt = "time";
 	} else {
-		if($values["type"] == "one-time") {
+		if($_SESSION["type"] == "one-time") {
 			if(!is_time_free($id, $sql_time, "", "", $sql_date)) $error = "Time Unavailable";
 		} else {
-			reset($values["weekdays"]);
+			reset($_SESSION["weekdays"]);
 			$baddays = array();
-			while(list($name, $val) = each($values["weekdays"])) {
+			while(list($name, $val) = each($_SESSION["weekdays"])) {
 				if($val && !is_time_free($id, $sql_time, $weekday_map[$name], $sql_cal_type)) {
 					$baddays[] = $name;
 				}
@@ -256,7 +260,9 @@ if($prompt == "done") {
 			$title = $error;
 			$prompt = "time";
 		} else {
-			set_wake($id, $sql_time, $values["message"], $values["type"], $sql_date, $sql_weekdays, $sql_cal_type);
+			set_wake($id, $sql_time, $_SESSION["message"], $_SESSION["type"], $sql_date, $sql_weekdays, $sql_cal_type);
+			$_SESSION = array();
+			session_destroy();
 			if($id) {
 				cisco_message("Alarm Modified", "Your alarm was modified.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 			} else {
@@ -287,26 +293,28 @@ if(!$title) {
 }
 
 // Build URLs
-$url = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prompt&amp;process=1";
+$url = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prompt&amp;process=1&amp;".ini_get("session.name")."=" . session_id();
 if($prev)
-	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prev&amp;process=0";
+	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prev&amp;process=0&amp;".ini_get("session.name")."=" . session_id();
 else
 	$prevurl = $FinneganCiscoConfig->url_base . "/service/index.php";
 
+/*
 while(list($name, $var) = each($prompts)) {
 	if($name != "weekdays") {
-		if($prompt != $name) $url .= "&amp;$name=".$values[$name];
-		if($prev) $prevurl .= "&amp;$name=".$values[$name];
+		if($prompt != $name) $url .= "&amp;$name=".$_SESSION[$name];
+		if($prev) $prevurl .= "&amp;$name=".$_SESSION[$name];
 	} else {
-		reset($values["weekdays"]);
+		reset($_SESSION["weekdays"]);
 		$urlx = "";
-		while(list($day, $val) = each($values["weekdays"])) {
+		while(list($day, $val) = each($_SESSION["weekdays"])) {
 			$urlx .= "&amp;weekdays[$day]=$val";
 		}
 		if($prompt != $name) $url .= $urlx;
 		if($prev) $prevurl .= $urlx;
 	}
 }
+*/
 
 
 
@@ -328,13 +336,13 @@ if($prompt == "time") {
 <InputItem>
 <DisplayName>Time (8:06 AM = '806')</DisplayName>
 <QueryStringParam>time</QueryStringParam>
-<? if($values["time"]) echo "<DefaultValue>".$values["time"]."</DefaultValue>\n"; ?>
+<? if($_SESSION["time"]) echo "<DefaultValue>".$_SESSION["time"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
 </InputItem>
 
 <? } else if($prompt == "ampm") {
 
-	if($values["ampm"]) echo "<MenuItem>\n<Name>Current Value (".$values["ampm"].")</Name>\n<URL>$url&amp;ampm=".$values["ampm"]."</URL>\n</MenuItem>\n";
+	if($_SESSION["ampm"]) echo "<MenuItem>\n<Name>Current Value (".$_SESSION["ampm"].")</Name>\n<URL>$url&amp;ampm=".$_SESSION["ampm"]."</URL>\n</MenuItem>\n";
 ?>
 <MenuItem>
 <Name>AM</Name>
@@ -347,7 +355,7 @@ if($prompt == "time") {
 
 <? } else if($prompt == "message") {
 
-	if($values["message"]) echo "<MenuItem>\n<Name>Current Value (".($values["message"] == -1 ? 2 : $values["message"]+2).")</Name>\n<URL>$url&amp;message=".$values["message"]."</URL>\n</MenuItem>\n";
+	if($_SESSION["message"]) echo "<MenuItem>\n<Name>Current Value (".($_SESSION["message"] == -1 ? 2 : $_SESSION["message"]+2).")</Name>\n<URL>$url&amp;message=".$_SESSION["message"]."</URL>\n</MenuItem>\n";
 	echo "<MenuItem>\n<Name>Random Message</Name>\n<URL>$url&amp;message=-1</URL>\n</MenuItem>\n";
 	for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
 		printf("<MenuItem>\n<Name>%s</Name>\n<URL>%s</URL>\n</MenuItem>\n",
@@ -359,7 +367,7 @@ if($prompt == "time") {
 
 } else if($prompt == "type") {
 
-	if($values["type"]) echo "<MenuItem>\n<Name>Current Value (".$values["type"].")</Name>\n<URL>$url&amp;type=".$values["type"]."</URL>\n</MenuItem>\n";
+	if($_SESSION["type"]) echo "<MenuItem>\n<Name>Current Value (".$_SESSION["type"].")</Name>\n<URL>$url&amp;type=".$_SESSION["type"]."</URL>\n</MenuItem>\n";
 ?>
 <MenuItem>
 <Name>One-Time (a specific date)</Name>
@@ -375,7 +383,7 @@ if($prompt == "time") {
 <InputItem>
 <DisplayName>Date (Jan. 2nd = '102')</DisplayName>
 <QueryStringParam>date</QueryStringParam>
-<? if($values["date"]) echo "<DefaultValue>".$values["date"]."</DefaultValue>\n"; ?>
+<? if($_SESSION["date"]) echo "<DefaultValue>".$_SESSION["date"]."</DefaultValue>\n"; ?>
 <InputFlags>N</InputFlags>
 </InputItem>
 
@@ -386,7 +394,7 @@ if($prompt == "time") {
 		echo "<MenuItem>\n";
 
 		echo "<Name>";
-		if($values["weekdays"][$weekday])
+		if($_SESSION["weekdays"][$weekday])
 			echo "[X] ";
 		else
 			echo "[ ] ";
@@ -395,12 +403,12 @@ if($prompt == "time") {
 
 		echo "<URL>";
 		echo $npurl."&amp;weekdays[$weekday]=";
-		if($values["weekdays"][$weekday])
+		if($_SESSION["weekdays"][$weekday])
 			echo "0";
 		else
 			echo "1";
-		reset($values["weekdays"]);
-		while(list($day, $val) = each($values["weekdays"])) {
+		reset($_SESSION["weekdays"]);
+		while(list($day, $val) = each($_SESSION["weekdays"])) {
 			if($day != $weekday) echo "&amp;weekdays[$day]=$val";
 		}
 		echo "</URL>\n";
@@ -413,8 +421,8 @@ if($prompt == "time") {
 <Name>Submit</Name>
 <URL><?
 	echo $url;
-	reset($values["weekdays"]);
-	while(list($day, $val) = each($values["weekdays"])) {
+	reset($_SESSION["weekdays"]);
+	while(list($day, $val) = each($_SESSION["weekdays"])) {
 		echo "&amp;weekdays[$day]=$val";
 	}	
 ?></URL>
@@ -423,7 +431,7 @@ if($prompt == "time") {
 
 <? } else if($prompt == "cal_type") {
 
-	if($values["cal_type"]) echo "<MenuItem>\n<Name>Current Value (".$values["cal_type"].")</Name>\n<URL>$url&amp;cal_type=".$values["cal_type"]."</URL>\n</MenuItem>\n";
+	if($_SESSION["cal_type"]) echo "<MenuItem>\n<Name>Current Value (".$_SESSION["cal_type"].")</Name>\n<URL>$url&amp;cal_type=".$_SESSION["cal_type"]."</URL>\n</MenuItem>\n";
 ?>
 <MenuItem>
 <Name>Brandeis</Name>
