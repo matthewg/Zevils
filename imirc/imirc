@@ -83,7 +83,7 @@ $upstream->print("PASS $ourpass :1\r\n");
 $upstream->print("SERVER $us 1 :AOL Instant Messenger services\r\n");
 while($in !~ /PASS (.+) :1/) {
 	chomp($in = $upstream->getline);
-	#warn "$in\n";
+	warn "$in\n" if $debug >= 2;
 }
 
 $in =~ /^PASS (.+) :1/;
@@ -92,7 +92,7 @@ if($1 ne $theirpass) { die("Upstream server gave the wrong password!\n"); }
 if($servermode eq "dal2") {
 	while($in !~ /EBURST/) {
 		chomp($in = $upstream->getline);
-		#warn "$in\n";
+		warn "$in\n" if $debug >= 2;
 	}
 }
 
