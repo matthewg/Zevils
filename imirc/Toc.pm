@@ -346,7 +346,7 @@ sub chat_invite($$$@) {
 
 	debug_print(_hnick($handle) . " is inviting " . join(" ", @buddies) . " into chat $chat. Reason: $text.", "chat", 2);
 	$msg = quote("toc_chat_invite $chat ") . "\"" . quote(txt2html($text)) . "\"" . quote(" ") . quote(join(" ", @buddies));
-	sflap_print($handle, sflap_encode($msg, 0, 1));
+	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
 =pod
@@ -662,7 +662,7 @@ sub set_config($$) {
 	my($handle, $config) = @_;
 	$config{_hnick($handle)} = $config;
 
-	sflap_do($handle, conf2str($config));
+	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
 }
 
 =pod
@@ -857,7 +857,7 @@ sub conf2str($\%) {
 	foreach $buddy (keys %{$config->{deny}}) {
 		$msg .= "d $buddy\n";
 	}
-	$msg = "toc_set_config \"" . quote($msg) . "\"";
+	$msg = "toc_set_config {" . quote($msg) . "}";
 	#warn "$msg\n";
 	debug_print("conf2str: " . Dumper($config), "config", 2);
 	return $msg;
