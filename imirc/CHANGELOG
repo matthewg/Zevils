@@ -1,3 +1,7 @@
+Jan 24 2002, 1.5-rc6
+	*Critical crash-prevention fixes
+	*Major protocol fixes for TS and P0210
+
 Jan 23 2002, 1.5-rc5.1
 	*Document relnotes command better
 	*Print available release notes in a nicer format
