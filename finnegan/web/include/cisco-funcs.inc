@@ -1,7 +1,7 @@
 <?
 
 header("Content-type: text/xml");
-header("Expire: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
+header("Expires: -1"); //Don't add pages to browser history -- otherwise, SoftKey:Exit won't work
 
 ob_start();
 db_start();
@@ -13,30 +13,48 @@ function get_extension() {
 
 	if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") return "92896";
 
-	$phonepage = implode("", @file("http://".$_SERVER["REMOTE_ADDR"]."/"));
-	if(!$phonepage) {
-		cisco_message("Invalid Extension", "Cannot find your extension: " . $_SERVER["REMOTE_ADDR"]);
-	} else if(!preg_match("!Phone DN.*?<TD>(?:<[^>]*>)*[0-9]*([6-9][0-9]{4})\\b!si", $phonepage, $matches)) {
-		cisco_message("Invalid Extension", "Cannot parse extension information");
-	} else {
-		$check = extension_check($matches[1]);
-		if($check) {
-			if($check == "extension_invalid")
-				cisco_message("Invalid Extension", "Your extension, $matches[1], is invalid.");
-			else if($check == "extension_forbidden")
-				cisco_message("Forbidden Extension", "Your extension, $matches[1], may not use this service.");
-			else
-				cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
+	# Cache phone webpages, otherwise phones hate us
+	$extension = "";
+	$is_cached = 0;
+	$fp = @fopen("/tmp/extmap.". $_SERVER["REMOTE_ADDR"], "r");
+	if($fp) {
+		$extension = @fgets($fp);
+		$is_cached = 1;
+	}
+	@fclose($fp);
+
+	if(!$is_cached) {
+		$phonepage = implode("", @file("http://".$_SERVER["REMOTE_ADDR"]."/"));
+
+		if(!$phonepage) {
+			cisco_message("Invalid Extension", "Cannot find your extension: " . $_SERVER["REMOTE_ADDR"]);
+		} else if(!preg_match("!Phone DN.*?<TD>(?:<[^>]*>)*[0-9]*([6-9][0-9]{4})\\b!si", $phonepage, $matches)) {
+			cisco_message("Invalid Extension", "Cannot parse extension information");
 		} else {
 			$extension = $matches[1];
-
-			if(preg_match("!Product ID.*?<TD>(.*)!mi", $phonepage, $matches))
-				$PHONE_MODEL = $matches[1];
-			else
-				$PHONE_MODEL = "";
-
-			return $extension;
 		}
+	}
+
+	$check = extension_check($extension);
+	if($check) {
+		if($check == "extension_invalid")
+			cisco_message("Invalid Extension", "Your extension, $matches[1], is invalid.");
+		else if($check == "extension_forbidden")
+			cisco_message("Forbidden Extension", "Your extension, $matches[1], may not use this service.");
+		else
+			cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
+	} else {
+		if(preg_match("!Product ID.*?<TD>(.*)!mi", $phonepage, $matches))
+			$PHONE_MODEL = $matches[1];
+		else
+			$PHONE_MODEL = "";
+
+		if(!$is_cached) {
+			$fp = @fopen("/tmp/extmap.". $_SERVER["REMOTE_ADDR"], "w");
+			if($fp) fwrite($fp, "$extension");
+			@fclose($fp);
+		}
+		return $extension;
 	}
 }
 
