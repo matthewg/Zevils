@@ -487,6 +487,7 @@ sub mainloop() {
 	$oscarprime->set_callback_buddylist_error(\&oscar_buddylist_error);
 	$oscarprime->set_callback_buddylist_ok(\&oscar_buddylist_ok);
 	$oscarprime->set_callback_connection_changed(\&oscar_connection_changed);
+	$oscarprime->set_callback_auth_challenge(\&oscar_auth_challenge);
 
 	unless($reload) {
 		$chatseq = 0;
@@ -1039,7 +1040,7 @@ sub process_irc_message($) {
 			}
 		} elsif($cmd eq "signon") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: signon [--loglevel loglevel] screenname password"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: signon [--loglevel loglevel] [--hashpass] screenname password"));
 			} elsif($irc_connections->{$param} and !$aim_connections->{$irc_connections->{$param}}->{screennames}->{$param}->{ison}) {
 				irc_send(irc_privmsg($usnick, $nick, "A signon attempt for that screenname is already in progress."));
 			} else {
@@ -1050,8 +1051,10 @@ sub process_irc_message($) {
 
 					local @ARGV = split(/\s+/, "$param $extra");
 					my $loglevel = $user_loglevel;
+					my $hashpass = 0;
 					my $errors = &GetOptions(
-						"loglevel|l|d=i" => \$loglevel
+						"loglevel|l|d=i" => \$loglevel,
+						"hashpass|h" => \$hashpass,
 					);
 
 					if(!$errors) {
@@ -1061,7 +1064,11 @@ sub process_irc_message($) {
 						my $cmdline = "$param $extra";
 						$cmdline =~ s/-+(loglevel|l|d)\s+\d+\s+//;
 						my($screenname, $password) = split(/\s+/, $cmdline, 2);
-						do_signon($screenname, $password, $nick, $params);
+						if(!$password and !$hashpass) {
+							irc_send(irc_privmsg($usnick, $nick, "You must provide a password."));
+						} else {
+							do_signon($screenname, $password, $nick, $params);
+						}
 					}
 				}
 			}
@@ -1431,8 +1438,10 @@ sub process_irc_message($) {
 			$foo = ":$usnick PRIVMSG ".nickchan($screenname) if $sndata->{inchan};
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
-				irc_send("$foo :signon [--loglevel loglevel] screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
+				irc_send("$foo :signon [--loglevel loglevel] [--hashpass] screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
 				irc_send("$foo :  loglevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
+				irc_send("$foo :  If --hashpass is present, you do not have to provide your password; you will be responsible for performing an MD5 digest.\r\n", 1);
+				irc_send("$foo :  With the hashpass mechanism, there is no way for IMIRC to determine your AIM password, but if you don't know what an MD5 digest is or how to do one, you can't take advantage of this.  Sorry.\r\n", 1);
 				irc_send("$foo :signoff - Sign off of AIM.\r\n", 1);
 				irc_send("$foo :add screenname - Create an IRC nickname for screenname.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
 				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
@@ -1720,6 +1729,14 @@ sub process_irc_message($) {
 				$oscar->commit_buddylist;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "That release note does not exist.  Use the relnotes command without any parameters to get a list of available release notes.", "", "", $screenname));
+			}
+		} elsif($cmd eq "auth_response") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: auth_response Auth-Response", "", "", $screenname));
+			} else {
+				irc_send(irc_privmsg($usnick, $nick, "Sending authentication response...", "", "", $screenname));
+				my $md5 = join("", map { hex($_) } $param =~ m/../g);
+				$oscar->auth_response($md5);
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -2290,12 +2307,22 @@ sub oscar_buddylist_ok($) {
 	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 }
 
-# For $usepoll
 sub oscar_connection_changed($$$) {
 	my($oscar, $connection, $status) = @_;
 
 	my $filehandle = $connection->get_filehandle;
 	io_events($filehandle, $status, $connection);
+}
+
+sub oscar_auth_challenge($$$) {
+	my($oscar, $challenge, $hashstr) = @_;
+	my($screenname, $nick, $sndata) = callback_vars($oscar);
+
+	irc_send(irc_ctcp($usnick, $nick, "OSCAR_AUTH $challenge $hashstr"));
+	irc_send(irc_privmsg($usnick, $nick, "We received the authentication challenge: $challenge", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "Please send the MD5 digest of the challenge, your password, and the string \"$hashstr\" using the $usnick auth_response command.", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "For instance, if your password was \"password\", you would send the MD5 digest of \"${challenge}password${hashstr}\" (without the quotes.)", "", "", $screenname));
+	irc_send(irc_privmsg($usnick, $nick, "If you know how to script for your IRC client, $usnick sends you a CTCP OSCAR_AUTH with the challenge as the first parameter, followed by the extra string to hash with.", "", "", $screenname));
 }
 
 sub oscar_log($$$) {
