@@ -1,5 +1,6 @@
 #include "lwalib.h"
 #include <math.h>
+#include <time.h>
 
 /* Change the resolution here */
 #define WIDTH 640
