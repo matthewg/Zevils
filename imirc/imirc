@@ -402,6 +402,7 @@ sub process_aim_message {
 		foreach $line(@lines) {
 			$upstream->print(irc_privmsg($prefix . $inick, $connection->{nick}, "[continued]\t\t$line"));
 		}
+		warn "ar=".$ar.", connection->{away}=".$connection->{away}.", connection->{away_buddies}{$inick}=".$connection->{away_buddies}{$inick}."\n";
 		if(($ar eq "") and $connection->{away} and not $connection->{away_buddies}{$inick}) {
 			$connection->{away_buddies}{$inick} = 1;
 			sflap_put($connection->{socket}, sflap_encode("toc_send_im $inick " . substr($connection->{away}, 1) . " auto"));
