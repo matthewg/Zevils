@@ -1115,18 +1115,17 @@ sub process_irc_message($$) {
 				  $a->{away} <=> $b->{away}
 				    or
 				  $a->{idle_since} <=> $b->{idle_since}
-				} $oscar->buddies($group)) {
-					$buddat = $oscar->buddy($buddy, $group);
-					$evil = $buddat->{evil};
-					$line = "\t$buddy";
-					$line .= " {$buddat->{comment}}" if $buddat->{comment};
-					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
-					$line .= " [online]" if $buddat->{online};
-					$line .= " [icon]" if $buddat->{icon_md5sum};
-					$line .= " [away]" if $buddat->{online} and $buddat->{away};
+				} map { $oscar->buddy($_, $group) } $oscar->buddies($group)) {
+					$evil = $buddy->{evil};
+					$line = "\t" . $buddy->{screenname};
+					$line .= " {$buddy->{comment}}" if $buddy->{comment};
+					$line .= " (POUNCE)" if exists $buddy->{data}->{0x0200};
+					$line .= " [online]" if $buddy->{online};
+					$line .= " [icon]" if $buddy->{icon_md5sum};
+					$line .= " [away]" if $buddy->{online} and $buddy->{away};
 					$line .= " [warning level $evil%]" if $evil;
-					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
-					$line .= " {Status: $buddat->{extended_status}}" if $buddat->{extended_status};
+					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{alias} ne $buddy->{screenname};
+					$line .= " {Status: $buddy->{extended_status}}" if $buddy->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
 			}
@@ -1141,19 +1140,18 @@ sub process_irc_message($$) {
 				  $a->{away} <=> $b->{away}
 				    or
 				  $a->{idle_since} <=> $b->{idle_since}
-				} $oscar->buddies($group)) {
+				} map { $oscar->buddy($_, $group) } $oscar->buddies($group)) {
 					irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname)) unless $showedgroup++;
-					$buddat = $oscar->buddy($buddy, $group);
-					$evil = $buddat->{evil};
-					$line = "\t$buddy";
-					next unless $buddat->{online};
-					$line .= " {$buddat->{comment}}" if $buddat->{comment};
-					$line .= " (POUNCE)" if exists $buddat->{data}->{0x0200};
-					$line .= " [icon]" if $buddat->{icon_md5sum};
-					$line .= " [away]" if $buddat->{online} and $buddat->{away};
+					$evil = $buddy->{evil};
+					$line = "\t".$buddy->{screenname};
+					next unless $buddy->{online};
+					$line .= " {$buddy->{comment}}" if $buddy->{comment};
+					$line .= " (POUNCE)" if exists $buddy->{data}->{0x0200};
+					$line .= " [icon]" if $buddy->{icon_md5sum};
+					$line .= " [away]" if $buddy->{away};
 					$line .= " [warning level $evil%]" if $evil;
-					$line .= " {Alias: $buddat->{alias}}" if $buddat->{alias};
-					$line .= " {Status: $buddat->{extended_status}}" if $buddat->{extended_status};
+					$line .= " {Alias: $buddy->{alias}}" if $buddy->{alias} and $buddy->{alias} ne $buddy->{screenname};
+					$line .= " {Status: $buddy->{extended_status}}" if $buddy->{extended_status};
 					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 				}
 			}
