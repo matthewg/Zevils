@@ -2226,7 +2226,8 @@ sub do_signon($$$$) {
 	my $connection = $aim_connections->{$nick};
 	$connection->{screennames} = $oscarprime->buddyhash() unless tied(%{$connection->{screennames}});
 	my $oscar = $oscarprime->clone();
-	$oscar->loglevel($params->{loglevel});
+	my $loglevel = ($oscarprime->loglevel > $params->{loglevel}) ? $oscarprime->loglevel : $params->{loglevel};
+	$oscar->loglevel($loglevel);
 	$oscar->signon($screenname, $password, $oscarserver, $oscarport);
 
 	$screenname = new Net::OSCAR::Screenname $screenname;
