@@ -362,7 +362,7 @@ sub preview {
     }
     $ret .= "\n";
     
-    $ret .= "<br />Open to: <b>$poll->{'whovote'}</b>, results viewable to: <b>$poll->{'whoview'}, results ";
+    $ret .= "<br />Open to: <b>$poll->{'whovote'}</b>, results viewable to: <b>$poll->{'whoview'}</b>, results ";
     $ret .= $poll->{'anonymous'} ? "<b>are</b>" : "are <b>not</b>";
     $ret .= " anonymous.";
 
@@ -643,7 +643,7 @@ sub show_poll
         LJ::Poll::clean_poll(\$po->{'name'});
         $ret .= "<i>$po->{'name'}</i>";
     }
-    $ret .= "<br />Open to: <b>$po->{'whovote'}</b>, results viewable to: <b>$po->{'whoview'}, results ";
+    $ret .= "<br />Open to: <b>$po->{'whovote'}</b>, results viewable to: <b>$po->{'whoview'}</b>, results ";
     $ret .= $po->{'anonymous'} ? "<b>are</b>" : "are <b>not</b>";
     $ret .= " anonymous.";
 
