@@ -913,22 +913,18 @@ sub _setup($) {
 	foreach $buddy(keys %{$config->{Buddies}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 	sflap_do($handle, $msg) unless $msg eq "toc_add_buddy";
 
-	if($config{_hnick($handle)}->{permtype} != 2) {
+	sflap_do($handle, "toc_add_permit");
+	sflap_do($handle, "toc_add_deny");
+	if($config{_hnick($handle)}->{permtype} == 2) {
+		sflap_do($handle, "toc_add_permit");
+	} elsif($config{_hnick($handle)}->{permtype} == 3) {
 		$msg = "toc_add_permit";
 		foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_permit";
-	}
-
-	if($config{_hnick($handle)}->{permtype} != 1) {
+	} elsif($config{_hnick($handle)}->{permtype} == 4) {
 		$msg = "toc_add_deny";
 		foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
 		sflap_do($handle, $msg) unless $msg eq "toc_add_deny";
-	}
-
-	if($config{_hnick($handle)}->{permtype} == 3 or $config{_hnick($handle)}->{permtype} == 1) {
-		sflap_do($handle, "toc_add_permit");
-	} else {
-		sflap_do($handle, "toc_add_deny");
 	}
 
 }
