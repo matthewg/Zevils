@@ -133,7 +133,7 @@ sub do_request
     if ($method eq "editevent")        { return editevent(@args);        }
     if ($method eq "syncitems")        { return syncitems(@args);        }
     if ($method eq "getevents")        { return getevents(@args);        }
-    if ($method eq "gettalks")         { return gettalks(@args);         }
+    if ($method eq "getcomments")      { return getcomments(@args);      }
     if ($method eq "editfriends")      { return editfriends(@args);      }
     if ($method eq "editfriendgroups") { return editfriendgroups(@args); }
     if ($method eq "consolecommand")   { return consolecommand(@args);   }
@@ -1253,13 +1253,13 @@ sub editevent
     return $res;
 }
 
-sub getevents   { _get_events_talks("events", @_); }
-sub gettalks    { _get_events_talks("talks", @_); }
+sub getevents   { _get_events_comments("events", @_);   }
+sub getcomments { _get_events_comments("comments", @_); }
 
-sub _get_events_talks
+sub _get_events_comments
 {
     my ($type, $req, $err, $flags) = @_;
-    return fail($err,500) unless $type eq "events" or $type eq "talks";
+    return fail($err,500) unless $type eq "events" or $type eq "comments";
     return undef unless authenticate($req, $err, $flags);
     return undef unless check_altusage($req, $err, $flags);
 
@@ -1268,7 +1268,7 @@ sub _get_events_talks
     my $journalid = $req->{'journalid'};
     my $jitem;
 
-    if($type eq "talks") {
+    if ($type eq "comments") {
         $journalid =~ tr/0-9//dc;
         return fail($err,203,"Invalid journalid") unless $journalid;
         $jitem = LJ::Talk::get_journal_item($u, $journalid);
@@ -1348,7 +1348,7 @@ sub _get_events_talks
         # mysql's braindead optimizer to use the right index.
         my $rtime_after = 0;
         my $rtime_what = $is_community ? "rlogtime" : "revttime";
-        $rtime_what = "datepost" if $type eq "talks";
+        $rtime_what = "datepost" if $type eq "comments";
 
         if ($req->{'beforedate'}) {
             return fail($err,203,"Invalid beforedate format.")
@@ -1394,11 +1394,11 @@ sub _get_events_talks
         }
         
         my %item;
-        if($type eq "events") {
+        if ($type eq "events") {
             $sth = $dbcr->prepare("SELECT jitemid, logtime FROM log2 WHERE ".
                                   "journalid=? and logtime > ?");
             $sth->execute($ownerid, $date);
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             return fail($err,200,"Must specify journalid") unless $req->{'journalid'};
             $sth = $dbcr->prepare("SELECT jtalkid, datepost FROM talk2 WHERE ".
                                   "journalid=? and nodeid=? and nodetype='L' and logtime > ?");
@@ -1409,7 +1409,7 @@ sub _get_events_talks
             $item{$id} = $dt;
         }
 
-        if($type eq "events") {
+        if ($type eq "events") {
             my $p_revtime = LJ::get_prop("log", "revtime");
             $sth = $dbcr->prepare("SELECT jitemid, FROM_UNIXTIME(value) ".
                                   "FROM logprop2 WHERE journalid=? ".
@@ -1426,9 +1426,9 @@ sub _get_events_talks
         if (@ids > $limit) { @ids = @ids[0..$limit-1]; }
         
         my $in = join(',', @ids) || "0";
-        if($type eq "events") {
+        if ($type eq "events") {
             $where = "AND jitemid IN ($in)";
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             $where = "AND jtalkid IN ($in)";
         }
     }
@@ -1440,11 +1440,11 @@ sub _get_events_talks
             push @ids, $num;
         }
         my $limit = 100;
-        return fail($err,209,"Can't retrieve more than $limit entries at once") if @ids > $limit;
+        return fail($err,209,"Can't retrieve more than $limit $type at once") if @ids > $limit;
         my $in = join(',', @ids);
-        if($type eq "events") {
+        if ($type eq "events") {
             $where = "AND jitemid IN ($in)";
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             $where = "AND jtalkid IN ($in)";
         }
     }
@@ -1455,10 +1455,10 @@ sub _get_events_talks
 
     # common SQL template:
     unless ($sql) {
-        if($type eq "events") {
+        if ($type eq "events") {
             $sql = "SELECT jitemid, eventtime, security, allowmask, anum, posterid ".
                 "FROM log2 WHERE journalid=$ownerid $where $orderby $limit";
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             $sql = "SELECT jtalkid, datepost, state, posterid, parenttalkid ".
                 "FROM talk2 WHERE journalid=$ownerid AND nodeid=$journalid AND nodetype='L' $where $orderby $limit";
         }
@@ -1479,7 +1479,7 @@ sub _get_events_talks
     my $results = $res->{$type} = [];
     my %result_from_id;
 
-    if($type eq "events") {
+    if ($type eq "events") {
         while (my ($itemid, $eventtime, $sec, $mask, $anum, $jposterid) = $sth->fetchrow_array)
         {
             $count++;
@@ -1498,10 +1498,10 @@ sub _get_events_talks
             $evt->{'poster'} = LJ::get_username($dbr, $jposterid) if $jposterid != $ownerid;
             push @$results, $evt;
         }
-    } elsif($type eq "talks") {
+    } elsif ($type eq "comments") {
         while (my ($talkid, $talktime, $state, $posterid, $parenttalkid) = $sth->fetchrow_array)
         {
-            next if $state eq "S"; # and !LJ::Talk::can_view_screened($u, $journal_user, $posting_user, $commenting_user) #???
+            next if $state eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
             $count++;
             my $talk = {};
             $talk->{'talkid'} = $talkid;
@@ -1526,9 +1526,9 @@ sub _get_events_talks
 	$count = 0;
 	my %props = ();
 
-        if($type eq "events") {
+        if ($type eq "events") {
             LJ::load_log_props2($dbcr, $ownerid, \@ids, \%props);
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             LJ::load_talk_props2($dbcr, $ownerid, \@ids, \%props);
         }
 
@@ -1539,7 +1539,12 @@ sub _get_events_talks
             delete $props{$id}->{'replycount'};
 
             # delete posterip for security reasons
-            delete $props{$id}->{'posterip'};
+            next if $state eq "S" and !LJ::Talk::can_view_screened($u, $jitem->{journalu}, $jitem->{entryu}, LJ::load_user($posterid));
+            if ($type eq "comments" && 
+                 ($u->{'user'} ne $jitem->{entryu} &&
+                  LJ::check_rel($jitem->{journalu}, $u, 'A')) {
+                delete $props{$id}->{'poster_ip'};
+            }
 
 	    my $result = $result_from_id{$id};
 
@@ -1557,7 +1562,7 @@ sub _get_events_talks
         'usemaster' => $use_master,
     };
     my $text = "";
-    if($type eq "events") {
+    if ($type eq "events") {
         $text = LJ::get_logtext2($uowner, $gt_opts, @ids);
     } else {
         $text = LJ::get_talktext2($uowner, $gt_opts, @ids);
@@ -1635,9 +1640,9 @@ sub _get_events_talks
         } else { # "pc" -- default
             $t->[1] =~ s/\n/\r\n/g;
         }
-        if($type eq "events") {
+        if ($type eq "events") {
             $result->{'event'} = $t->[1];
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             $result->{'talk'} = $t->[1];
         }
     }
@@ -2396,8 +2401,8 @@ sub do_request
     if ($req->{'mode'} eq "getevents") {
         return getevents($req, $res, $flags);
     }
-    if ($req->{'mode'} eq "gettalks") {
-        return gettalks($req, $res, $flags);
+    if ($req->{'mode'} eq "getcomments") {
+        return getcomments($req, $res, $flags);
     }
     if ($req->{'mode'} eq "editfriends") {
         return editfriends($req, $res, $flags);
@@ -2812,13 +2817,13 @@ sub editevent
 }
 
 ## flat wrapper
-sub getevents { _get_events_talks("events", @_); }
-sub gettalks { _get_events_talks("talks", @_); }
+sub getevents { _get_events_comments("events", @_); }
+sub gettalks { _get_events_comments("comments", @_); }
 
-sub _get_events_talks
+sub _get_events_comments
 {
     my ($type, $req, $res, $flags) = @_;
-    if($type ne "events" and $type ne "talks") {
+    if ($type ne "events" and $type ne "comments") {
         $res->{'success'} = "FAIL";
         $res->{'errmsg'} = LJ::Protocol::error_message(500);
         return 0;
@@ -2841,11 +2846,11 @@ sub _get_events_talks
         my @vallist;
         my $singular = "";
         my $idname = "";
-        if($type eq "events") {
+        if ($type eq "events") {
             @vallist = qw(itemid eventtime security allowmask subject anum poster);
             $singular = "event";
             $idname = "itemid";
-        } elsif($type eq "talks") {
+        } elsif ($type eq "comments") {
             @vallist = qw(talkid talktime screened poster parenttalkid);
             $singular = "talk";
             $idname = "talkid";
