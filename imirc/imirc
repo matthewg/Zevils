@@ -596,7 +596,11 @@ unless($reload) {
 						$dcc->{socket}->close;
 						irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed."));
 						if($dcc->{what} eq "loadbuddies") {
-							loadbuddies($aim_connections{$dcc->{from}}{screennames}{$dcc->{screenname}}{socket}, $dcc->{buff});
+							if(loadbuddies($aim_connections{$dcc->{from}}{screennames}{$dcc->{screenname}}{socket}, $dcc->{buff})) {
+								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded."));
+							} else {
+								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?"));
+							}
 						}
 						splice(@dccqueue, $i, 1);
 					}
@@ -990,7 +994,11 @@ sub process_irc_message($) {
 			unless($param and $1 and $2) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text"));
 			} else {
-				chat_whisper($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
+				if($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}) {
+					chat_whisper($aim_connections{$nnick}{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, "That is not a valid chat ID."));
+				}
 			}
 		} elsif ($cmd eq "chat_evil" or $cmd eq "chat_warn") {
 			$extra =~ /(\S+) ?(.*)/;
@@ -1091,6 +1099,32 @@ sub process_irc_message($) {
 			} else {
 				change_password $aim_connections{$nnick}{socket}, $param, $extra;
 			}
+		} elsif ($cmd eq "loadbuddies") {
+			$dccget{$nnick} = "loadbuddies";
+			irc_send(irc_ctcp($usnick, $nnick, "loadbuddies"));
+			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist."));
+		} elsif ($cmd eq "savebuddies") {
+			my $oscar = 0;
+			my($socket);
+
+			unless($dccip) {
+				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file."));
+			} else {
+				$oscar = 1 if $param and lc($param) ne "toc";
+
+				$socket = IO::Socket::INET->new(
+					LocalPort => 0,
+					Listen => 1,
+					Proto => 'tcp',
+					LocalAddr => $dccip,
+					Timeout => 5
+				);						
+				$flags = '';
+				fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
+				$flags |= O_NONBLOCK;
+				fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";
+				push @dccqueue, {socket => $socket, size => length get_config($aim_connections{$nnick}{aimnick}), what => "savebuddies", from => $usnick, to => $nnick, put => -1, direction => "SEND", buff => get_config($aim_connections{$nnick}{aimnick})};
+			}
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
@@ -1117,6 +1151,14 @@ sub process_irc_message($) {
 				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
 				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
 				irc_send("$foo :denylist - See who is on your deny list.\r\n", 1);
+				irc_send("$foo :savebuddies [OSCAR] - DCC SENDs you a copy of your buddylist.  By default it will be in \"TOC format\" - use the OSCAR parameter for \"OSCAR format\".\r\n", 1) if $dccip;
+				irc_send("$foo :loadbuddies - DCC GETs a copy of your buddylist and uses that as your new buddylist.  You must do this before sending the file.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :Note on savebuddies\\loadbuddies: savebuddies will send you a CTCP savebuddies (loadbuddies sends CTCP loadbuddies.\r\n", 1);
+				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
+				irc_send("$foo :There are two buddylist formats which savebuddies and loadbuddies understand.\r\n", 1);
+				irc_send("$foo :The preferred format, TOC format, is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
+				irc_send("$foo :OSCAR format is the format that the Windows AOL Instant Messenger client exports its buddylist in.\r\n", 1);
 			} elsif($param eq "chat") {
 				irc_send("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n", 1);
 				irc_send("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n", 1);
@@ -1996,6 +2038,77 @@ sub irc_ctcp($$$;$) {
 
 sub loadbuddies($$) {
 	my($socket, $buff) = @_;
+	my($permtype, $line, @sections, $var, $val, $conf, $buddy);
 
-	
+	if($buff !~ /^Buddy {$/m) { #TOC-style
+		update_config($socket, $buff);
+		set_config($socket, get_config(Toc::_hnick($socket)));
+		return 1;
+	} else {
+		foreach $line(split(/[\r\n]+/, $buff)) {
+			if($line =~ /^\s*(\S+) {\s*/) {
+				push @sections, $1;
+			} elsif($line =~ /^\s*}\s*$/) {
+				pop @sections;
+			} else {
+				$line =~ /^\s*(\S+)\s*(.*?)\s*$/;
+				$var = $1; $val = $2;
+				if(lc($sections[0]) eq "buddy" and lc($sections[1]) eq "list") {
+					if($val) {
+						$conf .= "g $var\n";
+						while($val =~ s/\"(.+?)\"//g) {
+							($buddy = $1) =~ tr/ //d;
+							$val .= " $buddy";
+						}
+						Toc::debug_print("Got buddylist group $var = $val", "config", 3);
+						foreach $buddy(split(/\s+/, $val)) {
+							Toc::debug_print("\tAdding $buddy to group", "config", 3);
+							$conf .= "b $buddy\n";
+						}
+					}
+				} elsif(lc($sections[0] eq "Privacy")) {
+					if(lc($var) eq "allowlist" and $val) {
+						while($val =~ s/\"(.+?)\"//g) {
+							($buddy = $1) =~ tr/ //d;
+							$val .= " $buddy";
+						}
+						Toc::debug_print("Got permit list = $val", "config", 3);
+						foreach $buddy(split(/\s+/, $val)) {
+							Toc::debug_print("\tAdding $buddy to permit list", "config", 3);
+							$conf .= "p $buddy\n";
+						}
+					} elsif(lc($var) eq "denylist" and $val) {
+						while($val =~ s/\"(.+?)\"//g) {
+							($buddy = $1) =~ tr/ //d;
+							$val .= " $buddy";
+						}
+						Toc::debug_print("Got deny list = $val", "config", 3);
+						foreach $buddy(split(/\s+/, $val)) {
+							Toc::debug_print("\tAdding $buddy to deny list", "config", 3);
+							$conf .= "d $buddy\n";
+						}
+					} elsif(lc($var) eq "pref") {
+						Toc::debug_print("Permit mode is $val", "config", 3);
+						if(lc($val) eq "allowall") {
+							$conf .= "m 1\n";
+						} elsif(lc($val) eq "denyall") {
+							$conf .= "m 2\n";
+						} elsif(lc($val) eq "allowsome") {
+							$conf .= "m 3\n";
+						} else {
+							$conf .= "m 4\n";
+						}
+					}
+				}
+			}
+		}
+		if($conf) {
+			update_config($socket, $conf);
+			set_config($socket, get_config(Toc::_hnick($socket)));
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+
 }
