@@ -585,7 +585,7 @@ sub make_call($$) {
 					"--timeout", $Finnegan::Config::Cisco::call_timeout,
 					"--max-time", $timeout,
 					"--voicemail", $Finnegan::Config::Cisco::voicemail_name,
-					"--snoozefile", $snooze_ok ? "$audio_dir/wake/thanks.$audio_ext" : "$audio_dir/wake/snooze-no.$audio_ext",
+					"--snoozefile", "$audio_dir/wake/thanks.$audio_ext",
 					"--no-gatekeeper",
 				);
 				push @command, "--user", $Finnegan::Config::Cisco::my_ext if $Finnegan::Config::Cisco::my_ext;
