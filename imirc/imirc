@@ -42,6 +42,21 @@ use constant DCC_STATE_GET_CONNECT => DCC_STATE_WRITE | 1<<2; #6
 use constant DCC_STATE_GET_READY => 2<<2; #8
 use constant DCC_STATE_GET_SENDACK => DCC_STATE_WRITE | (3<<2); #14
 
+use constant RELNOTES => {
+	1.5 => <<EOF,
+Important Changes in IMIRC 1.5:
+	*This software is now called IMIRC, not aimirc.  The new website is http://www.zevils.com/programs/imirc/
+	*The channel used for the "nickchan" feature is now #aimchan-screenname instead of #aimirc-screenname
+	*We now use OSCAR instead of TOC to communicate with AIM.  This lets us do things like see people's away messages and set buddy comments.
+	*Away messages of people on your AIM buddylist who are away are available through the IRC WHOIS command.
+	*The default format for exported buddylists has changed
+	*loadbuddies has a new option to merge the new buddylist with your old one
+	*Pounces work slightly differently
+	*You can use NOTICE, as well as PRIVMSG, to send IMs to people.  If the recipient is using IMIRC, the IM will show up as a NOTICE on their end.
+	*New commands: loglevel, rename_group, reorder_groups, clonebuddies, set_buddy_comment, get_away, decline, format_screenname, change_email, confirm_account, relnotes, set
+Use the help command for additional assistance.  Use the $usnick relnotes command to see this message again.
+EOF
+};
 
 $starttime = time;
 
@@ -1367,6 +1382,7 @@ sub process_irc_message($) {
 				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
+				irc_send("$foo :relnotes [release note] - View important changes in IMIRC releases\r\n", 1);
 			} elsif($param eq "set") {
 				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName.\r\n", 1);
 				irc_send("$foo :set nicklen (limit) - If limit is non-zero, when an AIM user who has a nickname longer than the limit talks to you, you will receive a warning containing the full nickname of the sender.  A limit of zero (the default setting) turns this off.  This setting is preserved across AIM sessions and even IMIRC servers.  DreamCast users will want to set the limit to 9.\r\n", 1);
@@ -1579,6 +1595,18 @@ sub process_irc_message($) {
 			} else {
 				$sndata->{away_requested}->{$param} = 1;
 				$oscar->get_away($param);
+			}
+		} elsif($cmd eq "relnotes") {
+			if(!$param) {
+				irc_send(irc_privmsg($usnick, $nick, "Available release notes (ones you haven't seen are marked with a *): " .
+					join(", ", map { $sndata->{relnotes}->{$_} ? "\t$_" : "\t*$_" } keys %{RELNOTES()}), "", "", $screenname));
+			} elsif(RELNOTES()->{$param}) {
+				irc_send(irc_privmsg($usnick, $nick, RELNOTES()->{$param}, "", "", $screenname));
+				$sndata->{relnotes}->{$param} = 1;
+				$oscar->get_app_data()->{0x0203} = join(",", sort keys %{$sndata->{relnotes}}) if $oscar->get_app_data();
+				$oscar->commit_buddylist;
+			} else {
+				irc_send(irc_privmsg($usnick, $nick, "That release note does not exist.  Use the relnotes command without any parameters to get a list of available release notes.", "", "", $screenname));
 			}
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
@@ -2115,6 +2143,13 @@ sub oscar_signon_done($) {
 		irc_send(irc_privmsg($usnick, $nick, "You can receive CTCPs over AIM."));
 	}
 
+	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0203})) {
+		map { $sndata->{relnotes}->{$_} = 1 } split(",", $oscar->get_app_data()->{0x0203});
+	}
+	if(grep { !$sndata->{relnotes}->{$_} } keys %{RELNOTES()}, "", "", $screenname) {
+		irc_send(irc_privmsg($usnick, $nick, "You have unseen release notes - use the $usnick relnotes command.", "", "", $screenname));
+	}
+
 	if($oscar->profile) {
 		irc_send(irc_privmsg($usnick, $nick, "You profile has been set.", "", "", $screenname));
 	}
@@ -2336,6 +2371,7 @@ sub do_signon($$$$) {
 	$sndata->{away_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
 	$sndata->{ctcp} = 0;
+	$sndata->{relnotes} = {};
 	$irc_connections->{$screenname} = $nick;
 
 	switchnick($nick, $screenname) if $connection->{aimnick} eq $screenname;
