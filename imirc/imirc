@@ -691,7 +691,7 @@ sub process_irc_message($) {
 		} else {
 			delete $chantimer{chatchan($chat)};
 			$oscar = $aim_connections->{$nick}->{screennames}->{$chats{$chat}->{screenname}}->{oscar};
-			$chats{chat}->{joined} = 1;
+			$chats{$chat}->{joined} = 1;
 			if($chats{$chat}->{invited}) {
 				$oscar->chat_accept($chats{$chat}->{url});
 			} else {
@@ -2578,54 +2578,56 @@ sub loadbuddies($$$) {
 				push @sections, $1;
 			} elsif($line =~ /^\s*}\s*$/) {
 				pop @sections;
-			} else {
-				$line =~ /^\s*(\S+)\s*(.*?)\s*$/;
-				my $var = $1; my $val = $2;
-				if(lc($sections[0]) eq "buddy" and lc($sections[1]) eq "list") {
-					if($val) {
-						my $group = $var;
-						if($val =~ /^\s*\"(.+?)\"( {)?$/) {
-							($buddy = $1) =~ tr/ //d;
-							push @{$buddies{$group}}, $buddy;
-							push @sections, "buddy";
-						}
+			}
+
+			next if $line =~ /^\s*}/;
+
+			$line =~ /^\s*(\S+)\s*(.*?)\s*$/;
+			my $var = $1; my $val = $2;
+			print STDERR join("/", @sections), "/$var == $val\n";
+			if(lc($sections[0]) eq "buddy" and lc($sections[1]) eq "list") {
+				my $group = $sections[2];
+				if($var =~ /^\s*\"(.+?)\"( {)?$/) {
+					($buddy = $1) =~ tr/ //d;
+					push @{$buddies{$group}}, $buddy;
+				} else {
+					push @{$buddies{$var}}, split(/\s+/, $val);
+				}
+			} elsif(lc($sections[0] eq "privacy")) {
+				if(lc($var) eq "allowlist" and $val) {
+					while($val =~ s/\"(.+?)\"//g) {
+						($buddy = $1) =~ tr/ //d;
+						push @permit, $buddy;
 					}
-				} elsif(lc($sections[0] eq "privacy")) {
-					if(lc($var) eq "allowlist" and $val) {
-						while($val =~ s/\"(.+?)\"//g) {
-							($buddy = $1) =~ tr/ //d;
-							push @permit, $buddy;
-						}
-					} elsif(lc($var) eq "denylist" and $val) {
-						while($val =~ s/\"(.+?)\"//g) {
-							($buddy = $1) =~ tr/ //d;
-							push @deny, $buddy;
-						}
-					} elsif(lc($var) eq "pref") {
-						debug_print("Permit mode is $val", "config", 3);
-						if(lc($val) eq "allowall") {
-							$pmode = 1;
-						} elsif(lc($val) eq "denyall") {
-							$pmode = 2;
-						} elsif(lc($val) eq "allowsome") {
-							$pmode = 3;
-						} elsif(lc($val) eq "denysome") {
-							$pmode = 4;
-						} elsif(lc($val) eq "permitbuddies") {
-							$pmode = 5;
-						} else {
-							$pmode = 4;
-						}
+				} elsif(lc($var) eq "denylist" and $val) {
+					while($val =~ s/\"(.+?)\"//g) {
+						($buddy = $1) =~ tr/ //d;
+						push @deny, $buddy;
 					}
-				} elsif(lc($sections[0]) eq "buddy") {
-				} elsif(lc($sections[0]) eq "buddynote") {
-					if(lc($var) eq "notestring") {
-						$bnotes{$buddy} = $val;
+				} elsif(lc($var) eq "pref") {
+					debug_print("Permit mode is $val", "config", 3);
+					if(lc($val) eq "allowall") {
+						$pmode = 1;
+					} elsif(lc($val) eq "denyall") {
+						$pmode = 2;
+					} elsif(lc($val) eq "allowsome") {
+						$pmode = 3;
+					} elsif(lc($val) eq "denysome") {
+						$pmode = 4;
+					} elsif(lc($val) eq "permitbuddies") {
+						$pmode = 5;
+					} else {
+						$pmode = 4;
 					}
-				} elsif(lc($sections[0]) eq "profile" and lc($sections[1]) eq "user") {
-					if(lc($var) eq "datablob") {
-						$profile .= $val;
-					}
+				}
+			} elsif(lc($sections[0]) eq "buddy") {
+			} elsif(lc($sections[0]) eq "buddynote") {
+				if(lc($var) eq "notestring") {
+					$bnotes{$buddy} = $val;
+				}
+			} elsif(lc($sections[0]) eq "profile" and lc($sections[1]) eq "user") {
+				if(lc($var) eq "datablob") {
+					$profile .= $val;
 				}
 			}
 		}
@@ -2895,7 +2897,7 @@ sub process_dcc($$) {
 				debug_print("DCC $dcc->{desc} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
 				close $dcc->{socket};
 				irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC completed.", "", "", $screenname));
-				my $sndata = $aim_connections->{$dcc->{for}}->{screenname};
+				my $sndata = $aim_connections->{$dcc->{for}}->{screennames}->{$screenname};
 				if(loadbuddies($sndata->{oscar}, $dcc->{what}, $sndata)) {
 					irc_send(irc_privmsg($usnick, $dcc->{for}, "Buddylist loaded.", "", "", $screenname));
 				} else {
@@ -2959,7 +2961,7 @@ sub export_buddylist($;$) {
  version 1
 }
 User {
- screenName $oscar->screenname\n";
+ screenName ".$oscar->screenname."\n";
 		if($oscar->profile) {
 			$config .= " profile {\n  mimeType \"text/aolrtf; charset=\\\"us-ascii\\\"\"\n";
 			$config .= "  dataLength ".length($oscar->profile)."\n";
