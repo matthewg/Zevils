@@ -227,7 +227,7 @@ sub loadconf() {
 			do $conffile;
 			die $@ if $@;
 			if($confversion < 1.5) {
-				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n;
+				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
 				$foundconfig = -1 unless $foundconfig;
 			} else {
 				$foundconfig = 1;
