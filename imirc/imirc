@@ -2242,7 +2242,7 @@ sub oscar_buddy_info($$$) {
 		irc_send(irc_privmsg($usnick, $nick, "$buddy is not away or has no away message set.", "", "", $screenname));
 		delete $sndata->{away_requested}->{$buddy};
 	} elsif($sndata->{info_requested}->{$buddy}) {
-		delete $sndata->{info_requested}->{$param};
+		delete $sndata->{info_requested}->{$buddy};
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
