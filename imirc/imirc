@@ -2,6 +2,11 @@
 
 #See README for licensing/copyright information.
 
+sub BEGIN {
+	require File::Basename;
+	push @INC, File::Basename::dirname($0);
+}
+
 #use Thread qw(async);
 use IO::Handle;
 use IO::Socket;
