@@ -1063,6 +1063,7 @@ sub process_irc_message($) {
 						my $params = {loglevel => $loglevel};
 						my $cmdline = "$param $extra";
 						$cmdline =~ s/-+(loglevel|l|d)\s+\d+\s+//;
+						$cmdline =~ s/-+(hashpass|h)\s+//;
 						my($screenname, $password) = split(/\s+/, $cmdline, 2);
 						if(!$password and !$hashpass) {
 							irc_send(irc_privmsg($usnick, $nick, "You must provide a password."));
