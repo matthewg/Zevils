@@ -83,7 +83,7 @@ sub install_module($) {
 	my $dist = $CPAN::META->instance('CPAN::Distribution',$obj->cpan_file);
 	$dist->make;
 
-	foreach my $prereq(($] < 5.006001) ? ($dist->needs_prereq) : (keys %{$dist->prereq_pm})) {
+	foreach my $prereq(($] < 5.006001) ? ($dist->needs_prereq, keys %{$dist->{have_sponsored}}) : (keys %{$dist->prereq_pm})) {
 		my $prereq_obj = CPAN::Shell->expand('Module', $prereq);
 		install_module($prereq) unless $prereq_obj->inst_version;
 	}
@@ -91,6 +91,9 @@ sub install_module($) {
 
 	delete $dist->{later}; # {later} is the "delay until after prereqs" bit
 
+	if($mod eq "Scalar::Util" and $] == 5.006) { # Tests we don't care about fail on 5.6.0
+		$obj->force;
+	}
 	$obj->install;
 	$obj->inst_version  or $altinstall or die "Problems installing $mod - try $0 altinstall\n";
 	if($altinstall and (!$obj->inst_version or ($obj->cpan_version > $obj->inst_version))) {
