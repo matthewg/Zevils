@@ -532,7 +532,7 @@ undef if there is no next/previous message.
 =item msgnums GROUP MIN MAX
 
 This method is similar to the previous two methods; it should return
-a sorted list of valid message numbers within the given range.
+a list of valid message numbers within the given range.
 Return the empty list if there are no messages within the range.
 
 =cut

@@ -370,13 +370,13 @@ sub articles($$;$) {
 
 		my $stories = $self->{slash_db}->sqlSelectAllHashref(
 			"nntp_snum",
-			"nntp_snum, id",
+			"nntp_snum, sid",
 			"stories",
 			$where
 		);
 
 		foreach my $story (values %$stories) {
-			$ret{$story->{"nntp_snum"}} = $self->form_msgid($story->{id}, $format, "story");
+			$ret{$story->{"nntp_snum"}} = $self->form_msgid($story->{nntp_sid}, $format, "story");
 		}
 	} elsif($grouptype eq "journals") {
 		my $and = ($id and $time) ? "AND" : "";
@@ -404,7 +404,7 @@ sub articles($$;$) {
 		} else {
 			$from .= ", journals";
 			$where = "journals.discussion = comments.sid";
-			$where = " AND journals.id = $id";
+			$where .= " AND journals.id = $id";
 		}
 		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
 
@@ -912,7 +912,7 @@ sub msgnums($$$$) {
 	my($id, $format, $type) = $self->parsegroup($group);
 	my $ret;
 
-	$self->log("msgnums($group, $min, $max)", LOG_DEBUG);
+	#$self->log("msgnums($group, $min, $max)", LOG_DEBUG);
 
 	if($type eq "section") {
 		my $where = "nntp_snum >= $min AND nntp_snum <= $max";
@@ -922,7 +922,6 @@ sub msgnums($$$$) {
 			$where .= " AND displaystatus = 0";
 		}
 
-		$self->log("msgnums where: $where", LOG_DEBUG);
 		$ret = $self->{slash_db}->sqlSelectAll('nntp_snum', 'stories', $where);
 	} elsif($type eq "story") {
 		$ret = $self->{slash_db}->sqlSelectAll('cid', 'comments', "sid = $id AND cid >= $min AND cid <= $max");
@@ -935,8 +934,8 @@ sub msgnums($$$$) {
 		$ret = $self->{slash_db}->sqlSelectAll('cid', 'comments, journals', "journals.id=$id AND comments.sid = journals.discussion AND cid >= $min AND cid <= $max");
 	}
 
-	$self->log("Returning: ", join(", ", sort map {@$_} @$ret), LOG_DEBUG);
-	return sort map { @$_ } @$ret;
+	#$self->log("Returning: ", join(", ", map {@$_} @$ret), LOG_DEBUG);
+	return map { @$_ } @$ret;
 }
 
 1;

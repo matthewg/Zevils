@@ -500,11 +500,12 @@ sub got_client(*) {
 						last SWITCH;
 					}
 
-					foreach $blog (values %blogs) {
+					foreach my $root (sort keys %blogs) {
+						my $blog = $blogs{$root};
 						my %groups = $blog->groups();
 
-						while(my($group, $desc) = each(%groups)) {
-							nntp_put("$group   $desc");
+						foreach my $group (sort keys %groups) {
+							nntp_put("$group   $groups{$group}");
 						}
 					}
 					nntp_put(".");
@@ -514,7 +515,7 @@ sub got_client(*) {
 					} else {
 						nntp_put("215 list of newsgroups follows");
 						my $pattern = $params[1];
-						foreach $blog ($pattern ? findblog($pattern) : values %blogs) {
+						foreach $blog ($pattern ? findblog($pattern) : map {$blogs{$_}} sort keys %blogs) {
 							my %groups;
 							if($pattern) {
 								if($blog and $blog->is_group($pattern)) {
@@ -545,7 +546,8 @@ sub got_client(*) {
 					last SWITCH;
 				}
 
-				foreach $blog (values %blogs) {
+				foreach my $root (keys %blogs) {
+					$blog = $blogs{$root};
 					my %groups = $blog->groups($time);
 					foreach my $group(sort keys %groups) {
 						my($first, $last) = $blog->groupstats($group);
@@ -566,7 +568,7 @@ sub got_client(*) {
 				foreach my $glob(@posglobs) {
 					unless($glob =~ /\*/) {
 						my %articles = findblog($glob)->articles($glob, $time);
-						push @ret, values %articles;
+						push @ret, map {$articles{$_}} sort {$a <=> $b} keys %articles;
 					} else {
 						nntp_put("500 NEWNEWS with glob not yet implemented");
 					}
@@ -702,7 +704,7 @@ sub got_client(*) {
 
 				nntp_put("211 list of article numbers follows");
 				my %articles = $blog->articles($group);
-				nntp_put($_) foreach keys %articles;
+				nntp_put($_) foreach sort {$a <=> $b} keys %articles;
 				nntp_put(".");
 			} elsif (/^authinfo$/) {
 				if (lc($params[0]) eq "pass" and !"user") {
@@ -768,7 +770,7 @@ sub xover($$$;$$) {
 		} else {
 			$last = $first;
 		}
-		@nums = $blog->msgnums($currgroup, $first, $last);
+		@nums = sort {$a <=> $b} $blog->msgnums($currgroup, $first, $last);
 
 		@articles = map { $blog->num2id($currgroup, $_) } @nums;
 
