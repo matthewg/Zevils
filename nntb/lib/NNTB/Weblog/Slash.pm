@@ -447,14 +447,17 @@ sub article($$$;@) {
 		$headers{"x-slash-user"} = $self->{slash_db}->getUser($uid, 'nickname') . " ($uid)" if !@headers or $get_headers{"x-slash-user"};
 
 		$headers{date} = timeCalc($date, "%d %b %Y %H:%M:%s $self->{slash_user}->{off_set}");
+	}
+
+	$self->consume_subscription() unless $type eq "head";
+
+	if($type ne "head" or $get_headers{lines} or $get_headers{bytes}) {
+		$body = $self->html2txt($body) if $format eq "text";
 		my @lines = split(/\n/, $body);
 		$headers{lines} = scalar @lines;
 		$headers{bytes} = length($body);
 	}
 
-	$self->consume_subscription() unless $type eq "head";
-
-	$body = $self->html2txt($body) if $format eq "text";
 	if(@headers) {
 		foreach my $header (keys %headers) {
 			delete $headers{$header} unless $get_headers{$header};
