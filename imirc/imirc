@@ -1658,7 +1658,7 @@ sub process_irc_message($) {
 		my $newnick = $1;
 		my(@args) = split(/\s+/, $2);
 
-		if($newnick =~ /^$prefix/) {
+		if($newnick =~ /^$prefix/i) {
 			irc_send(irc_kill($usnick, $newnick, "Attempt to impersonate an AOL Instant Messenger user"));
 			return;
 		}
@@ -1717,11 +1717,11 @@ sub process_irc_message($) {
 		do_signoff_all($nick) if $aim_connections->{$nick};
 	} elsif(/^PING\s+:?(\S+)/) {
 		irc_send(irc_pong($1));
-	} elsif(/^248 +$usnick +U +(\S+)/) { # STATS U reply
+	} elsif(/^248 +$usnick +(?:U +)?(\S+)/) { # STATS U reply
 		push @uhosts, $1;
 		debug_print("Got U: host $1", "irc", 1);
-	} elsif(/^217 +$usnick +Q +(?:\S+) +(?:\S+) +(\S+)/) { # STATS Q reply
-		push @qlines, $1;
+	} elsif(/^217 +$usnick +(?:Q +)?(\S+) +(?:\S+)(?: +(\S+))?/) { # STATS Q reply
+		push @qlines, ($1 eq "*") ? $3 : $1;
 		debug_print("Got Q: line $1", "irc", 1);
 	} elsif(/^219 +$usnick +Q/) { # End of STATS Q
 		my($qusnick, $qoldnick, $qprefix);
