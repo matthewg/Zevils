@@ -499,7 +499,7 @@ sub mainloop() {
 			#}
 
 			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
-			alarm 10;
+			alarm 5;
 
 			debug_print("Processing OSCARs...", "irc", 2);
 
@@ -1581,6 +1581,7 @@ sub oscar_error($$$$$$$$;$) {
 	my($oscar, undef, $error, undef, $url, $reqdata, undef, undef, $fatal) = @_;
 	my($screenname, $nick, $sndata) = callback_vars($oscar);
 
+	debug_print("Got oscar_error: $error ($fatal)", "irc", 2);
 	$error .= "[$reqdata] " if $reqdata;
 	irc_send(irc_privmsg($usnick, $nick, $error, "", "", $screenname));
 	irc_send(irc_privmsg($usnick, $nick, "See $url for moore information.", "", "", $screenname)) if $url;
@@ -1831,7 +1832,9 @@ sub oscar_buddy_info($$$) {
 
 	if($buddat->{awaymsg}) {
 		$away->{$buddy} = $buddat->{awaymsg};
-		irc_send(":".ircify($prefix.$buddy)." AWAY :".html2txt($buddat->{awaymsg})."\r\n");
+		my $awaymsg = html2txt($buddat->{awaymsg});
+		$awaymsg =~ tr/\r\n/  /;
+		irc_send(":".ircify($prefix.$buddy)." AWAY :$awaymsg\r\n");
 	} else {
 		local $^W = 0;
 		my $msg = "Info for $buddat->{screenname}\r\n";
