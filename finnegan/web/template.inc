@@ -305,7 +305,7 @@ END_MKWAKE_MESSAGE_OPTION
 	"mkwake_form" => <<<END_MKWAKE_FORM
 <p>
 1. Enter a time for the wake-up call.<br />
-Time: <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><br />
+Time (h:mm): <input type="text" name="time" size="6" maxlength="5" value="__TIME__" /><br />
 <input type="radio" name="ampm" value="AM" __AM__ /> AM<br />
 <input type="radio" name="ampm" value="PM" __PM__ /> PM<br />
 </p><p>
