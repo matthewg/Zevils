@@ -1,0 +1,7 @@
+String TOC2 must appear in toc_signon command to enable
+Permit mode 5 == permit iff on buddylist
+EMAIL:email
+toc_get_away screenname => AWAY:screenname:message
+toc_change_email ADMIN_EMAIL_STATUS
+
+$chat->{dormouse_id}
