@@ -10,6 +10,6 @@ be done by going into include/struct.h and finding the line that says
 #define NICKLEN and changing the 9 to something more sensible, like 30.  I
 know people who have done this so I don't think it will be problem as long
 as you change it on all servers on your network.  Then put the following
-line in your aimirc.conf:
+line in your imirc.conf:
         $ircservers{ircu}{nicklen} = 30; 
 
