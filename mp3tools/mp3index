@@ -158,7 +158,8 @@ mp3index - Generates listings of MPEG audio files in a custom format.
 Version $version
 
 Usage: mp3index [-f URL] [-h URL] [-o OUTPUT] [-d DATFILE] [-l FORMAT_FILE] 
-		[-p mp3play URL] [-O1 OPTIONS] [-n] [-k] [-N] [-A pat] FILES
+		[-p mp3play URL] [-O1 OPTIONS] [-n] [-k] [-N] [-A pat]
+		[-@ M3U_FILE]... [FILES]
 
 You can use either the short or long forms with one or two dashes in
 whatever combination you want.  However, you can't combine options as in
@@ -264,7 +265,12 @@ mp3index -fh.
 
 	-v, --verbose			Show status information.
 
-	FILES are the MPEG audio files to index.
+	-\@, --m3u=M3U_FILE		Get a list of MPEG audio files to index
+					from M3U_FILE.  If M3U_FILE is "-",
+					standard input will be used.
+
+	FILES are the MPEG audio files to index.  You must either specify
+	one or more FILES or use the -\@ option.
 
 	See the included README file for more information.
 EOF
@@ -297,7 +303,9 @@ $errors = &GetOptions("version|V" => \&dispver,
 "keeppath|k" => \$keeppath,
 "noparse|N" => \$noparse,
 "alternatepat|A=s" => \$altpat,
-"help|usage" => \&help);
+"help|usage" => \&help,
+"m3u|\@=s\@" => \@m3u_files,
+);
 
 #"format|layout|l=s@" => \@FMTFILE,
 
@@ -309,8 +317,9 @@ if(!$errors) {
 $FMTFILE ||= "-";
 &describe if $describe;
 
-if(!$ARGV[0]) {
+if(!$ARGV[0] and !@m3u_files) {
 	print "You must pass at least one MPEG audio file as a command-line argument!\n";
+	print "(Or use the -\@ option.)\n";
 	exit 1;
 }
 
@@ -324,6 +333,18 @@ if($httpurl eq ".") { $httpurl = ""; }
 if($httpurl and $httpurl ne "") { $httpurl .= "/"; }
 if($ftpurl eq ".") { $ftpurl = ""; }
 if($ftpurl and $ftpurl ne "") { $ftpurl .= "/"; }
+
+if(@m3u_files) {
+	warn "Processing M3U files...\n" if $verbose;
+	foreach my $m3u(@m3u_files) {
+		open(M3U, $m3u) or die "Couldn't open M3U file $m3u: $!\n";
+		while(<M3U>) {
+			chomp;
+			push @ARGV, $_;
+		}
+		close M3U;
+	}
+}
 
 warn "Processing MPEG audio files...\n" if $verbose;
 $totalsize = 0; $totalmins = 0; $totalhours = 0; $totalsecs = 0;
