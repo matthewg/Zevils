@@ -838,7 +838,7 @@ sub process_irc_message($$) {
 		}
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
-	} elsif(/^JOIN +(.+)/i) {
+	} elsif(/^JOIN +:?(.+)/i) {
 		my $chans = $1;
 		foreach my $chan (split(/,/, $chans)) {
 			did_join($nick, $chan);
