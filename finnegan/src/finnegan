@@ -603,6 +603,7 @@ sub make_call($$) {
 			my $pid = fork();
 			my $exit_status;
 
+			$SIG{CHLD} = 'DEFAULT';
 			if(!defined($pid)) {
 				$end->("failure", "Couldn't fork: $!");
 			} elsif(!$pid) {
