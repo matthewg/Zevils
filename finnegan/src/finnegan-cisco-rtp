@@ -82,7 +82,7 @@ $SIG{HUP} = sub { log_debug("Reloading settings and samples..."); load_settings;
 my($message, $destination);
 if($Finnegan::Config::Cisco::wake_method eq "unicast") {
 	my %args;
-	getopt('um:d:', \%args);
+	getopts('um:d:', \%args);
 	die "Must set -u for unicast mode\n" unless $args{u};
 	$message = $args{m};
 	$destination = $args{d};
