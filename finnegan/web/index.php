@@ -72,7 +72,7 @@ function date_to_sql($month, $day) {
 
 function do_end() {
 	global $TEMPLATE;
-	echo $TEMPLATE["form_end"];
+	echo $TEMPLATE["viewcalls_end"];
 	echo $TEMPLATE["page_end"];
 	exit;
 }
@@ -97,10 +97,8 @@ echo preg_replace("/__TITLE__/",
 );
 
 if($extension_ok) {
-	echo preg_replace("/__FORM_PARAMETERS__/",
-		'method="post" action="index.php"',
-		$TEMPLATE["form_start"]
-	);
+	echo $TEMPLATE["viewcalls_start"];
+
 	$dbh = get_dbh();
 	if(!$dbh) {
 		echo preg_replace("/__ERROR__/", "Couldn't connect: " . mysql_error(), $TEMPLATE["db_error"]);
@@ -118,7 +116,7 @@ if($extension_ok) {
 		echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wake_list_start"]);
 		while($count && ($row = mysql_fetch_assoc($result))) {
 			$delete = "";
-			if(isset($_POST["op"]) && $_POST["op"] == "delete" && isset($_POST["id"][$row["wake_id"]])) {
+			if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls" && isset($_POST["id"][$row["wake_id"]])) {
 				$delete = "SELECTED";
 				echo '<span class="wake-delete">';
 			}
@@ -198,7 +196,7 @@ if($extension_ok) {
 } else {
 	echo preg_replace("/__FORM_PARAMETERS__/",
 		'method="post" action="index.php"',
-		$TEMPLATE["form_start_noext"]
+		$TEMPLATE["viewcalls_start_noext"]
 	);
 	echo preg_replace("/__EXTENSION__/", $extension, $TEMPLATE["get_extension"]);
 }
