@@ -1,9 +1,38 @@
 package Slash::PSM::BSI;
 use strict;
 use Carp qw(cluck croak carp confess);
-use vars qw($VERSION @ISA);
+use vars qw($VERSION @ISA %sections %topics %users %stories %comments %polls %vars);
 @ISA = ('Slash::PSM::SlashSite');
 $VERSION = '0.01';
+
+%sections = 	(
+			articles => MakeSection(name => 'articles'),
+			features => MakeSection(name => 'features'),
+			releases => MakeSection(name => 'releases'),
+		);
+%topics = 	(
+			news => MakeTopic(name => 'news'),
+			openslash => MakeTopic(name => 'openslash'),
+			mp3tools => MakeTopic(name => 'mp3tools'),
+			aimirc => MakeTopic(name => 'aimirc'),
+		);
+%users = 	(
+			matthewg => MakeUser(name => 'matthewg', seclevel => 10000, realname => 'Matthew Sachs', email => 'matthewg@zevils.com', fakeemail => 'matthewg@zevils.com', url => 'http://www.zevils.com/', defscore => 2, pass => 'openslash'),
+			somedude => MakeUser(name => 'somedude', realname => 'Some Dude', email => 'some@dude.org', fakeemail => 'some@dude.org.NOSPAM', url => '', pass => 'openslash'),
+			jonkatz =>  MakeUser(name => 'jonkatz', seclevel => 5000, realname => 'Jon Katz', email => 'jon@katz.org', fakeemail => 'jon@NOSPAMkatz.org', pass => 'openslash', restrict => 'articles'),
+		);
+%stories = 	(
+			openslash => MakeStory(title => 'OpenSlash Keeps Getting Better', dept => 'testing-1-2-3', topic => 'openslash', section => 'articles', author => 'matthewg', time => 945165180, introtext => 
+				'<a href="http://www.zevils.com/linux/OpenSlash/">OpenSlash</a> just keeps getting better.  It has lots of nifty features.', bodytext =>
+				'PSMs are nice.  Testing, testing, 1 2 3.'),
+			aimirc => MakeStory(title => 'aimirc 0.51 released', dept => 'next-release-adds-multithreading', topic => 'aimirc', section => 'releases', author => 'matthewg', time => 945165180, introtext =>
+				'<a href="http;//www.zevils.com/linux/aimirc/">aimirc</a> 0.51 has been released.'),
+			hellmouth => MakeStory(title => 'The Hellmouth Has Halitosis', dept => 'dental-hygiene-is-important', topic => 'news', section => 'features', author => 'jonkatz', time => 945165180, introtext =>
+				'The quick brown fox jumped over the lazy dogs.  Now is the time for all good men to come to the aid of their party.  This software is furnished under license and may only be used or copied in accordance with the terms of that license.'),
+		);
+%comments = 	();
+%polls = 	();
+%vars = 	();
 
 sub load($$$$$) { #load up an existing SlashSite
 	my($class, $psmver, $frontend, $slashsite, $confdir) = @_;
@@ -63,6 +92,18 @@ sub GetStories($;%) { print "GetStories\n"; return qw(1); }
 sub GetComments($;%) { print "GetComments\n"; return qw(1); }
 sub GetPolls($;%) { print "GetPolls\n"; return qw(1); }
 sub GetFrontendVars($;%) { print "GetFrontendVars\n"; return qw(1); }
+
+#The MakeFoo methods return an empty object of the appropriate type.
+#No changes should be made in the database (or whatever you're using for persistent storage)
+#until the save method is called on the object.
+
+sub MakeSection($;%) { print "MakeSection\n"; return qw(1); }
+sub MakeTopic($;%) { print "MakeTopic\n"; return qw(1); }
+sub MakeUser($;%) { print "MakeUser\n"; return qw(1); }
+sub MakeStory($;%) { print "MakeStory\n"; return qw(1); }
+sub MakeComment($;%) { print "MakeComment\n"; return qw(1); }
+sub MakePoll($;%) { print "MakePoll\n"; return qw(1); }
+sub MakeFrontendVar($;%) { print "MakeFrontendVar\n"; return qw(1); }
 
 require Slash::PSM::BSI:Section;
 require Slash::PSM::BSI::Topic;

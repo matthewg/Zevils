@@ -91,4 +91,15 @@ sub GetComments($;%) { &_psmloader("GetComments", "comments", @_); }
 sub GetPolls($;%) { &_psmloader("GetPolls", "polls", @_); }
 sub GetFrontendVars($;%) { &_psmloader("GetFrontendVars", "vars", @_); }
 
+#These Make methods should just return an object.
+#$obj->save should actually update the database.
+
+sub MakeSection($;%) { &_psmloader("MakeSection", "sections", @_); }
+sub MakeTopic($;%) { &_psmloader("MakeTopic", "topics", @_); }
+sub MakeUser($;%) { &_psmloader("MakeUser", "userdata", @_); }
+sub MakeStory($;%) { &_psmloader("MakeStory", "stories", @_); }
+sub MakeComment($;%) { &_psmloader("MakeComment", "comments", @_); }
+sub MakePoll($;%) { &_psmloader("MakePoll", "polls", @_); }
+sub MakeFrontendVar($;%) { &_psmloader("MakeFrontendVar", "vars", @_); }
+
 1;
