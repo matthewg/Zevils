@@ -52,8 +52,6 @@ sub BEGIN {
 	push @INC, File::Basename::dirname($0)."/lib";
 	push @INC, File::Basename::dirname($0);
 
-	require 5.006;
-
 	eval {
 		require HTML::FormatText;
 		require HTML::Parse;

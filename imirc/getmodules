@@ -4,7 +4,6 @@ sub BEGIN {
 	my $home = (getpwuid($>))[7];
 	push @INC, "$home/.cpan";
 
-	require 5.006;
 	require CPAN;
 	eval {
 		require CPAN::MyConfig;
@@ -29,7 +28,7 @@ push @INC, $dirname;
 $CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
 $CPAN::Config->{prerequisites_policy} = "follow";
 
-foreach my $mod (qw(MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR)) {
+foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR)) {
 	my $obj = CPAN::Shell->expand('Module', $mod);
 	next if $obj->inst_version() and $mod ne "Net::OSCAR";
 	print "Installing $mod...\n";
