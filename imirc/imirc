@@ -2665,6 +2665,7 @@ sub loadbuddies($$$) {
 		}
 	} else {
 		my $data = oscar_cfgparse($buff);
+		irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, Data::Dumper::Dumper($data), "", "", $oscar->screenname));
 
 		if($data->{Config}->{version} != 1) {
 			irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "That isn't a valid buddylist.", "", "", $oscar->screenname));
