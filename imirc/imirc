@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chattimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $numeric);
+use vars qw($home $version $VERSION @args $prefix $usnick $us $them $themport $ourpass $theirpass $servermode $time $verbose_signon $ssl @default_conffiles $fork $verbose $sendidle $tocserver $tocport %dcc $savebuddies $saveprofiles $savepounces $directory $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream %aim_connections %irc_connections $aimircdebug %longnicks @dccqueue $lasttime $checktime $keepalive $themname %nicks %shortnicks %chatinvites %chattopics %chattime %profiles %pounces %buddylists %chantimer %chatjoined %chatnames %chatqueue %chats %dccget %debug %irc_away $license @getbuff $numeric);
 
 sub loadconf();
 sub loaddat($);
@@ -38,7 +38,7 @@ sub irc_newnick($);
 sub noprefix($);
 sub haskeys($);
 sub irc_subparms($;$$);
-sub irc_privmsg($$$;$$);
+sub irc_privmsg($$$;$$$);
 sub process_irc_message($);
 sub process_aim_message($$$);
 sub html2txt($;$);
@@ -75,6 +75,7 @@ sub irc_pong();
 sub irc_quit($;$);
 sub irc_invite($$$);
 sub ircirfy($);
+sub bounce_join($$);
 
 $| = 1;
 
@@ -481,7 +482,7 @@ sub mainloop() {
 		irc_send(irc_mode($usnick, $usnick, "-i"));
 		irc_send(irc_mode($usnick, $usnick, "+oa"));
 
-		irc_join($usnick, "#aimirc-debug");
+		irc_send(irc_join($usnick, "#aimirc-debug"));
 		irc_send(irc_mode($us, "#aimirc-debug", "+o $usnick"));
 		irc_send(irc_mode($usnick, "#aimirc-debug", "+nsk $ourpass"));
 		$aimircdebug = 1;
@@ -494,15 +495,15 @@ sub mainloop() {
 				$connection = $aim_connections{$aim};
 				foreach $screenname(keys %{$connection->{screennames}}) {
 					next unless $screenname; #Why is this needed?
-					$multinick = " for screenname $screenname" if $screenname ne $connection->{aimnick};
+					$multinick = " for screenname $screenname" if $screenname ne $connection->{aimnick} and not $connection->{screennames}{$screenname}{inchan};
 					do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
 					$msg = sflap_get($connection->{screennames}{$screenname}{socket});
 					if($msg eq "-1" and $! != EAGAIN) {
 						$multinick = "";
-						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
+						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick} or $connection->{screennames}{$screenname}{inchan};
+						irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 						do_signoff($connection->{nick}, $connection->{screennames}{$screenname}{socket});
-					} elsif($msg) {
+					} elsif($msg ne "-1") {
 						process_aim_message($connection, $msg, $screenname);
 					}
 				}
@@ -636,24 +637,26 @@ sub mainloop() {
 
 			$currtime = time;
 			foreach $nick(keys %aim_connections) {
+				next unless $nick;
 				$connection = $aim_connections{$nick};
 				foreach $screenname(keys %{$connection->{screennames}}) {
 					next unless $screenname;
 					$sndata = $connection->{screennames}{$screenname};
+					next unless $sndata and ref $sndata eq "HASH" and defined $sndata->{signontime};
 					next if $sndata->{gotconf};
 					next if ($currtime - $sndata->{signontime}) <= 5;
 					if(!$sndata->{ison}) {
 						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
 						do_signoff($nick, $sndata->{socket}, 1);
 					} else {
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL did not send your buddylist!"));
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL is having problems - maybe they lost the buddylists again."));
+						irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL did not send your buddylist!", "", "", $screenname));
+						irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL is having problems - maybe they lost the buddylists again.", "", "", $screenname));
 						$sndata->{gotconf} = 1;
 						if($buddylists{safename $screenname}) {
-							irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+							irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you.", "", "", $screenname));
 							update_config($sndata->{socket}, $buddylists{safename $screenname});
 						} elsif($dcc) {
-							irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+							irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\".", "", "", $screenname));
 							update_config($sndata->{socket}, "m 4\n");
 						} else {
 							update_config($sndata->{socket}, "m 4\n");
@@ -750,11 +753,13 @@ sub irc_subparms($;$$) {
 }
 
 # Format an IRC private message - you must still irc_send it!
-sub irc_privmsg($$$;$$) {
-	my($from, $to, $msg, $prefix, $notice, $line, $ret, $text, $temp) = @_;
+sub irc_privmsg($$$;$$$) {
+	my($from, $to, $msg, $prefix, $notice, $screenname, $line, $ret, $text, $temp) = @_;
 	$prefix ||= "";
 
 	return unless $from and $to and $msg;
+
+	$to = "#aimirc-$screenname" if $screenname and $aim_connections{normalize $to}{screennames}{$screenname}{inchan};
 
 	$from = substr($from, 0, $ircservers{$servermode}{nicklen});
 	if($from ne $usnick and not haskeys($nicks{noprefix($from)})) {
@@ -773,7 +778,7 @@ sub irc_privmsg($$$;$$) {
 
 # Process an incoming IRC message
 sub process_irc_message($) {
-	my($aimnick, $nick, $chat, $who, $msg, %time, %group, %connections, $foo, @temp, $group, $i, $pounce, $target, $recipient, $level, $success, $screenname, $newnick, %temp);
+	my($aimnick, $nick, $chat, $who, $msg, $screenname, $sndata, %time, %group, %connections, $foo, @temp, $group, $i, $pounce, $target, $recipient, $level, $success, $newnick, %temp);
 
 	$_ = shift;
 
@@ -785,14 +790,15 @@ sub process_irc_message($) {
 	my $nnick = normalize($nick);
 
 	if($aim_connections{$nnick}) {
-		$aimnick = $aim_connections{$nnick}{aimnick};
-		#Toc::debug_print("Got IRC event from $nnick.  is_idle: $aim_connections{$nnick}{screennames}{$aimnick}{is_idle}", "sflap", 1);
-		$aim_connections{$nnick}{screennames}{$aimnick}{idletime} = time;
-		if($aim_connections{$nnick}{screennames}{$aimnick}{is_idle}) {
-			$aim_connections{$nnick}{screennames}{$aimnick}{is_idle} = 0;
-			if(set_idle($aim_connections{$nnick}{socket}, 0) == -1 and $! != EAGAIN) {
-				irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection: $err"), 2);
-				do_signoff($nnick, $aim_connections{$nnick}{socket});
+		foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
+			$sndata = $aim_connections{$nnick}{screennames}{$screenname};
+			$sndata->{idletime} = time;
+			if($sndata->{is_idle}) {
+				$sndata->{is_idle} = 0;
+				if($sndata->{socket} and set_idle($sndata->{socket}, 0) == -1 and $! != EAGAIN) {
+					irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection: $err", "", "", $screenname), 2);
+					do_signoff($nnick, $sndata->{socket});
+				}
 			}
 		}
 	}
@@ -804,17 +810,38 @@ sub process_irc_message($) {
 		delete $nicks{noprefix $1};
 	} elsif(/^VERSION/i) {
 		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
-	} elsif(/^JOIN +.?#aim\(chat-(\d+)\)?/i or /^SJOIN +\d+ +#aim\(chat-(\d+)\)? +\S+ +:(\S+)/i) {
+	} elsif(!/#aimirc-debug/i and (/^JOIN +.?#aimirc-(\S+)/i or /^SJOIN +\d+ +#aimirc-(\S+) +\S+ +:(\S+)/i)) {
+		my $screenname = $1;
+		$nick = $2 if $2;
+		$nnick =~ tr/\@+//d;
+		$nnick = normalize($nick);
+		my $dude;
+		my %config = deref get_config $screenname;
+
+		#print STDERR "Got $nnick joining $screenname ($_)\n";
+		if(not defined $irc_connections{$screenname} or $irc_connections{$screenname} ne $nnick) {
+			#print STDERR "Doing bounce_join\n";
+			bounce_join($nick, "#aimirc-$screenname");
+		} else {
+			$aim_connections{$nnick}{screennames}{$screenname}{inchan} = 1;
+			irc_send(irc_join($usnick, "#aimirc-$screenname"));
+			irc_send(irc_mode($us, "#aimirc-$screenname", "+o $usnick"));
+			irc_send(irc_mode($usnick, "#aimirc-$screenname", "-o $nick"));
+			$chantimer{"#aimirc-$screenname"} = time;
+			foreach $dude(keys %nicks) {
+				next unless $nicks{$dude}{$screenname};
+				irc_send(irc_join("$prefix$dude", "#aimirc-$screenname"));
+				irc_send(irc_mode($usnick, "#aimirc-$screenname", "+v $prefix$dude")) if exists $config{Buddies}{$dude};
+			}
+		}
+	} elsif(/^JOIN +.?#aimchat-(\d+)/i or /^SJOIN +\d+ +#aimchat-(\d+) +\S+ +:(\S+)/i) {
 		my $chat = $1;
 		$nick = $2 if $2;
 		$nick =~ tr/\@+//d; #Only needed for Hybrid?
 		$nnick = normalize($nick);
 
 		if((not $chatinvites{$chat} and not $chattopics{$chat}) or ($chatinvites{$chat} and $nnick ne normalize($chatinvites{$chat}))) {
-			irc_send(irc_join($usnick, "#aimchat-$chat"));
-			irc_send(irc_mode($us, "#aimchat-$chat", "+isnto $usnick"));
-			irc_send(irc_kick($usnick, "#aimchat-$chat", $nick, "This channel is reserved for aimirc usage."));
-			$chattimer{$chat} = time;
+			bounce_join($nick, "#aimchat-$chat");
 		} elsif($aim_connections{$nnick}) {
 			$chatjoined{$chat} = 1;
 			if($chatinvites{$chat}) {
@@ -918,12 +945,25 @@ sub process_irc_message($) {
 				delete $chatjoined{$1};
 			}
 		}
-	} elsif(/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i) {
+	} elsif(!/#aimirc-debug/i and /^PART +#aimirc-(\S+)/i) {
+		my $screenname = $1;
+		my $dude;
+
+		if(exists $aim_connections{$nnick}{screennames}{$screenname} and $aim_connections{$nnick}{screennames}{$screenname}{inchan}) {
+			$aim_connections{$nnick}{screennames}{$screenname}{inchan} = 0;
+			foreach $dude(keys %nicks) {
+				next unless $nicks{$dude}{$screenname};
+				irc_send(irc_part("$prefix$dude", "#aimirc-$screenname"));
+			}
+			irc_send(irc_part($usnick, "#aimirc-$screenname"));
+		}
+	} elsif(!/#aimirc-debug/i and (/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i or /^PRIVMSG +#aimirc-(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra, $connection, $screenname, $sndata, %config);
 
 		$msg = process_ctcp($nnick, $usnick, $2);
 		return unless $msg;
 
+		$screenname = $1 if exists $aim_connections{$nnick}{screennames}{$1};
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) ?(\S*)( ?.*)/ or $cmd = $msg;
 		$cmd = $1 unless $cmd; $param = $2 if $2 or $2 eq "0"; $extra = substr($3, 1) || "" if $3;
@@ -934,7 +974,7 @@ sub process_irc_message($) {
 
 		if($aim_connections{$nnick}) {
 			$connection = $aim_connections{$nnick};
-			$screenname = $connection->{aimnick};
+			$screenname ||= $connection->{aimnick};
 			$sndata = $connection->{screennames}{$screenname};
 			%config = deref get_config $screenname;
 		}
@@ -962,7 +1002,7 @@ sub process_irc_message($) {
 				push @{$groups{$config{Buddies}{$buddy}{group}}}, $xbuddy;
 			}
 			foreach $group(sort keys %groups) {
-				irc_send(irc_privmsg($usnick, $nick, "$group:"));
+				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
 				foreach $buddy(sort @{$groups{$group}}) {
 					$buddat = $config{Buddies}{normalize $buddy};
 					$evil = $buddat->{evil};
@@ -970,11 +1010,11 @@ sub process_irc_message($) {
 					$line .= " [online]" if $buddat->{online};
 					$line .= " [away]" if $buddat->{online} and substr($buddat->{class}, 2, 1) eq "U";
 					$line .= " [warning level $evil%]" if $evil;
-					irc_send(irc_privmsg($usnick, $nick, $line));
+					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 					$buddies++;
 				}
 			}
-			irc_send(irc_privmsg($usnick, $nick, "Your buddylist is empty.")) unless $buddies;
+			irc_send(irc_privmsg($usnick, $nick, "Your buddylist is empty.", "", "", $screenname)) unless $buddies;
 		} elsif ($cmd eq "onbuddies") {
 			my(%groups, $buddy, $group, $xbuddy, $line, $evil, $buddat);
 			my $onbuddies = 0;
@@ -984,29 +1024,29 @@ sub process_irc_message($) {
 				push @{$groups{$config{Buddies}{$buddy}{group}}}, $xbuddy if $config{Buddies}{$buddy}{online};
 			}
 			foreach $group(sort keys %groups) {
-				irc_send(irc_privmsg($usnick, $nick, "$group:"));
+				irc_send(irc_privmsg($usnick, $nick, "$group:", "", "", $screenname));
 				foreach $buddy(sort @{$groups{$group}}) {
 					$buddat = $config{Buddies}{normalize $buddy};
 					$evil = $buddat->{evil};
 					$line = "\t$buddy";
 					$line .= " [away]" if substr($buddat->{class}, 2, 1) eq "U";
 					$line .= " [warning level $evil%]" if $evil;
-					irc_send(irc_privmsg($usnick, $nick, $line));
+					irc_send(irc_privmsg($usnick, $nick, $line, "", "", $screenname));
 					$onbuddies++;
 				}
 			}
-			irc_send(irc_privmsg($usnick, $nick, "None of your buddies are online.")) unless $onbuddies;
+			irc_send(irc_privmsg($usnick, $nick, "None of your buddies are online.", "", "", $screenname)) unless $onbuddies;
 		} elsif ($cmd eq "permitlist") {
-			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$config{permit}}))));
-			irc_send(irc_privmsg($usnick, $nick, "Your permit list is empty.")) unless haskeys $config{permit};
+			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$config{permit}})), "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "Your permit list is empty.", "", "", $screenname)) unless haskeys $config{permit};
 		} elsif ($cmd eq "denylist") {
-			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$config{deny}}))));
-			irc_send(irc_privmsg($usnick, $nick, "Your deny list is empty.")) unless haskeys $config{deny};
+			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$config{deny}})), "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "Your deny list is empty.", "", "", $screenname)) unless haskeys $config{deny};
 		} elsif ($cmd eq "signoff") {
 			do_signoff($nnick, $connection->{socket});
 		} elsif ($cmd eq "buddyinfo") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname", "", "", $screenname));
 			} else {
 				$param = normalize $param;
 				my $buddyconf = $config{Buddies}{$param};
@@ -1018,33 +1058,32 @@ sub process_irc_message($) {
 					$msg .= "Idle Time: \t\t$buddyconf->{idle} minutes\r\n";
 					$msg .= "User Class: \t" . parseclass($buddyconf->{class}) . "\r\n";
 					$msg .= "Warning Level: \t$buddyconf->{evil}%\r\n";
-					irc_send(irc_privmsg($usnick, $nick, $msg));
+					irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname));
 				} else {
-					irc_send(irc_privmsg($usnick, $nick,  "That person is either not on your buddy list or not signed on."));
+					irc_send(irc_privmsg($usnick, $nick,  "That person is either not on your buddy list or not signed on.", "", "", $screenname));
 				}
 			}
 		} elsif ($cmd eq "add_buddy") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add_buddy screenname [group]"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_buddy screenname [group]", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				$group = $extra || "Buddies";
 				add_buddy($connection->{socket}, [split(/,/, $param)], $group);
-				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_buddy") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_buddy screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				map { delete $nicks{normalize $_}{$nnick} } split(/,/, $param);
+				map { irc_send(irc_part("$prefix" . normalize $_, "#aimirc-$screenname", "Removed from buddylist.")) if delete $nicks{normalize $_}{$screenname} and $sndata->{inchan} } split(/,/, $param);
 				remove_buddy($connection->{socket}, [split(/,/, $param)]);
-				# irc_send(irc_privmsg($usnick, $nick, "$param has departed"));
-				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname [anon]"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname [anon]", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				if($extra ne "anon") {
@@ -1056,78 +1095,78 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "add_permit") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				add_permit($connection->{socket}, [split(/,/, $param)]);
-				irc_send(irc_privmsg($usnick, $nick, "Permit list updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "add_deny") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				add_deny($connection->{socket}, [split(/,/, $param)]);
-				irc_send(irc_privmsg($usnick, $nick, "Deny list updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_deny") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				remove_deny($connection->{socket}, [split(/,/, $param)]);
-				irc_send(irc_privmsg($usnick, $nick, "Deny list updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_permit") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				remove_permit($connection->{socket}, [split(/,/, $param)]);
-				irc_send(irc_privmsg($usnick, $nick, "Permit list updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_name"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_name", "", "", $screenname));
 			} else {
 				$extra ? chat_join($connection->{socket}, "$param $extra") : chat_join($connection->{socket}, $param);
 			}
 		} elsif ($cmd eq "join_exchange") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: join_exchange exchange chat_name"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: join_exchange exchange chat_name", "", "", $screenname));
 			} else {
 				chat_join_exchange($connection->{socket}, $extra, $param);
 			}
 		} elsif ($cmd eq "get_permit_mode") {
-			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($connection->{socket}) . "."));
+			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($connection->{socket}) . ".", "", "", $screenname));
 		} elsif ($cmd eq "set_permit_mode") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode", "", "", $screenname));
 			} else {
 				if($param != 1 and $param != 2 and $param != 3 and $param != 4) {
-					irc_send(irc_privmsg($usnick, $nick, "That is not a valid permit mode.  See list_permit_modes for valid permit modes."));
+					irc_send(irc_privmsg($usnick, $nick, "That is not a valid permit mode.  See list_permit_modes for valid permit modes.", "", "", $screenname));
 				} else {
 					permtype($connection->{socket}, $param);
-					irc_send(irc_privmsg($usnick, $nick, "Permit mode set."));
+					irc_send(irc_privmsg($usnick, $nick, "Permit mode set.", "", "", $screenname));
 				}
 			}
 		} elsif ($cmd eq "list_permit_modes") {
-			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist"));
+			irc_send(irc_privmsg($usnick, $nick, "1=Permit All, 2=Deny All, 3=Permit if and only if on permitlist, 4=Deny if and only if on denylist", "", "", $screenname));
 		} elsif ($cmd eq "whisper") {
 			$extra =~ /(\S+) (.*)/;
 			unless($param and $1 and $2) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: whisper chat_id screenname text", "", "", $screenname));
 			} else {
 				if(UNIVERSAL::isa($connection->{screennames}{$chatnames{$param}}{socket}, "IO::Socket")) {
 					chat_whisper($connection->{screennames}{$chatnames{$param}}{socket}, $param, $1, $2);
 				} else {
-					irc_send(irc_privmsg($usnick, $nick, "That is not a valid chat ID."));
+					irc_send(irc_privmsg($usnick, $nick, "That is not a valid chat ID.", "", "", $screenname));
 				}
 			}
 		} elsif ($cmd eq "chat_evil" or $cmd eq "chat_warn") {
 			$extra =~ /(\S+) ?(.*)/;
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd chat_id screenname [anon]"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd chat_id screenname [anon]", "", "", $screenname));
 			} else {
 				$foo = undef;
 				$foo = "norm" if $2 ne "anon";
@@ -1136,7 +1175,7 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "info" or $cmd eq "get_info" or $cmd eq "get_profile") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
 				get_info($connection->{socket}, $param);
@@ -1144,16 +1183,16 @@ sub process_irc_message($) {
 		} elsif ($cmd eq "set_info" or $cmd eq "set_profile") {
 			my $text;
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd info"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd info", "", "", $screenname));
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
 				set_info($connection->{socket}, $text);
 				$profiles{safename $screenname} = $text if $saveprofiles > 0;
-				irc_send(irc_privmsg($usnick, $nick, "Your profile has been updated."));
+				irc_send(irc_privmsg($usnick, $nick, "Your profile has been updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "get_dir") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname", "", "", $screenname));
 			} else {
 				get_directory($connection->{socket}, $param);
 			}
@@ -1173,7 +1212,7 @@ sub process_irc_message($) {
 				);
 				set_directory($connection->{socket}, %temp);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "dir_search") {
 			$param = "$param $extra" if $extra;
@@ -1191,29 +1230,30 @@ sub process_irc_message($) {
 				);
 				directory_search($connection->{socket}, %temp);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches."));
+				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "add") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add screenname", "", "", $screenname));
 			} else {
 				unless($nicks{noprefix $param}) {
 					irc_send(irc_newnick($prefix . normalize $param));
 				}
 				manglewarn($nick, $param);
-				$nicks{noprefix $param}{$nnick} = time;	
-				irc_send(irc_privmsg($usnick, $nick, "$param has been created on IRC."));
+				$nicks{noprefix $param}{$screenname} = time;	
+				irc_send(irc_privmsg($usnick, $nick, "$param has been created on IRC.", "", "", $screenname));
+				irc_send(irc_join("$prefix$param", "#aimirc-$screenname")) if $sndata->{inchan};
 			}
 		} elsif ($cmd eq "sendidle") {
 			unless($param == 0 or $param == 1) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: sendidle (0|1)"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: sendidle (0|1)", "", "", $screenname));
 			} else {
 				$connection->{report_idle} = $param;
-				irc_send(irc_privmsg($usnick, $nick, "Idle reporting changed."));
+				irc_send(irc_privmsg($usnick, $nick, "Idle reporting changed.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "format_nickname" or $cmd eq "format_screenname") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname", "", "", $screenname));
 			} else {
 				$param .= " $extra" if $extra;
 				$sndata->{pending_formatted} = $param;
@@ -1221,20 +1261,20 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "change_password") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: change_password old_password new_password"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: change_password old_password new_password", "", "", $screenname));
 			} else {
 				change_password $connection->{socket}, $param, $extra;
 			}
 		} elsif ($cmd eq "loadbuddies") {
 			$dccget{$nnick} = "loadbuddies";
 			irc_send(irc_ctcp($usnick, $nnick, "loadbuddies"));
-			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist."));
+			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
 		} elsif ($cmd eq "savebuddies") {
 			my $oscar = 0;
 			my($config, $message, $group, $buddy, %groups, $filename);
 
 			unless($dccip) {
-				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file."));
+				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file.", "", "", $screenname));
 			} else {
 				$oscar = 1 if $param and lc($param) ne "toc";
 
@@ -1288,47 +1328,48 @@ Buddy {
 				if($message) {
 					irc_send($message);
 					irc_send(irc_ctcp($usnick, $nick, "savebuddies"));
-					irc_send(irc_privmsg($usnick, $nnick, "Please accept the DCC SEND from $usnick.  The file being sent is your buddylist."));
+					irc_send(irc_privmsg($usnick, $nnick, "Please accept the DCC SEND from $usnick.  The file being sent is your buddylist.", "", "", $screenname));
 				}
 			}
 		} elsif ($cmd eq "add_pounce") {
 			unless($param and $extra) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce screenname text"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: add_pounce screenname text", "", "", $screenname));
 			} elsif($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
 			} else {
 				push @{$sndata->{pounces}}, {who => $param, what => $extra};
-				irc_send(irc_privmsg($usnick, $nick, "Pounce added."));
+				irc_send(irc_privmsg($usnick, $nick, "Pounce added.", "", "", $screenname));
 				push @{$pounces{safename $screenname}}, {who => $param, what => $extra} if $savepounces > 0;
 			}
 		} elsif ($cmd eq "remove_pounce") {
 			unless(defined $param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_pounce number", "", "", $screenname));
 				return;
 			}
 			$param = 0 if $param eq "";
 			if($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
 			} elsif($sndata->{pounces}->[$param]) {
 				splice(@{$sndata->{pounces}}, $param, 1);
 				splice(@{$pounces{safename $screenname}}, $param, 1) if $savepounces > 0;
-				irc_send(irc_privmsg($usnick, $nick, "Pounce deleted."));
+				irc_send(irc_privmsg($usnick, $nick, "Pounce deleted.", "", "", $screenname));
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces."));
+				irc_send(irc_privmsg($usnick, $nick, "That pounce does not exist - do \"/msg $usnick list_pounces\" for a list of pounces.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "list_pounces") {
 			if($savepounces <= 0) {
-				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server."));
+				irc_send(irc_privmsg($usnick, $nick, "Pounces have been disabled by the administrator of this server.", "", "", $screenname));
 			} else {
 				$i = 0;
 				foreach $pounce(@{$sndata->{pounces}}) {
-					irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}"));
+					irc_send(irc_privmsg($usnick, $nick, "$i: $pounce->{who} == $pounce->{what}", "", "", $screenname));
 					$i++;
 				}
-				irc_send(irc_privmsg($usnick, $nick, "You have no pounces.")) if $i == 0;
+				irc_send(irc_privmsg($usnick, $nick, "You have no pounces.", "", "", $screenname)) if $i == 0;
 			}
 		} elsif ($cmd eq "help") {
 			$foo = ":$usnick PRIVMSG $nick";
+			$foo = ":$usnick PRIVMSG #aimirc-$screenname" if $sndata->{inchan};
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
 				irc_send("$foo :signon screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
@@ -1441,23 +1482,23 @@ Buddy {
 		#	irc_send(irc_privmsg($usnick, $nnick, html2txt(get($param), $nnick))) if $param;
 		} elsif($cmd eq "switchname") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nnick, "Usage: switchname screenname"));
+				irc_send(irc_privmsg($usnick, $nnick, "Usage: switchname screenname", "", "", $screenname));
 			} else {
 				if(switchnick($nnick, normalize $param)) {
-					irc_send(irc_privmsg($usnick, $nnick, "You are not signed on under that screenname!"));
+					irc_send(irc_privmsg($usnick, $nnick, "You are not signed on under that screenname!", "", "", $screenname));
 				} else {
-					irc_send(irc_privmsg($usnick, $nnick, "Your default screenname is now $param."));
+					irc_send(irc_privmsg($usnick, $nnick, "Your default screenname is now $param.", "", "", $param));
 				}
 			}
 		} elsif($cmd eq "signoffall") {
 			do_signoff_all($nnick);
 		} elsif($cmd eq "listnames") {
-			irc_send(irc_privmsg($usnick, $nick, "Your default screenname is " . $sndata->{formatted} . "."));
+			irc_send(irc_privmsg($usnick, $nick, "Your default screenname is " . $sndata->{formatted} . ".", "", "", $screenname));
 			foreach $screenname(keys %{$connection->{screennames}}) {
-				irc_send(irc_privmsg($usnick, $nick, $connection->{screennames}{$screenname}{formatted}));
+				irc_send(irc_privmsg($usnick, $nick, $connection->{screennames}{$screenname}{formatted}, "", "", $screenname));
 			}
 		} else {
-			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
+			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help.", "", "", $screenname));
 		}
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
@@ -1517,7 +1558,7 @@ Buddy {
 				} else {
 					message($aim_connections{$nnick}{socket}, $target, $msg);
 				}
-				$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
+				$nicks{$target}{$screenname} = time if $nicks{$target}{$screenname} != -1;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
 			}
@@ -1550,11 +1591,6 @@ Buddy {
 			$aim_connections{$newnick} = $aim_connections{$nnick};
 			$aim_connections{$newnick}{nick} = $newnick;
 			delete $aim_connections{$nnick};
-			foreach $nick(keys %nicks) {
-				next unless $nicks{$nick}{$nnick};
-				$nicks{$nick}{$newnick} = $nicks{$nick}{$nnick};
-				delete $nicks{$nick}{$nnick};
-			}
 		}
 
 		my($dcc, $i);
@@ -1597,11 +1633,11 @@ sub process_aim_message($$$) {
 	$sndata = $connection->{screennames}{$screenname};
 
 	my($multinick, $socket) = ("", $connection->{screennames}{$screenname}{socket});
-	$multinick = "{$screenname} " if $screenname ne $connection->{aimnick};
+	$multinick = "{$screenname} " if $screenname ne $connection->{aimnick} and not $sndata->{inchan};
 
 	#This kludge is needed because we set paused at signon and we might
 	#miss the initial SIGN_ON
-	set_pause($socket, 0) if get_pause($socket);
+	set_pause($socket, 0) if defined $socket and get_pause($socket);
 
 	#warn "AIM got $msg for $connection->{nick}\n";
 	$msg =~ /^([^:]+):?(.*)/;
@@ -1609,41 +1645,49 @@ sub process_aim_message($$$) {
 	if($cmd eq "ERROR") {
 		$val =~ /([^:]+):?(.*)/;
 		Toc::debug_print("Error $1: " . aim_strerror($1, $2), "errors", 1);
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "${multinick}Error $1: " . aim_strerror($1, $2)));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "${multinick}Error $1: " . aim_strerror($1, $2), "", "", $screenname));
 		if(!$sndata->{ison}) {
-			irc_send(irc_privmsg($usnick, $nnick, "Your attempt to connect to AOL Instant Messenger has failed."));
+			irc_send(irc_privmsg($usnick, $nnick, "Your attempt to connect to AOL Instant Messenger has failed.", "", "", $screenname));
 			do_signoff($nnick, $sndata->{socket}, 1);
 		}
 	} elsif($cmd eq "DIR_STATUS") {
 		if($val == 0) {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Directory info successfully updated."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Directory info successfully updated.", "", "", $screenname));
 		} else {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Could not update directory info.", "", "", $screenname));
 		}
 	} elsif($cmd eq "CONFIG") {
 		$msg =~ s/^CONFIG://;
 		$sndata->{gotconf} = 1;
 		if($msg !~ /\S/ or $msg eq "" or not defined $msg) {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again.", "", "", $screenname));
 			if($buddylists{safename $screenname}) {
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you.", "", "", $screenname));
 				update_config($socket, $buddylists{safename $screenname});
 			} elsif($dcc) {
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\".", "", "", $screenname));
 				update_config($socket, "m 4\n");
 			} else {
 				update_config($socket, "m 4\n");
 			}
 		} else {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Got your buddylist."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Got your buddylist.", "", "", $screenname));
 			$buddylists{safename $screenname} = $msg if $savebuddies > 0;
 			update_config($socket, $msg);
 		}
 	} elsif($cmd eq "NICK") {
-		irc_send(irc_privmsg($usnick, $nnick, "You are now connected to AOL Instant Messenger as $val.")) unless $sndata->{ison};
+		irc_send(irc_privmsg($usnick, $nnick, "You are now connected to AOL Instant Messenger as $val.", "", "", $screenname)) unless $sndata->{ison};
 		$sndata->{formatted} = $val;
 		if(!$sndata->{ison}) {
+			irc_send(irc_privmsg($usnick, $nnick, "You might want to join #aimirc-$screenname"));
+
+			#Hack hack hack
+			irc_send(irc_join($usnick, "#aimirc-$screenname"));
+			irc_send(irc_mode($us, "#aimirc-$screenname", "+o $usnick"));
+			irc_send(irc_invite($usnick, "#aimirc-$screenname", $nnick));
+			irc_send(irc_part($usnick, "#aimirc-$screenname"));
+
 			loaddat($screenname);
 			$sndata->{ison} = 1;
 			if($irc_away{$nnick}) {
@@ -1653,11 +1697,11 @@ sub process_aim_message($$$) {
 			if($pounces{safename $screenname}) {
 				@{$sndata->{pounces}} = @{$pounces{safename $screenname}};
 				$pouncecount = scalar @{$pounces{safename $screenname}};
-				irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . "."), 2) if $pouncecount > 0;
+				irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . ".", "", "", $screenname), 2) if $pouncecount > 0;
 			}
 			if($profiles{safename $screenname}) {
 				set_info($sndata->{socket}, $profiles{safename $screenname});
-				irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set."), 2);
+				irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set.", "", "", $screenname), 2);
 			}
 		}
 	} elsif($cmd eq "IM_IN") {
@@ -1684,7 +1728,7 @@ sub process_aim_message($$$) {
 			irc_send(irc_newnick($prefix . $inick)) unless haskeys($nicks{noprefix $nnick});
 			unless($config{Buddies}{$nnick}{online}) {
 				manglewarn($connection->{nick}, $inick);
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
+				irc_send($sndata->{inchan} ? (irc_join("$prefix$inick", "#aimirc-$screenname") . irc_mode($usnick, "#aimirc-$screenname", "+v $prefix$inick")) : irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has arrived"));
 				$i = 0;
 				map { $pouncehash{$i++} = $_ } @{$sndata->{pounces}};
 				foreach $pouncenum(sort { $a <=> $b } keys %pouncehash) {
@@ -1701,7 +1745,7 @@ sub process_aim_message($$$) {
 					Toc::debug_print("Sending $tmp.", "IRC", 1);
 					message($socket, $nnick, $tmp, 1);
 					delete $pouncehash{$pouncenum};
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $pouncenum sent to $pounce->{who}."));
+					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $pouncenum sent to $pounce->{who}.", "", "", $screenname));
 				}
 				@{$sndata->{pounces}} = ();
 				map { push @{$sndata->{pounces}}, $_ } values %pouncehash;
@@ -1710,19 +1754,19 @@ sub process_aim_message($$$) {
 					map { push @{$pounces{$screenname}}, $_ } values %pouncehash;
 				}
 			} elsif($irc_connections{$screenname} ne normalize $connection->{nick} or $config{Buddies}{$nnick}{evil} >= $evil + 5) { #If it's us, we already know it.  Unless it's decreasing (does AIM tell us every time our warning level goes down 1%?  Only tell the user every 5 just in case.)
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick${xinick}'s warning level has changed to $evil%.")) unless $evil == $config{Buddies}{$nnick}{evil};
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick${xinick}'s warning level has changed to $evil%.", "", "", $screenname)) unless $evil == $config{Buddies}{$nnick}{evil};
 			}
 			{
 				local $^W = 0;
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has gone away")) if substr($config{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($class, 2, 1) eq "U";
-				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick is no longer away")) if substr($config{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($class, 2, 1) ne "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has gone away", "", "", $screenname)) if substr($config{Buddies}{$nnick}{class}, 2, 1) ne "U" and substr($class, 2, 1) eq "U";
+				irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick is no longer away", "", "", $screenname)) if substr($config{Buddies}{$nnick}{class}, 2, 1) eq "U" and substr($class, 2, 1) ne "U";
 			}
 			update_buddy($screenname, $xinick, $class, $evil, $signontime, $idletime, 1);
-			$nicks{noprefix $nnick}{$connection->{nick}} = -1;
+			$nicks{noprefix $nnick}{$screenname} = -1;
 		} else {
 			update_buddy($screenname, $nnick, $class, $evil, $signontime, $idletime, 0);
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has departed"));
-			delete $nicks{noprefix $nnick}{$connection->{nick}};
+			irc_send($sndata->{inchan} ? irc_part("$prefix$nnick", "#aimirc-$screenname", "I have signed off of AOL Instant Messenger.") : irc_privmsg($usnick, $connection->{nick}, "$multinick$xinick has departed"));
+			delete $nicks{noprefix $nnick}{$screenname};
 			unless(haskeys($nicks{noprefix $nnick}) > 1) {
 				irc_send(irc_quit("$prefix$inick", "I signed off of AIM (UPDATE_BUDDY)"));
 				delete $nicks{noprefix $nnick};
@@ -1731,7 +1775,7 @@ sub process_aim_message($$$) {
 	} elsif($cmd eq "EVILED") {
 		$val =~ /([^:]+):(.*)/;
 		$sndata->{evil} = $1;
-		irc_send(irc_privmsg($usnick, $connection->{nick}, $multinick . ($2 || "Anonymous") . " has warned you.  Your new warning level is $1%."));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, $multinick . ($2 || "Anonymous") . " has warned you.  Your new warning level is $1%.", "", "", $screenname));
 	} elsif($cmd eq "CHAT_JOIN") {
 		my($topic);
 
@@ -1745,7 +1789,7 @@ sub process_aim_message($$$) {
 		irc_send(irc_mode($us, "#aimchat-$1", "+o $usnick"));
 		irc_send(irc_mode($usnick, "#aimchat-$1", "+sint"));
 		irc_send(irc_topic($usnick, "#aimchat-$1", "{$screenname} $topic"));
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "Join IRC channel #aimchat-$1 to join AIM chat $topic.")) unless $chatinvites{$1};
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "Join IRC channel #aimchat-$1 to join AIM chat $topic.", "", "", $screenname)) unless $chatinvites{$1};
 		irc_send(irc_invite($usnick, "#aimchat-$1", $connection->{nick}));
 		delete $chatinvites{$1};
 		$longnicks{"#aimchat-$1"} = "#aimchat-$1";
@@ -1805,35 +1849,35 @@ sub process_aim_message($$$) {
 		Toc::debug_print("$connection->{nick} has been invited to chat $1 ($4) [$2] by $3", "chat", 2);
 		$chatinvites{$2} = $connection->{nick};
 		$chatnames{$2} = $screenname;
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2"));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "$3 has invited us to chatroom $1 for the following reason: " . html2txt($4) . ".  To accept, join #aimchat-$2", "", "", $screenname));
 		irc_send(irc_invite($usnick, "#aimchat-$2", $connection->{nick}));
 	} elsif($cmd eq "GOTO_URL") {
 		$val =~ /[^:]+:(.+)/;
 		my $html = get("http://toc-d01.blue.aol.com/$1");
 		$html =~ s/<I>Legend:.*//m;
 		Toc::debug_print($html, "html", 2);
-		irc_send(irc_privmsg($usnick, $connection->{nick}, html2txt($html, $connection->{nick})));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, html2txt($html, $connection->{nick}), "", "", $screenname));
 	} elsif($cmd eq "ADMIN_NICK_STATUS") {
 		$val =~ /([^:]+):?(.*)/;
 		if($1 != 0) {
 			delete $sndata->{pending_formatted};
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nick status - return code $1 (params $2)"));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nick status - return code $1 (params $2)", "", "", $screenname));
 		} else {
 			$sndata->{formatted} = delete $sndata->{pending_formatted};
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nickname successfully reformatted."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Nickname successfully reformatted.", "", "", $screenname));
 		}
 	} elsif($cmd eq "ADMIN_PASSWD_STATUS") {
 		$val =~ /([^:]+):?(.*)/;
 		if($1 != 0) {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password status - return code $1 (params $2)"));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password status - return code $1 (params $2)", "", "", $screenname));
 		} else {
-			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password successfully changed."));
+			irc_send(irc_privmsg($usnick, $connection->{nick}, "Password successfully changed.", "", "", $screenname));
 		}
 	} elsif($cmd eq "SIGN_ON") {
 		#Don't send "You're unpaused!" if it's the initial SIGN_ON
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL has unpaused your connection.")) if $sndata->{formatted};
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL has unpaused your connection.", "", "", $screenname)) if $sndata->{formatted};
 	} elsif($cmd eq "PAUSE") {
-		irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL has paused your connection."));
+		irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL has paused your connection.", "", "", $screenname));
 		set_pause($sndata->{socket}, 1);
 	}
 }
@@ -1860,6 +1904,7 @@ sub Toc::debug_print($$$) {
 	my($text, $type, $level) = @_;
 	my($line, @lines);
 
+	return if $text =~ m!401 $usnick #aimirc-debug :No such nick/channel!i;
 	return unless $debug;
 	return if defined($debug{$type}) and $level > $debug{$type};
 
@@ -2023,6 +2068,7 @@ sub do_signon($$$$) {
 		$sndata->{signontime} = time;
 		$sndata->{gotconf} = 0;
 		$sndata->{ison} = 0;
+		$sndata->{inchan} = 0;
 
 		$connection->{aimnick} ||= $nparam;
 		$irc_connections{$nparam} = $nnick;
@@ -2033,7 +2079,7 @@ sub do_signon($$$$) {
 		irc_send(irc_privmsg($tusnick, $nnick, "Sent signon attempt for $nparam..."));
 
 		irc_send(irc_newnick($prefix . $tparam));
-		$nicks{$nparam}{$nnick} = -1;
+		$nicks{$nparam}{$nparam} = -1;
 	} else {
 		irc_send(irc_privmsg($tusnick, $nnick, $err));
 	}
@@ -2043,19 +2089,21 @@ sub do_signon($$$$) {
 sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick, $nparam, %config, $chat, $screenname, $who) = @_;
 
+	return unless $connection;
+
 	$screenname = Toc::_hnick($connection);
 	$nparam = safename $screenname;
 	if($nparam and $savebuddies > 0) {
 		%config = deref(get_config($screenname));
 		$buddylists{$nparam} = conf2str(%config) if haskeys $config{Buddies};
 	}
-	savedat($screenname);
-	delete $buddylists{$nparam};
-	delete $pounces{$nparam};
-	delete $profiles{$nparam};
+	savedat($screenname) if $screenname;
+	delete $buddylists{$nparam} if $nparam;
+	delete $pounces{$nparam} if $nparam;
+	delete $profiles{$nparam} if $nparam;
 
 	foreach $chat(keys %chatnames) {
-		next unless $chatnames{$chat} eq $screenname;
+		next unless $chatnames{$chat} eq $screenname or not $screenname;
 		foreach $who(keys %{$chats{$chat}}) {
 			delete $chats{$chat}{$who};
 			delete $nicks{normalize($who)}{"chat-$chat"};
@@ -2068,21 +2116,24 @@ sub do_signoff($$;$) {
 		irc_send(irc_part($usnick, "#aimchat-$chat"));
 	}
 
-	delete $irc_connections{$screenname};
+	delete $irc_connections{$screenname} if $screenname;
 	foreach $xnick(keys %nicks) {
-		delete $nicks{$xnick}{$nick};
-		next if normalize $xnick eq normalize $usnick;
+		next if normalize $xnick eq normalize $usnick or not $screenname;
+		delete $nicks{$xnick}{$screenname}; 
 		irc_send(irc_quit("$prefix$xnick", "I signed off of AIM (do_signoff)")) unless haskeys($nicks{$xnick}) > 1;
 	}
 
-	delete $aim_connections{$nick}{screennames}{$screenname};
+	if($screenname and $aim_connections{$nick}{screennames}{$screenname}{inchan}) {
+		irc_send(irc_kick($usnick, "#aimirc-$screenname", $nick));
+		irc_send(irc_part($usnick, "#aimirc-$screenname"));
+	}
 
 	if(UNIVERSAL::isa($connection, "IO::Socket::INET")) {
-		delete $aim_connections{$connection->fileno};
 		signoff($connection);
 	}
 	if($aim_connections{$nick}) {
-		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname")) unless $already_off;
+		irc_send(irc_privmsg($usnick, $nick, "You have been signed off of AOL Instant Messenger as $screenname", "", "", $screenname)) unless $already_off or not $screenname;
+		delete $aim_connections{$nick}{screennames}{$screenname} if $screenname;
 		if(haskeys $aim_connections{$nick}{screennames}) {
 			$xnick = (keys %{$aim_connections{$nick}{screennames}})[0];
 			irc_send(irc_privmsg($usnick, $nick, "Your new default screenname is $xnick."));
@@ -2111,11 +2162,11 @@ sub socksub {
 
 # Send mode as if it's coming from the server
 sub irc_mode($$$) {
-	my($who, $mode, $modestr) = @_;
+	my($who, $chan, $modes, $modestr) = @_;
 
 	$modestr = "";
 	$modestr = ":$who " unless $who eq $us;
-	$modestr .= "MODE $mode";
+	$modestr .= "MODE $chan $modes";
 	$modestr .= " " . time if $servermode ne "ts" and $who eq $us;
 	$modestr .= "\r\n";
 	return $modestr;
@@ -2244,7 +2295,7 @@ sub switchnick($$) {
 
 # Clean up nicknames, send keepalives/idle, etc.
 sub timestuff($) {
-	my($currtime, $anick, $kill, $bnick, $chattimer, $cname, $connection, $screenname, $multinick, $sndata, $nick) = shift;
+	my($currtime, $anick, $kill, $bnick, $chantimer, $cname, $connection, $screenname, $multinick, $sndata, $nick) = shift;
 
 	Toc::debug_print("Reaping nicks...", "nicks", 3);
 	ANICK: foreach $anick(keys %nicks) {
@@ -2274,11 +2325,11 @@ sub timestuff($) {
 		}
 	}
 
-	#Part from the chat-channels that we joined in response to someone joining a #aimchat-1234 without being invited or doing an AIMServ join
-	foreach $chattimer(keys %chattimer) {
-		if(($currtime - $chattimer{$chattimer}) >= 60) {
-			irc_send(irc_part($usnick, "#aimchat-$chattimer"));
-			delete $chattimer{$chattimer};
+	#Part from the restricted that we joined in response to someone joining without my authoritay
+	foreach $chantimer(keys %chantimer) {
+		if(($currtime - $chantimer{$chantimer}) >= 60) {
+			irc_send(irc_part($usnick, $chantimer));
+			delete $chantimer{$chantimer};
 		}
 	}
 
@@ -2289,18 +2340,18 @@ sub timestuff($) {
 			$connection = $aim_connections{$cname};
 			foreach $screenname(keys %{$connection->{screennames}}) {
 				next unless $screenname;
-				$multinick = "";
-				$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 				$sndata = $connection->{screennames}{$screenname};
+				$multinick = "";
+				$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick} or $sndata->{inchan};
 				next unless $sndata->{ison};
 				if($sndata->{socket}) {
-					if(sflap_keepalive($sndata->{socket}) == -1 and $! != EAGAIN) {
-						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
+					if($sndata->{socket} and sflap_keepalive($sndata->{socket}) == -1 and $! != EAGAIN) {
+						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 						do_signoff(normalize $connection->{nick}, $sndata->{socket});
 					} else {
 						if($sndata->{report_idle} and not $sndata->{is_idle} and ($currtime - $sndata->{idletime}) >= 360) {
-							if(set_idle($sndata->{socket}, $currtime - $sndata->{idletime}) == -1 and $! != EAGAIN) {
-								irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
+							if($sndata->{socket} and set_idle($sndata->{socket}, $currtime - $sndata->{idletime}) == -1 and $! != EAGAIN) {
+								irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 								do_signoff($connection->{nick}, $sndata->{socket});
 							} else {
 								$sndata->{is_idle} = 1;
@@ -2308,7 +2359,7 @@ sub timestuff($) {
 						}
 					}
 				} elsif($! != EAGAIN) {
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
+					irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err", "", "", $screenname));
 					do_signoff($connection->{nick}, undef);
 				}
 			}
@@ -2614,7 +2665,7 @@ sub savedat($) {
 		if($savepounces) {
 			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
 			unlink "$directory/pounces/$screenname";
-			if(scalar @{$pounces{$screenname}}) {
+			if(ref $pounces{$screenname} eq "ARRAY" and scalar @{$pounces{$screenname}}) {
 				open(POUNCES, ">$directory/pounces/$screenname");
 				foreach $pounce(@{$pounces{$screenname}}) {
 					print POUNCES "$pounce->{who} $pounce->{what}\n";
@@ -2678,14 +2729,15 @@ sub got_im($$$$) {
 		$socket = $sndata->{socket};
 
 		$multinick = "";
-		$multinick = "{$to} " if $to ne $connection->{aimnick};
+		$multinick = "{$to} " if $to ne $connection->{aimnick} and not $sndata->{inchan};
 
 		($message =~ /<!-- NOTICE -->/) ? ($notice = 1) : ($notice = 0);
 		$message = chr(01) . $message . chr(01) if $message =~ /<!-- CTCP -->/;
 		unless($nicks{noprefix $nnick}) {
 			irc_send(irc_newnick($prefix . $inick));
 		}
-		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{normalize $connection->{nick}};
+		manglewarn($connection->{nick}, $inick) unless $nicks{$nnick}{$screenname};
+		irc_send(irc_join("$prefix$inick", "#aimirc-$screenname")) if $sndata->{inchan} and not $nicks{ircify($inick)}{$screenname};
 
 		($autoflag eq "T") ? ($ar = "[automatic response] ") : ($ar = "");
 		$message = join("\n", html2txt($message, $nick));
@@ -2704,7 +2756,7 @@ sub got_im($$$$) {
 			message($socket, $nnick, $tmp, 1);
 			$sndata->{away_buddies}{$nnick} = time;
 		}
-		$nicks{noprefix $nnick}{$connection->{nick}} = time if $nicks{noprefix $nnick}{$connection->{nick}} != -1;
+		$nicks{noprefix $nnick}{$screenname} = time if $nicks{noprefix $nnick}{$screenname} != -1;
 }
 
 
@@ -2724,4 +2776,12 @@ sub ircify($) {
 	$screenname =~ tr/-a-zA-Z0-9[]\\`^{}//dc; #Anything except those characters is invalid
 
 	return $screenname;
+}
+
+sub bounce_join($$) {
+	my($nick, $chan) = @_;
+	irc_send(irc_join($usnick, $chan));
+	irc_send(irc_mode($us, $chan, "+isntob $usnick *!*@*"));
+	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for aimirc usage."));
+	$chantimer{$chan} = time;
 }

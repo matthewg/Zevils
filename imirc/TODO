@@ -2,7 +2,7 @@ Showstoppers (absolutely must be done before 0.98):
 	ChanServ/AIMServ conflict - MODE loop detection, README.ChanServ, services patches
 	Am I using ircify in all the right places?
 	Make sure we're always timing out connections, esp. DCC
-	#buddies-SCREENNAME (geniusj)
+	**DONE - NEEDS TESTING** #buddies-SCREENNAME (geniusj)
 	Undernet P10 ircd support
 
 Pretty Important (should be done before 0.98, definately before 0.99):
