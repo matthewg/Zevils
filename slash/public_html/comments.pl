@@ -126,7 +126,7 @@ sub editComment
                 
                  
 	print "<td>",
-		$query->textfield(-name=>postersubj, -default=>$$FORM{postersubj}, 
+		$query->textfield(-name=>'postersubj', -default=>$$FORM{postersubj}, 
 			-size=>50, -maxlength=>50),
 		"</td></tr>\n";   
 	print "<tr><td align=right valign=top>Comment</td>";
