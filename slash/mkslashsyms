@@ -1,5 +1,0 @@
-#!/bin/sh
-echo "Making symlinks..."
-[ -h slashdot ] || (set -x; ln -s public_html slashdot)
-cd public_html
-[ -h Slash.pm ] || (set -x; ln -s ../Slash.pm Slash.pm)
