@@ -557,6 +557,7 @@ sub mainloop() {
 					my $events = $poll->events($handle);
 					my $target = $fdmap{fileno($handle)};
 
+					debug_print("Got target $target with events $events", "irc", 2);
 					if(!ref($target)) { # DCC
 						for(my $dccno = 0; $dccno < length(@dccqueue); $dccno++) {
 							if($dccqueue[$dccno] == $target) {
@@ -597,7 +598,7 @@ sub mainloop() {
 			}
 
 			debug_print("Processing IRC...", "irc", 2);
-			process_irc_message(irc_recv()) if $do_irc or @getbuff;
+			process_irc_message(irc_recv(1)) if $do_irc or @getbuff;
 
 			$currtime = time;
 			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
@@ -784,6 +785,7 @@ sub process_irc_message($) {
 	$us_or_old .= "|$oldnick" if $oldnick;
 
 	$_ = shift;
+	return unless $_;
 
 	if(s/^:(\S+)(!\S+@\S+)?\s+//) {
 		$nick = new Net::OSCAR::Screenname $1;
@@ -2303,7 +2305,6 @@ sub oscar_buddylist_ok($) {
 sub oscar_connection_changed($$$) {
 	my($oscar, $connection, $status) = @_;
 
-	$connection = $connection->get_filehandle;
 	if($status eq "read") {
 		$poll->mask($connection => POLLIN);
 	} elsif($status eq "write") {
@@ -2312,9 +2313,9 @@ sub oscar_connection_changed($$$) {
 		$poll->mask($connection => POLLIN | POLLOUT);
 	} elsif($status eq "deleted") {
 		$poll->mask($connection => 0);
-		delete $fdmap{fileno($connection)} if $connection;
+		delete $fdmap{fileno($connection->get_filehandle)} if $connection->get_filehandle;
 	}
-	$fdmap{fileno($connection)} = $connection unless $status eq "deleted";
+	$fdmap{fileno($connection->get_filehandle)} = $connection unless $status eq "deleted";
 }
 
 sub oscar_log($$$) {
@@ -2711,24 +2712,18 @@ sub irc_recv(;$) {
 	while(not $getbuff[0] and $! == EAGAIN and !defined($rv)) {
 		$buff = ' ' x 512;
 		$rv = $upstream->sysread($buff, 512);
-		if($rv == 0 and ${*$upstream}{imirc_connected}) {
-			${*$upstream}{imirc_gotnothing}++;
-			die "IRC server closed the connection.\n" if ${*$upstream}{imirc_gotnothing} >= 3;
-		} else {
-			${*$upstream}{imirc_gotnothing} = 0;
-		}
 		die "Couldn't read from IRC: $!" if !defined($rv) && $! != EAGAIN;
-		if($! != EAGAIN) {
+		if(defined($rv)) {
 			#print STDERR "Reading from IRC...\n";
 			if($incbuff) {
-				$buff = "$incbuff$buff";
+				$buff = $incbuff.$buff;
 				undef $incbuff;
 			}
 			unless($buff =~ /[\r\n]{1,2}$/) {
 				$idx = rindex($buff, "\n") + 1;
-				$incbuff = substr($buff, $idx, length($buff) - $idx + 1, "");
+				$incbuff = substr($buff, $idx, length($buff) - $idx, "");
 			}
-			push @getbuff, split(/[\r\n]{1,2}/, $buff);
+			push @getbuff, split(/[\r\n]{1,2}/, $buff) if $buff;
 			#print STDERR "Getbuff is " . join("\n", @getbuff);
 			#print STDERR "\n";
 		}
