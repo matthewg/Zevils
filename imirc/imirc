@@ -540,7 +540,7 @@ unless($reload) {
 
 	send_join($usnick, "#aimirc-debug");
 	send_server_mode("#aimirc-debug +o $usnick");
-	irc_send(":$usnick MODE #aimirc-debug +nk $ourpass\r\n");
+	irc_send(":$usnick MODE #aimirc-debug +nsk $ourpass\r\n");
 	$aimircdebug = 1;
 	$longnicks{'#aimirc-debug'} = '#aimirc-debug';
 
@@ -1686,7 +1686,7 @@ sub do_signoff($$;$) {
 	foreach $xnick(keys %nicks) {
 		delete $nicks{$xnick}{$nick};
 		next if normalize $xnick eq normalize $usnick;
-		irc_send(":$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
+		irc_send(":$prefix$xnick QUIT :I signed off of AIM (do_signoff)\r\n") unless haskeys($nicks{$xnick}) > 1;
 	}
 
 	delete $aim_connections{$nick}{screennames}{Toc::_hnick($connection)};
