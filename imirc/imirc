@@ -1965,8 +1965,8 @@ sub oscar_buddy_info($$$) {
 	if($buddat->{awaymsg}) {
 		$away->{$buddy} = $buddat->{awaymsg};
 		my $awaymsg = html2txt($buddat->{awaymsg});
-		if($sndata->{$away_requested}->{$buddy}) {
-			irc_send(irc_privmsg(ircify($prefix.$buddy), $awaymsg, "[AWAY] ", "", $screenname));
+		if($sndata->{away_requested}->{$buddy}) {
+			irc_send(irc_privmsg(ircify($prefix.$buddy), $nick, $awaymsg, "[AWAY] ", "", $screenname));
 			delete $sndata->{away_requested}->{$buddy};
 		} else {
 			$awaymsg =~ tr/\r\n/  /;
