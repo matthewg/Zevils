@@ -233,7 +233,7 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 $time = 60*5; #Five minutes.
 $verbose_signon = 0;
 $ssl = 1;
-@default_conffiles = qw(/etc/aimirc.conf $home/.aimirc);
+@default_conffiles = ("/etc/aimirc.conf", "$home/.aimirc");
 $fork = 1;
 $connectmode = 1;
 $verbose = 0;
@@ -852,6 +852,7 @@ sub process_irc_message {
 				}
 			} else {
 				$upstream->print("$foo :aimirc $version, (c)2000 Matthew Sachs.\r\n");
+				$upstream->print("$foo :aimirc homepage: http://www.zevils.com/linux/aimirc/\r\n");
 				$upstream->print("$foo :This program is licensed under Version 2 the GNU Public License.\r\n");
 				$upstream->print("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n");
 				$upstream->print("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n");
