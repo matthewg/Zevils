@@ -20,7 +20,7 @@ print header, start_html('UDRP Wizard'), h1('UDRP Wizard');
 if(param() and defined(param('answers'))) {
 	@answers = split(/,/, param('answers'));
 } else {
-	print "<h2><a href=\"about.html\">About UDRP Wizard</a></h2>\n";
+	print "<h2><a href=\"index.html\">About UDRP Wizard</a></h2>\n";
 }
 
 while(1) {
