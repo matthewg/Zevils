@@ -631,7 +631,12 @@ sub mainloop() {
 					next unless $do_dcc[$i];
 				}
 
-				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime, @{$do_dcc[$i]});
+				eval {
+					splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime, @{$do_dcc[$i]});
+				};
+				if($@) {
+					irc_send(irc_privmsg($usnick, $dcc->{for}, "Error with your DCC: $@"));
+				}
 			}
 
 
