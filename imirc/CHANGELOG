@@ -1,3 +1,8 @@
+Jan  7 2002, 1.5-rc3
+	*Sometimes we weren't detecting when the IRC server closed the connection
+	*Better support for IRC servers with short max nickname lengths
+	*Parse SJOIN in remote hybrid-7beta9 servers (extra space after :)
+
 Jan  3 2002, 1.5-rc2
 	*Restored pre-5.6 Perl compatibility
 	*PONG was broken for some IRC servers, notably Unreal-3.1.1-darkshades
