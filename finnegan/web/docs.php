@@ -18,7 +18,7 @@ END_FAQITEM
 ),
 
 	array("Why is this called 'Finnegan'?", <<<END_FAQITEM
-The name is a play on the title <em>Finnegans Wake</em>, a novel by James Joyce.
+The name is a play on the title of <em>Finnegans Wake</em>, a novel by James Joyce.
 You can read about the book at <a href="http://www.everything2.com/index.pl?node_id=65042">Everything2</a> and
 <a href="http://www.amazon.com/exec/obidos/ASIN/0141181265">Amazon.com</a>, or check it out from
 <a href="http://library.brandeis.edu/">the Brandeis library</a>.
