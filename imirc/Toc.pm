@@ -25,7 +25,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.90';
 
@@ -196,7 +196,7 @@ sub sflap_get($;$) {
 		$type = "data";
 	} else { $type = $hdr[1];
 	}
-	debug_print("sflap_get: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+	debug_print("sflap_get (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
 	if($type eq "signon") {
 		@signon_hdr = unpack("NnnA*", $buff);
 		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
@@ -359,6 +359,22 @@ sub signon($$;&) {
 	debug_print(_hnick($socket) . " has succesfully signed on", "signon", 1);
 
 	return (0, $socket, $config);
+}
+
+=pod
+
+=item set_idle(HANDLE, TIME)
+
+Sets the number of seconds that the user had been idle.
+If it's 0, the user isn't idle.
+If it's greater then 0, the Toc server will start incrementing this number for you.
+So alternate non-zero-time calls to this function with zero-time calls.
+See TOC PROTOCOL for details.
+
+=cut
+
+sub set_idle($$) {
+	sflap_do(shift, "toc_set_idle " . shift);
 }
 
 =pod
@@ -922,6 +938,19 @@ sub sflap_encode($;$$) {
 
 =pod
 
+=item sflap_keepalive(HANDLE)
+
+Sends an SFLAP keep-alive packet.
+
+=cut
+
+sub sflap_keepalive($) {
+	my($handle) = shift;
+	sflap_put($handle, pack("CCnn", ord("*"), 5, 0, 0));
+}
+
+=pod
+
 =item sflap_put(HANDLE, MESSAGE)
 
 Sends a message (which must already be SFLAP-encoded) to Toc
@@ -946,15 +975,18 @@ sub sflap_put($$) {
 		$type = "signon";
 	} elsif($hdr[1] == 2) {
 		$type = "data";
-	} else { $type = $hdr[1];
+	} elsif($hdr[1] == 5) {
+		$type = "keep_alive";
+	} else {
+		$type = $hdr[1];
 	}
-	debug_print("sflap_put: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+	debug_print("sflap_put (" . _hnick($handle) . "): ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
 	$foo = $msg;
 	substr($foo, 0, 6) = "";
 	if($type eq "signon") {
 		@signon_hdr = unpack("NnnA*", $foo);
 		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
-	} else {
+	} elsif($type ne "keep_alive") {
 		debug_print("\tdata: $foo\n", "sflap", 2);
 	}
 

@@ -1,0 +1,15 @@
+There's another thing you need to watch out for if you're using ircu.  The
+default nickname length limit is 9.  With the default prefix of AIM-, you
+only have 5 characters left.  This means that to send an IM to the AIM
+user MattSachs you would need to send it to AIM-MattS on IRC.  You'll run
+into problems if you have to AIM users where the first 5 characters of
+their screenname are the same.
+
+It might be a good idea to increase the maximum nickname limit.  This can
+be done by going into include/struct.h and finding the line that says
+#define NICKLEN and changing the 9 to something more sensible, like 30.  I
+know people who have done this so I don't think it will be problem as long
+as you change it on all servers on your network.  Then put the following
+line in your aimirc.conf:
+        $ircservers{ircu}{nicklen} = 30; 
+

@@ -49,6 +49,9 @@ Usage:
 	contacting you while you are away will get an autoreply containing
 	your away message.
 
+	If you are using Cyclone, you must add a U: line for AIMServ.
+	The syntax is U:servername:*:*
+
 IMPORTANT NOTE:
 	To see debugging information, join #aimirc-debug.  You must have $debug
 	set to 1 in the config file for this to work.
