@@ -3296,7 +3296,6 @@ sub process_dcc($$) {
 		irc_send(irc_privmsg($usnick, $dcc->{for}, "DCC connection established.", "", "", $screenname));
 		set_blocking($newsocket, 0);  # This pisses it off.
 		if($usepoll) {
-			debug_print("Removing $dcc->{socket} (".fileno($dcc->{socket}).")", "DCC", 3);
 			$poll->remove($dcc->{socket});
 			delete $fdmap{fileno($dcc->{socket})};
 		}
@@ -3419,7 +3418,6 @@ sub process_dcc($$) {
 			$poll->mask($dcc->{socket} => dcc_state_poll_mask($dcc->{state}));
 			$fdmap{fileno($dcc->{socket})} = $dcc;
 		} else {
-			debug_print("Removing $dcc->{socket} (".fileno($dcc->{socket}).")", "DCC", 3);
 			$poll->remove($dcc->{socket});
 			delete $fdmap{fileno($dcc->{socket})};
 		}
