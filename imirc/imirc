@@ -964,7 +964,7 @@ sub process_irc_message($) {
 		unless($screenname or ($cmd eq "stats") or ($cmd eq "signon") or ($cmd eq "help")) {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "stats") {
-			if($param eq "users $ourpass") {
+			if($param eq "users" and $msg =~ /users $ourpass/) {
 				irc_send(irc_privmsg($usnick, $nick, scalar(keys(%$irc_connections)) . ": " . join(", ", keys %$irc_connections)));
 			} elsif($param =~ /^users\b/) {
 				irc_send(irc_privmsg($usnick, $nick, "Incorrect password."));
