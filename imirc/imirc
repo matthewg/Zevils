@@ -2033,7 +2033,7 @@ sub oscar_buddy_in($$$$) {
 			irc_send(irc_privmsg($usnick, $nick, "$buddy has gone away.  Use the IRC command /whois $inick to see the away message.", "", "", $screenname));
 			$sndata->{away}->{$buddy} = 1;
 		}
-		if(!$away->{buddy}) {
+		if(!$away->{$buddy}) {
 			if(time - $sndata->{ison} > 30) {
 				$oscar->get_away($buddy);
 			} else {
