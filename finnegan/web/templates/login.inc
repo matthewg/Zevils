@@ -58,7 +58,7 @@ if($FinneganConfig->use_cisco && $FinneganCiscoConfig->use_xml_service) {
 	$pin_set_instructions = "To access this service on Cisco 7912 IP phones, press the menu button (it has an icon of a globe on it and is above the number pad, to the right of the up-down switch) and selecting the 'Services' option.  On 7940/7960 phones, press the services button (it has a globe icon.)";
 
 	$TEMPLATE["login"]["no_pin"] = '<p class="status">Please use the wakeup call service on your phone to set a PIN.  ' . $pin_set_instructions . '</p>';
-	preg_replace("/leave your PIN blank./", "set a PIN via the wakeup call service on your phone.  $pin_set_instructions", $TEMPLATE["login"]["form"];
+	preg_replace("/leave your PIN blank./", "set a PIN via the wakeup call service on your phone.  $pin_set_instructions", $TEMPLATE["login"]["form"]);
 }
 
 ?>
