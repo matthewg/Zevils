@@ -34,5 +34,31 @@ sub Story($$) { print "Story $_[1]\n"; 1; }
 sub Comment($$) { print "Comment $_[1]\n"; 1; }
 sub FrontendVar($$;$$) { shift; print "FrontendVar ", join(", ", @_), "\n"; 1; }
 
-1;
 
+#The optional hash for the GetFoos methods is a set of constraints which limit which Foos are gotten.
+#Each GetFoos method will have a documented set of fields.
+#e.g. GetUsers might have fields like seclevel and karma
+#The keys of the hash are the names of the fields.
+#The values are lists whose first element is an operator (=, <, >, >=, <=, !=, =~, !~) and whose second element is the RHS for the operator
+#For the =~ and !~ operators, the array can have a third element.  This third element specifies flags to pass to the regex, e.g. 'imx'.  'g' will be ignored.
+# == can be substitued for =.  The "string versions" are also allowed.  lt is considered equivalent to <.
+#To be included in the result set, all criteria must be met.  That is, consider all criteria joined by "and".
+#For the equivalent of an "or", just join multiple resultsets.
+
+#Here are some examples:
+#
+#Get all users with seclevel equal to 0 and karma greater than or equal to 25.
+#	@users = $slashsite->GetUsers(seclevel => ['=', 0], karma => ['>=', 25]);
+#Get all users trying to impersonate Rob.
+#	@users = ($slashsite->GetUsers(nick => ['=~', 'rob|malda|co?m{1,2}a?n?de?r|taco', 'i']);
+#Get all stories in either the apache or BSD sections
+#	@stories = ($slashsite->GetStories(section => ['eq', 'apache']), $slashsite->GetStories(section => ['eq', 'BSD']));
+
+sub GetSections($;%) { print "GetSections\n"; return qw(1); }
+sub GetTopics($;%) { print "GetTopics\n"; return qw(1); }
+sub GetUsers($;%) { print "GetUsers\n"; return qw(1); }
+sub GetStories($;%) { print "GetStories\n"; return qw(1); }
+sub GetComments($;%) { print "GetComments\n"; return qw(1); }
+sub GetFrontendVars($;%) { print "GetFrontendVars\n"; return qw(1); }
+
+1;
