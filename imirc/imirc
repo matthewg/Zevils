@@ -16,7 +16,7 @@ Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-   The GNU General Public License is included with the aimirc distribution
+   The GNU General Public License is included with the IMIRC distribution
    under the filename COPYING.
 
  AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
@@ -24,7 +24,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $aimircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
 
 
 # DCC states
@@ -69,7 +69,7 @@ sub BEGIN {
 		print STDERR "\n\n";
 		print STDERR "And here's what that probably means...\n\n";
 		print STDERR "You do not have the necessary modules installed.\n";
-		print STDERR "Please run the getmodules script included with the aimirc distribution.\n";
+		print STDERR "Please run the getmodules script included with the IMIRC distribution.\n";
 		print STDERR "You may of course install the modules by hand if you prefer.\n";
 		die "\n";
 	}
@@ -81,7 +81,7 @@ use POSIX;
 use Carp;
 use Getopt::Long;
 use File::Basename;
-use FormatAIMIRC;
+use FormatIMIRC;
 use Symbol;
 
 $Carp::Verbose = 1;
@@ -99,10 +99,12 @@ $version = $VERSION = '1.5 $Revision$';
 
 #Defaults
 $prefix = "AIM-";
-$usnick = "AIMServ";
+$usnick = "IMServ";
+$oldnick = "AIMServ";
+$conversion = 0;
 $chatchan = "#aimchat-";
-$nickchan = "#aimirc-";
-$us = "aimserv.your.irc.net";
+$nickchan = "#aimchan-";
+$us = "imserv.your.irc.net";
 $them = "127.0.0.1";
 $themport = 6667;
 $ourpass = "foo";
@@ -230,12 +232,19 @@ sub loadconf() {
 
 	unless($foundconfig) {
 		print STDERR "We couldn't find a config file.\n";
-		print STDERR "You must edit aimirc.conf and copy it to either /etc/aimirc.conf or\n";
-		print STDERR "   $home/.aimirc.  If you have already done this, make sure the aimirc\n";
+		print STDERR "You must edit imirc.conf and copy it to either /etc/imirc.conf or\n";
+		print STDERR "   $home/.imirc.  If you have already done this, make sure the IMIRC\n";
 		print STDERR "   user has permission to read it.\n";
 		print STDERR "Or, perhaps you specified a config file with the --config (-C) option.\n";
 		print STDERR "If you want to specify everything on the command-line and not use a config\n";
 		print STDERR "   file (why?) then just give it a blank config file to make it happy.\n";
+		exit 1;
+	}
+
+	if($confversion < 1.5) {
+		print STDERR "Your configuration is too old.\n";
+		print STDERR "Please copy the imirc.conf file distributed with IMIRC to either\n";
+		print STDERR "/etc/imirc.conf or $home/.imirc and modify it as needed for your site.\n";
 		exit 1;
 	}
 
@@ -267,6 +276,7 @@ sub loadconf() {
 		"numeric=s" => \$numeric,
 		"chatchan=s" => \$chatchan,
 		"nickchan=s" => \$nickchan,
+		"oldnick=s" => \$oldnick,
 	);
 
 	if(!$errors) {
@@ -278,7 +288,7 @@ sub loadconf() {
 
 	%ircservers = (
 		dal2 => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -286,7 +296,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :1\r\n",
 		},
 		dragonfire => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -302,7 +312,7 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n"
 		},
 		rfc => {
-			nick => "NICK _NICK_ 1\r\n:_NICK_ USER _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1\r\n:_NICK_ USER _USER_ $us $us :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger serices\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -310,7 +320,7 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n"
 		},
 		ts => {
-			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ $us $us :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger serices\r\nSVINFO 3 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -318,7 +328,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :TS\r\n",
 		},
 		unreal => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ $us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -326,14 +336,14 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n",
 		},
 		p0210 => {
-			nick => "NICK _NICK_ 1 +i _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+			nick => "NICK _NICK_ 1 +i _USER_ $us $us :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			nicklen => 9,
 			pass => "PASS $ourpass 0210030002 IRC\r\n",
 		},
 		p10 => {
-			nick => "$numeric N _NICK_ 1 _TIME_ _USERNAME_ _HOST_ +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via aimirc\r\n",
+			nick => "$numeric N _NICK_ 1 _TIME_ _USERNAME_ _HOST_ +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\n$numeric EB\r\n$numeric EA\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -348,6 +358,7 @@ sub loadconf() {
 	}
 
 	$usnick = new Net::OSCAR::Screenname $usnick;
+	$oldnick = new Net::OSCAR::Screenname $oldnick if $oldnick;
 }
 
 sub mainloop() {
@@ -389,18 +400,24 @@ sub mainloop() {
 		}
 
 		connect_to_irc();
-		$aimircdebug = 0;
+		$imircdebug = 0;
 
-		irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $!\n";
+		irc_send(irc_newnick($usnick)) or die "Couldn't make usnick $usnick: $!\n";
 		$nicks->{$usnick}->{$usnick} = -1;
 		irc_send(irc_mode($usnick, $usnick, "-i"));
 		irc_send(irc_mode($usnick, $usnick, "+oa"));
 
-		irc_send(irc_join($usnick, "#aimirc-debug"));
-		irc_send(irc_mode($us, "#aimirc-debug", "+o $usnick"));
-		irc_send(irc_mode($usnick, "#aimirc-debug", "+nsk $ourpass"));
-		$aimircdebug = 1;
-		$longnicks->{'#aimirc-debug'} = '#aimirc-debug';
+		if($oldnick) {
+			irc_send(irc_newnick($oldnick)) or die "Couldn't make oldnick $oldnick: $!\n";
+			$nicks->{$oldnick}->{$usnick} = -1;
+			irc_send(irc_mode($oldnick, $oldnick, "-i"));
+		}
+
+		irc_send(irc_join($usnick, "#imirc-debug"));
+		irc_send(irc_mode($us, "#imirc-debug", "+o $usnick"));
+		irc_send(irc_mode($usnick, "#imirc-debug", "+nsk $ourpass"));
+		$imircdebug = 1;
+		$longnicks->{'#imirc-debug'} = '#imirc-debug';
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
@@ -440,7 +457,7 @@ sub mainloop() {
 			#	goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
 			#}
 
-			local $SIG{ALRM} = sub { confess "aimirc got stuck?" };
+			local $SIG{ALRM} = sub { confess "IMIRC got stuck?" };
 			alarm 3;
 
 			#debug_print("rin=".ord($rin).", win=".ord($win), "DCC", 3);
@@ -664,8 +681,8 @@ sub process_irc_message($) {
 	} elsif(/^KILL +(\S+)/i) {
 		delete $nicks->{noprefix $1};
 	} elsif(/^VERSION/i) {
-		irc_send(irc_error($nick, 351, "aimirc-$VERSION. $us :aimirc"));
-	} elsif(!/#aimirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +:(\S+)/i)) {
+		irc_send(irc_error($nick, 351, "IMIRC-$VERSION. $us :IMIRC"));
+	} elsif(!/#imirc-debug/i and (/^JOIN +.?$nickchan(\S+)/i or /^SJOIN +\d+ +$nickchan(\S+?) +\S+ +:(\S+)/i)) {
 		my $screenname = new Net::OSCAR::Screenname $1;
 		$screenname =~ s/,.*//;
 		$nick = $2 if $2;
@@ -808,7 +825,7 @@ sub process_irc_message($) {
 				delete $chats{$1};
 			}
 		}
-	} elsif(!/#aimirc-debug/i and /^PART +$nickchan(\S+)/i) {
+	} elsif(!/#imirc-debug/i and /^PART +$nickchan(\S+)/i) {
 		my $screenname = $1;
 		my $dude;
 
@@ -820,7 +837,7 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_part($usnick, nickchan($screenname)));
 		}
-	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
+	} elsif(!/#imirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +$nickchan(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra);
 
 		$screenname = $sndata = "";
@@ -846,7 +863,7 @@ sub process_irc_message($) {
 			$sndata = $connection->{screennames}->{$screenname} if $connection;
 			$oscar = $sndata->{oscar} if $sndata;
 
-			# Let the user talk to buddies in #aimirc-screenname
+			# Let the user talk to buddies in #imirc-screenname
 			# This triggers inchan==2 mode
 			if($cmd =~ /(?:$prefix)?(.+?)\x02?:\x02?/ and $sndata->{inchan}) {
 				my $recipient = $1;
@@ -1207,7 +1224,7 @@ sub process_irc_message($) {
 			my($filename, $message);
 
 			unless($dccip) {
-				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file.", "", "", $screenname));
+				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the IMIRC configuration file.", "", "", $screenname));
 			} else {
 				$fmtoscar = 0 if $param and lc($param) eq "toc";
 
@@ -1333,21 +1350,21 @@ sub process_irc_message($) {
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
 			} elsif($param eq "set") {
 				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
-				irc_send("$foo :set nicklen (limit) - If limit is non-zero, when an AIM user who has a nickname longer than the limit talks to you, you will receive a warning containing the full nickname of the sender.  A limit of zero (the default setting) turns this off.  This setting is preserved across AIM sessions and even aimirc servers.  DreamCast users will want to set the limit to 9.\r\n", 1);
+				irc_send("$foo :set nicklen (limit) - If limit is non-zero, when an AIM user who has a nickname longer than the limit talks to you, you will receive a warning containing the full nickname of the sender.  A limit of zero (the default setting) turns this off.  This setting is preserved across AIM sessions and even IMIRC servers.  DreamCast users will want to set the limit to 9.\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
-					irc_send("$foo :restart - Restart aimirc.  This will close the IRC connection and all AIM connections and launch a new aimirc process.\r\n", 1);
+					irc_send("$foo :restart - Restart IMIRC.  This will close the IRC connection and all AIM connections and launch a new IMIRC process.\r\n", 1);
 					irc_send("$foo :newnick nick - Create a new nickname on irc.\r\n", 1);
 					irc_send("$foo :setlevel debug_channel level - Set debugging channel debug_channel to level (higher is more verbose, 1 to disable).  The special channel \"all\" will set the level of all channels at once.\r\n", 1);
 					irc_send("$foo :showlevels - List all debugging channels and their levels.\r\n", 1);
-                                        irc_send("$foo :rehash - Reload /etc/aimirc.conf and $home/.aimirc .\r\n", 1);
-					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to Toc.pm or aimirc without having to do a full restart.\r\n", 1);
-					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this aimirc server, text will be sent over that AIM connection.\r\n", 1);
+                                        irc_send("$foo :rehash - Reload /etc/imirc.conf and $home/.imirc .\r\n", 1);
+					irc_send("$foo :reload - Evaluates $0.  This should let you make almost any change to IMIRC without having to do a full restart.\r\n", 1);
+					irc_send("$foo :raw who text - Send a raw IRC or AIM command (AIM commands are SFLAP-encoded but not quoted.) If who is irc, it will be sent as an IRC command.  If who is the IRC nickname or AIM nickname of someone connected to this IMIRC server, text will be sent over that AIM connection.\r\n", 1);
 					irc_send("$foo :inject text - Act as though we got text from the IRC server.\r\n", 1);
 					irc_send("$foo :eval text - Evaluate text as Perl code.  All exceptions will be trapped and displayed.\r\n", 1);
 					irc_send("$foo :show text - Evaluate text as Perl code and display its output in the channel.  All exceptions will be trapped and displayed.\r\n", 1);
 				} else {
-					irc_send("$foo :Debugging support is not enabled.  Edit /etc/aimirc.conf or $home/.aimirc and send SIGHUP to PID $$.\r\n", 1);
+					irc_send("$foo :Debugging support is not enabled.  Edit /etc/imirc.conf or $home/.imirc and send SIGHUP to PID $$.\r\n", 1);
 				}
 			} elsif($param eq "multinick") {
 				irc_send("$foo :To sign on multiple AIM screennames under your current IRC connection, just use multiple signon commands.\r\n", 1);
@@ -1374,8 +1391,8 @@ sub process_irc_message($) {
 				irc_send("$foo :\tremove_pounce buddy - Remove pounce on buddy.\r\n", 1);
 				irc_send("$foo :\tshow_pounce buddy - Shows the text of a pounce.\r\n", 1);
 			} else {
-				irc_send("$foo :aimirc $version, (c)1999-2001 Matthew Sachs.\r\n", 1);
-				irc_send("$foo :aimirc homepage: http://www.zevils.com/programs/aimirc/\r\n", 1);
+				irc_send("$foo :IMIRC $version, (c)1999-2001 Matthew Sachs.\r\n", 1);
+				irc_send("$foo :IMIRC homepage: http://www.zevils.com/programs/imirc/\r\n", 1);
 				irc_send("$foo :This program is licensed under Version 2 the GNU Public License.\r\n", 1);
 				irc_send("$foo :A copy of the license is available at http://www.gnu.org/copyleft/gpl.txt\r\n", 1);
 				irc_send("$foo :To see the commands available for a specific topic, use the command help topic.  The following topics are available:\r\n", 1);
@@ -1383,16 +1400,16 @@ sub process_irc_message($) {
 			 	irc_send("$foo :\tbuddies - buddylist manipulation, etc.\r\n", 1);
 				irc_send("$foo :\tchat - chatroom commands\r\n", 1);
 				irc_send("$foo :\tmisc - miscellaneous commands\r\n", 1);
-				irc_send("$foo :\tmultinick - using aimirc with multiple AIM screennames from one IRC connection.\r\n", 1);
+				irc_send("$foo :\tmultinick - using IMIRC with multiple AIM screennames from one IRC connection.\r\n", 1);
 				irc_send("$foo :\tpounce - pounce commands and overview\r\n", 1);
 				irc_send("$foo :\tset - various settings you can change\r\n", 1);
-				#irc_send("$foo :\tintroduction - introduction to aimirc and AOL Instant Messenger.\r\n", 1);
-				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any AIMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
+				#irc_send("$foo :\tintroduction - introduction to IMIRC and AOL Instant Messenger.\r\n", 1);
+				irc_send("$foo :NOTE: Remove all spaces from screennames (also referred to as nicknames or nicks) before using in any IMIRC command or operation.  nick is the AIM nick, not the IRC one created by prepending $prefix.\r\n", 1);
 				irc_send("$foo :AIM stands for AOL Instant Messenger, which is a trademark of America Online, Inc.\r\n", 1);
 				irc_send("$foo :To send an IM to someone whose screenname is SomeDude, send an IRC message to ${prefix}SomeDude.\r\n", 1);
 				irc_send("$foo :That person must be on your buddylist, have sent you an IM recently, or be added to IRC via the add command.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :You need an AOL Instant Messenger account to use aimirc.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
+				irc_send("$foo :You need an AOL Instant Messenger account to use IMIRC.  Get one at http://aim.aol.com/aimnew/Aim/register.adp\r\n", 1);
 			}
 		} elsif($cmd eq "switchname") {
 			unless($param) {
@@ -1538,7 +1555,7 @@ sub process_irc_message($) {
 		$msg = process_ctcp($nick, $1, $msg, $screenname);
 		return unless $msg;
 
-		if($recipient eq "#aimirc-debug" and $debug) {
+		if($recipient eq "#imirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
 			if($msg eq "restart" and $1) {
 				phoenix;
@@ -1555,25 +1572,25 @@ sub process_irc_message($) {
 			} elsif($msg =~ /^reload/) {
 				&reload;
 			} elsif($msg =~ /^showlevels/) {
-				foreach my $level(keys %debug) { irc_send(irc_privmsg($usnick, "#aimirc-debug", "$level: $debug{$level}")); }
+				foreach my $level(keys %debug) { irc_send(irc_privmsg($usnick, "#imirc-debug", "$level: $debug{$level}")); }
 			} elsif($msg =~ /^inject (.+)/ and $1) {
 				process_irc_message($1);
 			} elsif($msg =~ /^raw (\S+) (.+)/ and $1 and $2) {
 				if($1 eq "irc") {
 					irc_send("$2\r\n");
 				} else {
-					irc_send(irc_privmsg($usnick, "#aimirc-debug", "Sorry, only raw irc is supported."));
+					irc_send(irc_privmsg($usnick, "#imirc-debug", "Sorry, only raw irc is supported."));
 				}
 			} elsif($msg =~ /^eval (.+)/ and $1) {
 				eval $1;
-				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+				irc_send(irc_privmsg($usnick, "#imirc-debug", $@, "EVAL: "));
 			} elsif($msg =~ /^show (.+)/ and $1) {
-				eval "irc_send(irc_privmsg(\$usnick, \"#aimirc-debug\", $1));";
-				irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+				eval "irc_send(irc_privmsg(\$usnick, \"#imirc-debug\", $1));";
+				irc_send(irc_privmsg($usnick, "#imirc-debug", $@, "EVAL: "));
 			} elsif($msg =~ /#/) {
 				# Do nothing
 			} else {
-				irc_send(irc_privmsg($usnick, "#aimirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
+				irc_send(irc_privmsg($usnick, "#imirc-debug", "Invalid debug command - /msg aimserv help debug for help)"));
 			}
 		} elsif ($recipient =~ /^$chatchan(\d+)$/) {
 			
@@ -1586,8 +1603,10 @@ sub process_irc_message($) {
 			if($aim_connections->{$nick} and $oscar) {
 				send_im($oscar, $target, $msg);
 			} else {
-				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
+				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via IMIRC to send messages to AIM users.  /msg AIMServ help for details."));
 			}
+		} elsif ($oldnick and $recipient eq $oldnick) {
+			irc_send(irc_privmsg($oldnick, $nick, "Please use $usnick instead of $oldnick.  $usnick will no longer work."));
 		}
 	} elsif(/^AWAY *(.*)/) {
 		if($1 =~ /:?(.*)/) {
@@ -2017,15 +2036,15 @@ sub debug_print($$$) {
 	my($text, $type, $level) = @_;
 	my($line, @lines);
 
-	return if $text =~ m!401 $usnick #aimirc-debug :No such nick/channel!i;
+	return if $text =~ m!401 $usnick #imirc-debug :No such nick/channel!i;
 	return unless $debug;
 	return if defined($debug{$type}) and $level > $debug{$type};
 
-	if($aimircdebug and $debug < 2) {
+	if($imircdebug and $debug < 2) {
 		@lines = split(/[\r\n]+/, $text);
 
 		foreach $line(@lines) {
-			irc_send(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n", 1);
+			irc_send(":$usnick PRIVMSG #imirc-debug :($type, $level) $line\r\n", 1);
 		}
 	} else {
 		chomp $text;
@@ -2043,7 +2062,7 @@ sub html2txt($;$) {
 	$parsetree->parse($msg);
 	$parsetree->eof;
 
-	$formatter = new HTML::FormatAIMIRC (leftmargin => 0, rightmargin => 4096);
+	$formatter = new HTML::FormatIMIRC (leftmargin => 0, rightmargin => 4096);
 	$formatter->{_original_html} = $msg; #We use this to determine whether to add a closing tag for "unknown tags"
 	$msg = $formatter->format($parsetree);
 	$parsetree->delete;
@@ -2084,50 +2103,50 @@ sub deref($) {
 
 # Reload the configuration file
 sub rehash() {
-	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehashing..."));
-	if(-r "/etc/aimirc.conf") {
-		do "/etc/aimirc.conf";
+	irc_send(irc_privmsg($usnick, "#imirc-debug", "Rehashing..."));
+	if(-r "/etc/imirc.conf") {
+		do "/etc/imirc.conf";
 		$@ =~ tr/\r//d;
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+		irc_send(irc_privmsg($usnick, "#imirc-debug", $@, "EVAL: "));
 		if($@) {
-			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload /etc/aimirc.conf - there were errors."));
+			irc_send(irc_privmsg($usnick, "#imirc-debug", "Couldn't reload /etc/imirc.conf - there were errors."));
 		} else {
-			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloaded /etc/aimirc.conf"))
+			irc_send(irc_privmsg($usnick, "#imirc-debug", "Reloaded /etc/imirc.conf"))
 		}
 	} else {
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Not loading /etc/aimirc.conf - couldn't read"));
+		irc_send(irc_privmsg($usnick, "#imirc-debug", "Not loading /etc/imirc.conf - couldn't read"));
 	}
-	if(-r "$home/.aimirc") {
-		do "$home/.aimirc" if -r "$home/.aimirc";
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+	if(-r "$home/.imirc") {
+		do "$home/.imirc" if -r "$home/.imirc";
+		irc_send(irc_privmsg($usnick, "#imirc-debug", $@, "EVAL: "));
 		if($@) {
-			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload $home/.aimirc - there were errors."));
+			irc_send(irc_privmsg($usnick, "#imirc-debug", "Couldn't reload $home/.imirc - there were errors."));
 		} else {
-			irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloaded $home/.aimirc"))
+			irc_send(irc_privmsg($usnick, "#imirc-debug", "Reloaded $home/.imirc"))
 		}
 	} else {
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Not loading $home/.aimirc - couldn't read"));
+		irc_send(irc_privmsg($usnick, "#imirc-debug", "Not loading $home/.imirc - couldn't read"));
 	}
-	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Rehash complete!"));
+	irc_send(irc_privmsg($usnick, "#imirc-debug", "Rehash complete!"));
 }
 
-# Re-eval aimirc
+# Re-eval IMIRC
 sub reload() {
-	irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reloading $0..."));
+	irc_send(irc_privmsg($usnick, "#imirc-debug", "Reloading $0..."));
 	$reload = 1;
 	local $SIG{__DIE__} = sub { $@ = shift; };
 	do $0;
-	irc_send(irc_privmsg($usnick, "#aimirc-debug", $@, "EVAL: "));
+	irc_send(irc_privmsg($usnick, "#imirc-debug", $@, "EVAL: "));
 	if($@) {
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Couldn't reload $0 - there were errors."));
+		irc_send(irc_privmsg($usnick, "#imirc-debug", "Couldn't reload $0 - there were errors."));
 	} else {
-		irc_send(irc_privmsg($usnick, "#aimirc-debug", "Reload complete!"));
+		irc_send(irc_privmsg($usnick, "#imirc-debug", "Reload complete!"));
 	}
 }
 
 # Display version information
 sub dispver() {
-	print "aimirc: IRC <-> AOL Instant Messenger gateway.\n";
+	print "IMIRC: IRC <-> Instant Messenger gateway.\n";
 	print "AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.\n";
 	print "Version: $VERSION\n";
 	print "Use $0 --help for command-line options.\n";
@@ -2141,7 +2160,7 @@ sub license() { print $license; exit 0; }
 # Display commandline help
 sub help() {
 	print <<EOF
-aimirc - IRC <-> AOL Instant Messenger gateway
+IMIRC - IRC <-> Instant Messenger gateway
 AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
 Version $VERSION
 
@@ -2497,7 +2516,7 @@ sub going_down() {
 
 	foreach $user(@users) {
 		next if $aim_connections->{$user}->{notified}++;
-		irc_send(irc_privmsg($usnick, $user, "aimirc is going down.  You have been signed off of AOL Instant Messenger."));
+		irc_send(irc_privmsg($usnick, $user, "IMIRC is going down.  You have been signed off of AOL Instant Messenger."));
 	}
 }
 
@@ -2862,7 +2881,7 @@ sub bounce_join($$) {
 	irc_send(irc_join($usnick, $chan));
 	irc_send(irc_mode($us, $chan, "+o $usnick"));
 	irc_send(irc_mode($usnick, $chan, "+isntb *!*@*"));
-	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for aimirc usage."));
+	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for IMIRC usage."));
 	$chantimer{$chan} = time;
 }
 
@@ -3011,8 +3030,8 @@ sub mkchan($$) {
 	return new Net::OSCAR::Screenname "#". ircify("$prefix-$suffix");
 }
 
-sub chatchan($) { confess "chatchan \"\"!" unless $_[0]; return mkchan("aimchat", shift); }
-sub nickchan($) { return mkchan("aimirc", shift); }
+sub chatchan($) { confess "chatchan \"\"!" unless $_[0]; return mkchan($chatchan, shift); }
+sub nickchan($) { return mkchan($nickchan, shift); }
 
 sub set_blocking($$) {
 	my($socket, $blocking) = @_;
