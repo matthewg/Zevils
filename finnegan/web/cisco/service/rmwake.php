@@ -22,7 +22,7 @@ if(isset($_REQUEST["id"])) {
 		<CiscoIPPhoneText>
 		<Name>Confirm Deletion</Name>
 		<Text><? echo format_wake($wake) ?></Text>
-		<Prompt>Are you sure you want to delete this alarm?</Prompt>
+		<Prompt>Are you sure?</Prompt>
 
 		<SoftKeyItem>
 		<Name>Yes</Name>
