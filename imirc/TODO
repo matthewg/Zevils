@@ -1,3 +1,4 @@
+Maybe select is no longer needed because we've removed Timeout for DCC?
 buddy list printf?
 
 Preference for sending NOTICE

@@ -667,7 +667,7 @@ sub mainloop() {
 sub connect_to_irc() {
 	my($flags, $in, $pass);
 
-	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 60) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
+	$upstream = IO::Socket::INET->new(PeerAddr => "$them:$themport", Timeout => 5) or die "Couldn't connect to IRC server $them:$themport ($!)\n";
 
 	$flags = 0;
 	fcntl($upstream, F_GETFL, $flags) or die "Couldn't get flags for upstream: $!";
@@ -2407,7 +2407,7 @@ sub process_ctcp($$$) {
 				($filename, $ipaddr, $port, $filesize) = ($1, $2, $3, $4);
 				if(not $dccget{$from}) {
 					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time."));
-					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
+					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename", 1));
 					next CTCP;
 				}
 				if($dccget{$from} eq "loadbuddies" and $filesize > 20480) {
@@ -2418,8 +2418,7 @@ sub process_ctcp($$$) {
 				} else {
 					eval { $socket = IO::Socket::INET->new(
 						PeerAddr => $ipaddr,
-						PeerPort => $port,
-						Timeout => 5
+						PeerPort => $port
 					); } ;
 					unless(!$@ and $socket) {
 						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $@"));
@@ -2539,8 +2538,7 @@ sub irc_dcc($$$$$) {
 		LocalPort => 0,
 		Listen => 1,
 		Proto => 'tcp',
-		LocalAddr => $dccip,
-		Timeout => 5
+		LocalAddr => $dccip
 	); };
 
 	unless(!$@ and $socket) {

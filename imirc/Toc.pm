@@ -290,7 +290,7 @@ sub sflap_get($;$) {
 	return -1 if $err;
 	if($@) {
 		alarm 0;
-		croak($@) unless $@ eq "alarm\n";
+		Carp::croak($@) unless $@ eq "alarm\n";
 		$err = "sflap_get timed out";
 		return -1;
 	}
@@ -402,7 +402,7 @@ sub signon($$&;&) {
 	$err = "Connection timed out." if $@ =~ /time(d )?out/;
 	alarm 0;
 	return -1 if $err;
-	croak($@) if $@;
+	Carp::croak($@) if $@;
 
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
 	$msg = sflap_get($socket, 1);
@@ -1184,7 +1184,7 @@ sub sflap_put($$;$) {
 	return -1 if $err;
 	if($@) {
 		alarm 0;
-		croak($@) unless $@ eq "alarm\n";
+		Carp::croak($@) unless $@ eq "alarm\n";
 		$err = "sflap_put timed out";
 		return -1;
 	}
