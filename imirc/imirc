@@ -146,7 +146,7 @@ $upstream->print(irc_subparms($ircservers{$servermode}{server})) or die "Couldn'
 if($theirpass and $ircservers{$servermode}{theirpass}) {
 	while(($in !~ /PASS :?(.+)/)) {
 		chomp($in = $upstream->getline);
-		warn "$in\n" if $debug >= 2;
+		Toc::debug_print($in, "irc_connect", 1);
 	}
 	
 	$in =~ s/ :1//;
@@ -159,20 +159,23 @@ if($theirpass and $ircservers{$servermode}{theirpass}) {
 if($servermode eq "dal2") {
 	while($in !~ /EBURST/) {
 		chomp($in = $upstream->getline);
-		warn "$in\n" if $debug >= 2;
+		Toc::debug_print($in, "irc_connect", 1);
 	}
 }
 
-$upstream->print(irc_newnick($usnick)) or die "Couldn't make aimserv: $@\n";
-$upstream->print(":$usnick MODE $usnick -i\r\n");
-$upstream->print(":$us MODE $usnick +o\r\n");
+$aimircdebug = 0;
+
+irc_send(irc_newnick($usnick)) or die "Couldn't make aimserv: $@\n";
+irc_send(":$usnick MODE $usnick -i\r\n");
+irc_send(":$us MODE $usnick +o\r\n");
 
 $aimselect = IO::Select->new();
 $ircselect = IO::Select->new();
 $ircselect->add($upstream);
 
-$upstream->print(":$usnick JOIN #aimirc-debug\r\n");
-$upstream->print(":$us MODE #aimirc-debug +nk $ourpass\r\n");
+irc_send(":$usnick JOIN #aimirc-debug\r\n");
+irc_send(":$us MODE #aimirc-debug +nk $ourpass\r\n");
+$aimircdebug = 1;
 
 while(1 == 1) {
 	exit(255) unless $upstream;
@@ -413,7 +416,7 @@ sub process_irc_message {
 		} elsif ($cmd eq "set_info") {
 			my $text;
 			irc_send(irc_privmsg($usnick, $nick, "Usage: set_info info")) unless $param;
-			$extra ? $text = "$param $extra" : $text = $param;
+			$extra ? ($text = "$param $extra") : ($text = $param);
 			set_info($aim_connections{$nick}{socket}, $text);
 		} elsif ($cmd eq "get_dir") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname")) unless $param;
@@ -743,10 +746,14 @@ sub Toc::debug_print($$$) {
 	return unless $debug;
 	return if defined($debug{$type}) and $level > $debug{$type};
 
-	@lines = split(/[\r\n]+/, $text);
-
-	foreach $line(@lines) {
-		$upstream->print(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n");
+	if($aimircdebug) {
+		@lines = split(/[\r\n]+/, $text);
+	
+		foreach $line(@lines) {
+			$upstream->print(":$usnick PRIVMSG #aimirc-debug :($type, $level) $line\r\n");
+		}
+	} else {
+		print STDERR "$text\n";
 	}
 }
 
