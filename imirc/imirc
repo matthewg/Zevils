@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 $license = <<EOF
 Copyright (c) 1999-2001 Matthew Sachs.  All Rights Reserved.
