@@ -673,7 +673,7 @@ sub process_aim_message {
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "You have joined chat $2.  Chat id is $1."));
 	} elsif($cmd eq "CHAT_IN") {
 		my $nick;
-		$val =~ /([^:]+):([^:]+):(.+):(.*)/;
+		$val =~ /([^:]+):([^:]+):(.):(.*)/;
 		Toc::debug_print("$2 said to $connection->{nick} in chat $1: $lines[0]", "chat", 2);
 		$msg = ":$usnick PRIVMSG $connection->{nick} :$2 ";
 		($3 eq "T" or $3 eq "t") ? ($msg .= "whispered ") : ($msg .= "said ");
