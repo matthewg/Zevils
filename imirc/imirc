@@ -2363,7 +2363,7 @@ sub manglewarn($$$) {
 			"\02WARNING\02: Screenname $what has been mangled to IRC nickname " . $shortnicks->{$what}, "", "", $screenname));
 	} elsif($sndata->{nicklen} and length($shortnicks->{$what}) > $sndata->{nicklen}) {
 		irc_send(irc_privmsg($usnick, $who,
-			"\02WARNING\02: Nickname ".$shortnicks->{$what}." is longer ".$sndata->{nicklen}." characters.", "", "", $screenname));
+			"\02WARNING\02: Nickname ".$shortnicks->{$what}." is longer than ".$sndata->{nicklen}." characters.", "", "", $screenname));
 	}
 }
 
