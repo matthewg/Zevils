@@ -2342,8 +2342,10 @@ sub oscar_connection_changed($$$) {
 	} elsif($status eq "readwrite") {
 		$poll->mask($filehandle => POLLIN | POLLOUT);
 	} elsif($status eq "deleted") {
-		$poll->remove($filehandle);
-		delete $fdmap{fileno($filehandle)} if $filehandle;
+		if($filehandle) {
+			$poll->remove($filehandle);
+			delete $fdmap{fileno($filehandle)};
+		}
 	}
 	$fdmap{fileno($filehandle)} = $connection unless $status eq "deleted";
 }
