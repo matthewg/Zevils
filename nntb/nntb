@@ -255,6 +255,8 @@ sub loadblogs() {
 			}
 		}
 	}
+
+	die "Couldn't load any weblogs!\n" unless %blogs;
 }
 
 sub got_client(*);
@@ -468,17 +470,17 @@ sub got_client(*) {
 				} elsif(!$currmsg) {
 					nntp_put("420 no current article has been selected");
 				} else {
-					my $newmsg = (/^next/) ? ($currmsg + 1) : ($currmsg - 1);
-					my $msgid = $blog->num2id($currgroup, $newmsg);
-					if(!$msgid) {
+					my $newmsg = /^last$/ ? $blog->prev($currgroup, $currmsg) : $blog->next($currgroup, $currmsg);
+					if(!$newmsg) {
 						if($params[0] eq "next") {
 							nntp_put("421 no next article in this group");
 						} else {
 							nntp_put("422 no previous article in this group");
 						}
 					} else {
-						nntp_put("223 $currmsg $msgid article retrieved - request text separately");
 						$currmsg = $newmsg;
+						my $msgid = $blog->num2id($currgroup, $currmsg);
+						nntp_put("223 $currmsg $msgid article retrieved - request text separately");
 					}
 				}
 				next;
@@ -757,7 +759,7 @@ sub xover($$$;$$) {
 		} else {
 			$last = $first;
 		}
-		@nums = ($first..$last);
+		@nums = $blog->msgnums($currgroup, $first, $last);
 
 		@articles = map { $blog->num2id($currgroup, $_) } @nums;
 

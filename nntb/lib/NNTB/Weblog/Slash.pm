@@ -158,8 +158,8 @@ sub num2id($$$) {
 			"nntp_snum=$msgnum") or return undef;
 	} elsif($type eq "journals") {
 		$idtype = "journal";
-		$idid = $self->{slash_db}->sqlSelect("jid", "journals",
-			"jid=$msgnum") or return undef;
+		$idid = $self->{slash_db}->sqlSelect("id", "journals",
+			"id=$msgnum") or return undef;
 	} elsif($type eq "story") {
 		$idtype = "story_comment";
 		$idid = $self->{slash_db}->sqlSelect("cid", "comments",
@@ -431,19 +431,23 @@ sub article($$$;@) {
 
 		if($type eq "head" or $type eq "article") {
 			my $discussion = $self->{slash_db}->getDiscussion($comment->{sid});
+			my $group;
 
-			my($section, $sid) = ($discussion->{section}, $discussion->{sid});
-			my $secid = $self->{slash_db}->getSection($section, 'id');
-			my($jid, $journal_nick, $journal_uid);
-			if(!$sid) {
-				$jid = $self->{slash_db}->sqlSelect("id", "journals", "discussion=$comment->{sid}");
+			if($msgtype eq "story_comment") {
+				my($section, $sid) = ($discussion->{section}, $discussion->{sid});
+				my $secid = $self->{slash_db}->getSection($section, 'id');
+
+				$group = "$self->{root}." . $self->groupname($format, "stories", "${section}_$secid", $comment->{sid});
+			} else {
+				$self->log("Discussion $comment->{sid}", LOG_DEBUG);
+				my $jid = $self->{slash_db}->sqlSelect("id", "journals", "discussion=$comment->{sid}");
 				my $journal_obj = getObject("Slash::Journal");
 				my $journal = $journal_obj->get($jid);
-				$journal_uid = $journal->{uid};
-				$journal_nick = $self->{slash_db}->getUser($journal_uid, 'nickname');
-			}
+				my $juid = $journal->{uid};
+				my $jnick = $self->{slash_db}->getUser($juid, 'nickname');
 
-			my $group = "$self->{root}." . $self->groupname($format, ($sid ? "stories" : "journals"), ($sid ? ("${section}_$secid", $sid) : ($journal_nick."_".$journal_uid, $jid)));
+				$group = "$self->{root}." . $self->groupname($format, "journals", "${jnick}_$juid", $jid);
+			}
 
 			$headers{subject} = $comment->{subject};
 			$headers{newsgroups} = $group;
@@ -458,7 +462,7 @@ sub article($$$;@) {
 			my @references = ();
 			while($comment->{pid}) {
 				$comment = $self->{slash_db}->getComment($comment->{pid});
-				unshift @references, $self->form_msgid($comment->{cid}, $format, "comment");
+				unshift @references, $self->form_msgid($comment->{cid}, $format, $msgtype);
 			}
 
 			$headers{references} = join(" ", @references) if @references;
@@ -476,7 +480,7 @@ sub article($$$;@) {
 			$headers{subject} = $journal->{description};
 			$headers{newsgroups} = "$group,$self->{root}.$format.journals";
 			$headers{xref} = $self->{slash_db}->getVar("nntp_host") . " $group:$journal->{id}";
-			$headers{"followup-to"} = "$group.$journal->{id}";
+			$headers{"followup-to"} = "$group.$journal->{id}" if $journal->{discussion};
 			$headers{"x-slash-url"} = "http:" . $self->{slash_db}->getVar('rootdir', 'value') . "/journal.pl?op=display&uid=$journal->{uid}&id=$journal->{id}";
 			$headers{"x-slash-topic"} = $self->{slash_db}->getTopic($journal->{tid}, 'name');
 			$headers{"x-slash-can-post"} = $journal->{discussion} ? 1 : 0;
@@ -797,7 +801,7 @@ sub groupstats($$) {
 						"sid=$id");
 	} elsif($type eq "journals") {
 		my $where = "";
-		$where = "uid = $id" if $id;
+		$where = "uid=$id" if $id;
 
 		($first, $last, $num) = $self->{slash_db}->sqlSelect(
 						"MIN(id), MAX(id), COUNT(id)",
@@ -815,6 +819,67 @@ sub groupstats($$) {
 
 	#$self->log("Returning ($first, $last, $num)", LOG_DEBUG);
 	return ($first, $last, $num);
+}
+
+sub prev_next($$$$$) {
+	my($self, $group, $msgnum, $comparator, $sqlgroup) = @_;
+	my($id, $format, $type) = $self->parsegroup($group);
+
+	if($type eq "section") {
+		my $where = "nntp_snum $comparator $msgnum";
+		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+
+		return scalar $self->{slash_db}->sqlSelect(
+				"$sqlgroup(nntp_snum)",
+				'stories',
+				$where
+		);
+	} elsif($type eq "story") {
+		return scalar $self->{slash_db}->sqlSelect(
+				"$sqlgroup(cid)",
+				'comments',
+				"cid $comparator $msgnum AND discussion=$id"
+		);
+	} elsif($type eq "journals") {
+		my $where = "id $comparator $msgnum";
+		$where .= " AND uid=$id" if $id;
+
+		return scalar $self->{slash_db}->sqlSelect(
+				"$sqlgroup(id)",
+				'journals',
+				$where
+		);
+	} elsif($type eq "journal") {
+		return scalar $self->{slash_db}->sqlSelect(
+				"$sqlgroup(cid)",
+				'comments, journals',
+				"cid $comparator $msgnum AND comments.sid = journals.discussion"
+		);
+	}
+}
+
+sub prev($$$) { shift->prev_next(@_, "<", "MAX"); }
+sub next($$$) { shift->prev_next(@_, ">", "MIN"); }
+
+sub msgnums($$$$) {
+	my($self, $group, $min, $max) = @_;
+	my($id, $format, $type) = $self->parsegroup($group);
+
+	if($type eq "section") {
+		my $where = "nntp_snum >= $min AND nntp_snum <= $max";
+		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $id;
+
+		return $self->{slash_db}->sqlSelect('nntp_snum', 'stories', $where);
+	} elsif($type eq "story") {
+		return $self->{slash_db}->sqlSelect('cid', 'comments', "discussion = $id AND cid >= $min AND cid <= $max");
+	} elsif($type eq "journals") {
+		my $where = "id >= $min AND id <= $max";
+		$where .= " AND uid=$id" if $id;
+
+		return $self->{slash_db}->sqlSelect('id', 'journals', $where);
+	} elsif($type eq "journal") {
+		return $self->{slash_db}->sqlSelect('cid', 'comments, journals', "comments.sid = journals.discussion AND cid >= $min AND cid <= $max");
+	}
 }
 
 1;

@@ -514,12 +514,20 @@ sub groupstats($$) { return undef; }
 
 These methods should returns the next or previous message number from
 the given message number in the given group.  The validity of the group
-and message number will be verified before this method is called.
+and message number will be verified before this method is called.  Return
+undef if there is no next/previous message.
+
+=item msgnums GROUP MIN MAX
+
+This method is similar to the previous two methods; it should return
+a list of valid message numbers within the given range.  Return the
+empty list if there are no messages within the range.
 
 =cut
 
 sub next($$$) { return undef; }
 sub prev($$$) { return undef; }
+sub msgnums($$$$) { return undef; }
 
 =pod
 
