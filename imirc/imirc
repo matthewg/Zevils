@@ -319,7 +319,7 @@ sub loadconf() {
 
 	%ircservers = (
 		dal2 => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n:_NICK_ MODE _MODES_\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -327,7 +327,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :1\r\n",
 		},
 		dragonfire => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n:_NICK_ MODE _MODES_\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -335,7 +335,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :1\r\n"
 		},
 		ircu => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us +i :AOL Instant Messenger services\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us _MODES_ :AOL Instant Messenger services\r\n",
 			server => "SERVER $us 1 _TIME_ _TIME_ P09 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -343,7 +343,7 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n"
 		},
 		rfc => {
-			nick => "NICK _NICK_ 1\r\n:_NICK_ USER _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1\r\n:_NICK_ USER _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n:_NICK_ MODE _MODES_\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -351,7 +351,7 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n"
 		},
 		ts => {
-			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _MODES_ _USER_ _USER_.$us $us :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 5 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -359,7 +359,7 @@ sub loadconf() {
 			pass => "PASS $ourpass :TS\r\n",
 		},
 		unreal => {
-			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\n:_NICK_ MODE _MODES_\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -367,14 +367,14 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n",
 		},
 		p0210 => {
-			nick => "NICK _NICK_ 1 _USER_ _USER_.$us 1 +i :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 1 _USER_ _USER_.$us 1 _MODES_ :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\n",
 			uspass => 1,
 			nicklen => 9,
 			pass => "PASS $ourpass 0210030002 IRC|aEfiIJMuw P\r\n",
 		},
 		p10 => {
-			nick => "$numeric N _NICK_ 1 _TIME_ _USER_ _USER_.$us +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "$numeric N _NICK_ 1 _TIME_ _USER_ _USER_.$us _MODES_ A ${numeric}_NUMERIC_ :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger Services\r\n$numeric EB\r\n$numeric EA\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -382,7 +382,7 @@ sub loadconf() {
 			pass => "PASS :$ourpass\r\n",
 		},
 		bahamut => {
-			nick => "NICK _NICK_ 2 _TIME_ +i _USER_ _USER_.$us $us _TIME_ :AOL Instant Messenger client via IMIRC\r\n",
+			nick => "NICK _NICK_ 2 _TIME_ _MODES_ _USER_ _USER_.$us $us _TIME_ :AOL Instant Messenger client via IMIRC\r\n",
 			server => "SERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 3 1 0 :_TIME_\r\n",
 			uspass => 1,
 			theirpass => 1,
@@ -390,12 +390,13 @@ sub loadconf() {
 			pass => "PASS $ourpass :TS\r\n",
 		},
 		dancer => {
-			nick => "NICK _NICK_ 1 _TIME_ +i _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\nSNICK _NICK _NICK_  _TIME_\r\n",
+			nick => "NICK _NICK_ 1 _TIME_ _MODES_ _USER_ _USER_.$us $us 0 :AOL Instant Messenger client via IMIRC\r\nSNICK _NICK _NICK_  _TIME_\r\n",
 			server => "CAPAB :EX DNCR SRV DE\r\nSERVER $us 1 :AOL Instant Messenger Services\r\nSVINFO 5 1 0 :_TIME_\r\n:$us BURST KLINES\r\n",
 			uspass => 1,
 			theirpass => 1,
 			nicklen => 30,
 			pass => "PASS $ourpass :TS\r\n",
+			opermodes => "+mop",
 		},
 	);
 
@@ -462,19 +463,17 @@ sub mainloop() {
 
 		sleep 60 if $servermode eq "p0210" and ($ignoreuhosts or $require_qlines);
 
-		irc_send(irc_newnick($usnick)) or die "Couldn't make usnick $usnick: $!\n";
+		irc_send(irc_newnick($usnick, $ircservers{$servermode}{opermodes})) or die "Couldn't make usnick $usnick: $!\n";
+		irc_send(":$us OPER $usnick +\r\n") if $servermode eq "dancer";
 		$nicks->{$usnick}->{$usnick} = -1;
-		irc_send(irc_mode($usnick, $usnick, "-i"));
-		irc_send(irc_mode($usnick, $usnick, "+o"));
 
 		if($oldnick) {
-			irc_send(irc_newnick($oldnick)) or die "Couldn't make oldnick $oldnick: $!\n";
+			irc_send(irc_newnick($oldnick, $ircservers{$servermode}{opermodes})) or die "Couldn't make oldnick $oldnick: $!\n";
+			irc_send(":$us OPER $oldnick +\r\n") if $servermode eq "dancer";
 			$nicks->{$oldnick}->{$usnick} = -1;
-			irc_send(irc_mode($oldnick, $oldnick, "-i"));
 		}
 
 		irc_send(irc_join($usnick, "#imirc-debug"));
-		irc_send(irc_mode($us, "#imirc-debug", "+o $usnick"));
 		irc_send(irc_mode($usnick, "#imirc-debug", "+nsk $ourpass"));
 		$imircdebug = 1;
 		$longnicks->{'#imirc-debug'} = '#imirc-debug';
@@ -625,11 +624,12 @@ sub connect_to_irc() {
 }
 
 # Create a new IRCnick, with mangling and anti-collide
-sub irc_newnick($) {
-	my($nick, $user, $string, $shortnick) = shift;
+sub irc_newnick($;$) {
+	my($nick, $modes, $user, $string, $shortnick) = @_;
 	$nick =~ tr/ //d;
 	$user = $nick;
 	$user =~ s/^$prefix//;
+	$modes ||= "+i";
 
 	$nick = new Net::OSCAR::Screenname $nick;
 	debug_print("Shall we create $nick?", "nicks", 2);
@@ -639,7 +639,7 @@ sub irc_newnick($) {
 	debug_print("\tCreating $nick (shortnick $shortnick)", "nicks", 1);
 	$longnicks->{$shortnick} = $nick;
 	$shortnicks->{$nick} = $shortnick;
-	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick);
+	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $shortnick, $modes);
 	$string .= ":$shortnick MODE $shortnick +i\r\n";
 	return $string;
 }
@@ -658,13 +658,14 @@ sub haskeys($) {
 }
 
 # Substitute parameters in %ircservers strings
-sub irc_subparms($;$$) {
-	my($input, $user, $nick, $time) = @_;
+sub irc_subparms($;$$$) {
+	my($input, $user, $nick, $modes, $time) = @_;
 	$time = time;
 	$user = substr($user, 0, 9); # Restrict username to 9 characters
 	$input =~ s/_TIME_/$time/g;
 	$input =~ s/_USER_/$user/g;
 	$input =~ s/_NICK_/$nick/g;
+	$input =~ s/_MODES_/$modes/g;
 	return $input;
 }
 
