@@ -693,16 +693,28 @@ In all other cases, it is called automatically when needed.  Returns the result 
 =cut
 
 sub set_config($$) {
-	my($handle, $config) = @_;
+	my($handle, $config, $ppl, $msg) = @_;
 	$config{_hnick($handle)} = $config;
 
 	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
 	sflap_do($handle, "toc_add_permit");
-	sflap_do($handle, "tocc_add_deny");
+	sflap_do($handle, "toc_add_deny");
 	if($config->{permtype} == 3) {
-		sflap_do($handle, "toc_add_permit " . join(" ", @{$config{_hnick($handle)}->{permit}}));
+		$msg = "toc_add_permit";
+		if($config{_hnick($handle)}->{permit}) {
+			foreach $ppl(@{ $config{_hnick($handle)}->{permit} }) {
+				$msg .= " $ppl";
+			}
+		}
+		sflap_do($handle, $msg);
 	} elsif($config->{permtype} == 4) {
-		sflap_do($handle, "toc_add_deny " . join(" ", @{$config{_hnick($handle)}->{deny}}));
+		$msg = "toc_add_deny";
+		if($config{_hnick($handle)}->{deny}) {
+			foreach $ppl(@{ $config{_hnick($handle)}->{deny} }) {
+				$msg .= " $ppl";
+			}
+		}
+		sflap_do($handle, $msg);
 	}
 }
 
