@@ -445,7 +445,7 @@ if($prompt == "time") {
 <DisplayName>Day</DisplayName>
 <QueryStringParam>day</QueryStringParam>
 <InputFlags>N</InputFlags>
-<DefaultValue><? if($_SESSION["day"]) $_SESSION["day"]; ?></DefaultValue>
+<DefaultValue><? if($_SESSION["day"]) echo $_SESSION["day"]; ?></DefaultValue>
 </InputItem>
 
 <? } else if($prompt == "weekdays") {
