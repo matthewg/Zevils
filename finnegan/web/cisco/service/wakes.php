@@ -56,7 +56,8 @@ while($wake = mysql_fetch_assoc($wakes)) {
 <URL><? echo $FinneganCiscoConfig->url_base ?>/service/rmwake.php</URL>
 <Position>2</Position>
 </SoftKeyItem>
-<Name>En/Disable</Name>
+<SoftKeyItem>
+<Name>On/Off</Name>
 <URL><? echo $FinneganCiscoConfig->url_base ?>/service/togglewake.php</URL>
 <Position>3</Position>
 </SoftKeyItem>
