@@ -16,6 +16,7 @@ if(isset($_POST["op"])) {
 
 		if(!mysql_query(sprintf("DELETE FROM wakes WHERE extension='%s' AND wake_id IN (%s)", $extension, $keys))) db_error();
 
+		reset($_POST["id"]);
 		while(list($id, $value) = each($_POST["id"])) {
 			log_wake($id, $extension, "delete", "success");
 		}
