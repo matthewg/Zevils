@@ -399,6 +399,13 @@ sub loadconf() {
 			nicklen => 30,
 			pass => "PASS :$ourpass\r\n",
 		},
+		p0210 => {
+			nick => "NICK _NICK_ 1 +i _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
+			server => "SERVER $us 1 :AOL Instant Messenger services\r\n",
+			uspass => 1,
+			nicklen => 9,
+			pass => "PASS $ourpass 0210030002 IRC\r\n",
+		},
 		p10 => {
 			nick => "$numeric N _NICK_ 1 _TIME_ _USERNAME_ _HOST_ +i A ${numeric}_NUMERIC_ :AOL Instant Messenger client via aimirc\r\n",
 			server => "SERVER $us 1 _TIME_ _TIME_ J10 ${numeric}]]] :AOL Instant Messenger services\r\n$numeric EB\r\n$numeric EA\r\n",
@@ -2880,6 +2887,8 @@ sub send_im($$$) {
 	my($oscar, $target, $msg) = @_;
 	my $screenname = $oscar->screenname;
 
+	irc_send(irc_newnick($prefix.$target));
+	$nicks->{$target}->{$screenname} = time unless $nicks->{$target}->{$screenname} == -1;
 	debug_print("$screenname -> $target: $msg", "im", 2);
 	if($irc_connections->{$target} and $shortcircuit) {
 		$aim_connections->{$irc_connections->{$target}}->{screennames}->{$target}->{oscar}->callback_im_in($screenname, $msg);
