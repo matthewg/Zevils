@@ -14,7 +14,7 @@ use Toc qw(:all);
 $home = (getpwent)[7];
 
 #Defaults
-$prefix = "AIM-"
+$prefix = "AIM-";
 $usnick = "AIMServ";
 $us = "aimserv.matthewg.port.net"; #IRC server name to claim to be
 $them = "127.0.0.1"; #Hostname of IRC server to connect to
