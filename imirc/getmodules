@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+use strict;
+use vars qw($makeargs $altinstall $dirname);
+
 sub BEGIN {
 	my $result = "";
 	my $error = "";
@@ -46,25 +49,52 @@ sub BEGIN {
 }
 
 use File::Basename;
+use Data::Dumper;
 
-my $altinstall = shift || 0;
+$altinstall = shift || 0;
 $altinstall = 1 if $] < 5.006;
 
-my $dirname = dirname($0);
+$dirname = dirname($0);
 chomp($dirname = `pwd`) if $dirname eq ".";
 push @INC, $dirname;
 
-my $makeargs = "";
-$makeargs = $CPAN::Config->{makepl_arg} = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp INSTALLSITEMAN1DIR=/tmp INSTALLSITEMAN3DIR=/tmp" if $> != 0;
-$CPAN::Config->{prerequisites_policy} = "follow";
+# We want the perls that are spawned for make test, etc. to know about this
+$ENV{PERL5OPT} .= " -I$dirname";
+
+$makeargs = "";
+$makeargs = "INSTALLSITELIB=$dirname INSTALLSITEARCH=$dirname INSTALLPRIVLIB=$dirname INSTALLARCHLIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp INSTALLSITEMAN1DIR=/tmp INSTALLSITEMAN3DIR=/tmp" if $> != 0;
 
 foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse Scalar::Util Digest::MD5 Net::OSCAR HTML::Tagset)) {
+	install_module($mod);
+}
+
+print "All modules installed!\n";
+
+sub install_module($) {
+	my $mod = shift;
 	my $obj = CPAN::Shell->expand('Module', $mod);
-	next if $obj->inst_version() and $mod ne "Net::OSCAR";
+	next if $obj->inst_version and $mod ne "Net::OSCAR";
 	print "Installing $mod...\n";
-	$obj->install or $altinstall or die "Problems installing $mod - try $0 altinstall\n";
-	if($altinstall) {
-		my $dir = $CPAN::Config->{build_dir} . "/" . basename($obj->{CPAN_FILE});
+
+	$CPAN::Config->{makepl_arg} = $makeargs;
+	$CPAN::Config->{prerequisites_policy} = 'follow';
+
+	print "Checking prerequisites...\n";
+	my $dist = $CPAN::META->instance('CPAN::Distribution',$obj->cpan_file);
+	$dist->make;
+
+	foreach my $prereq(keys %{$dist->prereq_pm}) {
+		my $prereq_obj = CPAN::Shell->expand('Module', $prereq);
+		install_module($prereq) unless $prereq_obj->inst_version;
+	}
+	print "Prerequisites okay.\n";
+
+	delete $dist->{later}; # {later} is the "delay until after prereqs" bit
+
+	$obj->install;
+	$obj->inst_version  or $altinstall or die "Problems installing $mod - try $0 altinstall\n";
+	if($altinstall and (!$obj->inst_version or ($obj->cpan_version > $obj->inst_version))) {
+		my $dir = $CPAN::Config->{build_dir} . "/" . basename($obj->cpan_file);
 		$dir =~ s/\.tar\.gz//;
 		chdir($dir) or die "Couldn't chdir to $dir: $!\n";
 		chmod(0755, ".");
@@ -74,5 +104,3 @@ foreach my $mod (qw(Filter::Util::Call MIME::Base64 HTML::FormatText HTML::Parse
 		system("make install") >> 8 and die "Problem running make install for $mod\n";
 	}
 }
-
-print "All modules installed!\n";
