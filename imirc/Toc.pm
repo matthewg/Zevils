@@ -4,7 +4,7 @@ use IO::Socket;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw($err aim_strerror str2conf conf2str sflap_get sflap_put quote sflap_encode signon parseclass normalize roast_password add_buddy);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '0.75';
+$VERSION = '0.80';
 
 =pod
 =item getconfig(NICK)
@@ -142,7 +142,7 @@ sub signon($$;&) {
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
 	sflap_put($socket, sflap_encode($username, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
-	$msg = quote("toc_signon login.oscar.aol.com 1234 $username " . roast_password($password) . " english ") . "\"aimirc $VERSION\"";
+	$msg = quote("toc_signon login.oscar.aol.com 1234 $username " . roast_password($password) . " english ") . "\"aimirc:\\\$Revision$VERSION \\\$\"";
 	sflap_put($socket, sflap_encode($msg, 0, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
 	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
 	$msg = sflap_get($socket);
