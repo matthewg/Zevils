@@ -1258,7 +1258,7 @@ sub str2conf($) {
 			$currgroup = $val;
 		} elsif($type eq "b") {
 			#warn "$val added to group $currgroup\n";
-			$val = lc($val);
+			$val = normalize $val;
 			$config->{Buddies}{$val}{group} = $currgroup;
 			$config->{Buddies}{$val}{online} ||= 0;
 		} elsif($type eq "p") {

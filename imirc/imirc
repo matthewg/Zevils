@@ -1222,7 +1222,7 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist."));
 		} elsif ($cmd eq "savebuddies") {
 			my $oscar = 0;
-			my(%config, $config, $message, $group, $buddy, %groups, $filename);
+			my($config, $message, $group, $buddy, %groups, $filename);
 
 			unless($dccip) {
 				irc_send(irc_privmsg($usnick, $nick, "savebuddies is not available on this server - the administrator has not specified a DCC IP in the aimirc configuration file."));
@@ -2391,8 +2391,8 @@ sub process_ctcp($$$) {
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
 				}
-				if($dccget{$from} eq "loadbuddies" and $filesize > 4096) {
-					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 4k."));
+				if($dccget{$from} eq "loadbuddies" and $filesize > 20480) {
+					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 20k."));
 					delete $dccget{$from};
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
