@@ -63,9 +63,9 @@ sub _psmloader {	#Call method $_[0] in PSMs with capability $_[1]
 	no strict 'refs';
 
 	$class = ref($self) || $self; #Get the class of $self
-	$self->_noinherit($method, 'Slash::PSM::SlashSite');
+
 	foreach $psm(@{$self->{_capabilities}{$capability}}) {
-		$ret = ${$self->{PSMs}}->{$psm}->$method(@_); #&{"Slash::PSM::" . $psm . "::" . $method}($self, @_);
+		$ret = ${$self->{PSMs}}->{$psm}->$method(@_);
 		return $ret if $ret;
 	}
 	$self->_crapout(Slash::PSM::PSM_ERR_WARN, 5, "$method $_[0] not found");
@@ -80,6 +80,7 @@ sub Topic($$) { &_psmloader("Topic", "topics", @_); }
 sub User($$) { &_psmloader("User", "userdata", @_); }
 sub Story($$) { &_psmloader("Story", "stories", @_); }
 sub Comment($$) { &_psmloader("Comment", "comments", @_); }
+sub Poll($$) { &_psmloader("Poll", "polls", @_); }
 sub FrontendVar($$;$$) { &_psmloader("FrontendVar", "vars", @_); }
 
 sub GetSections($;%) { &_psmloader("GetSections", "sections", @_); }
@@ -87,24 +88,7 @@ sub GetTopics($;%) { &_psmloader("GetTopics", "topics", @_); }
 sub GetUsers($;%) { &_psmloader("GetUsers", "userdata", @_); }
 sub GetStories($;%) { &_psmloader("GetStories", "stories", @_); }
 sub GetComments($;%) { &_psmloader("GetComments", "comments", @_); }
+sub GetPolls($;%) { &_psmloader("GetPolls", "polls", @_); }
 sub GetFrontendVars($;%) { &_psmloader("GetFrontendVars", "vars", @_); }
-
-package Slash::PSM::SlashSite::Section;
-use strict;
-use Carp qw(cluck croak carp confess);
-no strict 'subs';
-use vars qw(@ISA %rfields %wfields $AUTOLOAD);
-@ISA = ('Slash::PSM');
-
-sub AUTOLOAD {
-	my(%rfields, %wfields);
-	my($self) = shift;
-
-	return unless ref($self) eq "Slash::PSM::SlashSite" or $self eq "Slash::PSM::SlashSite"; #Don't allow this method to be inherited.
-	for my $attr (qw()) { $rfields{$attr}++; }
-	for my $attr (qw()) { $wfields{$attr}++; }
-
-	$_[0]->_autoload(\%rfields, \%wfields);
-}
 
 1;
