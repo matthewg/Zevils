@@ -26,7 +26,7 @@ EOF
 ;
 
 use strict;
-use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away);
+use vars qw(%specifications @ignorehosts $ignoreuhosts @uhosts @qlines $nickservers $oldnick $confversion $usercount $maxusers $chatseq $oscarprime $home $version $VERSION @args $prefix $nickchan $chatchan $usnick $us $them $themport $ourpass $theirpass $servermode $time $user_loglevel @default_conffiles $fork $verbose $sendidle $oscarserver $oscarport %dcc $shortcircuit @conffiles $debug %debuglevel $dccip %ircservers $dcc $reload $upstream $aim_connections $irc_connections $imircdebug $longnicks @dccqueue $lasttime $checktime $keepalive $themname $nicks $shortnicks %chantimer %chats %dccget %debug $irc_away $license @getbuff $numeric $starttime $away $require_qlines);
 
 
 # DCC states
@@ -127,6 +127,7 @@ $oscarport = 5190;
 $dcc = 1;
 $shortcircuit = 1;
 $numeric = num2base64(42);
+$require_qlines = 1;
 $debug = 0;
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
@@ -290,8 +291,9 @@ sub loadconf() {
 		"chatchan=s" => \$chatchan,
 		"nickchan=s" => \$nickchan,
 		"oldnick=s" => \$oldnick,
-		"ignoreuhosts" => \$ignoreuhosts,
-		"ignorehosts" => \@ignorehosts,
+		"ignoreuhosts=s" => \$ignoreuhosts,
+		"ignorehosts=s\@" => \@ignorehosts,
+		"require_qlines:i" => \$require_qlines
 	);
 
 	if(!$errors) {
@@ -443,7 +445,10 @@ sub mainloop() {
 		$longnicks->{'#imirc-debug'} = '#imirc-debug';
 
 		@uhosts = ();
-		irc_send(irc_stats($usnick, "U"));
+		irc_send(irc_stats($usnick, "U")) if $ignoreuhosts;
+
+		@qlines = ();
+		irc_send(irc_stats($usnick, "Q")) if $require_qlines;
 
 		while(1 == 1) {
 			exit(255) unless $upstream;
@@ -1708,6 +1713,32 @@ sub process_irc_message($) {
 		irc_send(irc_pong($1));
 	} elsif(/^248 +$usnick +U +(\S+)/) { # STATS U reply
 		push @uhosts, $1;
+		debug_print("Got U: host $1", "irc", 1);
+	} elsif(/^217 +$usnick +Q +(?:\S+) +(?:\S+) +(\S+)/) { # STATS Q reply
+		push @qlines, $1;
+		debug_print("Got Q: line $1", "irc", 1);
+	} elsif(/^219 +$usnick +Q/) { # End of STATS Q
+		my($qusnick, $qoldnick, $qprefix);
+
+		$qusnick = grep { globmatch($usnick, $_) } @qlines;
+		$qoldnick = grep { globmatch($oldnick, $_) } @qlines if $oldnick;
+
+		# Make sure we've Q:'s $prefix*, not just $prefix
+		$qprefix = grep { globmatch($prefix.$$, $_) } @qlines;
+
+		my @needqs = ();
+		push @needqs, $usnick if !$qusnick;
+		push @needqs, $oldnick if $oldnick and !$qusnick;
+		push @needqs, "$prefix*" if !$qprefix;
+		
+		my $needqs = join(", ", @needqs);
+		if(@needqs) {
+			print STDERR "You must add Q: lines for $needqs; see README for details.\n";
+			print STDERR "To disable this check, set the \$require_qlines parameter to 0 in your IMIRC configuration file.\n";
+			print STDERR "Doing this without having some other way of preventing people from using these nicks is a *SERIOUS SECURITY PROBLEM!*\n";
+			exit 255;
+		}
+		debug_print("All necessary Q: lines are in place.", "irc", 1);
 	}
 }
 
@@ -3253,15 +3284,21 @@ sub ignorenick($) {
 	if(@ignorehosts) {
 		my $server = $nickservers->{$nick};
 		foreach my $globhost(@ignorehosts) {
-			# Transform glob into regex
-			my $host = $globhost;
-			$host =~ s/\.]/\\./g;
-			$host =~ s/\?/./g;
-			$host =~ s/\*/.*/g;
-
-			return 1 if $server =~ /$host/i;
+			return 1 if globmatch($server, $globhost);
 		}
 	}
 
+	return 0;
+}
+
+# Returns true iff $_[0] matches $_[1] as an IRC glob
+sub globmatch($$) {
+	my($string, $glob) = @_;
+	# Transform glob into regex
+	$glob =~ s/\.]/\\./g;
+	$glob =~ s/\?/./g;
+	$glob =~ s/\*/.*/g;
+
+	return 1 if $string =~ /$glob/i;
 	return 0;
 }
