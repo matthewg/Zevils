@@ -3080,12 +3080,14 @@ sub loadbuddies($$$) {
 			if(ref($data->{Buddy}->{list}->{$group})) {
 				irc_send(irc_privmsg($usnick, "matthewg", "Doing $group"));
 
-				my $buddygroup = $data->{Buddies}->{list}->{$group};
+				my $buddygroup = $data->{Buddy}->{list}->{$group};
 				my @buddies;
 				if(ref($buddygroup) eq "HASH") {
 					@buddies = keys %$buddygroup;
-				} else {
+				} elsif(ref($buddygroup) eq "ARRAY") {
 					@buddies = @$buddygroup;
+				} else {
+					next;
 				}
 				@{$buddies{$group}} = @buddies;
 
