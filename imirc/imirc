@@ -1939,12 +1939,14 @@ sub callback_vars($) {
 	my $screenname = $oscar->screenname;
 	my $nick = $irc_connections->{$screenname};
 	my $sndata = $aim_connections->{$nick}->{screennames}->{$screenname} if exists($aim_connections->{$nick}) and exists($aim_connections->{$nick}->{screennames});
+
+	return () unless $nick;
 	return($screenname, $nick, $sndata);
 }
 
 sub oscar_error($$$$$) {
 	my($oscar, undef, $errno, $desc, $fatal) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	debug_print("Got oscar_error $errno: $desc ($fatal)", "irc", 2);
 	irc_send(irc_privmsg($usnick, $nick, "Error $errno: $desc", "", "", $screenname));
@@ -1953,7 +1955,7 @@ sub oscar_error($$$$$) {
 
 sub oscar_rate_alert($$$$$) {
 	my($oscar, $level, $clear, $window, $worrisome) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	return unless $worrisome;
 	irc_send(irc_privmsg($usnick, $nick, "You're sending too fast!  Slow down!  We've been given a $level warning.", "", "", $screenname));
@@ -1963,7 +1965,7 @@ sub oscar_rate_alert($$$$$) {
 
 sub oscar_admin_error($$$$) {
 	my($oscar, $reqtype, $error, $url) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Your $reqtype request has failed: $error.", "", "", $screenname));
 	irc_send(irc_privmsg($usnick, $nick, "See $url for more information.", "", "", $screenname)) if $url;
@@ -1971,14 +1973,14 @@ sub oscar_admin_error($$$$) {
 
 sub oscar_admin_ok($$) {
 	my($oscar, $reqtype) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Your $reqtype request has succeeded.", "", "", $screenname));
 }
 
 sub oscar_chat_closed($$$) {
 	my($oscar, $chat, $error) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 	my $chatid = $chat->{chat_id};
 
 	irc_send(irc_privmsg($usnick, $nick, "Your connection to chat ".$chat->name." was closed: $error", "", "", $screenname));
@@ -1991,7 +1993,7 @@ sub oscar_chat_closed($$$) {
 
 sub oscar_buddy_in($$$$) {
 	my($oscar, $buddy, $group, $buddat) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_newnick($prefix . $buddy));
 	my $inick = aimnick($buddy, $screenname);
@@ -2044,7 +2046,7 @@ sub oscar_buddy_in($$$$) {
 
 sub oscar_chat_buddy_in($$$$) {
 	my($oscar, $buddy, $chat, $buddat) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 	return if $buddy eq $screenname;
 	my($chatid) = grep {
 		$chats{$_}->{url} eq $chat->url
@@ -2066,7 +2068,7 @@ sub oscar_chat_buddy_in($$$$) {
 
 sub oscar_buddy_out($$$) {
 	my($oscar, $buddy, $group) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	delete $away->{$buddy};
 	my $inick = aimnick($buddy, $screenname);
@@ -2080,7 +2082,7 @@ sub oscar_buddy_out($$$) {
 
 sub oscar_chat_buddy_out($$$) {
 	my($oscar, $buddy, $chat) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	my $inick = aimnick($buddy, $screenname);
 	my $chatid = $chat->{chat_id};
@@ -2091,7 +2093,7 @@ sub oscar_chat_buddy_out($$$) {
 
 sub oscar_im_in($$$$) {
 	my($oscar, $from, $msg, $away) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	my $notice = 0;
 	my $ctcp = 0;
@@ -2140,7 +2142,7 @@ sub oscar_im_in($$$$) {
 
 sub oscar_chat_im_in($$$$) {
 	my($oscar, $from, $chat, $msg) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	my $inick = aimnick($from, $screenname);
 	my $chatid = $chat->{chat_id};
@@ -2156,7 +2158,7 @@ sub oscar_chat_im_in($$$$) {
 
 sub oscar_chat_invite($$$$$) {
 	my($oscar, $from, $msg, $chat, $chaturl) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	my $chatid = ++$chatseq;
 	$chats{$chatid} = {
@@ -2177,7 +2179,7 @@ sub oscar_chat_invite($$$$$) {
 
 sub oscar_chat_joined($$$) {
 	my($oscar, $chatname, $chat) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	my($chatid) = grep { $chats{$_}->{url} eq $chat->url and $chats{$_}->{screenname} eq $oscar->screenname} keys %chats;
 	$chatid ||= ++$chatseq;
@@ -2206,7 +2208,7 @@ sub oscar_chat_joined($$$) {
 
 sub oscar_evil($$$) {
 	my($oscar, $evil, $from) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	$from ||= "Anonymous";
 	irc_send(irc_privmsg($usnick, $nick, "$from has warned you.  Your new warn level is $evil%.", "", "", $screenname));
@@ -2214,7 +2216,7 @@ sub oscar_evil($$$) {
 
 sub oscar_buddy_info($$$) {
 	my($oscar, $buddy, $buddat) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 
 	if($buddat->{awaymsg}) {
@@ -2260,7 +2262,7 @@ sub oscar_buddy_info($$$) {
 
 sub oscar_signon_done($) {
 	my($oscar) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "You are now connected to AOL Instant Messenger as $screenname.", "", "", $screenname));
 	irc_send(irc_privmsg($usnick, $nick, "The email address registered to this account is ".$oscar->email.".  Use the change_email command if this is not your current email address.", "", "", $screenname));
@@ -2311,14 +2313,14 @@ sub oscar_signon_done($) {
 
 sub oscar_buddylist_error($$$) {
 	my($oscar, $error, $what) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Error $error occured while $what on your buddylist.", "", "", $screenname));
 }
 
 sub oscar_buddylist_ok($) {
 	my($oscar) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_privmsg($usnick, $nick, "Your configuration (buddylist, etc.) was successfully modified.", "", "", $screenname));
 }
@@ -2332,7 +2334,7 @@ sub oscar_connection_changed($$$) {
 
 sub oscar_auth_challenge($$$) {
 	my($oscar, $challenge, $hashstr) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	irc_send(irc_ctcp($usnick, $nick, "OSCAR_AUTH $challenge $hashstr"));
 	irc_send(irc_privmsg($usnick, $nick, "We received the authentication challenge: $challenge", "", "", $screenname));
@@ -2343,7 +2345,7 @@ sub oscar_auth_challenge($$$) {
 
 sub oscar_log($$$) {
 	my($oscar, $level, $msg) = @_;
-	my($screenname, $nick, $sndata) = callback_vars($oscar);
+	my($screenname, $nick, $sndata) = callback_vars($oscar) or return;
 
 	debug_print($msg, "oscar", 1) if $debug and $level <= $debuglevel{oscar};
 	irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname)) if $level <= $sndata->{loglevel};
@@ -2862,6 +2864,8 @@ sub timestuff($) {
 	} else {
 		$keepalive = 1;
 	}
+
+	kill_phantoms();
 }
 
 # Signoff all screennames for a particular IRCnick
@@ -3679,6 +3683,8 @@ sub did_quit($) {
 		splice(@dccqueue, $i, 1);
 	}
 	do_signoff_all($nick) if $aim_connections->{$nick};
+
+	kill_phantoms();
 }
 
 # We need to know $themname in order to check stats...
@@ -3749,5 +3755,14 @@ sub io_events($$;$) {
 		vec($select_rd, $fileno, 1) = $read;
 		vec($select_wr, $fileno, 1) = $write;
 		$select_err = $select_rd | $select_wr;
+	}
+}
+
+sub kill_phantoms() {
+	while(my($handle, $associate) = each %fdmap) {
+		next unless UNIVERSAL::isa("Net::OSCAR::Connection", $associate);
+		next if grep {$_ eq $associate->session->screenname} keys %$irc_connections;
+		$associate->session->signoff;
+		io_event($handle, "deleted");
 	}
 }
