@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+sub BEGIN {
+	my $home = (getpwuid($>))[7];
+	push @INC, "$home/.cpan";
+}
+
+use strict;
+use warnings;
+use CPAN;
+use CPAN::MyConfig;
+use File::Basename;
+
+my $dirname = dirname($0);
+chomp($dirname = `pwd`) if $dirname eq ".";
+push @INC, $dirname;
+
+$CPAN::Config->{makepl_arg} = "LIB=$dirname INSTALLMAN1DIR=/tmp INSTALLMAN3DIR=/tmp" if $> != 0;
+$CPAN::Config->{prerequisites_policy} = "follow";
+
+foreach my $mod (qw(HTML::FormatText HTML::Parse LWP::Simple Net::OSCAR)) {
+	my $obj = CPAN::Shell->expand('Module', $mod);
+	next if $obj->inst_version() and $mod ne "Net::OSCAR";
+	print "Installing $mod...\n";
+	$obj->install;
+}
+
+print "All modules installed!\n";
