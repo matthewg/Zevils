@@ -47,10 +47,11 @@ sub next_num($$;$) {
 		$self->sqlUpdate("sections", {next_snum => $snum->[0]->[0] + 1}, "section=".$self->sqlQuote($section));
 		return $snum->[0]->[0];
 	} elsif($type eq "cnum") {
-		my $sid = $what;
-		my $cnum = $self->sqlSelectAll("next_cnum", "stories", "sid=".$self->sqlQuote($sid));
+		my $id = $what;
+
+		my $cnum = $self->sqlSelectAll("next_cnum", "discussions", "id=$id");
 		return undef unless $cnum;
-		$self->sqlUpdate("stories", {next_cnum => $cnum->[0]->[0] + 1}, "sid=".$self->sqlQuote($sid));
+		$self->sqlUpdate("discussions", {next_cnum => $cnum->[0]->[0] + 1}, "id=$id");
 		return $cnum->[0]->[0];
 	}
 }

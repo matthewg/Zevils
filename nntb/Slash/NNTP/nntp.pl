@@ -21,16 +21,17 @@ $task{$me}{code} = sub {
 		return;
 	}
 
-	messagedLog("$me begin");
+	nntpLog("$me begin");
 
-	my $where = "displaystatus != -1";
+	my $where = "stories.sid = discussions.sid";
+	$where .= " AND displaystatus != -1";
 	$where .= " AND (ISNULL(section_snum) OR (displaystatus = 0 AND ISNULL(snum)))";
 	$where .= " AND time < NOW()";
 
 	my $stories = $slashdb->sqlSelectAllHashref(
-		"sid",
-		"sid, section, displaystatus, snum, section_snum",
-		"stories",
+		"id",
+		"id, stories.section, displaystatus, snum, section_snum",
+		"discussions, stories",
 		$where,
 		"ORDER BY time"
 	);
@@ -42,30 +43,38 @@ $task{$me}{code} = sub {
 		$values{snum} = $nntp->next_num("snum") if $story->{displaystatus} == 0 and !$story->{snum};
 
 		next unless keys %values;
-		$slashdb->sqlUpdate("stories", \%values, "sid=".$slashdb->sqlQuote($story->{sid}));
+		nntpLog("Updating story $story->{sid}");
+		$slashdb->sqlUpdate("discussions", \%values, "id=$story->{id}");
 		$storycount++;
 	}
 
-	my $comments = $slashdb->sqlSelectAll(
+	my $comments = $slashdb->sqlSelectAllHashref(
 		"cid",
+		"cid, sid",
 		"comments",
 		"ISNULL(cnum)",
 		"ORDER BY sid, cid"
 	);
 
 	my $commentcount = 0;
-	foreach my $comment (@$comments) {
-		my $cid = $comment->[0];
-		$slashdb->sqlUpdate("comments", {cnum => $nntp->next_num("cnum", $cid)}, "cid=$cid");
+	foreach my $comment (values %$comments) {
+		nntpLog("Updating comment $comment->{cid} (SID $comment->{sid})");
+		$slashdb->sqlUpdate("comments", {cnum => $nntp->next_num("cnum", $comment->{sid})}, "cid=$comment->{cid}");
 		$commentcount++;
 	}
 
-	messagedLog("$me end");
+	nntpLog("$me end");
 	if ($storycount || $commentcount) {
 		return "updated NNTP information for $storycount stories and $commentcount comments";
 	} else {
 		return ;
 	}
 };
+
+my $errsub = sub {
+	doLog('nntp', \@_);
+};
+
+*nntpLog = $errsub unless defined &nntpLog;
 
 1;
