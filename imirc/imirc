@@ -2560,11 +2560,11 @@ sub irc_recv(;$) {
 				$buff = "$incbuff$buff";
 				undef $incbuff;
 			}
-			unless($buff =~ /\n$/) {
+			unless($buff =~ /[\r\n]{1,2}$/) {
 				$idx = rindex($buff, "\n") + 1;
 				$incbuff = substr($buff, $idx, length($buff) - $idx + 1, "");
 			}
-			push @getbuff, split(/[\r\n]+/, $buff);
+			push @getbuff, split(/[\r\n]{1,2}/, $buff);
 			#print STDERR "Getbuff is " . join("\n", @getbuff);
 			#print STDERR "\n";
 		}
