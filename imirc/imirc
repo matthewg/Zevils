@@ -93,7 +93,7 @@ sub BEGIN {
 		Net::OSCAR->import(qw(:standard normalize));
 	};
 
-	$@ .= "We require Net::OSCAR 0.05 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.05;
+	$@ .= "We require Net::OSCAR 0.06 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.05;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
