@@ -445,8 +445,8 @@ sub signon($$&;&) {
 	}
 	$config = str2conf($msg);
 	$msg =~ s/^CONFIG://;
-	$config{gotconf} = 1 if $msg;
 	$config{$username} = $config;
+	$config{$username}{gotconf} = 1 if $msg;
 	$config{$username}{permtype} = $config->{permtype};
 
 	_setup($socket);
