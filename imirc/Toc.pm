@@ -287,9 +287,9 @@ sub signon($$&;&) {
 
 	debug_print("$username has established a connection to toc.oscar.aol.com", "signon", 2);
 	if($socket->isa("IO::Socket::SSL")) {
-		debug_print("SSL cipher: $socket->get_cipher", "SSL", 2);
-		debug_print("SSL cert: $socket->get_peer_certificate->subject_name", "SSL", 2);
-		debug_print("SSL CA: $socket->get_peer_certificate->issuer_name", "SSL", 2);
+		debug_print("SSL cipher: " . $socket->get_cipher, "SSL", 2);
+		debug_print("SSL cert: " . $socket->get_peer_certificate->subject_name, "SSL", 2);
+		debug_print("SSL CA: " . $socket->get_peer_certificate->issuer_name, "SSL", 2);
 	}
 
 	${*$socket}{'net_toc_username'} = $username;
