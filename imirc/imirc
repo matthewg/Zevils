@@ -226,6 +226,7 @@ sub irc_privmsg {
 sub irc_newnick {
 	my($nick, $user, $string) = shift;
 	($user = $nick) =~ s/^$prefix//;
+	$nick = substr($nick, 0, $ircservers{$servermode}{nicklen} if length $nick > $ircservers{$servermode}{nicklen};
 	$string = irc_subparms($ircservers{$servermode}{nick}, $user, $nick);
 	$string .= ":$nick MODE $nick +i\r\n";
 	return $string;
