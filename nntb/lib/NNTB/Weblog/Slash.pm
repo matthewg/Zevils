@@ -20,6 +20,8 @@ sub new($;@) {
 	my %params = @_;
 	my @params = qw(datadir slashsites slashsite);
 
+	$self->log("Creating new NNTB::Weblog::Slash...", LOG_NOTICE);
+
 	($self->{map { "slash_$_" } @params}) = delete $params{@params};
 	croak "Unknown Slash weblog options: " . join(", ", keys %params) if keys %params;
 	$self->{slash_datadir} ||= "/usr/local/slash";
@@ -46,6 +48,8 @@ sub new($;@) {
 	$self->{slash_nntp} = getObject("Slash::NNTP") or croak "Couldn't get Slash::NNTP - is the NNTP plugin installed for $self->{slash_slashsite}?";
 
 	$self->{root} ||= $self->groupname("slash." . lc($self->{slash_db}->getVar("sitename", "value")));
+
+	$self->log("Created NNTB::Weblog::Slash: root=$self->{root}", LOG_NOTICE);
 
 	return $self;
 }
@@ -117,7 +121,8 @@ sub num2id($$$) {
 		}
 	}
 
-	return $self->form_msgid($idid, $format, $idtype);
+	my $msgid = $self->form_msgid($idid, $format, $idtype);
+	$self->log("num2id: $group.$msgnum -> $msgid", LOG_NOTICE);
 }
 
 # Parses a group, returning:
@@ -185,6 +190,7 @@ sub consume_subscription($) {
 	my($self) = @_;
 
 	return unless $self->{slash_db}->getDescriptions("plugins")->{Subscribe} and $self->{slash_db}->getVar("nntp_force_auth", "value") > 1;
+	$self->do_log("Yum yum, subscriptions are delicious!", LOG_NOTICE);
 	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
 }
 
@@ -461,9 +467,11 @@ sub article($$$;@) {
 sub auth($$$) {
 	my($self, $user, $pass) = @_;
 
+	$self->do_log("Authenticating $user...", LOG_NOTICE);
 	my($uid) = $self->{slash_db}->getUserAuthenticate($self->{slash_db}->getUserUID($user), $pass);
 	return 0 unless $uid;
 	$self->{slash_user} = $self->{slash_db}->getUser($uid);
+	$self->do_log("User authenticated!", LOG_NOTICE);
 	return 1;
 }
 
@@ -472,6 +480,8 @@ sub post($$$) {
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
 	my $journal_obj;
+
+	$self->do_log("Posting an article...", LOG_NOTICE);
 
 	my $uid = $self->{slash_user}->{uid};
 	$uid = $self->{slash_constants}->{anonymous_coward_uid} if
@@ -561,6 +571,8 @@ sub post($$$) {
 		$subnetid =~ s/^(\d+\.\d+\.\d+)\.\d+$/$1.0/;
 		$subnetid = md5_hex($subnetid);
 
+		$self->do_log("Posting comment: SID=$sid, PID=$pid, CNUM=$nntp_cnum", LOG_NOTICE);
+
 		my $comment = {
 			sid => $sid,
 			pid => $pid,
@@ -580,6 +592,8 @@ sub post($$$) {
 		my $topic = $head->{"x-slash-topic"} || "journal";
 		my($tid) = grep { $_->{name} eq $topic } $self->{slash_db}->getTopics();
 		$tid ||= grep { $_->{name} eq "journal" } $self->{slash_db}->getTopics();
+
+		$self->do_log("Posting journal", LOG_NOTICE);
 
 		my $jid = $journal_obj->create(
 			$subject,
@@ -603,6 +617,8 @@ sub post($$$) {
 			
 
 		if($journal_comments) {
+			$self->do_log("Creating journal discussion: JID=$jid", LOG_NOTICE);
+
 			my $did = $self->{slash_db}->createDiscussion({
 				title => $subject,
 				topic => $tid,
