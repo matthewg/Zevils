@@ -28,7 +28,7 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 require "/etc/aimirc.conf" if -r "/etc/aimirc.conf";
 require "$home/.aimirc" if -r "$home/.aimirc";
 
-$version = "0.25";
+$version = "0.80";
 
 @args = @ARGV;
 
