@@ -1,3 +1,9 @@
+Mar 20 2000, 0.95-pre3:
+	Bugfixes by the barrelfull
+	We now send keepalive packets and (optionally, by default) idle times
+	Chatroom channels are 90% there (DON'T DEOP AIMServ!!)
+	Support for IRC version command
+
 Mar 12 2000, 0.95-pre0:
 	Tremendous amounts of improvements in this release.
 	Stability, bugfixes...
