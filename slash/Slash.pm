@@ -4,6 +4,7 @@ use vars qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection 
 use DBI;
 use Carp;
 
+
 sub BEGIN {
 	use Exporter   ();
 	use vars       qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);      
