@@ -2696,7 +2696,7 @@ sub loadbuddies($$$) {
 			@{$buddies{$group}} = keys %{$data->{Buddy}->{list}->{$group}};
 			foreach my $buddy(keys %{$data->{Buddy}->{list}->{$group}}) {
 				#irc_send(irc_privmsg($usnick, $irc_connections->{$oscar->screenname}, "Got $group/$buddy", "", "", $oscar->screenname));
-				next unless exists($data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote});
+				next unless ref($data->{Buddy}->{list}->{$group}->{$buddy}) eq "HASH";
 				$bnotes{$buddy} = $data->{Buddy}->{list}->{$group}->{$buddy}->{BuddyNote}->{NoteString};
 			}
 		}
