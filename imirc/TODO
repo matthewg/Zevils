@@ -1,8 +1,6 @@
 ===Try to do these before 0.95===
 
-Have AIM chats appear as IRC chatrooms.
-
-Support for using SSL on the AIM connections.
+Have AIM chats appear as IRC chatrooms.  <--90% done, must fix "-o AIMServ" bug
 
 ===Wait until after 0.95===
 
