@@ -1,3 +1,9 @@
+Nov 26 2001, 1.5-pre4
+	*Many, many, _many_ bugfixes
+	*Works with 5.005 again and even 5.004 now
+	*'stats version' command
+	*loadbuddies actually works (although the new clonebuddies doesn't)
+
 Aug 15 2001, 1.5-pre3
 	*Fixes important security flaw related to getting away messages.
 	*Fixes problem with crashing on signon
