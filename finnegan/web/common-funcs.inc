@@ -305,7 +305,7 @@ function pin_ok($extension, $pin, $newpin = 0) {
 				}
 
 				echo $TEMPLATE["no_pin"];
-				if($FinneganConfig->testmode) echo "<p>(But since we're in teseting mode, I'll just tell you that the PIN is $pin.)</p>\n";
+				if($FinneganConfig->nocalls) echo "<p>(But since we're not making calls, I'll just tell you that the PIN is $pin.)</p>\n";
 				log_ext($extension, "auth", "failure", "gen_pin");
 			}
 			$extension_ok = 0;

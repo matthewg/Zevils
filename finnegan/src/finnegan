@@ -471,7 +471,7 @@ sub make_call($$) {
 		log_debug("Done with samples.");
 
 
-		if($Finnegan::Config::testmode) {
+		if($Finnegan::Config::nocalls) {
 			log_debug("Output sample is in ../tmp/$$.rmd");
 			if($type eq "wake") {
 				if($row->{date}) {

@@ -14,7 +14,8 @@ class FinneganConfig {
 
 
 # Miscellaneous settings
-$testmode = 1; # Turn this off for production servers!  It stops phone calls from being made and allows one to force authentication success.
+$debug = 1;
+$nocalls = 1;
 $emergency_contacts = array(); # Email these people if there's a problem with the daemon
 $forbidden_extensions = array("62000", "62222", "63000", "63333", "65000");
 
