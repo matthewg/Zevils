@@ -1167,6 +1167,7 @@ sub process_irc_message($$) {
 					$msg .= "Status: \t$buddyconf->{extended_status}\r\n" if $buddyconf->{extended_status};
 					$msg .= "Alias: \t$buddyconf->{alias}\r\n" if $buddyconf->{alias};
 					$msg .= "Comment: \t$buddyconf->{comment}\r\n" if $buddyconf->{comment};
+					$msg .= "Icon: \tPresent\r\n" if $buddyconf->{icon_md5sum};
 
 					$msg .= "User Class: \t";
 					$msg .= " TRIAL" if $buddyconf->{trial};
@@ -2300,6 +2301,10 @@ sub oscar_buddy_info($$$) {
 		my $msg = "Info for $buddat->{screenname}\r\n";
 		$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
 		$msg .= "Idle Time: \t".(sprintf "%.1f", $buddat->{idle}/60)." minutes\r\n";
+		$msg .= "Status: \t$buddat->{extended_status}\r\n" if $buddat->{extended_status};
+		$msg .= "Alias: \t$buddat->{alias}\r\n" if $buddat->{alias};
+		$msg .= "Comment: \t$buddat->{comment}\r\n" if $buddat->{comment};
+		$msg .= "Icon: \tPresent\r\n" if $buddat->{icon_md5sum};
 
 		$msg .= "User Class: \t";
 		$msg .= " TRIAL" if $buddat->{trial};
@@ -2316,6 +2321,9 @@ sub oscar_buddy_info($$$) {
 			$msg .= "---------------------\r\n";
 			$msg .= join("\r\n", html2txt($buddat->{profile}, $nick));
 		}
+
+
+
 		irc_send(irc_privmsg($usnick, $nick, $msg, "", "", $screenname));
 	}
 }
