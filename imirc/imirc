@@ -241,7 +241,9 @@ sub loadconf() {
 	foreach $conffile(@conffiles) {
 		$conffile =~ s/~/$home/;
 		print STDERR "Trying to read config file $conffile\n" if $verbose;
-		if(-r $conffile) {
+		if(-d $conffile) {
+			print STDERR "$conffile is a directory!\n";
+		} elsif(-r $conffile) {
 			print STDERR "Reading config file $conffile\n" if $verbose;
 			$confversion = 0;
 			do $conffile;
@@ -252,8 +254,10 @@ sub loadconf() {
 			} else {
 				$foundconfig = 1;
 			}
+		} elsif(-e $conffile) {
+			print STDERR "Couldn't read config file $conffile\n";
 		} else {
-			print STDERR "Couldn't read config file $conffile\n" if $verbose;
+			print STDERR "$conffile does not exist\n" if $verbose;
 		}
 	}
 
