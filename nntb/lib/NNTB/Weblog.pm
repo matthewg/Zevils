@@ -397,10 +397,10 @@ sub articles($$;$) { return undef; }
 This method should return the indicated article.  C<TYPE> will
 be one of "article", "head", or "body", indicating which portion of 
 the article to return.  If C<TYPE> is "head", C<HEADERS> may be a list of
-which headers to return; return only those headers if C<HEADERS> is present,
-otherwise return all headers.  The headers should be returned as a a hash
-whose keys are the names of the headers in lower-case and whose values are
-their values.
+which headers to return; you only need to return those headers if C<HEADERS>
+is present (but you may return others), otherwise return all headers.  The
+headers should be returned as a a hash whose keys are the names of the
+headers in lower-case and whose values are their values.
 
 The return value of this method is a list whose first element is 1 (indicating
 success), whose second element is the body of the message, and whose third
@@ -520,8 +520,8 @@ undef if there is no next/previous message.
 =item msgnums GROUP MIN MAX
 
 This method is similar to the previous two methods; it should return
-a list of valid message numbers within the given range.  Return the
-empty list if there are no messages within the range.
+a sorted list of valid message numbers within the given range.
+Return the empty list if there are no messages within the range.
 
 =cut
 
