@@ -126,7 +126,7 @@ $SIG{__DIE__}  = sub { croak $_[0] };
 $SIG{PIPE} = 'IGNORE';
 
 $home = (getpwuid($>))[7];
-$version = $VERSION = '1.6';
+$version = $VERSION = '1.6-CVS $Revision$';
 
 @args = @ARGV;
 
