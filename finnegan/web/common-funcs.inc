@@ -260,10 +260,15 @@ function pin_ok($extension, $pin, $newpin = 0) {
 	if(!preg_match('/^[0-9]{1,4}$/', $pin)) {
 		if(!$newpin) {
 			if(!$pin) {
-				echo $TEMPLATE["viewcalls_start_noext"];
-				echo $TEMPLATE["no_pin"];
-				$extension_ok = 0;
-				do_end();
+				if(!(isset($_POST["op"]) && $_POST["op"] == "Set PIN")) {
+					echo $TEMPLATE["viewcalls_start_noext"];
+					echo $TEMPLATE["no_pin"];
+					$extension_ok = 0;
+					do_end();
+				} else {
+					$extension_ok = 1;
+					return 1;
+				}
 			} else {
 				echo $TEMPLATE["pin_invalid"];
 				$error = "pin_invalid";
