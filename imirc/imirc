@@ -1125,9 +1125,9 @@ sub process_irc_message($) {
 		} else {
 			irc_send(irc_privmsg($usnick, $nick, "Unknown command - /msg $usnick help for help."));
 		}
-	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $2 (where $2 ne $usnick)
+	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
-		$recipient = normalize($2);
+		$recipient = normalize($1);
 
 		if($recipient eq "#aimirc-debug" and $debug) {
 			$msg =~ s/^(aimserv)\S*\s+//;
