@@ -1098,9 +1098,8 @@ sub process_irc_message {
 			chat_send($aim_connections{$nnick}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
-				$target = $longnicks{normalize($target)};
 				message($aim_connections{$nnick}{socket}, $target, $msg);
-				$nicks{noprefix $target}{$nnick} = time if $nicks{noprefix $target}{$nnick} != -1;
+				$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
 			}
@@ -1547,8 +1546,8 @@ sub irc_recv() {
 				undef $incbuff;
 			}
 			unless($buff =~ /\n$/) {
-				$incbuf = substr($buff, rindex($buff, "\n") + 1, length $buff, "");
-				#print STDERR "incbuf is $incbuff\n";
+				$idx = rindex($buff, "\n") + 1;
+				$incbuf = substr($buff, $idx, length $buff - $idx + 1, "");
 			}
 			push @getbuff, split(/[\r\n]+/, $buff);
 			#print STDERR "Getbuff is " . join("\n", @getbuff);
