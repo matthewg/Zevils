@@ -224,33 +224,25 @@ sub loaddat($) {
 
 	$screenname = safename $screenname;
 
-	Toc::debug_print("loaddat($screenname)", "IRC", 3);
-
 	#Who needs subroutines when you've got copy and paste?
 	#Incidentally, this is what I mean by that "code cleanup" item in TODO
 	#But would a trillion tiny functions be any cleaner?
 	#Oh well - who reads this anyway?
 	if((-d $directory and -r $directory) or mkdir($directory, 0700)) {
 		local $/ = undef;
-		Toc::debug_print("buddylists", "IRC", 3);
 		if($savebuddies and -r "$directory/buddylists/$screenname") {
-			Toc::debug_print("buddylists OK", "IRC", 3);
 			open(BUDDYLIST, "<$directory/buddylists/$screenname");
 			$buddylists{$screenname} = <BUDDYLIST>;
 			close BUDDYLIST;
 		}
 
-		Toc::debug_print("profiles", "IRC", 3);
 		if($saveprofiles and -r "$directory/profiles/$screenname") {
-			Toc::debug_print("profiles OK", "IRC", 3);
 			open(PROFILE, "<$directory/profiles/$screenname");
 			$profiles{$screenname} = <PROFILE>;
 			close BUDDYLIST;
 		}
 
-		Toc::debug_print("pounces", "IRC", 3);
 		if($savepounces and -r "$directory/pounces/$screenname") {
-			Toc::debug_print("pounces OK", "IRC", 3);
 			open(POUNCE, "<$directory/pounces/$screenname");
 			$pounces = <POUNCE>;
 			close POUNCE;
@@ -827,7 +819,7 @@ sub process_irc_message($) {
 			irc_send(irc_join($usnick, "#aimirc-$screenname"));
 			irc_send(irc_mode($us, "#aimirc-$screenname", "+o $usnick"));
 			irc_send(irc_mode($usnick, "#aimirc-$screenname", "-o $nick"));
-			$chantimer{"#aimirc-$screenname"} = time;
+			irc_send(irc_mode($usnick, "#aimirc-$screenname", "+ints"));
 			foreach $dude(keys %nicks) {
 				next unless $nicks{$dude}{$screenname};
 				irc_send(irc_join("$prefix$dude", "#aimirc-$screenname"));
