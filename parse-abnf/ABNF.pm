@@ -347,7 +347,7 @@ sub add_ruleparse($$$;$) {
 	my @saverules;
 
 	$rulename = ${*$intoks} if ref($intoks) eq "GLOB";
-	print tabify("$rulename\n") if $rulename;
+	#print tabify("$rulename\n") if $rulename;
 	if($rulename eq "char-val") { #strip surrounding ""
 		shift @intoks;
 		pop @intoks;
@@ -368,7 +368,8 @@ sub add_ruleparse($$$;$) {
 			$self->add_ruleparse($rule, $intok, $rulename);
 		} else {
 			if($rulename eq "rulename" or $rulename eq "group" or $rulename eq "option" or $rulename =~ /(char|bin|dec|hex)-val/) {
-				my $type;
+				my ($type, $minreps, $maxreps, $rulebak);
+
 				if($rulename eq "char-val") {
 					$type = OP_TYPE_CHARVAL;
 				} elsif($rulename =~ /val$/) {
@@ -376,82 +377,128 @@ sub add_ruleparse($$$;$) {
 				} else {
 					$type = OP_TYPE_OPS;
 				}
-				if(exists($rule->{value}) and $rule->{type} != $type) { 
-					my $newval = {
-						mode => $rule->{mode},
-						type => $rule->{type},
-						value => $rule->{value}
-					};
-					$newval->{minreps} = $rule->{minreps} if exists $rule->{minreps};
-					$newval->{maxreps} = $rule->{maxreps} if exists $rule->{maxreps};
-					$rule->{value} = [$newval];
-					delete $rule->{mode};
-				}
-				$rule->{type} = $type;
+
 				if($self->{nextalt}) {
 					if(scalar(@{$rule->{value}}) > 1 and $rule->{mode} != OP_MODE_ALTERNATOR) { #Something like foo bar / baz
 						my $newval = {
 							mode => OP_MODE_ALTERNATOR,
 							type => $rule->{type},
-							value => [pop @{$rule->{value}}, $intok]
+							value => [pop @{$rule->{value}}]
 						};
 						push @{$rule->{value}}, $newval;
+						$rulebak = $rule;
+						$rule = $newval;
 					} else {
 						$rule->{mode} = OP_MODE_ALTERNATOR;
-						push @{$rule->{value}}, $intok;
 					}
 					delete $self->{nextalt};
 				}
 				$rule->{mode} ||= OP_MODE_AGGREGATOR;
+
 				if($self->{nextrep}) {
 					$self->{nextrep} =~ /(\d*)\*?(\d*)/;
-					$rule->{minreps} = $1 || 0;
-					$rule->{maxreps} = $2 || -1;
-					delete $self->{nextrep};
-				} elsif($rulename eq "option") {
+					$minreps = $1 || 0;
+					$maxreps = $2 || -1;
+				}
+
+				if($rulename eq "option") {
 					if($intok eq "[") {
-						$rule->{minreps} = 0;
-						$rule->{maxreps} = 1;
+						delete $self->{nextrep};
 						push @saverules, $rule;
 						$rule = {};
+						$rule->{minreps} = 0;
+						$rule->{maxreps} = 1;
 						push @{$saverules[-1]->{value}}, $rule;
 					} else {
 						$rule = pop @saverules;
 					}
 				} elsif($rulename eq "group") {
-					if($intok eq ")") {
+					if($intok eq "(") {
 						push @saverules, $rule;
 						$rule = {};
+						if($self->{nextrep}) {
+							$rule->{minreps} = $minreps;
+							$rule->{maxreps} = $maxreps;
+							delete $self->{nextrep};
+						}
 						push @{$saverules[-1]->{value}}, $rule;
 					} else {
 						$rule = pop @saverules;
 					}
-				}
+				} elsif($rulename =~ /-val$/ or $rulename eq "rulename") {
+					my $tmprule = $rule;
 
-				if($type == OP_TYPE_NUMVAL) {
-					$intok =~ /^[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)$/;
-					my $left = $1;
-					my $conjunction = $2;
-					my $right = $3;
-
-					if($rulename eq "hex-val") {
-						$left = hex $left;
-						$right = hex $right if $right;
-					} elsif($rulename eq "bin-val") {
-						$left = oct "0b$left";
-						$right = oct "0b$right" if $right;
+					#"foo" 1*2"bar"
+					if($self->{nextrep}) {
+						delete $self->{nextrep};
+						$tmprule = {};
+						$tmprule->{type} = $type;
+						$tmprule->{minreps} = $minreps;
+						$tmprule->{maxreps} = $maxreps;
+						$tmprule->{mode} = $rule->{mode};
+						if($rule->{type} != OP_TYPE_OPS) {
+							$rule->{value} = [
+								{
+									type => $rule->{type},
+									mode => $rule->{mode},
+									value => $rule->{value}
+								},
+								$tmprule
+							];
+							
+							$rule->{type} = OP_TYPE_OPS;
+						} else {
+							push @{$rule->{value}}, $tmprule;
+						}
 					}
 
-					if($conjunction eq "-") {
-						push @{$rule->{value}}, map {chr} ($left..$right);
-					} elsif($conjunction eq ".") {
-						push @{$rule->{value}}, chr($left), chr($right);
-					} else {
-						push @{$rule->{value}}, chr($left);
+					if(exists($tmprule->{type}) and $tmprule->{type} != $type) { 
+						my $newval = {
+							mode => $tmprule->{mode},
+							type => $type,
+						};
+						if($tmprule->{type} != OP_TYPE_OPS) {
+							$tmprule->{value} = [
+								{
+									type => $tmprule->{type},
+									mode => $tmprule->{mode},
+									value => $tmprule->{value}
+								},
+								$newval
+							];
+							$tmprule->{type} = OP_TYPE_OPS;
+						} else {
+							push @{$tmprule->{value}}, $newval;
+						}
+						$tmprule = $newval;
 					}
-				} elsif($rulename eq "char-val" or $rulename eq "rulename") {
-					push @{$rule->{value}}, $intok;
+					$tmprule->{type} = $type;
+
+					if($rulename eq "bin-val" or $rulename eq "dec-val" or $rulename eq "hex-val") {
+						$intok =~ /^[bdx]([0-9A-Fa-f]+)([-.]?)([0-9A-Fa-f]*)$/;
+						my $left = $1;
+						my $conjunction = $2;
+						my $right = $3;
+						if($rulename eq "hex-val") {
+							$left = hex $left;
+							$right = hex $right if $right;
+						} elsif($rulename eq "bin-val") {
+							$left = oct "0b$left";
+							$right = oct "0b$right" if $right;
+						}
+
+						if($conjunction eq "-") {
+							push @{$tmprule->{value}}, map {chr} ($left..$right);
+						} elsif($conjunction eq ".") {
+							push @{$tmprule->{value}}, chr($left), chr($right);
+						} else {
+							push @{$tmprule->{value}}, chr($left);
+						}
+					} elsif($rulename eq "char-val" or $rulename eq "rulename") {
+						push @{$tmprule->{value}}, $intok;
+					}
 				}
+				$rule = $rulebak if $rulebak;
 			} elsif($rulename eq "repeat") {
 				$self->{nextrep} = $intok;
 			} elsif($rulename eq "num-val") {
@@ -461,8 +508,6 @@ sub add_ruleparse($$$;$) {
 			} else {
 				print tabify(Data::Dumper->Dump([$intok], [$rulename])) if $intok =~ /\S/;
 			}
-
-			#option, group
 		}
 	}
 }
@@ -512,39 +557,24 @@ sub add($@) {
 		$defined = join("", @{*$defined});
 		$defined =~ tr/ //d; #Either = or =/
 
-		if($defined eq "=/") {
-			if (exists $rule->{value} and ($rule->{mode} != OP_MODE_ALTERNATOR or $rule->{type} != OP_TYPE_OPS)) {
-				my $newval = {
-					mode => $rule->{mode},
-					type => $rule->{type},
-					value => $rule->{value}
-				};
-				$newval->{minreps} = $rule->{minreps} if exists $rule->{minreps};
-				$newval->{maxreps} = $rule->{maxreps} if exists $rule->{maxreps};
-				$rule->{value} = [$newval];
-			}
-			$rule->{mode} = OP_MODE_ALTERNATOR;
-			$rule->{type} = OP_TYPE_OPS;
-			push @{$rule->{value}}, {};
-			$rule = $rule->{value}->[-1];
-		}
+		$self->{nextalt} = 1 if $defined eq "=/";
 
 		my $elements = ${*$inrule}[2];
 		$tablevel = 0;
-		print "alternation\n";
+		#print "alternation\n";
 		$self->add_ruleparse($rule, $elements, "alternation");
-		print "\n";
+		#print "\n";
 		
 		#print "$rulename $defined\n";
 		#$tablevel = 0;
 		#print Data::Dumper->Dump([\@elements], ["*$rulename"]), "\n";
 		#print printparse(@elements), "\n";
 	}
-	print "================\n";
+	#print "================\n";
 	foreach $inrule(keys %$self) {
 		delete $self->{$inrule} if $self->{$inrule}->{core};
 	}
-	print Data::Dumper::Dumper($self), "\n";
+	#print Data::Dumper::Dumper($self), "\n";
 }
 
 sub delete($@) {
