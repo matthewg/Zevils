@@ -17,6 +17,8 @@ Requirements:
 
 		Cyclone is available from ftp://ftp.slashnet.org/pub/cyclone
 
+	The HTML-Tree modules from CPAN (HTML::Parse, HTML::FormatText).
+
 Installation:
 	Untar the tarball.  This creates a directory called aimirc-XX where
 XX is the version number of aimirc that you downloaded.  Open the aimirc
@@ -45,6 +47,17 @@ Usage:
 	To set yourself away on AIM, use the normal IRC /away command.  Anyone
 	contacting you while you are away will get an autoreply containing
 	your away message.
+
+IMPORTANT NOTE:
+	To see debugging information, join #aimirc-debug.  You must have $debug
+	set to 1 in the config file for this to work.
+
+	The key to this channel is the same as the value given in the config
+	file for $ourpass (that is, the password that aimirc sends to the upstream
+	IRC server.)  This isn't the greatest security in the world, as anyone in
+	#aimirc-debug can see the password of anyone signing onto AIM through your
+	aimserv, any IMs sent or received, etc.  You should almost definately set
+	up ChanServ on that channel if you have one.
 
 Contacting the author:
 	E-Mail: matthewg@zevils.com

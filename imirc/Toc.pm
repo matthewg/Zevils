@@ -1,24 +1,59 @@
 package Toc;
 
+use Carp qw(cluck);
+use Data::Dumper;
 use IO::Socket;
+use HTML::FormatText;
+use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err aim_strerror str2conf conf2str sflap_get sflap_put quote sflap_encode signon parseclass normalize roast_password add_buddy);
+@EXPORT_OK = qw($err update_buddy get_config strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
-$debug = 0;
-
 =pod
-=item getconfig(NICK)
-Returns a config-hash of the type returned by signon for NICK.
+
+=head1 NAME
+
+Toc - Do stuff with AOL's Toc protocol, which is what AOL Instant Messenger and its ilk users.
+AOL, AOL Instant Messenger, AIM, and Toc are probably registered trademarks of America Online.
+
+=item update_buddy(AIM_SCREENNAME, NICK, CLASS, EVIL_LEVEL, SIGNON_TIME, IDLE_TIME, ONLINE?)
+
+Call this when you get an UPDATE_BUDDY from TOC.  It's not really necessary - it just stored the info in the user's config-hash as maintained internally by Toc.pm and returned via get_config.
+
 =cut
 
-sub getconfig($) { return $config{$_[0]}{groups}; }
+sub update_buddy($$$$$$$) {
+	my($sn, $nick, $class, $evil, $signon, $idle, $online) = @_;
+
+	if($online) {
+		$config{$sn}{groups}->{Buddies}{$nick}{class} = $class;
+		$config{$sn}{groups}->{Buddies}{$nick}{evil} = $evil;
+		$config{$sn}{groups}->{Buddies}{$nick}{signon} = $signon;
+		$config{$sn}{groups}->{Buddies}{$nick}{idle} = $idle;
+	} else {
+		delete $config{$sn}{groups}->{Buddies}{$nick}{class};
+		delete $config{$sn}{groups}->{Buddies}{$nick}{evil};
+		delete $config{$sn}{groups}->{Buddies}{$nick}{signon};
+		delete $config{$sn}{groups}->{Buddies}{$nick}{idle};
+	}
+	$config{$sn}{groups}->{Buddies}{$nick}{online} = $online;
+}
+
+=item get_config(NICK)
+Returns a config-hash of the type returned by signon for NICK.
+
+=cut
+
+sub get_config($) { return $config{$_[0]}{groups}; }
 
 =pod
+
 =item strerror(ERRNO)
+
 Takes a Toc error number and returns a string describing the error.
 Error messages are taken from PROTOCOL.
+
 =cut
 
 sub strerror($) {
@@ -73,8 +108,11 @@ sub strerror($) {
 }
 
 =pod
+
 =item sflap_get(HANDLE)
+
 Gets an SFLAP-encoded message from HANDLE.  Returns the message.
+
 =cut
 
 sub sflap_get($) {
@@ -89,23 +127,25 @@ sub sflap_get($) {
 
 	#get $len chars
 	@hdr = unpack("CCnn", $buff);
-	if($debug) {
-		if($hdr[1] == 1) {
-			$type = "signon";
-		} elsif($hdr[1] == 2) {
-			$type = "data";
-		} else { $type = $hdr[1];
-		}
-		print STDERR "sflap_get: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n";
-		if($type eq "signon") {
-			@signon_hdr = unpack("NnnA*", $buff);
-			print STDERR "\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n";
-		}
+
+	if($hdr[1] == 1) {
+		$type = "signon";
+	} elsif($hdr[1] == 2) {
+		$type = "data";
+	} else { $type = $hdr[1];
 	}
+	debug_print("sflap_get: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+	if($type eq "signon") {
+		@signon_hdr = unpack("NnnA*", $buff);
+		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
+	}
+
 	$len = $hdr[3];
 	$handle->read($buff, $len) or $err = "Couldn't read: $!";
 	chomp $buff;
-	print STDERR "\tdata: $buff\n" if $type ne "signon";
+
+	debug_print("\tdata: $buff\n", "sflap", 2) if $type ne "signon";
+
 	if($err) {
 		$handle->close if $handle;
 		return -1;
@@ -114,7 +154,9 @@ sub sflap_get($) {
 }
 
 =pod
+
 =item signon(NICK, PASSWORD[, STATUS])
+
 Returns an array consisting of a return value (0 for success, -1 for failure), an IO::Socket::INET object
 the Toc permit type, and a group configuration hash.  $Net::Toc::err will be set to the error message if there
 is an error.
@@ -137,119 +179,369 @@ always be 0 upon returning from signon.  group is the group the buddy is in, whi
 The third (optional) parameter, status, is a CODE-ref (a reference to a subroutine, ie \&func, or an anonymous subroutine,
 ie sub { BLOCK }).  Whenever signon wishes to pass the user a message, such as "Connecting to Toc", the code will be called
 with $_[0] set to the text of the message.
+
 =cut
 
 sub signon($$;&) {
 	my($username, $password, $status) = @_;
 	my($socket, $msg, $permtype, $groups);
+
+	unless($username and $password) {
+		$err = "You must provide a username and password!";
+		return -1;
+	}
+
+	debug_print("$username is trying to sign on", "signon", 1);
+
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
-	$socket = IO::Socket::INET->new('toc.oscar.aol.com:9898') or do { $err = "Couldn't create socket: $!"; return -1; };
+	$socket = IO::Socket::INET->new('toc.oscar.aol.com:9898') or do {
+		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
+		$err = "Couldn't create socket: $@";
+		return -1;
+	};
+
+	debug_print("$username has established a connection to toc.oscar.aol.com", "signon", 2);
+
 	${*$socket}{'net_toc_username'} = $username;
 	&$status("Connected, switching to FLAP encoding") if ref $status eq "CODE";
-	$socket->print("FLAPON\r\n\r\n") or do { $err = "Couldn't write to socket: $!"; return -1; };
+	$socket->print("FLAPON\r\n\r\n") or do {
+		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
+		$err = "Couldn't write to socket: $@";
+		return -1;
+	};
+
+	debug_print("$username is now in SFLAP mode", "signon", 2);
+
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
 	$msg = sflap_get($socket);
 	if($err) {
 		return -1;
 	}
-	if($msg =~ /^ERROR:(.+):(.*)/) {
-		$err = "Error $1: " . aim_strerror($2);
+	if($msg =~ /^ERROR:(.+):?(.*)/) {
+		debug_print("$username had an error after switching into SFLAP: $1 (" . strerror($1) . ")", "signon", 1);
+		$err = "Error $1: " . strerror($1);
 		return -1;
 	}
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
-	sflap_put($socket, sflap_encode($username, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
+	sflap_put($socket, sflap_encode($username, 1)) or do {
+		debug_print("$username had an error while trying to sign on", "signon", 1);
+		$err = "Couldn't write to socket: $@";
+		return -1;
+	};
+
+	debug_print("$username has sent the signon packet", "signon", 2);
+
 	&$status("Sent login packet, doing toc_signon") if ref $status eq "CODE";
-	$msg = quote("toc_signon login.oscar.aol.com 1234 $username  " . roast_password($password) . " english ") . "\"TIK:\\\$Revision$\"";
-	sflap_put($socket, sflap_encode($msg, 0, 1)) or do { $err = "Couldn't write to socket: $!"; return -1; };
+	$msg = quote("toc_signon login.oscar.aol.com 1234 $username  " . roast_password($password) . " english ") . "\"AIMIRC:\\\$Revision$VERSION \\\$\"";
+	sflap_put($socket, sflap_encode($msg, 0, 1)) or do {
+		debug_print("$username had an error while trying to toc_signon: $@", "signon", 1);
+		$err = "Couldn't write to socket: $@";
+		return -1;
+	};
+
+	debug_print("$username has sent toc_signon", "signon", 2);
+
 	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
 	$msg = sflap_get($socket);
 	if($err) {
 		return -1;
 	}
-	if($msg =~ /^ERROR:(.+):(.*)/) {
-		$err = "Error $1: " . aim_strerror($2);
+	if($msg =~ /^ERROR:(.+):?(.*)/) {
+		$err = "Error $1: " . strerror($1);
+		debug_print("$username had an error after toc_signon: $err", "signon", 1);
 		return -1;
 	}
 	$msg = sflap_get($socket);
 	return -1 if $err;
-	if($msg =~ /^ERROR:(.+):(.*)/) {
-		$err = "Error $1: " . aim_strerror($2);
+	if($msg =~ /^ERROR:(.+):?(.*)/) {
+		$err = "Error $1: " . strerror($1);
+		debug_print("$username had an error after toc_signon and get: $err", "signon", 1);
 		return -1;
 	}
 	($permtype, $groups) = str2conf($msg);
 	$config{$username}{permtype} = $permtype;
 	$config{$username}{groups} = %$groups;
+
+	debug_print("$username is about to send toc_init_done", "signon", 2);
+
 	&$status("Got config, sending toc_init_done") if ref $status eq "CODE";
-	sflap_put($socket, sflap_encode("toc_init_done")) or do { $err = "Couldn't write to socket: $!"; return -1; };
+	sflap_put($socket, sflap_encode("toc_init_done")) or do {
+		$err = "Couldn't write to socket: $!";
+		debug_print("$username had an error while trying to send toc_init_done: $err", "signon", 1);
+		return -1;
+	};
+
+	debug_print("$username has succesfully signed on", "signon", 1);
+
 	return (0, $socket, $permtype, $groups);
 }
 
 =pod
+
 =item chat_join(HANDLE, NAME)
+
 Join/create chat NAME.  Don't use this to reply to an invite - use chat_accept instead
+
 =cut
 
 sub chat_join($$) {
 	my($handle, $chatname, $msg) = @_;
+	debug_print(_hnick($handle) . " is joining $chatname", "chat", 1);
 	$msg = quote("toc_chat_join 4 ") . "\"" . quote($chatname) . "\"";
 	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
 =pod
+
 =item chat_accept(HANDLE, CHAT_ID)
+
 Accept an invitation to chat CHAT_ID
+
 =cut
 
 sub chat_accept($$) {
 	my($handle, $chatid) = @_;
+	debug_print(_hnick($handle) . " is accepting an invite to $chatid", "chat", 1);
 	sflap_do($handle, "toc_chat_accept $chatid");
 }
 
 =pod
+
+=item chat_invite(HANDLE, CHAT_ID, MESSAGE, BUDDIES)
+
+Invite BUDDIES [a list - so you can do chat_invite($handle, $chat, $msg, "buddy1", "buddy2", ...)] into CHAT_ID with message MESSAGE.
+
+=cut
+
+sub chat_invite($$$@) {
+	my($handle, $chat, $text, @buddies) = @_;
+	my($msg);
+
+	debug_print(_hnick($handle) . " is inviting " . join(" ", @buddies) . " into chat $chat. Reason: $text.", "chat", 2);
+	$msg = quote("toc_chat_invite $chat ") . "\"" . quote(txt2html($text)) . "\"" . quote(" ") . quote(join(" ", @buddies));
+	sflap_print($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item chat_leave(HANDLE, CHAT_ID)
+
+Leave chat CHAT_ID
+
+=cut
+
+sub chat_leave($$) {
+	my($handle, $chat) = @_;
+
+	debug_print(_hnick($handle) . " is leaving chat $chat", "chat", 2);
+	sflap_do($handle, "toc_chat_leave $chat");
+}
+
+=pod
+
+=item set_away(HANDLE[, MESSAGE])
+
+Set away message to MESSAGE.  If MESSAGE is not given, the away message is cleared.
+
+=cut
+
+sub set_away($;$) {
+	my($handle, $message) = @_;
+	my($msg);
+
+	$msg = quote("toc_set_away");
+	if($message) {
+		$msg .= " \"" . quote(txt2html($message)) . "\"";
+	}
+
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item get_info(HANDLE, NICK)
+
+Tell TOC that you want the info for NICK.  TOC will give you a URL to go to to get the info.
+
+=cut
+
+sub get_info($$) {
+	my($handle, $nick) = @_;
+
+	sflap_do($handle, "toc_get_info $nick");
+}
+
+=pod
+
+=item set_info(HANDLE, INFO)
+
+Set info for the user connected to AIM via HANDLE. 
+
+=cut
+
+sub set_info($$) {
+	my($handle, $info) = @_;
+
+	sflap_print($handle, sflap_encode(quote("toc_set_info ") . "\"" . quote(txt2html($info)) . "\"", 0, 1));
+}
+
+=pod
+
+=item get_directory(HANDLE, NICK)
+
+Tell TOC that you want the directory info for NICK.  TOC will give you a URL to go to to get the info.
+
+=cut
+
+sub get_directory($$) {
+	my($handle, $nick) = @_;
+	sflap_do($handle, "toc_get_dir $nick");
+}
+
+=pod
+
+=item set_directory(HANDLE, HASH)
+
+Sets directory info for user connected via HANDLE.
+Valid keys for HASH:
+	first_name
+	middle_name
+	last_name
+	maiden_name
+	city
+	state
+	country
+	email
+	allow_web_searches
+If allow_web_searches is true, directory info can be retrieved over the web, not just via TOC.
+
+=cut
+
+sub set_directory($%) {
+	my($handle, %info) = @_;
+	my($msg);
+
+	$msg = "toc_set_dir \"";
+	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
+	$msg .= "\"";
+	sflap_print($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item directory_search(HANDLE, HASH)
+
+Search the directory.
+This is very similar to set_directory.
+
+=cut
+
+sub directory_search($%) {
+	my($handle, %info) = @_;
+	my($msg);
+
+	$msg = "toc_dir_search \"";
+	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
+	$msg .= "\"";
+	sflap_print($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item message(HANDLE, NICK, MESSAGE[, AUTO?])
+
+Send an IM to NICK.  If AUTO, the message is an automated reply.
+
+=cut
+
+sub message($$$;$) {
+	my($handle, $target, $text, $auto) = @_;
+	my($msg);
+
+	$auto ||= 0;
+
+	debug_print(_hnick($handle) . " is sending an IM to $target: $text", "IM", 2);
+	$msg = quote("toc_send_im $target ") . "\"" . quote(txt2html($text)) . "\"";
+	$msg .= " auto" if $auto;
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
 =item add_buddy(HANDLE, NICK[, GROUP])
+
 Add NICK to the buddy list.  This automatically does a set_config so that the change is saved.
 The optional parameter GROUP specifies which group to place the buddy in.  Returns the result of set_config.
+
 =cut
 
 sub add_buddy($$;$) {
 	my($handle, $nick, $group) = @_;
 	$group ||= "Buddies";
+	debug_print(_hnick($handle) . " is adding $nick to buddylist", "buddies", 1);
 	sflap_do($handle, "toc_add_buddy $nick");
-	$config{_hnick($handle)}{Buddies}{$nick}{group} = $group;
-	$config{_hnick($handle)}{Buddies}{$nick}{online} ||= 0;
+	$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
+	$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
 	set_config($handle, $config{_hnick($handle)});	
 }
 
 =pod
+
+=item remove_buddy(HANDLE, NICK)
+
+Remove NICK from the buddy list.
+
+=cut
+
+sub remove_buddy($$) {
+	my($handle, $nick) = @_;
+	debug_print(_hnick($handle) . " is removing $nick from the buddylist", "buddies", 1);
+	sflap_do($handle, "toc_remove_buddy $nick");
+	delete $config{_hnick($handle)}->{Buddies}{$nick};
+	set_config($handle, $config{_hnick($handle)});
+}
+
+=pod
+
 =item add_permit(HANDLE, NICK)
+
 Add NICK to the permit list.  Returns the result of set_config.
+
 =cut
 
 sub add_permit($$) {
 	my($handle, $nick) = @_;
+	debug_print(_hnick($handle) . " is adding $nick to permit list", "buddies", 1);
 	sflap_do($handle, "toc_add_permit $nick");
-	delete $config{_hnick($handle)}{groups}{deny}{$nick};
-	$config{_hnick($handle)}{groups}{permit}{$nick} = 1;
+	delete $config{_hnick($handle)}->{deny}{$nick};
+	$config{_hnick($handle)}->{permit}{$nick} = 1;
 	set_config($handle, $config{_hnick($handle)});
 }
 
 =pod
+
 =item add_deny(HANDLE, NICK)
+
 Add NICK to the deny list.  Returns the result of set_config.
+
 =cut
 
 sub add_deny($$) {
 	my($handle, $nick) = @_;
+	debug_print(_hnick($handle) . " is adding $nick to deny list", "buddies", 1);
 	sflap_do($handle, "toc_add_deny $nick");
-	delete $config{_hnick($handle)}{groups}{permit}{$nick};
-	$config{_hnick($handle)}{groups}{deny}{$nick} = 1;
+	delete $config{_hnick($handle)}->{permit}{$nick};
+	$config{_hnick($handle)}->{deny}{$nick} = 1;
 	set_config($handle, $config{_hnick($handle)});
 }
 
 
 =pod
+
 =item evil(HANDLE, NICK[, ANONYMOUS?])
+
 Warns (aka "evils") NICK, optionally anonymously.
+
 =cut
 
 sub evil($$;$) {
@@ -260,33 +552,97 @@ sub evil($$;$) {
 	} else {
 		$msg .= "norm";
 	}
-	sflap_do($_handle, $msg);
+	sflap_do($handle, $msg);
 }
 
 =pod
+
+=item permtype(HANDLE[, PERMTYPE])
+
+If no PERMTYPE is given, gets current PERMTYPE.
+If you do give a PERMTYPE, sets the current PERMTYPE.
+PERMTYPE is the Toc permit type.
+
+=cut
+
+sub permtype($;$) {
+	my($handle, $permtype) = @_;
+	if($permtype) {
+		$config{_hnick($handle)}{permtype} = $permtype;
+		set_config($handle, $config{_hnick($handle)}, $permtype);
+		return $permtype;
+	} else {
+		return $config{_hnick($handle)}{permtype};
+	}
+}
+
+=pod
+
+=item chat_send(HANDLE, CHAT_ID, TEXT)
+
+Send TEXT to chat CHAT_ID.  The AIM user connected via HANDLE must already have joined CHAT_ID.
+
+=cut
+
+sub chat_send($$$) {
+	my($handle, $chat, $text) = @_;
+	my($msg);
+
+	debug_print(_hnick($handle) . " is telling chat $chat: $text", "chat", 2);
+	$msg = quote("toc_chat_send $chat ") . "\"" . quote(txt2html($text)) . "\"";
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
+=item chat_whisper(HANDLE, CHAT_ID, USER, TEXT)
+
+Send a whisper to USER in CHAT_ID.
+
+=cut
+
+sub chat_whisper($$$$) {
+	my($handle, $chat, $user, $text) = @_;
+	my($msg);
+
+	debug_print(_hnick($handle) . " is whispering to $user in chat $chat: $text", "chat", 2);
+	$msg = quote("toc_chat_whisper $chat $user ") . "\"" . quote(txt2html($text)) . "\"";
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+
 =item normalize(STRING)
+
 Strips spaces from STRING and convert to lowercase.  Nicknames should be normalized before being sent to Toc.  You shouldn't need to call this directly.
 Returns the normalized string.
+
 =cut
 
 sub normalize($) { $_[0] =~ tr/ //d; return lc($_[0]); }
 
 =pod
-=item set_config(HANDLE, CONFIG)
+
+=item set_config(HANDLE, CONFIG, PERMTYPE)
+
 Sets configuration from the config-hash (in the format that you get from get_config) CONFIG.
 You shouldn't need to call this unless you are directly accessing the config-hash.
 In all other cases, it is called automatically when needed.  Returns the result of sflap_do.
+
 =cut
 
-sub set_config($$) {
-	my($handle, $config) = @_;
-	sflap_do($handle, conf2str($config));
+sub set_config($$$) {
+	my($handle, $config, $permtype) = @_;
+	sflap_do($handle, conf2str($permtype, $config));
 }
 
 =pod
+
 =item parseclass(STRING)
+
 Parse Toc class string.  You shouldn't need to call this directly.
 Returns the parsed string.
+
 =cut
 
 sub parseclass($) {
@@ -301,10 +657,13 @@ sub parseclass($) {
 }
 
 =pod
+
 =item roast_password(STRING)
+
 Roast Toc password STRING.  Toc passwords must be roasted before being sent to Toc.
 Roasting performs trivial encryption.  It's easily reversable, but hey, it's better than nothing!
 You shouldn't need to call this directly.  Returns the roasted password.
+
 =cut
 
 sub roast_password($) {
@@ -321,11 +680,14 @@ sub roast_password($) {
 
 
 =pod
+
 =item sflap_do(HANDLE, STRING)
+
 sflap-encode STRING and send it to Toc via HANDLE.
 You should use this instead of sflap_encode and $handle->print since it incrememnts the
 handle's sequence number properly.  But you probably shouldn't be talking directly to Toc
 anyway - that's what this module is for!  Returns the result of sflap_put.
+
 =cut
 
 sub sflap_do($$) {
@@ -334,10 +696,13 @@ sub sflap_do($$) {
 }
 
 =pod
+
 =item quote(STRING)
+
 Performs quoting on STRING as described in the "Client -> TOC" section of PROTOCOL.
 \, $, [, ], (, ), #, {, }, ", ', and ` all have backslashes (\) placed before them.
 You probably don't need to call this directly.  Returns the quoted string.
+
 =cut
 
 sub quote($) {
@@ -351,12 +716,15 @@ sub quote($) {
 }
 
 =pod
+
 =item sflap_encode(MESSAGE[, SIGNON?[, NOQUOTE?]])
+
 SFLAP-encodes MESSAGE.  If signon is true, message is the Toc username and it will be encoded
 as a special SIGNON packet.  Otherwise it is encoded as a DATA packet.  If noquote is true, the
 message is presumed to have already been escaped (ala the quote function).  Otherwise, the message
 will be passed through the quote function.  You probably don't need to call this directly.
 Returns the encoded message.
+
 =cut
 
 sub sflap_encode($;$$) {
@@ -379,11 +747,14 @@ sub sflap_encode($;$$) {
 }
 
 =pod
+
 =item sflap_put(HANDLE, MESSAGE)
+
 Sends a message (which must already be SFLAP-encoded) to Toc
 via HANDLE.  You probably don't need to call this directly.
 Returns 1 if successfull, -1 if there's an error.  An error message
 will be stored in $Net::Toc::err if an error occurs.
+
 =cut
 
 sub sflap_put($$) {
@@ -397,22 +768,20 @@ sub sflap_put($$) {
 	my @hdr = unpack("CCnn", substr($msg, 0, 6));
 	$hdr[2] = $seqno;
 
-	if($debug) {
-		if($hdr[1] == 1) {
-			$type = "signon";
-		} elsif($hdr[1] == 2) {
-			$type = "data";
-		} else { $type = $hdr[1];
-		}
-		print STDERR "sflap_put: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n";
-		$foo = $msg;
-		substr($foo, 0, 6) = "";
-		if($type eq "signon") {
-			@signon_hdr = unpack("NnnA*", $foo);
-			print STDERR "\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n";
-		} else {
-			print STDERR "\tdata: $foo\n";
-		}
+	if($hdr[1] == 1) {
+		$type = "signon";
+	} elsif($hdr[1] == 2) {
+		$type = "data";
+	} else { $type = $hdr[1];
+	}
+	debug_print("sflap_put: ast=$hdr[0] type=$type seqno=$hdr[2] len=$hdr[3]\n", "sflap", 1);
+	$foo = $msg;
+	substr($foo, 0, 6) = "";
+	if($type eq "signon") {
+		@signon_hdr = unpack("NnnA*", $foo);
+		debug_print("\tsignon: ver=$signon_hdr[0] tag=$signon_hdr[1], namelen=$signon_hdr[2], name=$signon_hdr[3]\n", "sflap", 2);
+	} else {
+		debug_print("\tdata: $foo\n", "sflap", 2);
 	}
 
 	substr($msg, 0, 6) = pack("CCnn", @hdr);
@@ -426,22 +795,27 @@ sub sflap_put($$) {
 }	
 
 =pod
-=item conf2str(CONFIG-HASHREF, PERMTYPE)
+
+=item conf2str(PERMTYPE, CONFIG-HASHREF)
+
 Takes a hashref to a config-hash (in the same format returned by signon) and a permit
 type (the same one that signon returns) and makes a string of the type that Toc wants for
 the toc_set_config command.  You almost definately should not be calling this directly, but
 instead calling set_config.  Returns the toc_set_config-format string.
+
 =cut
 
-sub conf2str(\%$) {
-	my($groups, $permtype) = @_;
+sub conf2str($\%) {
+	my($permtype, $groups) = @_;
 	my($msg, %groups, $group, $buddy);
+	$permtype ||= 4;
 	$msg = "m $permtype\n";
 	foreach $buddy (keys %{$groups->{Buddies}}) {
 		push @{$groups{$groups->{Buddies}{$buddy}{group}}}, $buddy;
 	}
 	foreach $group (keys %$groups) {
 		next if $group eq "permit" or $group eq "deny";
+		next if $group eq "permtype" or $group eq "groups";
 		$msg .= "g $group\n";
 		foreach $buddy (@{$groups{$group}}) {
 			$msg .= "b $buddy\n";
@@ -455,15 +829,19 @@ sub conf2str(\%$) {
 	}
 	$msg = "toc_set_config {" . quote($msg) . "}";
 	#warn "$msg\n";
+	debug_print("conf2str: " . Dumper($groups), "config", 2);
 	return $msg;
 }
 
 =pod
+
 =item str2conf(STRING)
+
 Takes a string in the format that toc_set_config wants and that the signon process
 produces and returns an array consisting of a permit type and a config-hash of the type returned by signon.
 You almost definately should not be calling this directly - let signon handle things.  Actually, I suppose you
 would use str2conf/conf2str to export and import a Toc configuration.
+
 =cut
 
 sub str2conf($) {
@@ -484,7 +862,7 @@ sub str2conf($) {
 			#warn "$val added to group $currgroup\n";
 			$val = lc($val);
 			$groups->{Buddies}{$val}{group} = $currgroup;
-			$groups->{Buddies}{$val}{online} = 0;
+			$groups->{Buddies}{$val}{online} ||= 0;
 		} elsif($type eq "p") {
 			#warn "$val added to permit list\n";
 			$val = lc($val);
@@ -497,9 +875,69 @@ sub str2conf($) {
 			$permtype = $val;
 		}
 	}
+	debug_print("str2conf: " . Dumper($groups), "config", 2);
 	return ($permtype, $groups);
 }
 
-sub _hnick($) { return ${*$socket}{'net_toc_username'}; }
+sub _hnick($) { my $socket = shift; return ${*$socket}{'net_toc_username'} if $socket and UNIVERSAL::isa($socket, "IO::Socket::INET"); }
+
+=pod
+
+=item debug_print(TEXT, TYPE, LEVEL)
+
+If you want to be able to debug this thing, you must provide a debug_print function.
+The first parameter is the text of the debug message.
+The second is the type (valid types are chat, signon, buddies, config, and IM)
+The third parameter is the level.  i.e. 1 for basic messages, 2 for nitty-gritty stuff.
+
+=cut
+
+# sub debug_print($$$) { return; }
+
+=pod
+
+=item txt2html(MESSAGE)
+
+Convert plaintext into HTML.  Just puts a <FONT COLOR="#000000" around it.
+It also handles IRC bold, italic, and underline codes.
+Returns the HTML.
+
+=cut
+
+sub txt2html($) {
+	my($msg) = shift;
+	my($bold, $italic, $underline, $color) = (chr(2), chr(oct(26)), chr(oct(37)), chr(3));
+	my($inbold, $initalic, $inunderline) = (0, 0, 0);
+
+	$msg = "<FONT COLOR=\"#000000\">$msg</FONT>";
+	while($msg =~ /($bold|$italic|$underline)/g) {
+		if($1 eq $bold) {
+			if($inbold) {
+				$msg = $` . "</b>" . $';
+				$inbold = 0;
+			} else {
+				$msg = $` . "<b>" . $';
+				$inbold = 1;
+			}
+		} elsif($1 eq $italic) {
+			if($initalic) {
+				$msg = $` . "</i>" . $';
+				$initalic = 0;
+			} else {
+				$msg = $` . "<i>" . $';
+				$initalic = 1;
+			}
+		} else { #underlined
+			if($inunderline) {
+				$msg = $` . "</u>" . $';
+				$inunderline = 0;
+			} else {
+				$msg = $` . "<u>" . $';
+				$inunderline = 1;
+			}
+		}
+	}
+	return $msg;
+}
 
 1;
