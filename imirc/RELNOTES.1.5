@@ -4,6 +4,10 @@ have changed.  The IMIRC IRC user is now called IMServ instead of AIMServ by
 default.  The debugging channel is #imirc-debug instead of #aimirc-debug.
 Please update your Q:lines and other security measures appropriately.
 
+We no longer save buddylists, profiles, or pounces to files.  This information
+is now stored as part of the user's buddylist on AOL's servers.  You should
+delete your old $directory (by default ~/.aimirc.dat).
+
 The $oldname configuration parameter can be used to transition users
 from an old name, such as AIMServ (which is the default value of $oldname) to the
 new name.
