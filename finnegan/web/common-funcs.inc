@@ -8,11 +8,16 @@ function db_error() {
 
 function extension_ok($extension) {
 	global $TEMPLATE;
-	if(preg_match('/^[69][0-9]{4}$/', $extension))
-		return 1;
-	else {
+	if(!preg_match('/^[69][0-9]{4}$/', $extension))
 		echo $TEMPLATE["extension_invalid"];
 		return 0;
+	else if(in_array($extension, array(
+		'62000', '62222', '63000', '63333', '65000'
+	)) {
+		echo $TEMPLATE["extension_forbidden"];
+		return 0;
+	} else {
+		return 1;
 	}
 }
 
@@ -121,7 +126,7 @@ function time_to_sql($user_time, $ampm) {
 $months = array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
 $inv_months = array("Jan" => 1, "Feb" => 2, "Mar" => 3, "Apr" => 4, "May" => 5, "Jun" => 6, "Jul" => 7, "Aug" => 8, "Sep" => 9, "Oct" => 10, "Nov" => 11, "Dec" => 12);
 
-// 1984-01-02 -> ("Jan", 2)
+// YYYY-01-02 -> ("Jan", 2)
 function date_to_user($sql_date) {
 	global $months;
 	if(!preg_match('/^\d\d\d\d-(\d\d)-(\d\d)$/', $sql_date, $matches)) return "";
@@ -130,10 +135,12 @@ function date_to_user($sql_date) {
 	return array($months[$month-1], $day);
 }
 
-// ("Jan", 2) -> 1984-01-02
+// ("Jan", 2) -> YYYY-01-02
 function date_to_sql($month, $day) {
 	global $inv_months;
 	if(!isset($inv_months[$month])) return "";
+
+	
 	return "1984-" . $inv_months[$month] . "-$day";
 }
 

@@ -162,6 +162,11 @@ END_GET_EXTENSION
 END_EXTENSION_INVALID
 ,
 
+	"extension_forbidden" => <<<END_EXTENSION_FORBIDDEN
+<p class="error">That extension is not allowed to receive wake-up calls.</p>
+END_EXTENSION_FORBIDDEN
+,
+
 	"db_error" => <<<END_DB_ERROR
 <p class="error">
 There was a problem with the database: <tt>__ERROR__</tt>.

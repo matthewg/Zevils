@@ -17,6 +17,7 @@ General template items:
 	pin_bruteforce_warn: User will be temporarily locked out of the system if they enter a bad PIN again.
 
 	extension_invalid: Show 'extension invalid' error.
+	extension_forbidden: Show 'that extension cannot have wake-up calls set' error.
 	get_extension: Ask for the user's extension.  This should submit a POST request to index.php.
 		EXTENSION: Value of the user's extension.  May be present if the user entered an invalid extension.
 		Form parameters:
@@ -103,6 +104,8 @@ New/Edit Wake-Up Call items (mkwake.php):
 	time_unavailable: Too many wake-up calls are scheduled for that time, no phone lines available.
 		DAYS: For recurring wake-up calls, which days of the week there are conflicts with.
 
+
+
 	The page should post the following data to mkwake.php:
 		op: 'create'/'edit'
 		id: ID of wake-up call to edit, if editing
@@ -126,6 +129,7 @@ New/Edit Wake-Up Call items (mkwake.php):
 				'brandeis': Use the Brandeis calendar for this wake.
 				'holidays': Use the American calendar for this wake, skipping national holidays.
 				'normal': Use the regular calendar for this wake.
+	On a successful create/edit, mkwake.php will simply redirect to index.php.
 
 Documentation items (docs.php):
 	docs_start: Start of the documentation page.
