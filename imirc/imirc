@@ -201,6 +201,7 @@ sub loadconf() {
 	print Data::Dumper::Dumper(\@conffiles);
 
 	@conffiles = @default_conffiles unless $conffiles[0];
+	print Data::Dumper::Dumper(\@conffiles);
 
 	if(!$errors) {
 		print STDERR "Try $0 --help if you need help.\n";
