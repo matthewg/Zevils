@@ -53,7 +53,7 @@ $servermode = "dal2";  #Should be either dal2 or dragonfire.
 		nicklen => 9
 	},
 	rfc => {
-		nick => ":$us NICK _NICK_ 1\r\n:_NICK_ USER _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n";
+		nick => ":$us NICK _NICK_ 1\r\n:_NICK_ USER _USER_ $us $us :AOL Instant Messenger client via aimirc\r\n",
 		server => "SERVER $us 1 :AOL Instant Messenger serices\r\n",
 		uspass => 1,
 		theirpass => 1,
