@@ -18,7 +18,7 @@ STATES
 
 (N)ew
 -----
-Meaning: The wake was added to the system, but has not been initialized by the daemon yet.  Note that only recurring wakes require initialization.
+Meaning: The wake was added to the system, but has not been initialized by the daemon yet.
 Database indicators: ISNULL(next_trigger_time)
 Trasitions:
 	I: Achieved when the finnegan daemon initializes all new wakes at the top of its event loop.
