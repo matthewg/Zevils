@@ -1428,7 +1428,7 @@ sub indent {
     my $a = shift;
     my $leadchar = shift || " ";
     $Text::Wrap::columns = 76;
-    return Text::Wrap::fill("$leadchar ", "$leadchar ", $a);
+    return Text::Wrap::wrap("$leadchar ", "$leadchar ", $a);
 }
 
 sub blockquote {
@@ -2487,10 +2487,7 @@ sub html2txt($) {
 		);
 	}
 
-	my $ret = HTML::FormatText->new(leftmargin => 0, rightmargin => 76)->format($tree);
-	print "Transform:\n$html\nTo: $ret\n";
-	exit;
-	return $ret;
+	return HTML::FormatText->new(leftmargin => 0, rightmargin => 76)->format($tree);
 }
 
 1;
