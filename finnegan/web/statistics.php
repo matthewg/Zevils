@@ -31,19 +31,19 @@ if(!$cache_stat || isset($_REQUEST["nocache"]) || $cache_stat["mtime"] < (time()
 	# Wake stats
 	fwrite($cache, preg_replace("/__TITLE__/", "Alarm Statistics", $TEMPLATE["statistics"]["group_start"]));
 
-	$stats = mysql_query("SELECT disabled, count(*) AS 'count' FROM wakes GROUP BY disabled");
-	$row = mysql_fetch_assoc($stats);
-	if($row["disabled"]) {
-		$wakes_disabled = $row["count"];
-		$row = @mysql_fetch_assoc($sysstats);
-		$wakes_enabled = $row ? $row["count"] : 0;
+	$stats = mysql_query("SELECT disabled, count(*) AS 'count' FROM wakes GROUP BY disabled ORDER BY disabled");
+	$row = mysql_fetch_row($stats);
+	$wake_counts[$row[0]] = $row[1];
+
+	$row = @mysql_fetch_row($stats); # We may not have any disabled wakes
+	if($row) {
+		$wake_counts[$row[0]] = $row[1];
 	} else {
-		$wakes_enabled = $row["count"];
-		$row = @mysql_fetch_assoc($sysstats);
-		$wakes_disabled = $row ? $row["count"] : 0;
+		$wake_counts[0] = 0;
 	}
-	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Alarms", $wakes_disabled+$wakes_enabled), $TEMPLATE["statistics"]["stat"]));
-	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Active Alarms", $wakes_enabled), $TEMPLATE["statistics"]["stat"]));
+
+	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Alarms", $wake_counts[0]+$wake_counts[1]), $TEMPLATE["statistics"]["stat"]));
+	fwrite($cache, preg_replace(array("/__NAME__/", "/__VALUE__/"), array("Active Alarms", $wake_counts[1]), $TEMPLATE["statistics"]["stat"]));
 
 	$days = array("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
 	for($i = 0; $i < sizeof($days); $i++) {
