@@ -11,3 +11,7 @@ Configuration parameters:
 	slashsites: Path to your slash.sites file; $datadir/slash.sites by default.
 	slashsite: Which slash site this entry is for; the first entry in
 		slashsites will be used by default.
+
+Credits:
+	The Slashcode team, of course
+	Jamie, for help with the Slash API

@@ -23,15 +23,21 @@ $task{$me}{code} = sub {
 
 	nntpLog("$me begin");
 
-	my $where = "stories.sid = discussions.sid";
-	$where .= " AND displaystatus != -1";
+	# None of this stuff uses the cache.
+	# However, we are only interested in things we haven't seen before.
+	# This is going to be the new stuff that likely isn't in the cache anyway.
+	# Also, we have extremely specific WHERE criteria; we'd have to do that by
+	# grepping the entire (story/comment/journal) list if we were just going
+	# to use getFoos...  OTOH, I could be completely mistaken.
+
+	my $where = "displaystatus != -1";
 	$where .= " AND (ISNULL(nntp_section_snum) OR (displaystatus = 0 AND ISNULL(nntp_snum)))";
 	$where .= " AND time < NOW()";
 
 	my $stories = $slashdb->sqlSelectAllHashref(
-		"id",
-		"id, stories.section, displaystatus, nntp_snum, nntp_section_snum",
-		"discussions, stories",
+		"sid",
+		"sid, section, displaystatus, nntp_snum, nntp_section_snum",
+		"stories",
 		$where,
 		"ORDER BY time"
 	);
@@ -52,7 +58,7 @@ $task{$me}{code} = sub {
 
 		next unless keys %values;
 		nntpLog("Updating story $story->{sid}");
-		$slashdb->sqlUpdate("discussions", \%values, "id=$story->{id}");
+		$slashdb->sqlUpdate("stories", \%values, "sid=".$slashdb->sqlQuote($story->{id}));
 		$storycount++;
 	}
 
@@ -60,15 +66,14 @@ $task{$me}{code} = sub {
 	$where = "ISNULL(nntp_cnum)";
 
 	if($slashdb->getDescriptions("plugins")->{Journal}) {
-		$from .= ", discussions, topics";
-		$where .= " AND comments.sid = discussions.id";
-		$where .= " AND discussions.topic = topics.tid";
+		$from .= ", topics";
+		$where .= " AND stories.tid = topics.tid";
 		$where .= " AND topics.name != \"journal\"";
 	}
 
 	my $comments = $slashdb->sqlSelectAllHashref(
 		"cid",
-		"cid, comments.sid AS sid",
+		"sid, cid",
 		$from,
 		$where,
 		"ORDER BY sid, cid"
@@ -112,7 +117,7 @@ $task{$me}{code} = sub {
 
 		$comments = $slashdb->sqlSelectAllHashref(
 			"cid",
-			"cid, comments.sid AS sid, journals.uid AS uid",
+			"comments.sid AS sid, cid, journals.uid AS uid",
 			"comments, discussions, topics, journals",
 			$where,
 			"ORDER BY sid, cid"

@@ -1,10 +1,10 @@
-ALTER TABLE discussions ADD COLUMN nntp_snum MEDIUMINT UNSIGNED NULL;
-ALTER TABLE discussions ADD UNIQUE (nntp_snum);
-ALTER TABLE discussions ADD COLUMN nntp_section_snum MEDIUMINT UNSIGNED NULL;
-ALTER TABLE discussions ADD UNIQUE (section, nntp_section_snum);
-ALTER TABLE discussions ADD COLUMN nntp_next_cnum MEDIUMINT UNSIGNED NOT NULL DEFAULT 1;
-ALTER TABLE discussions ADD COLUMN nntp_posttime DATETIME NULL;
-ALTER TABLE discussions ADD COLUMN nntp_section_posttime DATETIME NULL;
+ALTER TABLE stories ADD COLUMN nntp_snum MEDIUMINT UNSIGNED NULL;
+ALTER TABLE stories ADD UNIQUE (nntp_snum);
+ALTER TABLE stories ADD COLUMN nntp_section_snum MEDIUMINT UNSIGNED NULL;
+ALTER TABLE stories ADD UNIQUE (section, nntp_section_snum);
+ALTER TABLE stories ADD COLUMN nntp_next_cnum MEDIUMINT UNSIGNED NOT NULL DEFAULT 1;
+ALTER TABLE stories ADD COLUMN nntp_posttime DATETIME NULL;
+ALTER TABLE stories ADD COLUMN nntp_section_posttime DATETIME NULL;
 
 ALTER TABLE comments ADD COLUMN nntp_cnum MEDIUMINT UNSIGNED NULL;
 ALTER TABLE comments ADD UNIQUE (nntp_cnum, sid);

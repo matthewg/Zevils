@@ -51,21 +51,21 @@ sub new($;@) {
 
 sub root($) { return $self->{root}; }
 
-# $id should be either a discussion ID, a comment ID, or a journal ID
+# $id should be either a comment ID, a story ID, or a journal ID
 # $format should be "text" or "html"
-# $type should be either "discussions", "comments", or "journals"
+# $type should be either "comment", "story", "journal"
 sub form_msgid($$$$) {
 	my($self, $id, $format, $type) = @_;
 	return "<$id\@$type.$format." . join(".", reverse split(/\./, $self->{root})) . ">";
 }
 
 # Parses a message ID, returning:
-#	ID: A discussion, comment, or journal ID
+#	ID: A comment, story, or journal ID
 #	format: "html" or "text"
-#	type: "discussion, "comment", or "journal"
+#	type: "comment", "story", or "journal"
 sub parse_msgid($$) {
 	my($self, $msgid) = @_;
-	$msgid =~ /^<(\d+)\@(discussion|comment|journal)s\.(html|text)\./;
+	$msgid =~ /^<(.+?)\@(comment|story|journal)\.(html|text)\./;
 	return ($1, $3, $2);
 }
 
@@ -97,10 +97,9 @@ sub parsegroup($$) {#
 			$groupparts[2] =~ /^(.+)_(\d+)$/;
 			my($section, $id) = ($1, $2);
 
-			if($section =~ /_/) { # Section name possibly mangled
-				my $result = $self->{slash_db}->sqlSelectAll("section", "sections", "id=$id");
-				$section = $result->[0]->[0];
-			}
+			# Section name possibly mangled
+			($section) = grep { $_->{id} == $id } $self->{slash_db}->getSections() if $section =~ /_/;
+
 			push @ret, $section;
 		} else { # {text,html}.stories.section.story_id
 			return "story" unless wantarray;
@@ -114,10 +113,9 @@ sub parsegroup($$) {#
 		$groupparts[2] =~ /^(.+)_(\d+)$/;
 		my($nick, $uid) = ($1, $2);
 
-		if($nick =~ /_/) { # Nickname possibly mangled
-			my $result = $self->{slash_db}->sqlSelectAll("nickname", "users", "uid=$uid");
-			$nick = $result->[0]->[0];
-		}
+		# Nickname possibly mangled
+		$nick = $self->{slash_db}->getUser($uid, 'nickname') if $nick =~ /_/;
+
 		push @ret, $nick;
 	}
 
@@ -138,7 +136,7 @@ sub auth_status_ok($) {
 sub consume_subscription($) {
 	my($self) = @_;
 
-	$self->{slash_db}->sqlUpdate("users_hits", {hits_paidfor => ++$user->{hits_paidfor}}, "uid=$self->{slash_user}->{uid}");
+	$self->{slash_db}->setUser($self->{slash_user}->{uid}, {hits_paidfor => $self->{slash_db}->getUser($self->{slash_user}->{uid}, 'hist_paidfor') + 1});
 }
 
 sub groups($;$) {
@@ -157,42 +155,50 @@ sub groups($;$) {
 	#                            .journals.nick_uid
 
 	my $sitename = $self->{slash_db}->getVar("sitename", "value");
-	$ret{"$self->{root}.text.stories"} = "$sitename front page stories in plain text";
-	$ret{"$self->{root}.html.stories"} = "$sitename front page stories in HTML";
+	my $textroot = "$self->{root}.text";
+	my $htmlroot = "$self->{root}.html";
+	$ret{"$textroot.stories"} = "$sitename front page stories in plain text";
+	$ret{"$htmlroot.stories"} = "$sitename front page stories in HTML";
 
-	my $sections = $self->{slash_db}->sqlSelectAllHashref(
-		'section',
-		'id, section, title, ctime',
-		'sections',
-		"UNIX_TIMESTAMP(ctime) > $time"
+	my $sections = $self->{slash_db}->getSections();
+
+	foreach my $section (@$sections) {
+		next unless timeCalc($section->{ctime}, "%s") > $time;
+
+		$group = $self->groupname("$section->{section}_$section->{id}");
+		$ret{"$textroot.stories.$group"} = "$sitename $section->{title} stories in plain text";
+		$ret{"$htmlroot.stories.$group"} = "$sitename $section->{title} stories in HTML";
+	}
+
+	# Not using cache == bad, true.
+	# But in order to use the cache, I'd have to call getStories().
+	# Do you *really* want to burden the cache with SELECT * FROM stories?
+	# Keep in mind that since we fork for each client, the cache wouldn't
+	#  be shared between clients.
+
+	my $stories = $self->{slash_db}->sqlSelectAllHashref(
+		'sid',
+		'sid, tid, section, title',
+		'stories',
+		"UNIX_TIMESTAMP(nntp_section_posttime) > $time"
 	);
 
-	foreach my $section (values %$sections) {
-		$group = $self->groupname("$section->{section}_$section->{id}");
-		my $textgroup = "$self->{root}.text.stories.$group";
-		my $htmlgroup = "$self->{root}.html.stories.$group";
-		$ret{$textgroup} = "$sitename $section->{title} stories in plain text";
-		$ret{$htmlgroup} = "$sitename $section->{title} stories in HTML";
 
-		my $stories = $self->{slash_db}->sqlSelectAllHashref(
-			'id',
-			'id, title, topics.name AS topic',
-			'discussions, topics',
-			'discussions.id = topics.tid AND UNIX_TIMESTAMP(nntp_section_posttime) > $time AND section=$section->{id}"
-		);
+	foreach my $story (values %$stories) {
+		my $sectgroup = $self->groupname("$story->{section}_".$self->{slash_db}->getSection($story->{section}, 'id'));
+		my $topic = $self->{slash_db}->getTopic($story->{tid}, 'name');
 
-		foreach my $story (values %$stories) {
-			$ret{"$textgroup.$story->{id}"} = "$story->{title} ($story->{topic})";
-			$ret{"$htmlgroup.$story->{id}"} = "$story->{title} ($story->{topic})";
-		}
+		$ret{"$textroot.stories.$sectgroup.$story->{sid}"} = "$story->{title} ($topic)";
+		$ret{"$htmlroot.stories.$sectgroup.$story->{sid}"} = "$story->{title} ($topic)";
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
 		my $jusers = $self->{slash_db}->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
 		foreach my $juser(values %$jusers) {
+			# No getJournals...
 			my $journalgroup = $self->groupname("journals.$juser->{nickname}.$juser->{uid}");
-			$ret{"$self->{root}.text.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
-			$ret{"$self->{root}.html.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
+			$ret{"$textroot.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
+			$ret{"$htmlroot.$journalgroup"} = "$sitename journals for $juser->{nickname} ($juser->{uid})";
 		}
 	}
 }
@@ -219,7 +225,7 @@ sub articles($$;$) {
 		);
 
 		foreach my $story (values %$stories) {
-			$ret{$story->{"nntp_${section}snum"}} = $self->form_msgid($story->{id}, $format, "discussions");
+			$ret{$story->{"nntp_${section}snum"}} = $self->form_msgid($story->{id}, $format, "story");
 		}
 	} elsif($grouptype eq "story" or $grouptype eq "journal") {
 		my $from = "comments";
@@ -228,12 +234,12 @@ sub articles($$;$) {
 		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
 
 		if($grouptype eq "story") {
-			$from .= ", discussions";
-			$where .= " AND comments.sid = discussions.sid";
-			$where .= " AND discussions.id = $id";
+			$from .= ", stories";
+			$where .= " AND comments.sid = stories.sid";
+			$where .= " AND stories.sid = $id";
 		} else {
 			$from .= ", journals";
-			$where .= " AND journals.discussion = discussions.id";
+			$where .= " AND journals.discussion = comments.sid";
 			$where .= " AND journals.uid = $id";
 		}
 
@@ -245,7 +251,7 @@ sub articles($$;$) {
 		);
 
 		foreach my $comment (values %$comments) {
-			$ret{$comment->{nntp_cnum}} = $self->form_msgid($comment->{cid}, $format, "comments");
+			$ret{$comment->{nntp_cnum}} = $self->form_msgid($comment->{cid}, $format, "comment");
 		}
 
 		if($grouptype eq "journal") {
@@ -261,7 +267,7 @@ sub articles($$;$) {
 			);
 
 			foreach my $journal (values %$journals) {
-				$ret{$journal->{nntp_cnum}} = $self->form_msgid($journal->{id}, $format, "journals");
+				$ret{$journal->{nntp_cnum}} = $self->form_msgid($journal->{id}, $format, "journal");
 			}
 		}
 	}
@@ -294,7 +300,7 @@ sub article($$$;@) {
 		# X-Slash-Mod-Reason
 	}
 
-	if($type eq "discussion") {
+	if($type eq "story") {
 		
 	} elsif($type eq "comment") {
 	} elsif($type eq "journal") {
@@ -328,6 +334,11 @@ sub post($$$) {
 }
 
 sub isgroup($$) {
+	my($self, $group) = @_;
+	$self->auth_status_ok() or return fail("480 Authorization Required");
+}
+
+sub canpost($$) {
 	my($self, $group) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 }

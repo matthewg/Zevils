@@ -395,11 +395,17 @@ sub post($$$) { return 0; }
 
 =item isgroup GROUP
 
-This method checks to see if the indicated group exists.
+This method checks to see if the indicated group exists.  Return 0 or 1.
+
+=item canpost GROUP
+
+This method checks to see if the indicated group can be posted to.  Return 0 or 1.
+The validity of the group name will already have been checked before this method is called.
 
 =cut
 
 sub isgroup($$) { return 0; }
+sub canpost($$) { return 0; }
 
 =pod
 
