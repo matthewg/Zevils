@@ -105,7 +105,7 @@ sub prepare_statements() {
 	$call_wake = $dbh->prepare("UPDATE wakes SET trigger_date=CURDATE(), trigger_snooze=snooze_count WHERE wake_id=?");
 	$update_wake = $dbh->prepare("UPDATE wakes SET snooze_count=0, trigger_snooze=NULL, trigger_date=NULL, next_trigger=CONCAT(CURDATE() + INTERVAL 1 DAY, ' ', time) WHERE wake_id=?");
 	$snooze_wake = $dbh->prepare("UPDATE wakes SET snooze_count=snooze_count+1, next_trigger=NOW() + INTERVAL 9 MINUTE WHERE wake_id=?");
-	$update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=FROM_UNIXTIME(?) WHERE wake_id=?");
+	$update_nexttime = $dbh->prepare("UPDATE wakes SET next_trigger=? WHERE wake_id=?");
 	$log_error = $dbh->prepare("INSERT INTO log_daemon (time, data) VALUES (NOW(), ?)");
 	$log_wake_start = $dbh->prepare("INSERT INTO log_wake (wake_id, extension, event, start_time, phoneline) VALUES (?, ?, 'activate', NOW(), ?)");
 	$log_wake_end = $dbh->prepare("UPDATE log_wake SET result=?, end_time=NOW(), data=? WHERE log_id=?");
@@ -233,7 +233,7 @@ while(1) {
 			}
 			log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
 
-			if(!$update_nexttime->execute($waketime, $row->{wake_id})) {
+			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", $waketime), $row->{wake_id})) {
 				db_error("Couldn't update trigger_time", $update_nexttime);
 			}
 		}
@@ -320,7 +320,7 @@ while(1) {
 				$tomorrow[1]--;
 				$tomorrow[2] -= 1900;
 				my $waketime = mktime(0, $2, $1, @tomorrow);
-				if(!$update_nexttime->execute($waketime, $row->{wake_id})) {
+				if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", $waketime), $row->{wake_id})) {
 					db_error("Couldn't update trigger_time", $update_nexttime);
 				}
 
