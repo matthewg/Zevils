@@ -199,7 +199,14 @@ function try_auth() {
 			return $extension_error;
 		} else {
 			$extension_ok = 1;
-			$pin_error = pin_check($extension, $pin);
+
+			if($pin) {
+				$pin_error = pin_check($extension, $pin);
+			} else {
+				$auth_ok = 0;
+				return "";
+			}
+
 			if($pin_error) {
 				$auth_error = $pin_error;
 				return $pin_error;
