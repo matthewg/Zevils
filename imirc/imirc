@@ -1366,8 +1366,9 @@ sub process_irc_message($) {
 				irc_send("$foo :change_email new_email - Change the email address assigned to your AIM account\r\n", 1);
 				irc_send("$foo :confirm_account - Use this if your account has trial status\r\n", 1);
 			} elsif($param eq "set") {
-				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName\r\n", 1);
+				irc_send("$foo :set imchan (on|off) - If set to on, incoming IMs for your screenname will appear in ${nickchan}YourScreenName.\r\n", 1);
 				irc_send("$foo :set nicklen (limit) - If limit is non-zero, when an AIM user who has a nickname longer than the limit talks to you, you will receive a warning containing the full nickname of the sender.  A limit of zero (the default setting) turns this off.  This setting is preserved across AIM sessions and even IMIRC servers.  DreamCast users will want to set the limit to 9.\r\n", 1);
+				irc_send("$foo :set ctcp (on|off) - If set to on (the default), people will be able to CTCP you over AIM.  Setting this to off will block CTCPs from coming over AIM.\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
 					irc_send("$foo :restart - Restart IMIRC.  This will close the IRC connection and all AIM connections and launch a new IMIRC process.\r\n", 1);
@@ -1479,6 +1480,17 @@ sub process_irc_message($) {
 						$oscar->commit_buddylist;
 					}
 				}
+			} elsif($cmd eq "ctcp") {
+				if($param and $param ne "0" and $param ne "off" and $param ne "false" and $param ne "no" and $param ne "stop") {
+					irc_send(irc_privmsg($usnick, $nick, "You will now be able to receive CTCPs over AIM.", "", "", $screenname));
+					delete $oscar->get_app_data()->{0x0202} if $oscar->get_app_data();
+					$sndata->{ctcp} = 1;
+				} else {
+					irc_send(irc_privmsg($usnick, $nick, "You will no longer be able to receive CTCPs over AIM.", "", "", $screenname));
+					$oscar->get_app_data()->{0x0202} = 1 if $oscar->get_app_data();
+					$sndata->{ctcp} = 0;
+				}
+				$oscar->commit_buddylist;
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "Unknown preference.", "", "", $screenname));
 			}
@@ -1925,7 +1937,11 @@ sub oscar_im_in($$$$) {
 	$recipient = nickchan($screenname) if $sndata->{inchan} == 2 and !$ctcp;
 
 	if($ctcp) {
-		irc_send(irc_ctcp($inick, $recipient, $msg, $notice));
+		if($sndata->{ctcp}) {
+			irc_send(irc_ctcp($inick, $recipient, $msg, $notice));
+		} else {
+			irc_send(irc_privmsg($usnick, $recipient, "$from tried to send you the CTCP command $msg.", "", 0, $screenname));
+		}
 	} else {
 		irc_send(irc_privmsg($inick, $recipient, $msg, "", $notice, $screenname));
 	}
@@ -2090,6 +2106,11 @@ sub oscar_signon_done($) {
 	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0201})) {
 		$sndata->{nicklen} = $oscar->get_app_data()->{0x0201};
 		irc_send(irc_privmsg($usnick, $nick, "Your maximum nick length has been set to $sndata->{nicklen}.  Use the 'set nicklen' command to change it.", "", "", $screenname));
+	}
+
+	if($oscar->get_app_data() and exists($oscar->get_app_data()->{0x0202})) {
+		$sndata->{ctcp} = 0;
+		irc_send(irc_privmsg($usnick, $nick, "You will not receive CTCPs over AIM."));
 	}
 
 	if($oscar->profile) {
@@ -2312,6 +2333,7 @@ sub do_signon($$$$) {
 	$sndata->{away_queue} = $oscar->buddyhash();
 	$sndata->{away_requested} = $oscar->buddyhash();
 	$sndata->{away} = $oscar->buddyhash();
+	$sndata->{ctcp} = 1;
 	$irc_connections->{$screenname} = $nick;
 
 	switchnick($nick, $screenname) if $connection->{aimnick} eq $screenname;
