@@ -20,12 +20,16 @@ if(isset($_REQUEST["pin"])) {
 <CiscoIPPhoneInput>
 <Title>Set PIN</Title>
 <Prompt>Enter new PIN</Prompt>
-<URL>setpin.php</URL>
+<URL><?echo $FinneganCiscoConfig->url_base ?>/service/setpin.php</URL>
 <InputItem>
 <DisplayName>New PIN</DisplayName>
 <QueryStringParam>pin</QueryStringParam>
 <InputFlags>N</InputFlags>
 </InputItem>
+<SoftKeyItem>
+<Name>About</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
+</SoftKeyItem>
 </CiscoIPPhoneInput>
 <?
 }

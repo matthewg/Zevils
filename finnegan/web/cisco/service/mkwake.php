@@ -204,9 +204,9 @@ if($prompt == "done") {
 		} else {
 			set_wake($id, $sql_time, $message, $type, $sql_date, $sql_weekdays, $sql_cal_type);
 			if($id) {
-				cisco_message("Alarm Modified", "Your alarm was modified.", "wakes.php");
+				cisco_message("Alarm Modified", "Your alarm was modified.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 			} else {
-				cisco_message("Alarm Created", "Your alarm was created.", "wakes.php");
+				cisco_message("Alarm Created", "Your alarm was created.", $FinneganCiscoConfig->url_base."/service/wakes.php");
 			}
 		}
 	}
@@ -232,7 +232,7 @@ if(!$title) {
 
 }
 
-$url = "mkwake.php?id=$id&amp;prompt=$prompt";
+$url = $FinneganCiscoConfig->url_base."/service/mkwake.php?id=$id&amp;prompt=$prompt";
 if($prompt != "time") $url .= "&amp;time=$time";
 if($prompt != "ampm") $url .= "&amp;ampm=$ampm";
 if($prompt != "message") $url .= "&amp;message=$message";
@@ -397,6 +397,10 @@ if($prompt == "time") {
 
 <SoftKeyItem>
 <Name>Help</Name>
-<URL>wakehelp.php?prompt=<?echo $prompt?></URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/wakehelp.php?prompt=<?echo $prompt?></URL>
+</SoftKeyItem>
+<SoftKeyItem>
+<Name>About</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
 </SoftKeyItem>
 <? echo "</$seltype>\n"; ?>

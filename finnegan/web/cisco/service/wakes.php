@@ -43,10 +43,14 @@ while($wake = mysql_fetch_assoc($wakes)) {
 
 <SoftKeyItem>
 <Name>Edit</Name>
-<URL>mkwake.php</URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/mkwake.php</URL>
 </SoftKeyItem>
 <SoftKeyItem>
 <Name>Delete</Name>
-<URL>rmwake.php</URL>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/rmwake.php</URL>
+</SoftKeyItem>
+<SoftKeyItem>
+<Name>About</Name>
+<URL><? echo $FinneganCiscoConfig->url_base ?>/service/about.php</URL>
 </SoftKeyItem>
 </CiscoIPPhoneMenu>
