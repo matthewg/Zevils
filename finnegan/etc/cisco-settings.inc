@@ -16,7 +16,14 @@ class FinneganCiscoConfig {
 $url_base = "http://10.10.0.10/finnegan/cisco"; # Base of URLs to point phones at
 $tftp_dir = "../tmp"; # Where (relative to $FINNEGAN/src if it's a relative path) to write files which need to go to the TFTP server
 $tftp_prefix = ""; # Prefix which will be prepended to any TFTP file paths we send to the phones
-$wake_method = "tftp"; # How we send wakeup calls to phones; valid values are "multicast", "unicast", and "tftp".
+$wake_method = "h323"; # How we send wakeup calls to phones; valid values are "multicast", "unicast", "h323", and "tftp".
+$max_simultaneous_calls = 15; # How many simultaneous aclls should we allow?
+$voicemail_ext = "20000"; # Extension which indicates that call has been forwarded to voicemail
+$my_ext = "92896"; # Extension which calls should appear to be from
+$my_name = "Finnegan"; # How we should be identified on caller ID
+
+# H.323 settings
+$h323_gateway = "10.10.0.51"; # IP to use for placing H.323 calls
 
 # Credentials
 $post_username = "40196"; # Username for CiscoIPPhoneExecute 

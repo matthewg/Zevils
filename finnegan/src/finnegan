@@ -12,6 +12,7 @@ use DBI;
 use Sys::Syslog;
 
 our $db_connected = 0;
+our $phonecalls = 0;
 
 sub log_debug($);
 sub make_call($$);
@@ -24,16 +25,27 @@ sub load_settings {
 	eval $settings;
 	die "Couldn't load settings: $@\n" if $@;
 
-	my %new_phonelines = map { $_ => 1 } @$Finnegan::Config::phonelines;
-	foreach (keys %new_phonelines) {
-		if(!$phonelines_total{$_}) {
-			$phonelines_total{$_} = $phonelines_avail{$_} = 1;
+	if($Finnegan::Config::use_cisco) {
+		open(SETTINGS, "../etc/cisco-settings.inc") or die "Couldn't open Cisco settings: $!\n";
+		$settings = join("", <SETTINGS>);
+		close SETTINGS;
+		$settings =~ s/#__PHPONLY_START__.*?#__PHPONLY_END__//gs;
+		eval $settings;
+		die "Couldn't load Cisco settings: $@\n" if $@;
+
+		die "Please use the finnegan-cisco daemon instead of finnegan" if $Finnegan::Config::Cisco::wake_method ne "h323";
+	} else {
+		my %new_phonelines = map { $_ => 1 } @$Finnegan::Config::phonelines;
+		foreach (keys %new_phonelines) {
+			if(!$phonelines_total{$_}) {
+				$phonelines_total{$_} = $phonelines_avail{$_} = 1;
+			}
 		}
-	}
-	foreach (keys %phonelines_total) {
-		if(!$new_phonelines{$_}) {
-			delete $phonelines_total{$_};
-			delete $phonelines_avail{$_};
+		foreach (keys %phonelines_total) {
+			if(!$new_phonelines{$_}) {
+				delete $phonelines_total{$_};
+				delete $phonelines_avail{$_};
+			}
 		}
 	}
 }
@@ -55,12 +67,19 @@ if(!$Finnegan::Config::testmode) {
 $SIG{CHLD} = sub {
 	my $pid = wait;
 	return if $pid == -1;
-	my $phoneline = $kidmap{$pid};
-	log_debug("Recovered phoneline $phoneline (PID $pid)");
-	if($phoneline) {
-		delete $kidmap{$pid};
-		$phonelines_avail{$phoneline} = 1;
-		unlink("../tmp/$pid.rmd") unless $Finnegan::Config::nocalls;
+
+	if($Finnegan::Config::use_cisco) {
+		log_debug("Call from PID $$ ended");
+		$phonecalls--;
+		unlink("../tmp/$pid.wav") unless $Finnegan::Config::nocalls;
+	} else {
+		my $phoneline = $kidmap{$pid};
+		log_debug("Recovered phoneline $phoneline (PID $pid)");
+		if($phoneline) {
+			delete $kidmap{$pid};
+			$phonelines_avail{$phoneline} = 1;
+			unlink("../tmp/$pid.rmd") unless $Finnegan::Config::nocalls;
+		}
 	}
 };
 
@@ -221,11 +240,18 @@ while(1) {
 		$get_newwakes->finish;
 	}
 
-
-	if(!(scalar keys %phonelines_avail)) {
-		log_debug("No phonelines available - starting over");
-		sleep 10;
-		next;
+	if($Finnegan::Config::use_cisco) {
+		if($phonecalls >= $Finnegan::Config::Cisco::max_simultaneous_calls) {
+			log_debug("Max simultaneous call count reached - sleeping");
+			sleep 10;
+			next;
+		}
+	} else {
+		if(!(scalar keys %phonelines_avail)) {
+			log_debug("No phonelines available - starting over");
+			sleep 10;
+			next;
+		}
 	}
 
 
@@ -336,7 +362,7 @@ while(1) {
 			push @pin_rows, $_ foreach $get_forgotpins->fetchrow_hashref;
 			$get_forgotpins->finish;
 
-			foreach my $row (@pin_rows) {
+			foreach $row (@pin_rows) {
 				next unless $row;
 				last unless scalar keys %phonelines_avail;
 				make_call("forgotpin", $row);
@@ -352,15 +378,21 @@ while(1) {
 sub make_call($$) {
 	my($type, $row) = @_;
 	log_debug("Doing $type for x".$row->{extension});
-	my $phoneline = (keys %phonelines_avail)[0];
-	delete $phonelines_avail{$phoneline};
+	my $phoneline;
 	my $end;
 
+	if($Finnegan::Config::use_cisco) {
+		$phonecalls++;
+	} else {
+		$phoneline = (keys %phonelines_avail)[0];
+		delete $phonelines_avail{$phoneline};
+	} 
+
 	if($type eq "wake") {
-		start_log_wake($row->{wake_id}, $row->{extension}, $phoneline);
+		start_log_wake($row->{wake_id}, $row->{extension}, $phoneline || $$);
 		$end = \&end_log_wake;
 	} elsif($type eq "forgotpin") {
-		start_log_forgot_pin($row->{extension}, $phoneline);
+		start_log_forgot_pin($row->{extension}, $phoneline || $$);
 		$end = \&end_log_forgot_pin;
 	} else {
 		log_error("Invalid make_call type: $type");
@@ -380,16 +412,35 @@ sub make_call($$) {
 	prepare_statements();
 
 	if(!defined($pid)) {
-		$phonelines_avail{$phoneline} = 1;
+		if($Finnegan::Config::use_cisco) {
+			$phonecalls--;
+		} else {
+			$phonelines_avail{$phoneline} = 1;
+		}
+
 		log_error("Couldn't fork: $!");
 		$end->("failure", "Couldn't fork: $!");
 		$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 		return 1;
 	} elsif($pid) {
-		$kidmap{$pid} = $phoneline;
-		log_debug("Kid is $pid phoneline $phoneline");
+		if(!$Finnegan::Config::use_cisco) {
+			$kidmap{$pid} = $phoneline;
+			log_debug("Kid is $pid phoneline $phoneline");
+		}
+
 		return 0;
 	} else {
+		my $audio_ext;
+		my $audio_dir;
+
+		if($Finnegan::Config::cisco) {
+			$audio_ext = "wav";
+			$audio_dir = "../wav-mono8";
+		} else {
+			$audio_ext = "rmd";
+			$audio_dir = "rmd";
+		}
+
 		$db_connected = 0; # Don't log "Finnegan going down!" when we exit.
 
 		select(undef, undef, undef, 0.1); # Give parent a chance to run first
@@ -409,37 +460,37 @@ sub make_call($$) {
 			}
 
 			@samples = (
-				"../rmd/messages/$message.rmd",
-				"../rmd/wake/timeis.rmd",
-				"../rmd/wake/hours/$hour.rmd"
+				"$audio_dir/messages/$message.$audio_ext",
+				"$audio_dir/wake/timeis.$audio_ext",
+				"$audio_dir/wake/hours/$hour.$audio_ext"
 			);
 
 			if($minute > 0) {
 				if($minute > 0 and $minute < 20) {
-					push @samples, "../rmd/wake/ten-minutes/0.rmd" if $minute < 10;
-					push @samples, "../rmd/wake/one-minutes/$minute.rmd";
+					push @samples, "$audio_dir/wake/ten-minutes/0.$audio_ext" if $minute < 10;
+					push @samples, "$audio_dir/wake/one-minutes/$minute.$audio_ext";
 				} else {
 					$minute =~ /(.)(.)/;
-					push @samples, "../rmd/wake/ten-minutes/".($1*10).".rmd";
-					push @samples, "../rmd/wake/one-minutes/$2.rmd" if $2;
+					push @samples, "$audio_dir/wake/ten-minutes/".($1*10).".$audio_ext";
+					push @samples, "$audio_dir/wake/one-minutes/$2.$audio_ext" if $2;
 				}
 			}
 
-			push @samples, "../rmd/wake/$ampm.rmd";
+			push @samples, "$audio_dir/wake/$ampm.$audio_ext";
 
-			push @samples, "../rmd/wake/snooze.rmd";
-			push @samples, "../rmd/wake/edit.rmd";
+			push @samples, "$audio_dir/wake/snooze.$audio_ext";
+			push @samples, "$audio_dir/wake/edit.$audio_ext";
 		} else {
 			my @pindigits = split(//, $row->{pin});
 			my $lastdigit = pop @pindigits;
-			my @pinsamples = map { "../rmd/forgotpin/digits-nonfinal/$_.rmd" } @pindigits;
-			push @pinsamples, "../rmd/forgotpin/digits-final/$lastdigit.rmd";
+			my @pinsamples = map { "$audio_dir/forgotpin/digits-nonfinal/$_.$audio_ext" } @pindigits;
+			push @pinsamples, "$audio_dir/forgotpin/digits-final/$lastdigit.$audio_ext";
 
-			@samples = ("../rmd/forgotpin/pinis.rmd", @pinsamples, "../rmd/forgotpin/again.rmd", @pinsamples);
+			@samples = ("$audio_dir/forgotpin/pinis.$audio_ext", @pinsamples, "$audio_dir/forgotpin/again.$audio_ext", @pinsamples);
 		}
 
-		if(!open(OUTSAMPLE, ">../tmp/$$.rmd")) {
-			$end->("failure", "Couldn't open output sample ../tmp/$$.rmd: $!");
+		if(!open(OUTSAMPLE, ">../tmp/$$.$audio_ext")) {
+			$end->("failure", "Couldn't open output sample ../tmp/$$.$audio_ext: $!");
 			$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);
 			exit 1;
 		}
@@ -469,14 +520,14 @@ sub make_call($$) {
 				exit 1;
 			}
 			$sdata = <SAMPLE>;
-			substr($sdata, 0, 32) = "";
+			substr($sdata, 0, 32) = "" if $audio_ext eq "rmd";
 			$all_sdata .= $sdata;
 			print OUTSAMPLE $sdata;
 			close SAMPLE;
 		}
 
 		if($type eq "wake") { # Repeat it
-			substr($all_sdata, 0, 32) = "";
+			substr($all_sdata, 0, 32) = "" if $audio_ext eq "rmd";
 			print OUTSAMPLE $all_sdata;
 		}
 		close OUTSAMPLE;
@@ -484,7 +535,7 @@ sub make_call($$) {
 
 
 		if($Finnegan::Config::nocalls) {
-			log_debug("Output sample is in ../tmp/$$.rmd");
+			log_debug("Output sample is in ../tmp/$$.$audio_ext");
 			if($type eq "wake") {
 				if($row->{date}) {
 					log_debug("Doing delete_wake");
@@ -509,7 +560,24 @@ sub make_call($$) {
 				$timeout = $Finnegan::Config::max_forgot_pin_duration - 10;
 			}
 
-			if(system("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.rmd", $snooze_ok)) {
+			my @command;
+			if($Finnegan::Config::use_cisco) {
+				@command = (
+					"h323/obj_linux_x86_r/finnegan-call-h323",
+					"--file", "../tmp/$$.$audio_ext",
+					"--dest", $row->{extension} . "@" . $Finnegan::Config::Cisco::h323_gateway,
+					"--timeout", $Finnegan::Config::Cisco::call_timeout,
+					"--voicemail", $Finnegan::Config::Cisco::voicemail_ext,
+					"--snoozefile", "$audio_dir/wake/thanks.$audio_ext",
+					"--no-gatekeeper",
+					"--user", $Finnegan::Config::Cisco::my_ext,
+					"--user", $Finnegan::Config::Cisco::my_name
+				);
+			} else {
+				@command = ("/usr/bin/vm", "shell", "-S", "/usr/bin/perl", "-l", $phoneline, "./finnegan-call", $type, $row->{extension}, $timeout, "../tmp/$$.$audio_ext", $snooze_ok);
+			}
+
+			if(system(@command)) {
 				if($? == -1) {
 					$end->("failure", "Failed to execute VM shell: $!");
 					$snooze_wake->execute($row->{wake_id}) || db_error("Couldn't snooze wake " . $row->{wake_id}, $snooze_wake);

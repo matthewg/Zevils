@@ -17,6 +17,7 @@ class FinneganConfig {
 $testmode = 1;
 $nocalls = 0;
 $forbidden_extensions = array("62000", "62222", "63000", "63333", "65000");
+$use_cisco = 1;
 
 # Security settings
 $pin_regex = '^[0-9]{1,4}$';

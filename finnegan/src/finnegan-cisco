@@ -26,6 +26,8 @@ sub load_settings {
 	eval $settings;
 	die "Couldn't load settings: $@\n" if $@;
 
+	die "Cisco support has been disabled\n" unless $Finnegan::Config::use_cisco;
+	die "Please use the finnegan daemon instead of finnegan-cisco\n" if $Finnegan::Config::Cisco::wake_method eq "h323";
 	die "Invalid wake_method -- should be tftp/unicast/multicast\n" unless $Finnegan::Config::Cisco::wake_method =~ /^(tftp|unicast|multicast)$/;
 }
 $SIG{HUP} = \&load_settings;
