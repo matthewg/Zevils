@@ -1558,6 +1558,7 @@ sub process_aim_message($$$) {
 					message($socket, $nnick, $tmp, 1);
 					splice(@{$connection->{screennames}{$screenname}{pounces}}, $i, 1);
 					splice(@{$pounces{$screenname}}, $i, 1) if $savepounces > 0;
+					irc_send(irc_privmsg($usnick, $connection->{nick}, "Pounce $i sent to $pounce->{who}."));
 				}
 			}
 			update_buddy($screenname, $nnick, $6, $3, $4, $5, 1);
