@@ -1108,11 +1108,15 @@ sub process_irc_message($) {
 		if($aim_connections{$nnick}) {
 			if($1 =~ /:?(.*)/) {
 				$aim_connections{$nnick}{away} = $1;
-				set_away($aim_connections{$nnick}{socket}, $1);
+				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
+					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket}, $1);
+				}
 			} else {
 				delete $aim_connections{$nnick}{away};
-				delete $aim_connections{$nnick}{away_buddies};
-				set_away($aim_connections{$nnick}{socket});
+				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
+					delete $aim_connections{$nnick}{screennames}{$screenname}{away_buddies};
+					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket});
+				}
 			}
 		}
 	} elsif(/^NICK +(\S+)/) { #Nick change
