@@ -1565,8 +1565,6 @@ sub irc_recv() {
 sub truncwarn($$) {
 	my($who, $what) = @_;
 
-	Carp::cluck "truncwarn $who $what\n";
-
 	irc_send(irc_privmsg($usnick, $who,
 		"\02WARNING\02: Screenname $what has been truncated to IRC nickname " . $shortnicks{noprefix $what}))
 
