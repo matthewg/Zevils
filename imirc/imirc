@@ -245,6 +245,9 @@ sub process_irc_message {
 			irc_send(irc_privmsg($usnick, $nick, "You must use the signon command to sign on to AOL Instant Messenger before using this service."));
 		} elsif($cmd eq "signon") {
 			irc_send(irc_privmsg($usnick, $nick, "Usage: signon screenname password")) unless $param and $extra;
+			if($aim_connections{$nick}) {
+				irc_send(irc_privmsg($usnick, $nick, "You are already signed onto AOL instant messenger as $aim_connections{$nick}{aimnick} - please sign off first if you wish to sign on under a different screename, or use a different IRC connection."));
+			}
 			@ret = signon $param, $extra, sub {
 				irc_send(irc_privmsg($usnick, $nick, $_[0]))
 			};
