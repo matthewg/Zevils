@@ -24,6 +24,8 @@ use Time::Local ();
 use Storable ();
 use Text::Wrap ();
 use Compress::Zlib ();
+use DateTime;
+use DateTime::TimeZone;
 
 do "$ENV{'LJHOME'}/cgi-bin/ljconfig.pl";
 do "$ENV{'LJHOME'}/cgi-bin/ljdefaults.pl";
@@ -4267,7 +4269,7 @@ sub get_picid_from_keyword
 }
 
 # <LJFUNC>
-# name: LJ::get_timezone
+# name: LJ::get_timezone_name
 # des: Gets the timezone for the user.
 # args: u, offsetref, defaultref
 # des-u: user object.
@@ -4276,32 +4278,33 @@ sub get_picid_from_keyword
 #               faked.  0 if it is the timezone specified by the user.
 # returns: nonzero if successful.
 # </LJFUNC>
-sub get_timezone {
+sub get_timezone_name {
     my ($u, $offsetref, $fakedref) = @_;
 
     my $timezone;
 
-    my $dbcm = LJ::get_cluster_master($u);
-    return 0 unless $dbcm;
-
-    # grab the times on the last post.
-    if (my $last_row = $dbcm->selectrow_hashref(
-                        "SELECT rlogtime, eventtime ".
-                        "FROM log2 WHERE journalid=? ".
-                        "ORDER BY rlogtime LIMIT 1",
-                        undef, $u->{userid})) {
-        my $logtime = $LJ::EndOfTime - $last_row->{'rlogtime'};
-        my $eventtime = LJ::mysqldate_to_time($last_row->{'eventtime'}, 1);
-        my $hourdiff = ($eventtime - $logtime) / 3600;
-
-        # if they're up to a quarter hour behind, round up.
-        $$offsetref = $hourdiff > 0 ? int($hourdiff + 0.25) : int($hourdiff - 0.25);
+    $timezone = $user->{timezone} || $BML::COOKIE{'ljtimezone'};
+    $$fakedref = 0;
+    if(!$timezone) {
+        $timezone = $LJ::DEFAULT_TIMEZONE;
+        $fakedref = 1;
     }
 
-    # until we store real timezones, the timezone is always faked.
-    $$fakedref = 1 if $fakedref;
-    
+    $$tzref = $timezone;
     return 1;
+}
+
+# <LJFUNC>
+# name: LJ::get_current_tzoffset
+# des: Gets the timezone offset from UTC for the current time in the specified timezone.
+# args: tz
+# des-tz: timezone name.
+# returns: offset, in seconds.
+# </LJFUNC>
+sub get_current_tzoffset {
+    my ($tz) = @_;
+
+    return DateTime::TimeZone->new(name => $tz)->offset_for_datetime(DateTime->now());
 }
 
 # <LJFUNC>
