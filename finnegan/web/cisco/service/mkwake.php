@@ -260,10 +260,10 @@ if($prompt == "done") {
 
 	if($_SESSION["type"] == "one-time") {
 		$date = $_SESSION["mon"] . "/" . $_SESSION["day"];
-		if(preg_match('/^(\d\d?)\\/?(\d\d)$/', $date, $matches))
+		if(preg_match('/^(\d\d?)\\/?(\d\d?)$/', $date, $matches))
 			$sql_date = date_to_sql($date, $sql_time);
 		else
-			$error = "Invalid Date: $date";
+			$error = "Invalid Date";
 		$sql_cal_type = "";
 		$sql_weekdays = array();
 	} else {
