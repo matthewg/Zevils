@@ -205,7 +205,7 @@ sub listpolls
 
 
         my $cursor = $dbh->prepare("
-                select qid, question, date_format(date,\"W M D\")  from
+                select qid, question, date_format(date,\"\%W \%M \%D \%Y\")  from
 pollquestions order by date DESC
                 ");
         $cursor->execute; 

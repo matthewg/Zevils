@@ -110,8 +110,8 @@ sub commentSearch
         # and SID, article title, type and a link to the article
 	my $sqlquery="SELECT section, stories.sid, aid, title, 
 			     pid, subject, 
-			     date_format(date,\"W M D\@h:m\"),
-			     date_format(time,\"W M D\@h:m\"), uid, cid
+			     date_format(date,\"\%W \%M \%D \%Y \@h:m\"),
+			     date_format(time,\"\%W \%M \%D \%Y \@h:m\"), uid, cid
 		        FROM stories, comments
 		       WHERE stories.sid=comments.sid  and points >= $$USER{threshold} ";
 	my $q=$dbh->quote(regexify($$FORM{query}));
@@ -208,7 +208,7 @@ sub storySearch
 	my $q=$dbh->quote(regexify($$FORM{query}));
 	print "$q<BR>" if $$USER{uid} == 1;
 	my $normalquery="SELECT authors.aid,title,sid,
-			date_format(time,\"W M D\@h:m\"),
+			date_format(time,\"\%W \%M \%D \%Y \@h:m\"),
 			commentcount,url,stories.section";
 	my $cntQuery="SELECT count(*) ";
 	my $sqlquery="  FROM stories, authors 

@@ -4,20 +4,22 @@ use vars;
 use DBI;
 use Carp;
 
-use Exporter   ();
-use vars       qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);      
-$VERSION     = 0.30;
+sub BEGIN {
+	use Exporter   ();
+	use vars       qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);      
+	$VERSION     = 0.30;
 
-@ISA=qw(Exporter);
-@EXPORT=qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection $currentMode $userMode $dbh $datadir &getSlash &linkStory &getSection &adminMenu &selectForm &selectGeneric &selectTopic &selectSection &getvars &getvar &setvar &newvar &getapptags &getfile &geturl &prog2file &url2file &getUser &getblock &getsid &getsiddir &writelog &pollbooth &sqlSelectMany &sqlSelect &sqlSelectHash &sqlSelectHashref &sqlUpdate &sqlInsert &sqlconnect &stripByMode &stripBadHtml &approvetag &header &footer &prepEvalBlock &prepBlock &nukeBlockCache &blockCache &titlebar &fancybox &printComments &dispComment &dispStory &displayStory &sendEmail &pollItem &printComments2 &getOlderStories &displayStories &selectStories &currentAdminUsers);   
-#Uncomment the following to enable stack traces:
-#$Carp::Verbose = 1;
-$SIG{__WARN__} = sub { carp $_[0] };
-$SIG{__DIE__ } = sub { croak $_[0] };
+	@ISA=qw(Exporter);
+	@EXPORT=qw($query $imagedir $rootdir $ssidir $sitename $slogan $currentSection $currentMode $userMode $dbh $datadir &getSlash &linkStory &getSection &adminMenu &selectForm &selectGeneric &selectTopic &selectSection &getvars &getvar &setvar &newvar &getapptags &getfile &geturl &prog2file &url2file &getUser &getblock &getsid &getsiddir &writelog &pollbooth &sqlSelectMany &sqlSelect &sqlSelectHash &sqlSelectHashref &sqlUpdate &sqlInsert &sqlconnect &stripByMode &stripBadHtml &approvetag &header &footer &prepEvalBlock &prepBlock &nukeBlockCache &blockCache &titlebar &fancybox &printComments &dispComment &dispStory &displayStory &sendEmail &pollItem &printComments2 &getOlderStories &displayStories &selectStories &currentAdminUsers);   
+	#Uncomment the following to enable stack traces:
+	#$Carp::Verbose = 1;
+	$SIG{__WARN__} = sub { carp $_[0] };
+	$SIG{__DIE__ } = sub { croak $_[0] };
 
-use vars @EXPORT;
+	use vars @EXPORT;
+}
 
-$dbh||=DBI->connect("DBI:mysql:slash", "slash", "tacosux");
+$dbh||=DBI->connect("DBI:mysql:slash", "slash", "wegotitallonUHF");
 kill 9,$$ unless $dbh;
 ($imagedir,$rootdir,$datadir,$sitename,$slogan,$ssidir)
 		=getvars("imagedir","rootdir","datadir","sitename","slogan","ssidir") unless $imagedir;
@@ -441,7 +443,7 @@ sub userCheckCookie
         my($uid,$passwd)=split("::",$cookie);
         my $c=sqlSelectMany("uid","users",
                        "uid=".$dbh->quote($uid)." and passwd=".$dbh->quote($passwd));
-        $uid=-1 unless $c->fetchrow();
+	if ($c) { $uid=-1 unless $c->fetchrow(); }
         $c->finish();
         return ($uid, $passwd);
 }
@@ -475,6 +477,7 @@ sub getsid
 sub getsiddir
 {
         my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime;
+	$year += 1900;
         my $sid=sprintf("%02d/%02d/%02d",$year,$mon+1,$mday)."/";
 	return $sid;
 }
@@ -597,9 +600,9 @@ sub sqlSelectHashref
 
 	$dbh||=sqlconnect();
 	my $c=$dbh->prepare($sql);
-	# $c->execute() or print "\n<P><B>SQL Hashref Error</B><BR>\n";
-	$c->execute() or kill 9,$$;
-	my $H=$c->fetchrow_hashref();
+	my $H = {};
+	return $H unless $c->execute();
+	$H=$c->fetchrow_hashref();
 	$c->finish();
 	return $H;
 }
@@ -654,7 +657,7 @@ sub sqlInsert
 
 sub sqlconnect
 {
-        $dbh ||= DBI->connect("DBI:mysql:slash", "slash", "tacosux");
+        $dbh ||= DBI->connect("DBI:mysql:slash", "slash", "wegotitallonUHF");
 	# die "Unable to connect to SQL Server" unless $dbh;
 	kill 9, $$ unless $dbh;
         return \$dbh;

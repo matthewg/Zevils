@@ -197,7 +197,7 @@ sub makeDir
 	my ($section,$sid)=@_;
 	$sid =~ /(.*)\//;
 	my $y2k = length($1);
-	my($yearid, $monthid, $dayid);
+	my($monthid, $yearid, $dayid);
 	if($y2k == 10) {
 		$monthid = substr($sid, 5, 2);
 		$yearid = substr($sid, 0, 4);
