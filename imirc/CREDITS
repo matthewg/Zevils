@@ -1,7 +1,7 @@
 
 Thanks to:
-	AOL (PROTOCOL and TiK were very helpful in making this.  Oh yeah and they made TOC and opened it up.)
-	The gaim team (I prefer reading C to reading TCL for those rough spots in the PROTOCOL)
+	AOL (Creating and maintaining the AOL Instant Messenger service)
+	The gaim team (gAIM and WinAIM were used as reference implementations of OSCAR/AIM)
 	Josh Myer (Undernet support, encrypted passwords, %ircservers, miscellaneous concepts)
 	GreendayDK (Dragonfire compatibility, debugging)
 	Yog-Sothoth (Debugging)
@@ -13,10 +13,12 @@ Thanks to:
 	Marko Asplund <aspa@hip.fi> for IO::Socket:SSL and help with same
 	geniusj (Chan reaping fix, Hybrid kick fix, #aimirc-screenname idea)
 	IpAddress (Syntax error fallthrough, Debugging)
-	VBScript (Debugging, Several ideas, Moral Support, Lots More)
+	VBScript (Debugging, Many Ideas, Moral Support, OSCAR Go-To Guy, Lots More)
 	Brendan Bowden (Debugging)
 	Jayson (Debugging)
 	vsync (#aimirc-screenname reaping fix, IM send reap fix)
 	jeff@cepheid.org (ircd 2.10.3p2 support)
 	Mark Rutherford (Bahamut IRCd support)
+	Adam Fitzler (libfaim, OSCAR docs)
+	Mark Doliner and Alex Yacoub (OSCAR buddylist help/docs)
 	Scott Timo (Debugging Assistance)
