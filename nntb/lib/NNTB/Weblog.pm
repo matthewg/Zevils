@@ -206,7 +206,7 @@ You C<MUST NOT> override this method.
 
 sub groupname($$) {
 	my($self, $group) = @_;
-	$group =~ tr! .*?\\/!______!;
+	$group =~ tr! .*?\\/,!_______!;
 	$group =~ s/^!/_/;
 	return $group;
 }
