@@ -56,10 +56,10 @@ sub irc_recv(;$);
 sub manglewarn($$);
 sub irc_ctcp_quote($);
 sub irc_ctcp_unquote($);
-sub process_ctcp($$$);
+sub process_ctcp($$$$);
 sub irc_ctcp($$$;$);
 sub loadbuddies($$);
-sub irc_dcc($$$$$);
+sub irc_dcc($$$$$$);
 sub safename($);
 sub savedat($);
 sub num2base64($);
@@ -508,6 +508,7 @@ sub mainloop() {
 
 			DCC: for($i = 0; $i <= $#dccqueue; $i++) {
 				$dcc = $dccqueue[$i];
+				my $screenname = $dcc->{screenname};
 				if($dcc->{direction} eq "GET") {
 					undef $rv;
 					$! = EAGAIN;
@@ -515,7 +516,7 @@ sub mainloop() {
 						$buff = ' ' x 102;
 						$rv = $dcc->{socket}->sysread($buff, 102); #A tenth of a kilobyte - should be okay even for slow connections
 						if (!defined($rv) && $! != EAGAIN) {
-							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!"));
+							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!", "", "", $screenname));
 							$dcc->{socket}->close;
 							splice(@dccqueue, $i, 1);
 							next DCC;
@@ -533,13 +534,11 @@ sub mainloop() {
 							Toc::debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
 							Toc::debug_print($dcc->{buff}, "DCC", 3);
 							$dcc->{socket}->close;
-							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed."));
-							if($dcc->{what} eq "loadbuddies") {
-								if(loadbuddies($aim_connections{$dcc->{from}}{screennames}{$dcc->{screenname}}{socket}, $dcc->{buff})) {
-									irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded."));
-								} else {
-									irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?"));
-								}
+							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed.", "", "", $screenname));
+							if(loadbuddies($aim_connections{$dcc->{from}}{screennames}{$dcc->{screenname}}{socket}, $dcc->{buff})) {
+								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded.", "", "", $screenname));
+							} else {
+								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?", "", "", $screenname));
 							}
 							splice(@dccqueue, $i, 1);
 						}
@@ -551,7 +550,7 @@ sub mainloop() {
 						#Anyone trying to connect to us?
 						if(!select($rin, $win, $ein, 0.01)) {
 							if(time - $dcc->{starttime} > 60*10) {
-								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out."));
+								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out.", "", "", $screenname));
 								$dcc->{ssocket}->close;
 								splice(@dccqueue, $i, 1);
 							}
@@ -562,7 +561,7 @@ sub mainloop() {
 							$dcc->{socket} = $rv;
 							$dcc->{put} = 0;
 						} elsif($! and $! != EAGAIN) {
-							irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+							irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
 							$dcc->{ssocket}->close;
 							splice(@dccqueue, $i, 1);
 							next DCC;
@@ -575,7 +574,7 @@ sub mainloop() {
 								$buff = substr($dcc->{buff}, 0, 102, "");
 								$rv = $dcc->{socket}->syswrite($buff, length $buff); #A tenth of a kilobyte - should be okay even for slow connections
 								if (!defined($rv) && $! != EAGAIN) {
-									irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+									irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
 									$dcc->{socket}->close;
 									$dcc->{ssocket}->close;
 									splice(@dccqueue, $i, 1);
@@ -597,7 +596,7 @@ sub mainloop() {
 									$buff = ' ' x 4;
 									$getrv = $dcc->{socket}->sysread($buff, 4);
 									if(!defined($getrv) && $! != EAGAIN) {
-										irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!"));
+										irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
 										$dcc->{socket}->close;
 										$dcc->{ssocket}->close;
 										splice(@dccqueue, $i, 1);
@@ -619,7 +618,7 @@ sub mainloop() {
 								Toc::debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
 								$dcc->{socket}->close;
 								$dcc->{ssocket}->close;
-								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed."));
+								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed.", "", "", $screenname));
 								splice(@dccqueue, $i, 1);
 							}
 						}
@@ -850,7 +849,7 @@ sub process_irc_message($) {
 		my $topic = $chattopics{$chat};
 
 		$topic =~ s/^{.+?} //;
-		chat_invite($aim_connections{$nnick}{socket}, $chat, "Please come to $topic.", $recipient) if $aim_connections{$nnick};
+		chat_invite($aim_connections{$nnick}{screennames}{$chatnames{$chat}}{socket}, $chat, "Please come to $topic.", $recipient) if $aim_connections{$nnick};
 	} elsif(/^MODE +#aimchat-(\d+) +:?(.+)/i) {
 		my $chat = $1;
 		my $modes = $2;
@@ -949,13 +948,15 @@ sub process_irc_message($) {
 			}
 			irc_send(irc_part($usnick, "#aimirc-$screenname"));
 		}
-	} elsif(!/#aimirc-debug/i and (/^PRIVMSG +$usnick(\@\S+)? +:?(.+)/i or /^PRIVMSG +#aimirc-(\S+) +:?(.+)/i)) {
+	} elsif(!/#aimirc-debug/i and (/^(PRIVMSG|NOTICE) +$usnick(\@\S+)? +:?(.+)/i or /^(PRIVMSG|NOTICE) +#aimirc-(\S+) +:?(.+)/i)) {
 		my($cmd, $param, $extra, $connection, $screenname, $sndata, %config);
 
-		$msg = process_ctcp($nnick, $usnick, $2);
+		$screenname = $2 if exists $aim_connections{$nnick}{screennames}{$2};
+		$screenname ||= $aim_connections{$nnick}{aimnick} if exists $aim_connections{$nnick};
+
+		$msg = process_ctcp($nnick, $usnick, $3, $screenname);
 		return unless $msg;
 
-		$screenname = $1 if exists $aim_connections{$nnick}{screennames}{$1};
 		$cmd = undef; $extra = undef; $param = undef;
 		$msg =~ /(\S+) ?(\S*)( ?.*)/ or $cmd = $msg;
 		$cmd = $1 unless $cmd; $param = $2 if $2 or $2 eq "0"; $extra = substr($3, 1) || "" if $3;
@@ -966,7 +967,6 @@ sub process_irc_message($) {
 
 		if($aim_connections{$nnick}) {
 			$connection = $aim_connections{$nnick};
-			$screenname ||= $connection->{aimnick};
 			$sndata = $connection->{screennames}{$screenname};
 			%config = deref get_config $screenname;
 		}
@@ -1035,7 +1035,7 @@ sub process_irc_message($) {
 			irc_send(irc_privmsg($usnick, $nick, join(" ", sort keys(%{$config{deny}})), "", "", $screenname));
 			irc_send(irc_privmsg($usnick, $nick, "Your deny list is empty.", "", "", $screenname)) unless haskeys $config{deny};
 		} elsif ($cmd eq "signoff") {
-			do_signoff($nnick, $connection->{socket});
+			do_signoff($nnick, $sndata->{socket});
 		} elsif ($cmd eq "buddyinfo") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: buddyinfo screenname", "", "", $screenname));
@@ -1061,7 +1061,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				$group = $extra || "Buddies";
-				add_buddy($connection->{socket}, [split(/,/, $param)], $group);
+				add_buddy($sndata->{socket}, [split(/,/, $param)], $group);
 				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_buddy") {
@@ -1070,7 +1070,7 @@ sub process_irc_message($) {
 			} else {
 				$param = lc($param);
 				map { irc_send(irc_part("$prefix" . normalize $_, "#aimirc-$screenname", "Removed from buddylist.")) if delete $nicks{normalize $_}{$screenname} and $sndata->{inchan} } split(/,/, $param);
-				remove_buddy($connection->{socket}, [split(/,/, $param)]);
+				remove_buddy($sndata->{socket}, [split(/,/, $param)]);
 				irc_send(irc_privmsg($usnick, $nick, "Buddylist updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "evil" or $cmd eq "warn") {
@@ -1083,14 +1083,14 @@ sub process_irc_message($) {
 				} else {
 					$extra = 1;
 				}
-				evil($connection->{socket}, $param, $extra);
+				evil($sndata->{socket}, $param, $extra);
 			}
 		} elsif ($cmd eq "add_permit") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_permit screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				add_permit($connection->{socket}, [split(/,/, $param)]);
+				add_permit($sndata->{socket}, [split(/,/, $param)]);
 				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "add_deny") {
@@ -1098,7 +1098,7 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: add_deny screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				add_deny($connection->{socket}, [split(/,/, $param)]);
+				add_deny($sndata->{socket}, [split(/,/, $param)]);
 				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_deny") {
@@ -1106,7 +1106,7 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_deny screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				remove_deny($connection->{socket}, [split(/,/, $param)]);
+				remove_deny($sndata->{socket}, [split(/,/, $param)]);
 				irc_send(irc_privmsg($usnick, $nick, "Deny list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "remove_permit") {
@@ -1114,23 +1114,23 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: remove_permit screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				remove_permit($connection->{socket}, [split(/,/, $param)]);
+				remove_permit($sndata->{socket}, [split(/,/, $param)]);
 				irc_send(irc_privmsg($usnick, $nick, "Permit list updated.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_name", "", "", $screenname));
 			} else {
-				$extra ? chat_join($connection->{socket}, "$param $extra") : chat_join($connection->{socket}, $param);
+				$extra ? chat_join($sndata->{socket}, "$param $extra") : chat_join($sndata->{socket}, $param);
 			}
 		} elsif ($cmd eq "join_exchange") {
 			unless($param and $extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: join_exchange exchange chat_name", "", "", $screenname));
 			} else {
-				chat_join_exchange($connection->{socket}, $extra, $param);
+				chat_join_exchange($sndata->{socket}, $extra, $param);
 			}
 		} elsif ($cmd eq "get_permit_mode") {
-			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($connection->{socket}) . ".", "", "", $screenname));
+			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($sndata->{socket}) . ".", "", "", $screenname));
 		} elsif ($cmd eq "set_permit_mode") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: set_permit_mode newmode", "", "", $screenname));
@@ -1138,7 +1138,7 @@ sub process_irc_message($) {
 				if($param != 1 and $param != 2 and $param != 3 and $param != 4) {
 					irc_send(irc_privmsg($usnick, $nick, "That is not a valid permit mode.  See list_permit_modes for valid permit modes.", "", "", $screenname));
 				} else {
-					permtype($connection->{socket}, $param);
+					permtype($sndata->{socket}, $param);
 					irc_send(irc_privmsg($usnick, $nick, "Permit mode set.", "", "", $screenname));
 				}
 			}
@@ -1163,14 +1163,14 @@ sub process_irc_message($) {
 				$foo = undef;
 				$foo = "norm" if $2 ne "anon";
 				$foo ne "norm" ? $foo = 1 : $foo = 0;
-				chat_evil($connection->{socket}, $param, $1, $foo);
+				chat_evil($connection->{screennames}{$chatnames{$param}}{socket}, $param, $1, $foo);
 			}
 		} elsif ($cmd eq "info" or $cmd eq "get_info" or $cmd eq "get_profile") {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: info screenname", "", "", $screenname));
 			} else {
 				$param = lc($param);
-				get_info($connection->{socket}, $param);
+				get_info($sndata->{socket}, $param);
 			}
 		} elsif ($cmd eq "set_info" or $cmd eq "set_profile") {
 			my $text;
@@ -1178,7 +1178,7 @@ sub process_irc_message($) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd info", "", "", $screenname));
 			} else {
 				$extra ? ($text = "$param $extra") : ($text = $param);
-				set_info($connection->{socket}, $text);
+				set_info($sndata->{socket}, $text);
 				$profiles{safename $screenname} = $text if $saveprofiles > 0;
 				irc_send(irc_privmsg($usnick, $nick, "Your profile has been updated.", "", "", $screenname));
 			}
@@ -1186,7 +1186,7 @@ sub process_irc_message($) {
 			unless($param) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: get_dir screenname", "", "", $screenname));
 			} else {
-				get_directory($connection->{socket}, $param);
+				get_directory($sndata->{socket}, $param);
 			}
 		} elsif ($cmd eq "set_dir") {
 			$param = "$param $extra" if $extra;
@@ -1202,7 +1202,7 @@ sub process_irc_message($) {
 					country => shift @temp,
 					allow_web_searches => shift @temp
 				);
-				set_directory($connection->{socket}, %temp);
+				set_directory($sndata->{socket}, %temp);
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches.", "", "", $screenname));
 			}
@@ -1220,7 +1220,7 @@ sub process_irc_message($) {
 					country => shift @temp,
 					allow_web_searches => shift @temp
 				);
-				directory_search($connection->{socket}, %temp);
+				directory_search($sndata->{socket}, %temp);
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "first name:middle name:last name:maiden name:city:state:country:websearch.  Don't put any colons in any of these.  If you put anything in the websearch field, people can find your directory info using web searches.", "", "", $screenname));
 			}
@@ -1240,7 +1240,7 @@ sub process_irc_message($) {
 			unless($param == 0 or $param == 1) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: sendidle (0|1)", "", "", $screenname));
 			} else {
-				$connection->{report_idle} = $param;
+				$sndata->{report_idle} = $param;
 				irc_send(irc_privmsg($usnick, $nick, "Idle reporting changed.", "", "", $screenname));
 			}
 		} elsif ($cmd eq "format_nickname" or $cmd eq "format_screenname") {
@@ -1249,16 +1249,16 @@ sub process_irc_message($) {
 			} else {
 				$param .= " $extra" if $extra;
 				$sndata->{pending_formatted} = $param;
-				format_nickname $connection->{socket}, $param;
+				format_nickname $sndata->{socket}, $param;
 			}
 		} elsif ($cmd eq "change_password") {
 			unless($param and $extra) {
 				irc_send(irc_privmsg($usnick, $nick, "Usage: change_password old_password new_password", "", "", $screenname));
 			} else {
-				change_password $connection->{socket}, $param, $extra;
+				change_password $sndata->{socket}, $param, $extra;
 			}
 		} elsif ($cmd eq "loadbuddies") {
-			$dccget{$nnick} = "loadbuddies";
+			$dccget{$nnick} = $screenname;
 			irc_send(irc_ctcp($usnick, $nnick, "loadbuddies"));
 			irc_send(irc_privmsg($usnick, $nnick, "Please DCC SEND $usnick your buddylist.", "", "", $screenname));
 		} elsif ($cmd eq "savebuddies") {
@@ -1276,7 +1276,7 @@ sub process_irc_message($) {
  version 1
 }
 User {
- screenName $aim_connections{$nnick}{aimnick}
+ screenName $screenname
 }
 Buddy {
  list {
@@ -1316,7 +1316,7 @@ Buddy {
 					$filename = "$screenname.txt";
 				}
 
-				$message = irc_dcc($usnick, $nnick, $config, "savebuddies", $filename);
+				$message = irc_dcc($usnick, $nnick, $config, "savebuddies", $filename, $screenname);
 				if($message) {
 					irc_send($message);
 					irc_send(irc_ctcp($usnick, $nick, "savebuddies"));
@@ -1495,7 +1495,7 @@ Buddy {
 	} elsif(/^PRIVMSG +(\S+)(\@\S+)? +:?(.+)/i) { #$nick sent $3 to $1 (where $1 ne $usnick)
 		$target = noprefix($longnicks{normalize($1)}); $msg = $3;
 		$recipient = normalize($1);
-		$msg = process_ctcp($nnick, normalize $1, $msg);
+		$msg = process_ctcp($nnick, normalize $1, $msg, $screenname);
 		return unless $msg;
 
 		if($recipient eq "#aimirc-debug" and $debug) {
@@ -1546,9 +1546,9 @@ Buddy {
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
 				if($irc_connections{normalize $target} and $shortcircuit) {
-					got_im($aim_connections{$nnick}{aimnick}, $target, txt2html($msg), 0);
+					got_im($screenname, $target, txt2html($msg), 0);
 				} else {
-					message($aim_connections{$nnick}{socket}, $target, $msg);
+					message($sndata->{socket}, $target, $msg);
 				}
 				$nicks{$target}{$screenname} = time if $nicks{$target}{$screenname} != -1;
 			} else {
@@ -1611,8 +1611,6 @@ Buddy {
 		do_signoff_all($nnick, 1) if $aim_connections{$nnick};
 	} elsif(/^PING/) {
 		irc_send(irc_pong());
-	} elsif(/^NOTICE +$usnick(\@\S+)? +:?(.+)/i) {
-		process_ctcp($nnick, $usnick, $2);
 	}
 }
 
@@ -2116,7 +2114,7 @@ sub do_signoff($$;$) {
 	}
 
 	if($screenname and $aim_connections{$nick}{screennames}{$screenname}{inchan}) {
-		irc_send(irc_kick($usnick, "#aimirc-$screenname", $nick));
+		irc_send(irc_kick($usnick, "#aimirc-$screenname", $nick, "You have been signed off of AOL Instant Messenger."));
 		irc_send(irc_part($usnick, "#aimirc-$screenname"));
 	}
 
@@ -2415,8 +2413,8 @@ sub irc_ctcp_unquote($) {
 }
 
 # Process an incoming IRC command for CTCPs
-sub process_ctcp($$$) {
-	my($from, $to, $message) = @_;
+sub process_ctcp($$$$) {
+	my($from, $to, $message, $screenname) = @_;
 	my ($delim, @ctcp, $ctcp, $cmd, $args) = (chr(001));
 	my($filename, $ipaddr, $port, $filesize, $socket, $buff, $flags);
 
@@ -2441,6 +2439,7 @@ sub process_ctcp($$$) {
 		}
 		$message .= "\02ACTION\02 $args" if $cmd eq "ACTION"; #If you "/me runs" an AIMer, it'll turn into "<B>ACTION</B> runs".  Anyone got any better ideas?
 		if($cmd eq "DCC") {
+			$screenname = $dccget{$from} || "";
 			($cmd, $args) = split(/ /, $args, 2);
 			if($cmd eq "REJECT") {
 				my($dcc, $i);
@@ -2464,20 +2463,25 @@ sub process_ctcp($$$) {
 				$args =~ /(.+)\s+(\d+)\s+(\d+)\s+(\d+)/; #Handles spaces in filename
 				($filename, $ipaddr, $port, $filesize) = ($1, $2, $3, $4);
 				if(not $dccget{$from}) {
-					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time."));
+					irc_send(irc_privmsg($to, $from, "I'm not accepting DCCs from you at this time.", "", "", $screenname));
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename", 1));
 					next CTCP;
 				}
-				if($dccget{$from} eq "loadbuddies" and $filesize > 20480) {
-					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 20k."));
+				if($dccget{$from} and $filesize > 20480) {
+					irc_send(irc_privmsg($to, $from, "Sorry, I won't accept buddylists larger than 20k.", "", "", $screenname));
 					delete $dccget{$from};
 					irc_send(irc_ctcp($to, $from, "DCC REJECT SEND $filename"));
 					next CTCP;
 				} else {
-					eval { $socket = IO::Socket::INET->new(
-						PeerAddr => $ipaddr,
-						PeerPort => $port
-					); } ;
+					$SIG{ALRM} = sub { die "connection timed out\n"; };
+					eval {
+						alarm 5;
+						$socket = IO::Socket::INET->new(
+							PeerAddr => $ipaddr,
+							PeerPort => $port
+						);
+						alarm 0;
+					} ;
 					unless(!$@ and $socket) {
 						irc_send(irc_privmsg($to, $from, "Couldn't receive your DCC: $@"));
 						next CTCP;
@@ -2486,9 +2490,9 @@ sub process_ctcp($$$) {
 					fcntl($socket, F_GETFL, $flags) or die "Couldn't get flags for DCC socket: $!";
 					$flags |= O_NONBLOCK;
 					fcntl($socket, F_SETFL, $flags) or die "Couldn't set flags for DCC socket: $!";
-					push @dccqueue, {socket => $socket, size => $filesize, what => $dccget{$from}, from => $from, to => $to, got => 0, direction => "GET", buff => "", screenname => $aim_connections{$from}{aimnick}};
+					push @dccqueue, {screenname => $screenname, socket => $socket, size => $filesize, what => $dccget{$from}, from => $from, to => $to, got => 0, direction => "GET", buff => ""};
 					delete $dccget{$from};
-					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename."));
+					irc_send(irc_privmsg($to, $from, "Okay, I'll get your DCC of $filename.", "", "", $screenname));
 				}
 			}
 		}
@@ -2584,11 +2588,11 @@ sub loadbuddies($$) {
 }
 
 # DCC send a file to someone - you must irc_send this!  Returns the empty string on error.
-sub irc_dcc($$$$$) {
-	my($from, $to, $what, $why, $filename, $msg, $flags, $socket) = @_;
+sub irc_dcc($$$$$$) {
+	my($from, $to, $what, $why, $filename, $screenname, $msg, $flags, $socket) = @_;
 
 	if(!$dccip) {
-		irc_send(irc_privmsg($from, $to, "The administrator of this server has not configured an IP to use for DCC, so DCC SEND has been disabled."));
+		irc_send(irc_privmsg($from, $to, "The administrator of this server has not configured an IP to use for DCC, so DCC SEND has been disabled.", "", "", $screenname));
 		return "";
 	}
 
@@ -2600,22 +2604,22 @@ sub irc_dcc($$$$$) {
 	); };
 
 	unless(!$@ and $socket) {
-		irc_send(irc_privmsg($from, $to, "Couldn't create DCC socket: $@"));
+		irc_send(irc_privmsg($from, $to, "Couldn't create DCC socket: $@", "", "", $screenname));
 		return "";
 	} else {
 		$flags = 0;
 		if(!fcntl($socket, F_GETFL, $flags)) {
-			irc_send(irc_privmsg($from, $to, "Couldn't get flags for DCC socket: $!"));
+			irc_send(irc_privmsg($from, $to, "Couldn't get flags for DCC socket: $!", "", "", $screenname));
 			return "";
 		}
 		$flags |= O_NONBLOCK;
 		if(!fcntl($socket, F_SETFL, $flags)) {
-			irc_send(irc_privmsg($from, $to, "Couldn't set flags for DCC socket: $!"));
+			irc_send(irc_privmsg($from, $to, "Couldn't set flags for DCC socket: $!", "", "", $screenname));
 			return "";
 		}
 
 		#We set {put} to -1 to indicate that the client hasn't connected yet.
-		push @dccqueue, {starttime => time, ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
+		push @dccqueue, {screenname => $screenname, starttime => time, ssocket => $socket, size => length($what), what => $why, from => $from, to => $to, put => -1, direction => "SEND", buff => $what};
 		Toc::debug_print("DCC SEND buff: $what", "DCC", 3);
 		return irc_ctcp($from, $to, "DCC SEND $filename " . unpack("N", inet_aton($dccip)) . " " . $socket->sockport . " " . length($what));
 	}
