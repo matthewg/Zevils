@@ -1,56 +1,48 @@
 #!/usr/bin/perl
 
-#Adding newsd support to an existing slash-site:
-#
-#	mysqldump -c -t -u root -p -- slash stories > /tmp/stories.sql
-#	echo "DELETE FROM stories; \
-#	ALTER TABLE sections ADD COLUMN cdate timestamp(14); \
-#	ALTER TABLE topics ADD COLUMN cdate timestamp(14); \
-#	ALTER TABLE stories ADD COLUMN snum mediumint(8) UNSIGNED NOT NULL; \
-#	ALTER TABLE stories ADD KEY snum (snum); \
-#	ALTER TABLE stories CHANGE COLUMN snum snum mediumint(8) UNSIGNED NOT NULL auto_increment; \
-#	" | mysql -u root -p -- "$1"
-#	mysql -u root -p -- slash < /tmp/stories.sql
-#Replace $1 with the name of your slash database (ie: slash)
-#Then just run newsd.  If you already have a news server on your computer,
-#newsd will have to listen on a non-standard port.  Use the -p argument to
-#accomplish this.
+#NNTB - Network News Transport for 'Blogs
 
+use strict;
+use warnings;
+use vars qw($version @args %config);
 
+$version = "0.01";
 
-#newsd - Netnews Enhancing the Web-based Slash Daemon
+sub BEGIN {
+	require File::Basename;
+	File::Basename->import;
+	unshift @INC, dirname($0)."/lib";
+}
 
-#TCP server framework taken from The Perl Cookbook
-
-#SIGHUP restarts the server - only appliciable when not running in inetd mode.
-
-$version = "0.99";
-
-sub debug { return; } # warn "$_[0]\n"; }
+sub debug {}
 
 sub dispver {
-	print "newsd: Netnews Enhancing the Web-based Slash Daemon.\n";
+	print "NNTB: Network News Transport for 'Blogs.\n";
 	print "Version: $version\n";
 	exit 0;
 }
 
 sub help {  # If called with -h or --help
-	print <<EOF
-newsd: Netnews Enhancing the Web-based Slash Daemon, version $version
+	# Get absolute path to $0
+	my($dir, $file) = fileparse($0);
+	chdir $dir;
+	my $dirpath = cwd;
+	my $path = File::Spec->catfile($dirpath, $file);
+
+	print <<EOF;
+NNTB: Network News Transport for 'Blogs, version $version
 
 Written by Matthew Sachs <matthewg\@zevils.com>
-Based on and designed for use with Slash, by Rob Malda <malda\@slashdot.org>
-http://slashdot.org/code.shtml
 
 Use -p to specify a port, -i if running from inetd, -v to show version
 and exit, -h to get this message.  Default port is whatever nntp is listed
-on in /etc/servics (119).
+on in /etc/services (119).
 
-Usage: newsd [-v] [-i] [-p port]
+Usage: $0 [-v] [-i] [-p port] [-c conffile]
 
 You can use either the short or long forms with one or two dashes in
-whatever combination you want.  However, you can't combine options like
-newsd -ip 120
+whatever combination you want.  However, you can't combine options, as in
+$0 -ip 120
 
 	-h,  --help:			Print this message and exit
 
@@ -58,45 +50,131 @@ newsd -ip 120
 
 	-i, --inetd:			Use if starting from inetd
 					The line in /etc/inetd.conf used to
-					start newsd should look like: 
+					start NNTB should look like: 
 
-	nntp	stream	tcp	nowait	root	/home/slash/newsd	newsd -i
+	nntp	stream	tcp	nowait	user	$path	nntb -i
 
 					Starting from inetd means that perl
-					must recompile newsd every time a
+					must recompile nntb every time a
 					client connects, which can be a large 
 					slowdown.
 
 	-p, --port port:		Listen on an alternate port instead of
 					nntp.  Meaningless in inetd mode.
+
+	-c, --conf conffile:		Use an alternate configuration file.
+					This option may be specified multiple
+					times.	By default, NNTB will look first
+					in /etc/nntb.conf and then in ~/.nntb
 EOF
-;
 	exit 0;
 }
 
 use Getopt::Long;
 use Time::Local;
 use Sys::Hostname;
-use Slash;
 use HTML::FormatText;
 use HTML::Parse;
+use File::Basename;
+use File::Spec;
+use Cwd;
 
-@args = @ARGV; #Used for SIGHUP
-$errors = &GetOptions("version|v" => \&dispver, 
-"inetd|i" => \$inetd, 
-"port|p=i" => \$port, 
-"help|h" => \&help);
+sub loadconf() {
+	#First we check to see what config files to use.
+	#Then we use the config files.
+	#Then we process command-line options.
+	#We do it this way so that command-line options can override config files, and
+	#  you can still specify config files on the command-line.
 
-if($ARGV[0]) {  # We shouldn't have any arguments left over
-	print "Unknown option: $ARGV[0]\n";
-	$errors = 0;
+	@args = @ARGV; #Used for SIGHUP
+
+	Getopt::Long::Configure("no_ignore_case");
+	Getopt::Long::Configure("pass_through");
+
+	my $home = (getpwuid($>))[7];
+	my(@default_conffiles) = ("/etc/nntb.conf", File::Spec->catfile($home, ".nntb"));
+	my @conffiles;
+
+	my $okay = &GetOptions(
+		"version|v" => \&dispver, 
+		"help|h" => \&help,
+		"config|c=s\@" => \@conffiles,
+	);
+
+	if(@ARGV) {  # We shouldn't have any arguments left over
+		print STDERR "Unknown options: ", join(" ", @ARGV), "\n";
+		$okay = 0;
+	}
+	if(!$okay) {
+		print STDERR "Try $0 --help if you need help.\n";
+		exit 1;
+	}
+
+
+	@conffiles = @default_conffiles unless @conffiles;
+
+
+	#Okay, try loading the config files
+
+	my $foundconfig = 0;
+
+	foreach my $conffile(@conffiles) {
+		$conffile =~ s/~/$home/;
+		print STDERR "Trying to read config file $conffile\n" if $verbose;
+		if(-d $conffile) {
+			print STDERR "$conffile is a directory!\n";
+		} elsif(-r $conffile) {
+			print STDERR "Reading config file $conffile\n" if $verbose;
+			$confversion = 0;
+			do $conffile;
+			die $@ if $@;
+			if($confversion < 1.5) {
+				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
+				$foundconfig = -1 unless $foundconfig;
+			} else {
+				$foundconfig = 1;
+			}
+		} elsif(-e $conffile) {
+			print STDERR "Couldn't read config file $conffile\n";
+		} else {
+			print STDERR "$conffile does not exist\n" if $verbose;
+		}
+	}
+
+	unless($foundconfig) {
+		print STDERR "We couldn't find a config file.\n";
+		print STDERR "You must edit imirc.conf and copy it to either /etc/imirc.conf or\n";
+		print STDERR "   $home/.imirc.  If you have already done this, make sure the IMIRC\n";
+		print STDERR "   user has permission to read it.\n";
+		print STDERR "Or, perhaps you specified a config file with the --config (-C) option.\n";
+		print STDERR "If you want to specify everything on the command-line and not use a config\n";
+		print STDERR "   file (why?) then just give it a blank config file to make it happy.\n";
+		exit 1;
+	}
+
+	if($foundconfig == -1) {
+		print STDERR "Your configuration is too old.\n";
+		print STDERR "Please copy the imirc.conf file distributed with IMIRC to either\n";
+		print STDERR "/etc/imirc.conf or $home/.imirc and modify it as needed for your site.\n";
+		exit 1;
+	}
+
+	#Now process additional command-line options
+
+	Getopt::Long::Configure("no_pass_through");
+
+	$errors = &GetOptions(
+		"inetd|i" => \$inetd, 
+		"port|p=i" => \$port, 
+	);
+
+	if(!$errors) {
+		print STDERR "Try $0 --help if you need help.\n";
+		exit 1;
+	}
 }
-if(!$errors) {  # Err, this means there *were* errors with the options...
-	print "Try newsd --help if you need help.\n";
-	exit 1;
-}
 
-$inetd = 0 unless $inetd; #squelch -w
+
 $port ||= 119;  #default port
 
 $slashsite = lc ((getvars("sitename"))[0]);
