@@ -1381,7 +1381,7 @@ sub process_irc_message($) {
 				irc_send("$foo :This allows IRC client scripts to be written to automate the sending and receiving of the file.\r\n", 1);
 				irc_send("$foo :There are two buddylist formats which savebuddies and loadbuddies understand.\r\n", 1);
 				irc_send("$foo :OSCAR format is the format that the Windows AOL Instant Messenger client exports its buddylist in.\r\n", 1);
-				irc_send("$foo :TTOC format is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
+				irc_send("$foo :TOC format is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
 			} elsif($param eq "chat") {
 				irc_send("$foo :join chat_name - Create/join a chatroom called chat_name.\r\n", 1);
 				irc_send("$foo :join_exchange exchange chat_name - Create/join a chatroom in a different exchange (see below.)\r\n", 1);
