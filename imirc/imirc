@@ -1852,6 +1852,7 @@ sub process_irc_message($$) {
 			$newnick = new Net::OSCAR::Screenname $1;
 			foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 				$irc_connections->{$screenname} = $newnick;
+				$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->{__IMIRC_nick} = $newnick;
 			}
 			$aim_connections->{$newnick} = $aim_connections->{$nick};
 			$aim_connections->{$newnick}->{nick} = $newnick;
@@ -1938,7 +1939,7 @@ sub process_irc_message($$) {
 sub callback_vars($) {
 	my $oscar = shift;
 	my $screenname = $oscar->screenname;
-	my $nick = $irc_connections->{$screenname};
+	my $nick = $oscar->{__IMIRC_nick};
 	my $sndata = $aim_connections->{$nick}->{screennames}->{$screenname} if exists($aim_connections->{$nick}) and exists($aim_connections->{$nick}->{screennames});
 
 	return () unless $nick;
@@ -2520,6 +2521,7 @@ sub do_signon($$$$) {
 	my $connection = $aim_connections->{$nick};
 	$connection->{screennames} = $oscarprime->buddyhash() unless tied(%{$connection->{screennames}});
 	my $oscar = $oscarprime->clone();
+	$oscar->{__IMIRC_nick} = $nick;
 	my $loglevel = ($oscarprime->loglevel > $params->{loglevel}) ? $oscarprime->loglevel : $params->{loglevel};
 	$oscar->loglevel($loglevel);
 	$oscar->signon(
