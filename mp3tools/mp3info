@@ -42,7 +42,7 @@ mp3info can show you the filesize, MPEG version (1, 2, or 2.5), layer
 (1, 2, or 3), bitrate, and length (in hh:mm:ss) of an MPEG audio file.
 It's really only been tested on MPEG-1 Layer 3 (.mp3) files, however.
 
-Usage: mp3info [-h] [-q] [-n] [-p] <MPEG audio file>
+Usage: mp3info [-h] [-q] [-n] [-p] [-m] <MPEG audio file>
 
 	You must pass at least one MPEG audio file as a command-line argument.
 
@@ -78,6 +78,8 @@ Usage: mp3info [-h] [-q] [-n] [-p] <MPEG audio file>
 				readable output and the default "noisy" mode as
 				generating human-readable output.
 
+	-m, --milliseconds	Include milliseconds in play-time output
+
 	-h, --help		Show this screen and exit
 
 	-v, --version		Show program version and exit	
@@ -90,7 +92,7 @@ EOF
 $errors = $MPEG::MP3Info::try_harder; # Squelch 'only used once' warnings.
 
 $errors = &GetOptions("quiet|q" => \$quiet, "no-winamp|n" => \$standard,
-		"aggressive|a", => \$MPEG::MP3Info::try_harder,
+		"aggressive|a" => \$MPEG::MP3Info::try_harder, "milliseconds|m" => \$milliseconds,
 		"plain|p" => \$plain, "help|h" => \&help, "version|v" => \&dispver);
 if(!$errors) {
 	warn "Try mp3info without any arguments if you need help.\n";
@@ -117,7 +119,11 @@ print "$info->{BITRATE}\n";
 print "Length: " unless $quiet;
 $hh = int $info->{MM} / 60;
 $mm = $info->{MM} % 60;
-printf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $info->{SS};
+if($milliseconds) {
+	printf "%2.2d:%2.2d:%2.2d.%3.3d\n", $hh, $mm, $info->{SS}, $info->{MS} || 0;
+} else {
+	printf "%2.2d:%2.2d:%2.2d\n", $hh, $mm, $info->{SS};
+}
 
 if($MPEG::MP3Info::VERSION > 0.71) {
 	print "VBR? " unless $quiet;
@@ -142,6 +148,7 @@ print "$info->{YEAR}\n";
 print "ID3 Comment: " unless $quiet;
 print "$info->{COMMENT}\n";
 
+$info->{GENRE} ||= "";
 print "ID3 Genre: " unless $quiet;
 print "$info->{GENRE}\n";
 
