@@ -1468,7 +1468,7 @@ sub process_aim_message($$$) {
 		}
 	} elsif($cmd eq "CONFIG") {
 		$msg =~ s/^CONFIG://;
-		if(!msg) {
+		if(!$msg) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Woah there, you have an empty configuration!"));
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL lost the buddylists again."));
 			if($buddylists{safename $screenname}) {
