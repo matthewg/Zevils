@@ -17,6 +17,8 @@ package Toc;
 #
 # AOL Instant Messenger, AOL, and America Online are trademarks of America Online, Inc.
 
+use Fcntl;
+use POSIX qw(:errno_h);
 use Carp qw(cluck);
 use Data::Dumper;
 use IO::Socket;
@@ -161,15 +163,29 @@ Gets an SFLAP-encoded message from HANDLE.  Returns the message.
 
 =cut
 
-sub sflap_get($) {
+sub sflap_get($;$) {
 	my($handle, $type, @hdr, @signon_hdr) = shift;
-	my($buff, $len, $connection);
+	my($buff, $len, $connection, $rv);
+	my($block) = shift;
 	#get 6 chars
 	$err = "Undefined handle";
 	return -1 unless $handle;
 	$err = undef;
-	$handle->read($buff, 6) or $err = "Couldn't read: $!";
-	#decode the SFLAP header
+
+	#print STDERR "Block? $block\n";
+
+	undef $rv;
+	$! = EAGAIN;
+	while($! == EAGAIN and !defined($rv)) {
+		$buff = ' ' x 6;
+		$rv = $handle->sysread($buff, 6);
+		#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
+		if (!defined($rv) && $! != EAGAIN) {
+			$err = "Couldn't read: $!";
+			return -1;
+		}
+		return undef if !defined($rv) && ($! == EAGAIN) && !$block;
+	}
 
 	#get $len chars
 	@hdr = unpack("CCnn", $buff);
@@ -187,9 +203,22 @@ sub sflap_get($) {
 	}
 
 	$len = $hdr[3];
-	$handle->read($buff, $len) or $err = "Couldn't read: $!";
-	chomp $buff;
 
+	undef $rv;
+	$! = EAGAIN;
+	while($! == EAGAIN and !defined($rv)) {
+		$buff = ' ' x $len;
+		$rv = $handle->sysread($buff, $len);
+		$err = "Couldn't read: $!" unless $rv;
+		#print STDERR "\$rv is $rv, \$! is $! (" . EAGAIN . ")\n";
+		if (!defined($rv) && $! != EAGAIN) {
+			$err = "Couldn't read: $!";
+			return -1;
+		}
+		return undef if !defined($rv) && ($! == EAGAIN) && !$block;
+	}
+	chomp $buff;
+ 
 	debug_print("\tdata: $buff\n", "sflap", 2) if $type ne "signon";
 
 	if($err) {
@@ -228,7 +257,7 @@ with $_[0] set to the text of the message.
 
 sub signon($$;&) {
 	my($username, $password, $status) = @_;
-	my($socket, $msg, $config, $buddy);
+	my($socket, $msg, $config, $buddy, $flags);
 
 	$username = normalize($username);
 	unless($username and $password) {
@@ -260,8 +289,21 @@ sub signon($$;&) {
 
 	debug_print("$username is now in SFLAP mode", "signon", 2);
 
+	$flags = '';
+	fcntl($socket, F_GETFL, $flags) or do {
+		debug_print("$username couldn't get flags for socket: $!", "signon", 1);
+		$err = "Couldn't get flags for socket: $!";
+		return -1;
+	};
+	$flags |= O_NONBLOCK;
+	fcntl($socket, F_SETFL, $flags) or do {
+		debug_print("$username couldn't set flags for socket: $!", "signon", 1);
+		$err = "Couldn't set flags for socket: $!";
+		return -1;
+	};
+
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
-	$msg = sflap_get($socket);
+	$msg = sflap_get($socket, 1);
 	if($err) {
 		return -1;
 	}
@@ -291,7 +333,7 @@ sub signon($$;&) {
 	debug_print("$username has sent toc_signon", "signon", 2);
 
 	&$status("Sent toc_signon, getting config") if ref $status eq "CODE";
-	$msg = sflap_get($socket);
+	$msg = sflap_get($socket, 1);
 	if($err) {
 		return -1;
 	}
@@ -300,7 +342,7 @@ sub signon($$;&) {
 		debug_print("$username had an error after toc_signon: $err", "signon", 1);
 		return -1;
 	}
-	$msg = sflap_get($socket);
+	$msg = sflap_get($socket, 1);
 	return -1 if $err;
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
 		$err = "Error $1: " . aim_strerror($1, $2);
@@ -890,7 +932,7 @@ will be stored in $Net::Toc::err if an error occurs.
 =cut
 
 sub sflap_put($$) {
-	my($handle, $msg, $type, @signon_hdr) = @_; #msg must already be encoded
+	my($handle, $msg, $type, @signon_hdr, $rv) = @_; #msg must already be encoded
 
 	$err = "Undefined handle";
 	return -1 unless $handle;
@@ -918,11 +960,22 @@ sub sflap_put($$) {
 
 	substr($msg, 0, 6) = pack("CCnn", @hdr);
 
-	$handle->print($msg) or $err = "Couldn't write: $!";
-	if($err) {
-		$handle->close if $handle;
-		return -1;
+	undef $rv;
+	$! = EAGAIN;
+	while(!defined($rv) && $! == EAGAIN) {
+		$rv = $handle->syswrite($msg, length $msg);
+		if($rv != length $msg) {
+			#print STDERR "Incomplete write (wrote $rv of " . length $msg . ")\n";
+			substr($msg, 0, $rv) = "";
+			undef $rv;
+			$! = EAGAIN;
+		} elsif(!defined($rv) && $! != EAGAIN) {
+			$err = "Couldn't write: $!";
+			$handle->close if $handle;
+			return -1;
+		}
 	}
+
 	return 1;
 }	
 
