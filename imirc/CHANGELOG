@@ -1,3 +1,10 @@
+Jan  3 2002, 1.5-rc2
+	*Restored pre-5.6 Perl compatibility
+	*PONG was broken for some IRC servers, notably Unreal-3.1.1-darkshades
+	*Many getmodules fixes - tested it on fresh Slackware 8.0 and FreeBSD-STABLE installations
+	*Changed formatting of onbuddies/buddylist/permitlist/denylist slightly
+	*Changed copyright date to -2002 :)
+
 Dec 29 2001, 1.5-rc1
 	*New bahamut servermode
 	*Prepend username to hostname for AIM-nicks - suppresses clone detection
