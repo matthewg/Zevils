@@ -101,11 +101,10 @@ sub start_log_wake($$$) {
 	my($wake_id, $extension, $phoneline) = @_;
 	if($Finnegan::Config::testmode) {
 		warn "$$: Starting wake $wake_id for extension $extension on line $phoneline\n";
-	} else {
-		$log_wake_start->execute($wake_id, $extension, $phoneline);
-		($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
-		$log_wake_start->finish;
 	}
+	$log_wake_start->execute($wake_id, $extension, $phoneline);
+	($log_wake_id) = @{$dbh->selectcol_arrayref($get_insertid)};
+	$log_wake_start->finish;
 }
 sub end_log_wake($$) {
 	my($result, $data) = @_;
