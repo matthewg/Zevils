@@ -2,14 +2,11 @@
 
 my $r = Apache->request if $ENV{SCRIPT_NAME};
 
-require File::Basename;
-my $self = $ENV{SCRIPT_FILENAME} || $0;
-push @INC, File::Basename::dirname($self);                
-push @INC, File::Basename::dirname($self) . "/..";
-
 use DBI;
-use strict;
-require Slash;
+use lib '/home/slash';
+use strict;   
+use Slash;
+
 
 sub main
 {

@@ -2,14 +2,10 @@
 
 my $r = Apache->request unless $ENV{SLASH_UID};
 
-require File::Basename;
-my $self = $ENV{SCRIPT_FILENAME} || $0;
-push @INC, File::Basename::dirname($self);                
-push @INC, File::Basename::dirname($self) . "/..";
-
+use lib '/home/slash';
+use strict;   
 use DBI;
-use strict 'vars';
-require Slash;
+use Slash;
 
 sub main
 {

@@ -7,8 +7,9 @@ push @INC, File::Basename::dirname($self);
 push @INC, File::Basename::dirname($self) . "/..";
 
 use DBI;
-use strict 'vars';
-require Slash;
+use lib '/home/slash';
+use strict;   
+use Slash;
 
 sub main
 {

@@ -8,8 +8,9 @@ push @INC, File::Basename::dirname($self) . "/..";
 my $r = Apache->request unless $ENV{SLASH_UID};
 
 use DBI;
-use strict;
-require Slash;
+use lib '/home/slash';
+use strict;   
+use Slash;
 
 sub main
 {
