@@ -3118,12 +3118,12 @@ sub rm_nick_user($$) {
 
 sub oscar_cfgparse($) {
 	my @sections = ();
-	my %data = ();
+	my $data = {};
 	my @lines = split(/\n/, shift);
 
 	foreach $_(@lines) {
 		chomp;
-		my $ptr = \%data;
+		my $ptr = $data;
 		foreach my $section(@sections) {
 			$ptr = $data->{$section};
 		}
@@ -3143,7 +3143,5 @@ sub oscar_cfgparse($) {
 			$ptr->{$key} .= $value;
 		}
 	}
-	return \%data;
-}
-
+	return $data;
 }
