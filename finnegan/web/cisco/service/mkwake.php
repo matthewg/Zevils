@@ -530,7 +530,7 @@ if($prompt == "time") {
 } else if($prompt == "advanced") { ?>
 
 <InputItem>
-<DisplayName>Max Snooze Count</DisplayName>
+<DisplayName>Max Snooze #</DisplayName>
 <QueryStringParam>max_snooze_count</QueryStringParam>
 <InputFlags>N</InputFlags>
 <DefaultValue><? if(isset($_SESSION["max_snooze_count"])) echo $_SESSION["max_snooze_count"]; ?></DefaultValue>
