@@ -772,6 +772,8 @@ sub process_irc_message($) {
 		my $chat = $2;
 		my $topic = $chats{$chat}->{name};
 
+		return if $nick eq $usnick;
+
 		$topic =~ s/^{.+?} //;
 		$chats{$chat}->{obj}->invite($recipient, "Please come to $topic.") if $chats{$chat}->{obj};
 	} elsif(/^MODE +$chatchan(\d+) +:?(.+)/i) {
@@ -2527,7 +2529,7 @@ sub irc_invite($$$) {
 	my($from, $channel, $who) = @_;
 
 	return "" if $servermode eq "bahamut" and $who =~ /^$prefix/;
-	return ":$from INVITE $who $channel\r\n";
+	return ":$from INVITE $who :$channel\r\n";
 }
 
 # Set an away message
