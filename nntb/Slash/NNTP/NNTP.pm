@@ -53,6 +53,13 @@ sub next_num($$;$) {
 		return undef unless $cnum;
 		$self->sqlUpdate("discussions", {nntp_next_cnum => $cnum->[0]->[0] + 1}, "id=$id");
 		return $cnum->[0]->[0];
+	} elsif($type eq "journal_cnum") {
+		my $uid = $what;
+
+		my $journal_cnum = $self->sqlSelectAll("nntp_next_journal_cnum", "users", "uid=$uid");
+		return undef unless $journal_cnum;
+		$self->sqlUpdate("users", {nntp_next_journal_cnum => $journal_cnum->[0]->[0] + 1}, "uid=$uid");
+		return $journal_cnum->[0]->[0];
 	}
 }
 

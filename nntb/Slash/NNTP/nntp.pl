@@ -46,7 +46,7 @@ $task{$me}{code} = sub {
 		}
 
 		if($story->{displaystatus} == 0 and !$story->{nntp_snum}) {
-			$values{nntp_snum} = $nntp->next_num("snum")
+			$values{nntp_snum} = $nntp->next_num("snum");
 			$values{nntp_posttime} = "NOW()";
 		}
 
@@ -56,11 +56,21 @@ $task{$me}{code} = sub {
 		$storycount++;
 	}
 
+	my $from = "comments";
+	$where = "ISNULL(nntp_cnum)";
+
+	if($slashdb->getDescriptions("plugins")->{Journal}) {
+		$from .= ", discussions, topics";
+		$where .= " AND comments.sid = discussions.id";
+		$where .= " AND discussions.topic = topics.tid";
+		$where .= " AND topics.name != \"journal\"";
+	}
+
 	my $comments = $slashdb->sqlSelectAllHashref(
 		"cid",
-		"cid, sid",
-		"comments",
-		"ISNULL(nntp_cnum)",
+		"cid, comments.sid AS sid",
+		$from,
+		$where,
 		"ORDER BY sid, cid"
 	);
 
@@ -74,9 +84,53 @@ $task{$me}{code} = sub {
 		$commentcount++;
 	}
 
+	my $journalcount = 0;
+	if($slashdb->getDescriptions("plugins")->{Journal}) {
+		my $journals = $slashdb->sqlSelectAllHashref(
+			"id",
+			"id, uid",
+			"journals",
+			"ISNULL(nntp_cnum)",
+			"ORDER BY uid, id"
+		);
+
+		$journalcount = 0;
+		foreach my $journal (values %$journals) {
+			nntpLog("Updating journal $journal->{id} (UID $journal->{uid})");
+			$slashdb->sqlUpdate("journals", {
+				nntp_cnum => $nntp->next_num("journal_cnum", $journal->{uid}),
+				nntp_posttime => "NOW()"
+			}, "id=$journal->{id}");
+			$journalcount++;
+		}
+
+		$where = "ISNULL(nntp_cnum)";
+		$where .= " AND comments.sid = discussions.id";
+		$where .= " AND discussions.topic = topics.tid";
+		$where .= " AND topics.name = \"journal\"";
+		$where .= " AND comments.sid = journals.discussion";
+
+		$comments = $slashdb->sqlSelectAllHashref(
+			"cid",
+			"cid, comments.sid AS sid, journals.uid AS uid",
+			"comments, discussions, topics, journals",
+			$where,
+			"ORDER BY sid, cid"
+		);
+
+		foreach my $comment (values %$comments) {
+			nntpLog("Updating journal comment $comment->{cid} (SID $comment->{sid})");
+			$slashdb->sqlUpdate("comments", {
+				nntp_cnum => $nntp->next_num("journal_cnum", $comment->{uid}),
+				nntp_posttime => "NOW()"
+			}, "cid=$comment->{cid}");
+			$commentcount++;
+		}
+	}
+
 	nntpLog("$me end");
-	if ($storycount || $commentcount) {
-		return "updated NNTP information for $storycount stories and $commentcount comments";
+	if ($storycount || $commentcount || $journalcount) {
+		return "updated NNTP information for $storycount stories, $commentcount comments, and $journalcount journals";
 	} else {
 		return ;
 	}

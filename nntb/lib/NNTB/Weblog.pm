@@ -329,8 +329,8 @@ sub groups($;$) { return () ; }
 
 =item articles GROUP [TIME]
 
-This method should return a hash whose keys are the message IDs for the
-given group and whose values are the corresponding article numbers.  If C<TIME>
+This method should return a hash whose keys are the article numbers for the
+given group and whose values are the corresponding message IDs.  If C<TIME>
 is specified, only articules posted since that time (in UNIX epoch format) should
 be returned.  The validity of the group name will be verified before this method
 is called.
@@ -351,6 +351,12 @@ otherwise return all headers.  The headers should be returned as a a hashref
 whose keys are the names of the headers and whose values are their values.
 If C<TYPE> is "article", return a list whose first value is the headers hashref
 and whose second value is the body text.
+
+The values in C<HEADERS> will be, and the keys in the return hashref B<MUST> be, in
+B<all lower-case>.  You may wish to have custom headers for certain data specific
+to your weblog, for instance a header pointing to the URL to access the article
+via the web interface, or a header indicating the moderation score.  These headers
+B<MUST> be prefixed with C<X-Weblog>, e.g. "X-Slash-Dept" or "X-Scoop-VotesFor".
 
 Return undef if the article does not exist.
 

@@ -51,6 +51,28 @@ sub new($;@) {
 
 sub root($) { return $self->{root}; }
 
+# $id should be either a discussion ID, a comment ID, or a journal ID
+# $format should be "text" or "html"
+# $type should be either "discussions", "comments", or "journals"
+sub form_msgid($$$$) {
+	my($self, $id, $format, $type) = @_;
+	return "<$id\@$type.$format." . join(".", reverse split(/\./, $self->{root})) . ">";
+}
+
+# Parses a message ID, returning:
+#	ID: A discussion, comment, or journal ID
+#	format: "html" or "text"
+#	type: "discussion, "comment", or "journal"
+sub parse_msgid($$) {
+	my($self, $msgid) = @_;
+	$msgid =~ /^<(\d+)\@(discussion|comment|journal)s\.(html|text)\./;
+	return ($1, $3, $2);
+}
+
+sub num2id($$$) {
+	my($self, $group, $msgnum) = @_;
+}
+
 # Parses a group, returning:
 #	"html" or "text"
 #	type: "frontpage", "section", "story", or "journal"
@@ -76,7 +98,7 @@ sub parsegroup($$) {#
 			my($section, $id) = ($1, $2);
 
 			if($section =~ /_/) { # Section name possibly mangled
-				my $result = $self->sqlSelectAll("section", "sections", "id=$id");
+				my $result = $self->{slash_db}->sqlSelectAll("section", "sections", "id=$id");
 				$section = $result->[0]->[0];
 			}
 			push @ret, $section;
@@ -93,7 +115,7 @@ sub parsegroup($$) {#
 		my($nick, $uid) = ($1, $2);
 
 		if($nick =~ /_/) { # Nickname possibly mangled
-			my $result = $self->sqlSelectAll("nickname", "users", "uid=$uid");
+			my $result = $self->{slash_db}->sqlSelectAll("nickname", "users", "uid=$uid");
 			$nick = $result->[0]->[0];
 		}
 		push @ret, $nick;
@@ -116,7 +138,7 @@ sub auth_status_ok($) {
 sub consume_subscription($) {
 	my($self) = @_;
 
-	$self->sqlUpdate("users_hits", {hits_paidfor => ++$user->{hits_paidfor}}, "uid=$self->{slash_user}->{uid}");
+	$self->{slash_db}->sqlUpdate("users_hits", {hits_paidfor => ++$user->{hits_paidfor}}, "uid=$self->{slash_user}->{uid}");
 }
 
 sub groups($;$) {
@@ -138,7 +160,7 @@ sub groups($;$) {
 	$ret{"$self->{root}.text.stories"} = "$sitename front page stories in plain text";
 	$ret{"$self->{root}.html.stories"} = "$sitename front page stories in HTML";
 
-	my $sections = $self->sqlSelectAllHashref(
+	my $sections = $self->{slash_db}->sqlSelectAllHashref(
 		'section',
 		'id, section, title, ctime',
 		'sections',
@@ -152,7 +174,7 @@ sub groups($;$) {
 		$ret{$textgroup} = "$sitename $section->{title} stories in plain text";
 		$ret{$htmlgroup} = "$sitename $section->{title} stories in HTML";
 
-		my $stories = $self->sqlSelectAllHashref(
+		my $stories = $self->{slash_db}->sqlSelectAllHashref(
 			'id',
 			'id, title, topics.name AS topic',
 			'discussions, topics',
@@ -166,7 +188,7 @@ sub groups($;$) {
 	}
 
 	if($self->{slash_db}->getDescriptions("plugins")->{Journal}) {
-		my $jusers = $self->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
+		my $jusers = $self->{slash_db}->{slash_db}->sqlSelectAllHashref('nickname', 'nickname, journals.uid AS uid, UNIX_TIMESTAMP(MIN(date)) AS jdate', 'journals, users', 'users.uid = journals.uid AND UNIX_TIMESTAMP(MIN(date)) > '.$time, 'GROUP BY uid')};
 		foreach my $juser(values %$jusers) {
 			my $journalgroup = $self->groupname("journals.$juser->{nickname}.$juser->{uid}");
 			$ret{"$self->{root}.text.$journalgroup"} = "$sitename journals for $juser->{nickname} (UID $juser->{uid})";
@@ -179,22 +201,119 @@ sub articles($$;$) {
 	my($self, $group, $time) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
+	my %ret;
 	my($format, $grouptype, $id) = $self->parsegroup($group);
-	if($grouptype eq "frontpage") {
-		my $stories = $self->sqlSelectAllHashref(
-			"nntp_snum
+	if($grouptype eq "frontpage" or $grouptype eq "section") {
+		my $sect = "";
+		$sect = "_section" if $grouptype eq "section";
+
+		my $where = "NOT ISNULL(nntp_${section}posttime)";
+		$where .= " AND UNIX_TIMESTAMP(nntp_${section}posttime) > $time" if $time;
+		$where .= " AND section=".$self->{slash_db}->sqlQuote($id) if $grouptype eq "section";
+
+		my $stories = $self->{slash_db}->sqlSelectAllHashref(
+			"nntp_${section}snum",
+			"nntp_${section}snum, id",
+			"stories",
+			$where
 		);
-	} elsif($grouptype eq "section") {
-	} elsif($grouptype eq "story") {
-	} elsif($grouptype eq "journal") {
+
+		foreach my $story (values %$stories) {
+			$ret{$story->{"nntp_${section}snum"}} = $self->form_msgid($story->{id}, $format, "discussions");
+		}
+	} elsif($grouptype eq "story" or $grouptype eq "journal") {
+		my $from = "comments";
+
+		my $where = "NOT ISNULL(nntp_posttime)";
+		$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
+
+		if($grouptype eq "story") {
+			$from .= ", discussions";
+			$where .= " AND comments.sid = discussions.sid";
+			$where .= " AND discussions.id = $id";
+		} else {
+			$from .= ", journals";
+			$where .= " AND journals.discussion = discussions.id";
+			$where .= " AND journals.uid = $id";
+		}
+
+		my $comments = $self->{slash_db}->sqlSelectAllHashref(
+			"cid",
+			"cid, nntp_cnum",
+			$from,
+			$where
+		);
+
+		foreach my $comment (values %$comments) {
+			$ret{$comment->{nntp_cnum}} = $self->form_msgid($comment->{cid}, $format, "comments");
+		}
+
+		if($grouptype eq "journal") {
+			$where = "NOT ISNULL(nntp_posttime)";
+			$where .= " AND UNIX_TIMESTAMP(nntp_posttime) > $time" if $time;
+			$where .= " AND uid = $id";
+
+			my $journals = $self->{slash_db}->sqlSelectAllHashref(
+				"id",
+				"id, nntp_cnum",
+				"journals",
+				$where
+			);
+
+			foreach my $journal (values %$journals) {
+				$ret{$journal->{nntp_cnum}} = $self->form_msgid($journal->{id}, $format, "journals");
+			}
+		}
 	}
+
+	return %ret;
 }
 
 sub article($$$;@) {
 	my($self, $type, $msgid, @headers) = @_;
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
+	my(%headers, $body);
+	my %get_headers = map { $_ => 1 } @headers;
+	my($id, $format, $type) = $self->parse_msgid($msgid);
+
+	if($type eq "article" or $type eq "head") {
+		$headers{path} = "$self->{slash_slashsite}!not-for-mail";
+		$headers{message-id} = $msgid ;
+		$headers{content-type} = "text/html; charset=us-ascii" if $format eq "html";
+		# From
+		# Subject
+		# Newsgroups
+		# Xref
+		# Followup-To
+		# Date
+		# X-Slash-URL
+		# X-Slash-Dept
+		# X-Slash-User
+		# X-Slash-Score
+		# X-Slash-Mod-Reason
+	}
+
+	if($type eq "discussion") {
+		
+	} elsif($type eq "comment") {
+	} elsif($type eq "journal") {
+	}
+
 	$self->consume_subscription() unless $type "head";
+	if(@headers) {
+		foreach my $header (keys %headers) {
+			delete $headers{$header} unless $get_headers{$header};
+		}
+	}
+
+	if($type eq "article") {
+		return \%headers, $body;
+	} elsif($type eq "head") {
+		return \%headers;
+	} elsif($type eq "body") {
+		return $body;
+	}
 }
 
 sub auth($$$) {
@@ -218,21 +337,6 @@ sub groupstats($$) {
 	$self->auth_status_ok() or return fail("480 Authorization Required");
 
 	return ($first, $last, $num);
-}
-
-sub form_msgid_story($$$) {
-	my($self, $format, $discussion_id) = @_;
-	return "<$discussion_id\@$format." . join(".", reverse split(/\./, $self->{root})) . ">";
-}
-
-sub form_msgid_comment
-
-sub id2num($$$) {
-	my($self, $group, $msgid) = @_;
-}
-
-sub num2id($$$) {
-	my($self, $group, $msgnum) = @_;
 }
 
 1;
