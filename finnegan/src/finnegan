@@ -213,14 +213,12 @@ while(1) {
 		while(my $row = $get_newwakes->fetchrow_hashref) {
 			$row->{time} =~ /(\d+):(\d+)/;
 			my @waketime = (0, $2, $1, 0, 0, 0);
-			my $waketime;
 			if($row->{date}) {
 				my @dateparts = split(/-/, $row->{date});
 				@waketime[3, 4, 5] = @dateparts[2, 1, 0];
 				$waketime[4]--;
 				$waketime[5] -= 1900;
 				log_debug("mktime " . join(", ", @waketime));
-				$waketime = mktime(@waketime);
 			} else {
 				my @currtime = localtime(time());
 				@waketime[3, 4, 5] = @currtime[3, 4, 5];
@@ -230,10 +228,11 @@ while(1) {
 
 				$waketime = mktime(@waketime);
 				$waketime += 60*60*24 if $currsecs > $wakesecs; # Not today - tomorrow
+				@waketime = localtime($waketime);
 			}
 			log_debug("Setting trigger_time on " . $row->{wake_id} . " to $waketime");
 
-			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", localtime($waketime)), $row->{wake_id})) {
+			if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", @waketime), $row->{wake_id})) {
 				db_error("Couldn't update trigger_time", $update_nexttime);
 			}
 		}
@@ -319,8 +318,7 @@ while(1) {
 				
 				$tomorrow[1]--;
 				$tomorrow[2] -= 1900;
-				my $waketime = mktime(0, $2, $1, @tomorrow);
-				if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", localtime($waketime)), $row->{wake_id})) {
+				if(!$update_nexttime->execute(strftime("%Y-%m-%d %H:%M:%S", 0, $2, $1, @tomorrow), $row->{wake_id})) {
 					db_error("Couldn't update trigger_time", $update_nexttime);
 				}
 
