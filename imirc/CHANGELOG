@@ -1,3 +1,13 @@
+??? ?? 2004, 1.6
+	*New commands: set_away, set_icon, get_icon, set_status
+	*Help enhancements
+	*Major idle time fixes
+	*Major protocol enhancements courtesy of Net::OSCAR (icons, status, etc.)
+	*Away messages retrieved instantly on signon
+	*@mac.com screennam, ICQ UIN support
+	*IRC protocol fixes: TS4, Cyclone
+	*New IRC server supported: Ultimate IRCd
+
 Mar  1 2002, 1.5
 	*Protect against crashes in process_irc_message
 	*Unreal, P0210 protocol fixes
