@@ -6,7 +6,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
+@EXPORT_OK = qw($err remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.80';
 
@@ -509,6 +509,7 @@ sub add_buddy($$;$$) {
 	my($handle, $nick, $group, $noconfig) = @_;
 	$group ||= "Buddies";
 	debug_print(_hnick($handle) . " is adding $nick to buddylist", "buddies", 1);
+	delete $config{_hnick($handle)}->{deny}{$nick};
 	sflap_do($handle, "toc_add_buddy $nick");
 	$config{_hnick($handle)}->{Buddies}{$nick}{group} = $group;
 	$config{_hnick($handle)}->{Buddies}{$nick}{online} ||= 0;
@@ -551,6 +552,21 @@ sub add_permit($$;$) {
 
 =pod
 
+=item remove_permit(HANDLE, NICK)
+
+Remove NICK from the permit list.
+
+=cut
+
+sub remove_permit($$) {
+	my($handle, $nick) = @_;
+	debug_print(_hnick($handle) . " is removing $nick from permit list", "buddies", 1);
+	delete $config{_hnick($handle)}->{permit}{$nick};
+	set_config($handle, $config{_hnick($handle)});
+}
+
+=pod
+
 =item add_deny(HANDLE, NICK[, NO_SET_CONFIG])
 
 Add NICK to the deny list.  Returns the result of set_config.
@@ -563,10 +579,24 @@ sub add_deny($$;$) {
 	debug_print(_hnick($handle) . " is adding $nick to deny list", "buddies", 1);
 	sflap_do($handle, "toc_add_deny $nick");
 	delete $config{_hnick($handle)}->{permit}{$nick};
+	delete $config{_hnick($handle)}->{Buddies}{$nick};
 	$config{_hnick($handle)}->{deny}{$nick} = 1;
 	set_config($handle, $config{_hnick($handle)}) unless $noconfig;
 }
 
+
+=item remove_deny(HANDLE, NICK)
+
+Remove NICK from the deny list.
+
+=cut
+
+sub remove_deny($$) {
+	my($handle, $nick) = @_;
+	debug_print(_hnick($handle) . " is removing $nick from deny list", "buddies", 1);
+	delete $config{_hnick($handle)}->{deny}{$nick};
+	set_config($handle, $config{_hnick($handle)});
+}
 
 =pod
 
