@@ -1,8 +1,9 @@
 *DOUBLE POUNCES MUST DIE!!*
+*Check for invalid chars in nick*
 
 loadbuddies DCC w/ mIRC
 
-*WHY ISN'T THIS PARSED RIGHT:*
+Why isn't this parsed right:
 	<blah>test<BR><test>2<BR><yoyo>3
 
 Rethink checkpointing?
