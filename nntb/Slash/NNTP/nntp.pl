@@ -66,17 +66,16 @@ $task{$me}{code} = sub {
 	$where = "ISNULL(nntp_cnum)";
 
 	if($slashdb->getDescriptions("plugins")->{Journal}) {
-		$from .= ", topics";
-		$where .= " AND stories.tid = topics.tid";
-		$where .= " AND topics.name != \"journal\"";
+		$from .= ", stories";
+		$where .= " AND stories.discussion = comments.sid";
 	}
 
 	my $comments = $slashdb->sqlSelectAllHashref(
 		"cid",
-		"sid, cid",
+		"comments.sid, cid",
 		$from,
 		$where,
-		"ORDER BY sid, cid"
+		"ORDER BY comments.sid, cid"
 	);
 
 	my $commentcount = 0;
@@ -111,14 +110,12 @@ $task{$me}{code} = sub {
 
 		$where = "ISNULL(nntp_cnum)";
 		$where .= " AND comments.sid = discussions.id";
-		$where .= " AND discussions.topic = topics.tid";
-		$where .= " AND topics.name = \"journal\"";
 		$where .= " AND comments.sid = journals.discussion";
 
 		$comments = $slashdb->sqlSelectAllHashref(
 			"cid",
 			"comments.sid AS sid, cid, journals.uid AS uid",
-			"comments, discussions, topics, journals",
+			"comments, discussions, journals",
 			$where,
 			"ORDER BY sid, cid"
 		);

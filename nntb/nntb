@@ -247,6 +247,7 @@ if (!$config{inetd}) {  #We're not using inetd
 		# we are the world, we are the children
 		close SERVER;
 
+		$::client_ip;
 		got_client();
 
 		exit;

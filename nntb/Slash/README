@@ -12,6 +12,22 @@ Configuration parameters:
 	slashsite: Which slash site this entry is for; the first entry in
 		slashsites will be used by default.
 
+Custom article headers:
+	X-Slash-URL: URL for web access to (story/comment/journal)
+	X-Slash-Topic: Story/journal topic
+	X-Slash-Dept: Story department
+	X-Slash-Can-Post: Non-zero if story/journal can be posted to
+	X-Slash-Score: Comment score
+	X-Slash-Mod-Reason: Reason for moderation (e.g. Funny, Flamebait)
+	X-Slash-User: Nickname (UID) of poster
+
+	X-Slash-Post-Anonymously: Put this in your comments to post them anonymously
+	X-Slash-No-Score-Bonus: Put this in your comments to give up your +1 karma bonus
+	X-Slash-Topic: Put this in your journals to set the topic
+	X-Slash-Journal-Discuss: Set to 0 or 1 to override your default setting for
+		letting people post comments in this journal
+
+
 Credits:
 	The Slashcode team, of course
 	Jamie, for help with the Slash API

@@ -183,6 +183,18 @@ sub log(@) {
 
 =pod
 
+=item client_ip
+
+This method returns the IP address of the currently-connected client.
+
+=cut
+
+sub client_ip($) {
+	return $::client_ip;
+}
+
+=pod
+
 =item groupname GROUP
 
 This method transforms a string into something suitable for use as an NNTP group name.
@@ -358,7 +370,8 @@ to your weblog, for instance a header pointing to the URL to access the article
 via the web interface, or a header indicating the moderation score.  These headers
 B<MUST> be prefixed with C<X-Weblog>, e.g. "X-Slash-Dept" or "X-Scoop-VotesFor".
 
-Return undef if the article does not exist.
+Return undef if the article does not exist.  See L<"post"> below for some important
+NNTP headers.
 
 =cut
 
@@ -384,8 +397,34 @@ This method is called when a user attempts to post an article to one of your
 groups.  Return 1 to indicate success and 0 to indicate failure.
 
 C<HEAD> will be a hashref whose keys are the names of the headers and whose
-values are their values.  (List some of the more important headers.)
-Invalid groupnames will have already been removed from the C<Newsgroups> header.
+values are their values.
+Invalid groupnames, and groups that the user is not allowed to post to, will have
+already been removed from the C<Newsgroups> header.
+
+Also, the user will be prevented from posting to multiple groups at once
+(cross-posting) and the References header will be checked for validity.
+It will also be reduced to a single message ID.
+
+Some of the more important headers:
+
+=over 4
+
+=item Subject
+
+=item References
+
+Space-separated list of the message IDs this is in reply to; nonexistant for a
+top-level post.  For this method, only a single message ID will be given to you.
+
+=item Newsgroups
+
+Comma-separated list of the newsgroups this message was posted to.  For this method,
+only a single newsgroup will be allowed.
+
+=item Content-Type
+
+If this matches C<\btext/html\b>, the comment is in HTML; otherwise it is in plain
+text.
 
 =cut
 
@@ -393,19 +432,19 @@ sub post($$$) { return 0; }
 
 =pod
 
-=item isgroup GROUP
+=item is_group GROUP
 
 This method checks to see if the indicated group exists.  Return 0 or 1.
 
-=item canpost GROUP
+=item can_post GROUP
 
 This method checks to see if the indicated group can be posted to.  Return 0 or 1.
 The validity of the group name will already have been checked before this method is called.
 
 =cut
 
-sub isgroup($$) { return 0; }
-sub canpost($$) { return 0; }
+sub is_group($$) { return 0; }
+sub can_post($$) { return 0; }
 
 =pod
 
