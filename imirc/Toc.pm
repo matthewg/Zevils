@@ -168,6 +168,27 @@ sub signon($$;&) {
 }
 
 =pod
+=item chat_join(HANDLE, NAME)
+Join/create chat NAME.  Don't use this to reply to an invite - use chat_accept instead
+=cut
+
+sub chat_join($$) {
+	my($handle, $chatname, $msg) = @_;
+	$msg = quote("toc_chat_join 4 ") . "\"" . quote($chatname) . "\"";
+	sflap_put($handle, sflap_encode($msg, 0, 1));
+}
+
+=pod
+=item chat_accept(HANDLE, CHAT_ID)
+Accept an invitation to chat CHAT_ID
+=cut
+
+sub chat_accept($$) {
+	my($handle, $chatid) = @_;
+	sflap_do($handle, "toc_chat_accept $chatid");
+}
+
+=pod
 =item add_buddy(HANDLE, NICK[, GROUP])
 Add NICK to the buddy list.  This automatically does a set_config so that the change is saved.
 The optional parameter GROUP specifies which group to place the buddy in.  Returns the result of set_config.

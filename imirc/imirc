@@ -227,20 +227,15 @@ sub process_irc_message {
 			evil($aim_connections{$nick}{socket}, $param, $extra);
 		} elsif ($cmd eq "add_permit") {
 			$param = lc($param);
-			$aim_connections{$nick}{groups}{permit}{$param} = 1;
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_permit $param"));
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
+			add_permit($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "add_deny") {
 			$param = lc($param);
-			$aim_connections{$nick}{groups}{deny}{$param} = 1;
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_add_deny $param"));
-			sflap_put($aim_connections{$nick}{socket}, sflap_encode(conf2str(%{$aim_connections{$nick}{groups}}, $aim_connections{$nick}{permtype}), 0, 1));
+			add_deny($aim_connections{$nick}{socket}, $param);
 		} elsif ($cmd eq "join") {
 			if($aim_connections{$nick}{chats}{$param} == 1) { #We're invited
-				sflap_put($aim_connections{$nick}{socket}, sflap_encode("toc_chat_accept $param"));
+				chat_accept($aim_connections{$nick}{socket}, $param);
 			} else {
-				$msg = quote("toc_chat_join 4 ") . "\"" . quote("$param $extra") . "\"";
-				sflap_put($aim_connections{$nick}{socket}, sflap_encode($msg, 0, 1));
+				$extra ? chat_join($aim_connections{$nick}{socket}, "$param $extra") : chat_join($aim_connections{$nick}{socket}, $param);
 			}
 		} elsif ($cmd eq "get_permit_mode") {
 			$upstream->print(irc_privmsg($usnick, $nick, $aim_connections{$nick}{permtype}));
@@ -421,7 +416,7 @@ sub process_aim_message {
 			$connection->{groups}{Buddies}{$inick}{idle} = $5;
 			$connection->{groups}{Buddies}{$inick}{class} = $6;
 			$connection->{groups}{Buddies}{$inick}{online} = 1;
-			$upstream->print(irc_newnick($prefix . $inick)) unless $nicks{normalize($inick)};
+			$upstream->print(irc_newnick($prefix . $inick)) unless scalar keys %{$nicks{normalize($inick)}};;
 			$nicks{normalize($inick)}{$connection->{nick}} = -1;
 		} else {
 			$upstream->print(irc_privmsg($usnick, $connection->{nick}, "$inick has departed"));
