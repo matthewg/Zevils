@@ -54,7 +54,7 @@ CREATE TABLE log_ext (
 	INDEX (extension),
 	INDEX (event),
 	INDEX (result),
-	INDEX (time)
+	INDEX (start_time)
 );
 
 CREATE TABLE log_daemon (
