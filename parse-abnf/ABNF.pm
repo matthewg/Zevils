@@ -45,14 +45,14 @@ with the error C<Unknown ABNF rule: RULENAME>.
 
 =item new ( [RULES] )
 
-Creates a new C<Parse::ABNF> object.  A C<Parse::ABNF> object contains a complete grammar.  It
+Creates a new C<Parse::ABNF> object.  A C<Parse::ABNF> object contains a complete ruleset.  It
 has an internally consistant set of rules which all reduce to what in ABNF parlance
 are known as "terminal values."  In other words, some rule foo might refer to some
-other rule bar, but you can follow all the different rules in a grammar and eventually
+other rule bar, but you can follow all the different rules in a ruleset and eventually
 get down to the definitions of the numeric values that each byte has to have.
 
-A rule is a single definition in a grammar.  "A word consists of one or more letters" is
-a rule.
+A rule is a single definition in a ruleset.  "A word consists of one or more letters" is
+a rule.  A ruleset is a collection of one or more rules.
 
 If the C<RULES> parameter is present, those rules will be added to the object as if
 you had called the C<add> method after creating the object.
@@ -65,7 +65,7 @@ you had called the C<add> method after creating the object.
 
 =item add ( RULES )
 
-Adds a rule or rules (the parmeter may either be a scalar or a list) to the object.
+Adds a rule or rules (the parameter may either be a scalar or a list) to the object.
 The rules may be given in any form that RFC 2234 declares as a valid rule declaration.
 fI something that isn't valid ABNF is given, the object will croak with an error like
 C<Invalid ABNF Syntax: Unknown rule 'FOO'>, so use C<eval { ... }> if you don't want
@@ -79,7 +79,8 @@ You can modify existing rules by simply adding them with their new values.
 
 Removes C<RULES> from the object.  C<RULES> may be a scalar or a list, but it should consist
 of the names of the rules to remove from the object.  If the removal of any rule listed for deletion would cause
-the object to no longer contain a complete grammar, no rules will be deleted and instead the object will croak
+the object to no longer contain a viable ruleset (for instance, if the ruleset contains rules which refer to a rule
+that you are attempting to remove,) no rules will be deleted and instead the object will croak
 with the error C<Could not remove ABNF rules: RULES>.
 
 =item text ( RULE )
@@ -103,11 +104,47 @@ If the optional parameter is not present, a list of the names of all rules.
 If the parameter I<is> present, a list consisting of all rules needed to reduce RULE to
 terminal values will be returned.
 
-=item matches ( RULE, DATA )
+=item matches ( RULE, DATA[, MATCHRULES] )
 
-Returns true if the scalar C<DATA> matches C<RULE>.  Otherwise, returns false.
+If C<DATA> doesn't match C<RULE>, returns undef.
 
-This is a wrapper around the I<regex> method.
+If C<DATA> I<does> match C<RULE> and the optional parameter C<MATCHRULES> is not present, C<DATA> is returned.
+
+C<MATCHRULES>, if present, should be a list of rule names whose values you are interested in.  For instance, if
+you have a rule C<preference = name *WSP "=" *WSP value>, calling this method with C<RULE> set to C<"preference"> and
+C<MATCHRULES> set to C<("name", "value")> will cause the return value to be, if C<DATA> matches the C<preference>
+rule, a hash whose keys are C<("name", "value")> and whose values are whichever bits of C<DATA> matched those rules.
+So, assuming that the C<name> and C<value> rules were set appropriately, if C<DATA> was C<"logfile = /var/log/foo.log">,
+C<(name => "logfile", value => "/var/log/foo.log")> would be returned.
+
+However, it can get more complicated than that.  Consider the following ruleset:
+
+    paragraph = HTAB 1*sentence CR / LF / CRLF
+    sentence = word *(" " / word) "." / "?" / "!" 0*2" "
+    word = 1*VCHAR
+
+If the C<matches> method were called on an object with that ruleset with C<RULE> set to C<"paragraph">,
+C<DATA> set to C<"\tHello, world!  Wanna augment my BNF?\n">, and C<MATCHRULES> set to C<("sentence", "word")>,
+the return value would be:
+
+    ( sentence => (
+        (
+            [ word => "Hello," ],
+            " ",
+            [ word => "world" ],
+            "!  "
+        ),
+        (
+            [ word => "Wanna" ],
+            " ",
+            [ word => "augment" ],
+            " ",
+            [ word => "my" ],
+            " ",
+            [ word => "BNF" ],
+            "?"
+        )
+    )
 
 =back
 
@@ -130,10 +167,32 @@ use vars qw($VERSION);
 use Lingua::EN::Inflect qw(PL);
 use Carp;
 
+use constant CORE_RULES => <<END; #As defined in RFC 2234 appendix A
+ALPHA          =  %x41-5A / %x61-7A   ; A-Z / a-z
+BIT            =  "0" / "1"
+CHAR           =  %x01-7F             ; any 7-bit US-ASCII character, excluding NUL
+CR             =  %x0D                ; carriage return
+CRLF           =  CR LF               ; Internet standard newline
+CTL            =  %x00-1F / %x7F      ; controls
+DIGIT          =  %x30-39             ; 0-9
+DQUOTE         =  %x22                ; " (Double Quote)
+HEXDIG         =  DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
+HTAB           =  %x09                ; horizontal tab
+LF             =  %x0A                ; linefeed
+LWSP           =  *(WSP / CRLF WSP)   ; linear white space (past newline)
+OCTET          =  %x00-FF             ; 8 bits of data
+SP             =  %x20                ; space
+VCHAR          =  %x21-7E             ; visible (printing) characters
+WSP            =  SP / HTAB           ; white space
+END
+
+
+
 sub new($;@) {
 	my $class = ref($_[0]) || $_[0] || "Parse::ABNF";
 	my $self = {};
 	bless $self, $class;
+	$self->add(CORE_RULES);
 	$self->add(@{$_[1]}) if @_ > 1;
 }
 
@@ -141,6 +200,8 @@ sub add($@) {
 	my ($self, @rules) = @_;
 	my $rule;
 
+	
+		
 }
 
 sub delete($@) {
@@ -171,14 +232,24 @@ sub rules($;$) {
 
 }
 
-sub matches($$$) {
-	my($self, $rule, $data) = @_;
+sub matches($$$;@) {
+	my($self, $rule, $data, @matchrules) = @_;
 
-	if($data =~ /$self->regex($rule)/) {
-		return 1;
-	} else {
-		return 0;
-	}
+}
+
+
+use constant REGEX_WHITESPACE => '[ \t]*'
+sub _parse_rules($$) {
+	my($self, $rules) = @_;
+
+	while($rules =~ m/
+		^\( # Rules or comments
+			\( # A rule
+				[a-zA-Z][-a-zA-Z0-9]*		# A rule name
+				\( # Defined as...
+					[ \t]*| # Whitespace or
+			\(;\([ \t][\x21-\x7E]*\)
+	/x
 }
 
 1;
