@@ -1538,7 +1538,7 @@ sub process_irc_message($$) {
 				irc_send("$foo :loglevel newlevel - Sets the logging level for your connection.  newlevel should be a number between ".OSCAR_DBG_NONE." and ".OSCAR_DBG_PACKETS.".  Higher numbers give you more information.\r\n", 1);
 				irc_send("$foo :get_profile screenname - Get profile for screenname.\r\n", 1);
 				irc_send("$foo :set_profile new profile - Set your profile.  You can use some HTML formating.\r\n", 1);
-				irc_send("$foo :set_away away message - Set your away message.  You should normally just use the IRC AWAY command, but if for some reason you can't or don't want to, this will work.  A blank away message will mark you as not away.\r\n", 1);
+				irc_send("$foo :set_away away message - Set your away message.  You should normally just use the IRC AWAY command, but if for some reason you can't or don't want to, this will work.  A blank away message will mark you as not away.  Mixing this with IRC AWAY may produce odd results.\r\n", 1);
 				irc_send("$foo :set_icon - Set your buddy icon.  You must then DCC SEND $usnick your buddy icon.\r\n", 1);
 				irc_send("$foo :set_status status - Set your status.\r\n", 1);
 				#irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
