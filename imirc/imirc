@@ -2640,7 +2640,7 @@ sub irc_mode($$$) {
 	$modestr = "";
 	$modestr = ":$who " unless $who eq $us;
 	$modestr .= "MODE $chan $modes";
-	$modestr .= " " . time if !IsTS() and $who eq $us;
+	$modestr .= " " . ($chants->{$chan} || time) if !IsTS() and $who eq $us;
 	$modestr .= "\r\n";
 	return $modestr;
 }
