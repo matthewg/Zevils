@@ -16,9 +16,10 @@
 # Oct 20 1999 - Version 1.1: Better cross-platform support and support for
 #				--keeppath, --noparse, and --alternatepat
 #				options, VBR support
-# Jun 15 2000 - Version 2.2: No changes in mp3index
+# Jun 15 2000 - Version 1.2: No changes in mp3index
+# Jan 16 2002 - Version 1.4: M3U support
 
-$version = "1.1";
+$version = "1.4";
 use MPEG::MP3Info;
 use Getopt::Long;
 use Text::Wrap qw(wrap);
