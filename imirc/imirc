@@ -2275,10 +2275,12 @@ sub printable_user_info($) {
 
 	$msg .= "Signon Time: \t" . localtime($buddat->{onsince}) . "\r\n";
 
-	my $idle_time = int((time() - $buddat->{idle_since})/60);
-	my $idle_h = int($idle_time/60);
-	my $idle_m = sprintf("%02d", $idle_time%60);
-	$msg .= "Idle Time: \t${idle_h}h:${idle_m}m\r\n";
+	if($buddat->{idle_since}) {
+		my $idle_time = int((time() - $buddat->{idle_since})/60);
+		my $idle_h = int($idle_time/60);
+		my $idle_m = sprintf("%02d", $idle_time%60);
+		$msg .= "Idle Time: \t${idle_h}h:${idle_m}m\r\n";
+	}
 
 	$msg .= "Status: \t$buddat->{extended_status}\r\n" if $buddat->{extended_status};
 	$msg .= "Alias: \t$buddat->{alias}\r\n" if $buddat->{alias};
