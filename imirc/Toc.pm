@@ -25,7 +25,7 @@ use IO::Socket;
 use HTML::FormatText;
 use HTML::Parse;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password);
+@EXPORT_OK = qw($err chat_evil set_directory remove_permit remove_deny update_config signoff update_buddy get_config aim_strerror sflap_get signon chat_join chat_join_exchange chat_accept chat_invite chat_leave set_away get_info set_info get_directory directory_search message add_buddy remove_buddy add_permit add_deny evil permtype chat_send chat_whisper normalize set_config parseclass roast_password sflap_do quote sflap_encode sflap_put conf2str str2conf txt2html sflap_keepalive set_idle format_nickname change_password);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 $VERSION = '0.96';
 
@@ -475,14 +475,24 @@ sub set_idle($$) {
 
 =item chat_join(HANDLE, NAME)
 
-Join/create chat NAME.  Don't use this to reply to an invite - use chat_accept instead
+Join/create chat NAME in exchange 4.  Don't use this to reply to an invite - use chat_accept instead
 
 =cut
 
 sub chat_join($$) {
-	my($handle, $chatname, $msg) = @_;
-	debug_print(_hnick($handle) . " is joining $chatname", "chat", 1);
-	$msg = quote("toc_chat_join 4 ") . "\"" . quote($chatname) . "\"";
+	chat_join_exchange(@_, 4);
+}
+
+=item chat_join_exchange(HANDLE, NAME, EXCHANGE)
+
+Join/create chat NAME.  Don't use this to reply to an invite - use chat_accept instead
+
+=cut
+
+sub chat_join_exchange($$$) {
+	my($handle, $chatname, $exchange, $msg) = @_;
+	debug_print(_hnick($handle) . " is joining $chatname($exchange)", "chat", 1);
+	$msg = quote("toc_chat_join $exchange ") . "\"" . quote($chatname) . "\"";
 	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 

@@ -274,6 +274,12 @@ $verbose = 0;
 $sendidle = 1;
 $tocserver = 'toc.oscar.aol.com';
 $tocport = 80;
+$dcc = 1;
+$savebuddies = 1;
+$saveprofiles = 1;
+$savepounces = 1;
+$checkpoint = 60;
+#$directory = "$home/.aimirc
 *debuglevel = *debug;	#We can now reference debuglevels as %debuglevel or %debug
 
 
@@ -341,7 +347,7 @@ $errors = &GetOptions(
 	"usnick=s" => \$usnick,
 	"time=i" => \$time,
 	"ssl:i" => \$ssl,
-	"fork=i" => \$fork,
+	"fork:i" => \$fork,
 	"verbose|v" => \$verbose,
 	"debug:i" => \$debug,
 	"debuglevel=s\%" => \%debuglevel,
@@ -350,6 +356,12 @@ $errors = &GetOptions(
 	"tocserver=s" => \$tocserver,
 	"tocport=i" => \$tocport,
 	"dccip=s" => \$dccip,
+	"dcc:i" => \$dcc,
+	"savebuddies:i" => \$savebuddies,
+	"saveprofiles:i" => \$saveprofiles,
+	"savepounces:i" => \$savepounces,
+	"checkpoint=i" => \$checkpoint,
+	"directory=s" => \$directory,
 );
 
 if(!$errors) {
@@ -1047,9 +1059,15 @@ sub process_irc_message($) {
 			}
 		} elsif ($cmd eq "join") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_id OR join chat_name"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: join chat_name"));
 			} else {
 				$extra ? chat_join($aim_connections{$nnick}{socket}, "$param $extra") : chat_join($aim_connections{$nnick}{socket}, $param);
+			}
+		} elsif ($cmd eq "join_exchange") {
+			unless($param and $extra) {
+				irc_send(irc_privmsg($usnick, $nick, "Usage: join_exchange exchange chat_name"));
+			} else {
+				chat_join_exchange($aim_connections{$nnick}{socket}, $extra, $param);
 			}
 		} elsif ($cmd eq "get_permit_mode") {
 			irc_send(irc_privmsg($usnick, $nick, "Your permit mode is " . permtype($aim_connections{$nnick}{socket}) . "."));
@@ -1165,9 +1183,9 @@ sub process_irc_message($) {
 				$aim_connections{$nnick}{report_idle} = $param;
 				irc_send(irc_privmsg($usnick, $nick, "Idle reporting changed."));
 			}
-		} elsif ($cmd eq "format_nickname") {
+		} elsif ($cmd eq "format_nickname" or $cmd eq "format_screenname") {
 			unless($param) {
-				irc_send(irc_privmsg($usnick, $nick, "Usage: format_nickname screenname"));
+				irc_send(irc_privmsg($usnick, $nick, "Usage: $cmd screenname"));
 			} else {
 				$param .= " $extra" if $extra;
 				format_nickname $aim_connections{$nnick}{socket}, $param;
@@ -1204,10 +1222,10 @@ Buddy {
  list {
 ";
 					#"Borrowed" from conf2str
-					Toc::debug_print("TOC to OSCAR: config is " . Data::Dumper::Dumper(%config), "IRC", 1);
+					#Toc::debug_print("TOC to OSCAR: config is " . Data::Dumper::Dumper(%config), "IRC", 1);
 					foreach $buddy(keys %{$config{Buddies}}) {
 						$group = $config{Buddies}{$buddy}{group};
-						Toc::debug_print("TOC to OSCAR: putting $buddy in $group", "IRC", 1);
+						#Toc::debug_print("TOC to OSCAR: putting $buddy in $group", "IRC", 1);
 						push @{$groups{$group}}, $buddy;
 					}
 					foreach $group (sort keys %groups) {
@@ -1251,24 +1269,24 @@ Buddy {
 			$foo = ":$usnick PRIVMSG $nick";
 			if($param eq "basics") {
 				irc_send("$foo :help - Show this screen.\r\n", 1);
-				irc_send("$foo :signon nick pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
+				irc_send("$foo :signon screenname pass - Sign on to AOL Instant Messenger (AIM).  You must do this before any of the other commands.\r\n", 1);
 				irc_send("$foo :signoff - Sign off of AIM\.r\n", 1);
-				irc_send("$foo :add nick - Create an IRC nickname for nick.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
+				irc_send("$foo :add screenname - Create an IRC nickname for screenname.  Use this to talk to someone who's not on your buddylist.\r\n", 1);
 				irc_send("$foo :get_permit_mode - See your current permit mode.\r\n", 1);
 				irc_send("$foo :set_permit_mode newmode - Set your permit mode.\r\n", 1);
 				irc_send("$foo :list_permit_modes - List the valid permit modes and their definitions.\r\n", 1);
 			} elsif($param eq "buddies") {
-				irc_send("$foo :NOTE: For the commands that take nick[,nick2,...nickN] as a parameter, you must have only commas between the screennames.\r\n", 1);
+				irc_send("$foo :NOTE: For the commands that take screenname[,screenname2,...screennameN] as a parameter, you must have only commas between the screennames.\r\n", 1);
 				irc_send("$foo :You may NOT have spaces between the screennames!\r\n", 1);
 				irc_send("$foo : \r\n", 1);
-				irc_send("$foo :add_permit nick[,nick2,...,nickN] - Add nick (possibly multiple nicks) to your permit list, removing from deny list.\r\n", 1);
-				irc_send("$foo :add_deny nick[,nick2,...,nickN] - Add nick (possibly multiple nicks) to your deny list, removing from permit list.\r\n", 1);
-				irc_send("$foo :buddyinfo name - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
-				irc_send("$foo :add_buddy nick[,nick2,...,nickN] [group] - Add nick (possibly multiple nicks) to your buddy list.  If you give a group, buddy will be added to that group.\r\n", 1);
-				irc_send("$foo :remove_buddy nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from your buddy list.\r\n", 1);
-				irc_send("$foo :evil nick [anon] (or warn nick [anon]) - Warn nick, optionally anonymously.\r\n", 1);
-				irc_send("$foo :remove_permit nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from permit list.\r\n", 1);
-				irc_send("$foo :remove_deny nick[,nick2,...,nickN] - Remove nick (possibly multiple nicks) from deny list.\r\n", 1);
+				irc_send("$foo :add_permit screenname[,screenname2,...,screennameN] - Add screenname (possibly multiple screenname) to your permit list, removing from deny list.\r\n", 1);
+				irc_send("$foo :add_deny screenname[,screenname2,...,screennameN] - Add nick (possibly multiple screenname) to your deny list, removing from permit list.\r\n", 1);
+				irc_send("$foo :buddyinfo screenname - Get signon time, idle time, evil level, and user class for a buddy.\r\n", 1);
+				irc_send("$foo :add_buddy screenname[,screenname2,...,screennameN] [group] - Add screenname (possibly multiple screennames) to your buddy list.  If you give a group, the screenname will be added to that buddy group.\r\n", 1);
+				irc_send("$foo :remove_buddy screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from your buddy list.\r\n", 1);
+				irc_send("$foo :evil screenname [anon] (or warn screenname [anon]) - Warn screenname, optionally anonymously.\r\n", 1);
+				irc_send("$foo :remove_permit screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from permit list.\r\n", 1);
+				irc_send("$foo :remove_deny screenname[,screenname2,...,screennameN] - Remove screenname (possibly multiple screennames) from deny list.\r\n", 1);
 				irc_send("$foo :onbuddies - List buddies who are currently signed on (and who don't have you on block.)\r\n", 1);
 				irc_send("$foo :buddylist - List everyone on your buddylist.\r\n", 1);
 				irc_send("$foo :permitlist - See who is on your permit list.\r\n", 1);
@@ -1282,21 +1300,25 @@ Buddy {
 				irc_send("$foo :The preferred format, TOC format, is used internally by TOC and most TOC clients will export in this format.\r\n", 1);
 				irc_send("$foo :OSCAR format is the format that the Windows AOL Instant Messenger client exports its buddylist in.\r\n", 1);
 			} elsif($param eq "chat") {
-				irc_send("$foo :join topic - Create and join a new chatroom with topic set to topic.\r\n", 1);
-				irc_send("$foo :whisper chat_id user message - Whisper to user in chat chat_id.\r\n", 1);
-				irc_send("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n", 1);
+				irc_send("$foo :join chat_name - Create/join a chatroom called chat_name.\r\n", 1);
+				irc_send("$foo :join_exchange exchange chat_name - Create/join a chatroom in a different exchange (see below.)\r\n", 1);
+				irc_send("$foo :whisper chat_id user message - Whisper to user in chat chat_id (the chat_id is the number after #aimchat- in the channel name.)\r\n", 1);
+				#I don't think AOL has implemented this. --MS
+				#irc_send("$foo :chat_evil chat_id nick [anon] (or chat_warn chat_id nick [anon]) - Warn nick inside chat_id, optionally anonymously.\r\n", 1);
+				irc_send("$foo : \r\n", 1);
+				irc_send("$foo :Note on join_exchange: The default exchange is 4.  However, many AIM chats (including most/all listed in AOL's 'Hot Chats' use exchange 5.\r\n", 1);
 				irc_send("$foo : \r\n", 1);
 				irc_send("$foo :To invite someone into a chat, use the IRC INVITE command on their AIM- screenname.\r\n", 1);
 				irc_send("$foo :Example: /invite AIM-SomeDude #aimchat-1234\r\n", 1);
 				irc_send("$foo :Your IRC client might have an easier way to do that - many allow you to omit the channel name when inviting into the channel you are currently in.\r\n", 1);
 			} elsif($param eq "misc") {
-				irc_send("$foo :get_info nick - Get info for nick.\r\n", 1);
-				irc_send("$foo :set_info new info - Set your info.\r\n", 1);
-				irc_send("$foo :get_dir nick - Get directory info for nick.\r\n", 1);
+				irc_send("$foo :get_info screenname - Get info for screenname.\r\n", 1);
+				irc_send("$foo :set_info new_info - Set your info.\r\n", 1);
+				irc_send("$foo :get_dir screenname - Get directory info for screenname.\r\n", 1);
 				irc_send("$foo :set_dir [info] - Without info, gives you the syntax that info must be in.  With info, sets your directory info.\r\n", 1);
 				irc_send("$foo :dir_search [info] - Without info, gets the syntax that info must be in (the same as that of set_dir).  With info, searches the AOL Instant Messenger directory.\r\n", 1);
 				irc_send("$foo :sendidle (0|1) - Send the TOC server your idle information?\r\n", 1);
-				irc_send("$foo :format_nickname nickname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
+				irc_send("$foo :format_screenname screenname - Change the formatting (capitalization, spaces) of your screenname\r\n", 1);
 				irc_send("$foo :change_password old_password new_password - Change your AIM password\r\n", 1);
 			} elsif($param eq "debug") {
 				if($debug) {
@@ -1418,20 +1440,28 @@ Buddy {
 			chat_send($aim_connections{$nnick}{screennames}{$chatnames{$1}}{socket}, $1, $msg) if $aim_connections{$nnick};
 		} elsif ($recipient !~ /^#/) {
 			if($aim_connections{$nnick}) {
-				message($aim_connections{$nnick}{socket}, $target, $msg);
-				$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
+				if($irc_connections{$nnick} and $shortcircuit) {
+					irc_send(irc_privmsg($aim_connections{$nnick}{aimnick}, $recipient, html2txt(txt2html($msg))));
+				} else {
+					message($aim_connections{$nnick}{socket}, $target, $msg);
+					$nicks{$target}{$nnick} = time if $nicks{$target}{$nnick} != -1;
+				}
 			} else {
 				irc_send(irc_privmsg($usnick, $nick, "You must be signed onto AOL Instant Messenger via aimirc to send messages to AIM users.  /msg AIMServ help for details."));
 			}
 		}
 	} elsif(/^AWAY *(.*)/) {
-		if($aim_connections{$nnick}) {
-			if($1 =~ /:?(.*)/) {
+		if($1 =~ /:?(.*)/) {
+			$irc_away{$nnick} = $1;
+			if($aim_connections{$nnick}) {
 				$aim_connections{$nnick}{away} = $1;
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					set_away($aim_connections{$nnick}{screennames}{$screenname}{socket}, $1);
 				}
-			} else {
+			}
+		} else {
+			delete $irc_away{$nnick};
+			if($aim_connections{$nnick}) {
 				delete $aim_connections{$nnick}{away};
 				foreach $screenname(keys %{$aim_connections{$nnick}{screennames}}) {
 					delete $aim_connections{$nnick}{screennames}{$screenname}{away_buddies};
@@ -1828,6 +1858,7 @@ sub do_signon($$$$) {
 		$aim_connections{$nnick}{screennames}{$nparam}{idletime} = time;
 		$aim_connections{$nnick}{screennames}{$nparam}{is_idle} = 0;
 		$aim_connections{$nnick}{aimnick} ||= $nparam;
+		$irc_connections{$nparam} = $nnick;
 
 		switchnick($nnick, $nparam) if $aim_connections{$nnick}{aimnick} eq $nparam;
 		%temp = %{$ret[2]};
@@ -1838,6 +1869,12 @@ sub do_signon($$$$) {
 			irc_send(irc_newnick($prefix . $tparam));
 		}
 		$nicks{$nparam}{$nnick} = -1;
+
+		if($irc_away{$nnick}) {
+			$aim_connections{$nnick}{screennames}{$nparam}{away} = $irc_away{$nnick};
+			set_away($aim_connections{$nnick}{screennames}{$nparam}{socket}, $irc_away{$nnick});
+		}
+
 	} else {
 		irc_send(irc_privmsg($tusnick, $nnick, $err));
 	}
@@ -1847,6 +1884,7 @@ sub do_signon($$$$) {
 sub do_signoff($$;$) {
 	my ($nick, $connection, $already_off, $xnick) = @_;
 
+	delete $irc_connections{Toc::_hnick($connection)};
 	foreach $xnick(keys %nicks) {
 		delete $nicks{$xnick}{$nick};
 		next if normalize $xnick eq normalize $usnick;

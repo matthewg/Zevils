@@ -20,21 +20,10 @@ Real Soon Now:
 			remove_pounce number
 			list_pounces
 		We keep everything in memory (hashes) and only write to disk when we checkpoint
-	"Short-circuiting"
-		When sending an IM, check to see if the target is signed onto
-		the local aimirc.  If so, don't go through TOC.
-			$shortcircuit config option (default on)
-			%irc_connections - keys are normalized screennames, values are normalized IRC nicks
-	Support %x escapes in profiles
 	Add support for Undernet P10 protocol, Unreal IRCd
 	TOC PAUSE
 	Make more mention of the fact that you need to set_info after
 	  every signon in documentation/help message. - only if server-side-saves disabled
-	AWAY tracking for everyone, not just keys %aim_connections
-		This prevents the following from causing IRC/AIM away desynch:
-			:SomeDude AWAY :foo
-			:SomeDude PRIVMSG AIMServ :signon SomeDude SomePass
-		by keeping track of AWAY for IRCers who haven't signed on.
 	ChanServ/AIMServ conflict
 		MODE loop detection, README.ChanServ, services patches
 
@@ -47,7 +36,6 @@ Pending/Maybe:
 	file transfer -> DCC?
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
-	Ability to join chatrooms in different exchange
 
 Wishlist:
 	Fix #aimirc-debug reload command
