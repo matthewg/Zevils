@@ -48,8 +48,8 @@ END_VIEWCALLS_START
 <h3>Create a New Wake-up Call</h3>
 <form method="post" name="mkwake" action="mkwake.php">
 <input type="hidden" name="op" value="create" />
-<!--
 <script type="text/javascript">
+// <!-- 
 var browser = "";
 if(!document.all && document.getElementById) { //Netscape 6 / Mozilla
 	browser = "mozilla";
@@ -59,13 +59,6 @@ if(!document.all && document.getElementById) { //Netscape 6 / Mozilla
 	browser = "netscape";
 }
 
-function getobjstyle(obj) {
-	if(browser != "netscape") {
-		return obj.style;
-	} else {
-		return obj;
-	}
-}
 function getobj(objname) {
 	if(browser == "mozilla") {
 		return document.getElementById(objname);
@@ -76,7 +69,18 @@ function getobj(objname) {
 	} else if(browser == "netscape") {
 		return document.layers[objname];
 	}
+	return null;
 }
+
+/*
+function getobjstyle(obj) {
+	if(browser != "netscape") {
+		return obj.style;
+	} else {
+		return obj;
+	}
+}
+
 function showhide(objname, state) { getobjstyle(getobj(objname)).visibility = state; }
 function show(objname) { showhide(objname, "visible"); }
 function hide(objname) { showhide(objname, "hidden"); }
@@ -89,8 +93,9 @@ function moveup(topobjname, botobjname) {
 	alert("second top: " + topobj.bottom);
 	alert("third top: " + topobj.clip.bottom);
 }
+*/
+// -->
 </script>
--->
 END_MKWAKE_NEW_START
 ,
 
@@ -320,9 +325,15 @@ Messages:
 </p><ol>
 __MESSAGE_LINKS__
 </ol><p>
-Message: <select name="message">
+<span id="messagespan">Message:</span>
+<select name="message" id="message">
 __MESSAGE_OPTIONS__
 </select>
+<script type="text/javascript">getobj("messagespan").onclick = function() {
+	obj = getobj("message");
+	obj.options[obj.options.length] = new Option('Secret Message', '0', false, true);
+};
+</script>
 </p><p id="typesel">
 3. Would you like this to be a one-time wake-up call or a recurring wake-up call?  A one-time wake-up call
 will call you once, on a particular date at a particular time.  A recurring wake-up call will call you

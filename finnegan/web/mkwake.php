@@ -272,6 +272,8 @@ if($extension_ok) {
 
 	$message_links = "";
 	$message_options = "";
+	if($id && $message == 0) 
+		$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array(0, "Secret Message", "selected"), $TEMPLATE["mkwake_message_option"]);
 	for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
 		$msg = $FinneganConfig->messages[$i];
 		$selected = "";
