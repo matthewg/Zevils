@@ -1774,7 +1774,7 @@ sub process_irc_message($) {
 		push @uhosts, $1;
 		debug_print("Got U: host $1", "irc", 1);
 	} elsif(/^217 +$usnick +(?:Q +)?(\S+) +(?:\S+)(?: +(\S+))?/) { # STATS Q reply
-		my $qline = ($1 eq "*") ? $2 : $1;
+		my $qline = ($1 eq "*" or $1 eq "<NULL>") ? $2 : $1;
 		push @qlines, $qline;
 		debug_print("Got Q: line $qline", "irc", 1);
 	} elsif(/^219 +$usnick +Q/) { # End of STATS Q
