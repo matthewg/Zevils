@@ -64,6 +64,8 @@ sub loadbuddies($$);
 sub irc_dcc($$$$$);
 sub safename($);
 sub checkpoint();
+sub num2base64($);
+sub base642num($);
 
 $| = 1;
 
@@ -210,7 +212,7 @@ $keepalive = 0;
 mainloop();
 
 sub loaddat() {
-	my($buddylist, $profile, $pounce, %buddylists, $profiles, $pounces, $who, $what);
+	my($buddylist, $profile, $pounce, $profiles, $pounces, $who, $what);
 	#Who needs subroutines when you've got copy and paste?
 	#Incidentally, this is what I mean by that "code cleanup" item in TODO
 	#But would a trillion tiny functions be any cleaner?
@@ -473,7 +475,7 @@ sub mainloop() {
 					next unless $screenname; #Why is this needed?
 					do_signoff($connection->{nick}, undef) unless $connection->{screennames}{$screenname}{socket};
 					$msg = sflap_get($connection->{screennames}{$screenname}{socket});
-					if($msg eq "-1") {
+					if($msg eq "-1" and $! != EAGAIN) {
 						$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 						irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
 						do_signoff($connection->{nick}, $connection->{screennames}{$screenname}{socket});
@@ -607,14 +609,19 @@ sub mainloop() {
 					$sndata = $connection->{screennames}{$screenname};
 					next if $sndata->{gotconf};
 					next if ($currtime - $sndata->{signontime}) <= 5;
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL did not send your buddylist!"));
-					irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL is having problems - maybe they lost the buddylists again."));
-					$sndata->{gotconf} = 1;
-					if($buddylists{safename $screenname}) {
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
-						update_config($sndata->{socket}, $buddylists{safename $screenname});
-					} elsif($dcc) {
-						irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+					if(!$sndata->{ison}) {
+						irc_send(irc_privmsg($usnick, $nick, "Your attempt to connect to AOL Instant Messenger has failed."));
+						do_signoff($nick, $sndata->{socket}, 1);
+					} else {
+						irc_send(irc_privmsg($usnick, $connection->{nick}, "AOL did not send your buddylist!"));
+						irc_send(irc_privmsg($usnick, $connection->{nick}, "Either you've just created this account or AOL is having problems - maybe they lost the buddylists again."));
+						$sndata->{gotconf} = 1;
+						if($buddylists{safename $screenname}) {
+							irc_send(irc_privmsg($usnick, $connection->{nick}, "Fortunately, we have a backup of your buddylist from the last time you signed on to this aimirc - we'll load that for you."));
+							update_config($sndata->{socket}, $buddylists{safename $screenname});
+						} elsif($dcc) {
+							irc_send(irc_privmsg($usnick, $connection->{nick}, "If you have a copy of your buddylist from the Win/Mac AIM client or from a savebuddies, you can import it via the loadbuddies command - \"/msg $usnick loadbuddies\"."));
+						}
 					}
 				}
 			}
@@ -746,7 +753,7 @@ sub process_irc_message($) {
 		$aim_connections{$nnick}{screennames}{$aimnick}{idletime} = time;
 		if($aim_connections{$nnick}{screennames}{$aimnick}{is_idle}) {
 			$aim_connections{$nnick}{screennames}{$aimnick}{is_idle} = 0;
-			if(set_idle($aim_connections{$nnick}{socket}, 0) == -1) {
+			if(set_idle($aim_connections{$nnick}{socket}, 0) == -1 and $! != EAGAIN) {
 				irc_send(irc_privmsg($usnick, $nick, "There was an error with your AOL Instant Messenger connection: $err"), 2);
 				do_signoff($nnick, $aim_connections{$nnick}{socket});
 			}
@@ -1505,7 +1512,7 @@ Buddy {
 # Process an incoming TOC message
 sub process_aim_message($$$) {
 	my ($connection, $msg, $screenname) = @_;
-	my($cmd, $val, $inick, $ar, $pounce, %pouncehash, $pouncenum, $sndata);
+	my($cmd, $val, $inick, $ar, $pounce, %pouncehash, $pouncenum, $sndata, $pouncecount);
 	my($nnick) = normalize($connection->{nick});
 
 	$sndata = $connection->{screennames}{$screenname};
@@ -1524,6 +1531,10 @@ sub process_aim_message($$$) {
 		$val =~ /([^:]+):?(.*)/;
 		Toc::debug_print("Error $1: " . aim_strerror($1, $2), "errors", 1);
 		irc_send(irc_privmsg($usnick, $connection->{nick}, "${multinick}Error $1: " . aim_strerror($1, $2)));
+		if(!$sndata->{ison}) {
+			irc_send(irc_privmsg($usnick, $nnick, "Your attempt to connect to AOL Instant Messenger has failed."));
+			do_signoff($nnick, $sndata->{socket}, 1);
+		}
 	} elsif($cmd eq "DIR_STATUS") {
 		if($val == 0) {
 			irc_send(irc_privmsg($usnick, $connection->{nick}, "Directory info successfully updated."));
@@ -1549,8 +1560,24 @@ sub process_aim_message($$$) {
 			update_config($socket, $msg);
 		}
 	} elsif($cmd eq "NICK") {
+		irc_send(irc_privmsg($usnick, $nnick, "You are now connected to AOL Instant Messenger as $val.")) unless $sndata->{ison};
 		$sndata->{formatted} = $val;
-		irc_send(irc_privmsg($usnick, $nnick, "You are now connected to AOL Instant Messenger as $val."));
+		if(!$sndata->{ison}) {
+			$sndata->{ison} = 1;
+			if($irc_away{$nnick}) {
+				$connection->{away} = $irc_away{$nnick};
+				set_away($sndata->{socket}, $irc_away{$nnick});
+			}
+			if($pounces{safename $screenname}) {
+				$sndata->{pounces} = $pounces{safename $screenname};
+				$pouncecount = scalar @{$pounces{safename $screenname}};
+				irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . "."), 2) if $pouncecount > 0;
+			}
+			if($profiles{safename $screenname}) {
+				set_info($sndata->{socket}, $profiles{safename $screenname});
+				irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set."), 2);
+			}
+		}
 	} elsif($cmd eq "IM_IN") {
 		my($nick, @lines, $line);
 		$val =~ /([^:]+):(.):(.*)/;
@@ -1945,6 +1972,7 @@ sub do_signon($$$$) {
 		$sndata->{is_idle} = 0;
 		$sndata->{signontime} = time;
 		$sndata->{gotconf} = 0;
+		$sndata->{ison} = 0;
 
 		$connection->{aimnick} ||= $nparam;
 		$irc_connections{$nparam} = $nnick;
@@ -1954,28 +1982,10 @@ sub do_signon($$$$) {
 
 		irc_send(irc_privmsg($tusnick, $nnick, "Sent signon attempt for $nparam..."));
 
-		#We set paused at signon so that we don't send info, away
-		#message, etc. until we're truly connected.
-		set_pause($nparam, 1);
-
 		unless($nicks{$nparam}) {
 			irc_send(irc_newnick($prefix . $tparam));
 		}
 		$nicks{$nparam}{$nnick} = -1;
-
-		if($irc_away{$nnick}) {
-			$connection->{away} = $irc_away{$nnick};
-			set_away($sndata->{socket}, $irc_away{$nnick});
-		}
-		if($pounces{safename $nparam}) {
-			$sndata->{pounces} = $pounces{safename $nparam};
-			$pouncecount = scalar @{$pounces{safename $nparam}};
-			irc_send(irc_privmsg($usnick, $nnick, "You have $pouncecount pounce" . ($pouncecount > 1 ? "s" : "") . "."), 2) if $pouncecount > 0;
-		}
-		if($profiles{safename $nparam}) {
-			set_info($sndata->{socket}, $profiles{safename $nparam});
-			irc_send(irc_privmsg($usnick, $nnick, "Your profile has been set."), 2);
-		}
 	} else {
 		irc_send(irc_privmsg($tusnick, $nnick, $err));
 	}
@@ -1989,7 +1999,7 @@ sub do_signoff($$;$) {
 	$nparam = safename $screenname;
 	if($nparam and $savebuddies > 0) {
 		%config = deref(get_config($screenname));
-		$buddylists{$nparam} = conf2str(%config);
+		$buddylists{$nparam} = conf2str(%config) if haskeys $config{Buddies};
 	}
 
 	foreach $chat(keys %chatnames) {
@@ -2181,12 +2191,12 @@ sub timestuff($) {
 				$multinick = " for screenname $screenname" unless $screenname eq $connection->{aimnick};
 				$sndata = $connection->{screennames}{$screenname};
 				if($sndata->{socket}) {
-					if(sflap_keepalive($sndata->{socket}) == -1) {
+					if(sflap_keepalive($sndata->{socket}) == -1 and $! != EAGAIN) {
 						irc_send(irc_privmsg($usnick, $aim_connections{$connection}{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
 						do_signoff(normalize $connection->{nick}, $sndata->{socket});
 					} else {
 						if($sndata->{report_idle} and not $sndata->{is_idle} and ($currtime - $sndata->{idletime}) >= 360) {
-							if(set_idle($sndata->{socket}, $currtime - $sndata->{idletime}) == -1) {
+							if(set_idle($sndata->{socket}, $currtime - $sndata->{idletime}) == -1 and $! != EAGAIN) {
 								irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
 								do_signoff($connection->{nick}, $sndata->{socket});
 							} else {
@@ -2194,7 +2204,7 @@ sub timestuff($) {
 							}
 						}
 					}
-				} else {
+				} elsif($! != EAGAIN) {
 					irc_send(irc_privmsg($usnick, $connection->{nick}, "There was an error with your AOL Instant Messenger connection${multinick}: $err"));
 					do_signoff($connection->{nick}, undef);
 				}
@@ -2460,6 +2470,7 @@ sub checkpoint() {
 		if($savebuddies > 1) {
 			mkdir("$directory/buddylists", 0700) if not -d "$directory/buddylists";
 			foreach $screenname(keys %buddylists) {
+				next unless $buddylists{$screenname};
 				open(BUDDYLIST, ">$directory/buddylists/$screenname") or next;
 				print BUDDYLIST $buddylists{$screenname};
 				close BUDDYLIST;
@@ -2468,6 +2479,7 @@ sub checkpoint() {
 		if($saveprofiles > 1) {
 			mkdir("$directory/profiles", 0700) if not -d "$directory/profiles";
 			foreach $screenname(keys %profiles) {
+				next unless $profiles{$screenname};
 				open(PROFILE, ">$directory/profiles/$screenname") or next;
 				print PROFILE $profiles{$screenname};
 				close PROFILE;
@@ -2476,6 +2488,7 @@ sub checkpoint() {
 		if($savepounces > 1) {
 			mkdir("$directory/pounces", 0700) if not -d "$directory/pounces";
 			foreach $screenname(keys %pounces) {
+				next unless scalar @{$pounces{$screenname}};
 				open(POUNCES, ">$directory/pounces/$screenname") or next;
 				foreach $pounce(@{$pounces{$screenname}}) {
 					print POUNCES "$pounce->{who} $pounce->{what}\n";
@@ -2487,4 +2500,41 @@ sub checkpoint() {
 		print STDERR "Warning!  $directory is unwritable - not checkpointing.\n";
 		Toc::debug_print("Warning!  $directory is unwritable - not checkpointing.", "errors", 1);
 	}
+}
+
+#The base64 functions are for the P10 IRC protocol
+sub num2base64($) {
+	my $number = shift;
+	my (@table, $char, $ret, $num, $currdig);
+
+	$ret = "";
+	foreach $char("A".."Z") { push @table, $char; }
+	foreach $char("a".."z") { push @table, $char; }
+	foreach $char("0".."9") { push @table, $char; }
+	push @table, "[", "]";
+	for($num = 2; $num >= 0; $num--) {
+		next unless $number >= 64**$num;
+		$currdig = ($number - 64**$num) % 64;
+		$ret .= $table[$currdig];
+		$number -= $currdig;
+	}
+	return $ret;
+}
+
+sub base642num($) {
+	my $number = shift;
+	my (%table, $char, $num, $currdig, $ret);
+
+	$num = 0;
+	foreach $char("A".."Z") { $table{$char} = $num++; }
+	foreach $char("a".."z") { $table{$char} = $num++; }
+	foreach $char("0".."9") { $table{$char} = $num++; }
+	$table{"["} = $num++;
+	$table{"]"} = $num++;
+
+	$num = $ret = 0;
+	while($currdig = substr($number, -1, 1, "")) {
+		$ret += $table{$currdig}*64**$num++;
+	}
+	return $ret;
 }
