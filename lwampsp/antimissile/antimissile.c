@@ -243,9 +243,9 @@ void clicked_go(int id) {
 	do_projectiles(isect_t, &xa, &ya, &xb, &yb, Vax, Vay, Vbx, Vby);
 	SDL_SetClipRect(screen, NULL);
 
-	DrawStart(screen);
+	/*DrawStart(screen);
 	DrawBlast(screen, xa + 5, ya - 5, 15, 0);
-	DrawEnd(screen);
+	DrawEnd(screen);*/
 }
 
 void clicked_exit(int id) { exit(0); }
