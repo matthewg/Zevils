@@ -225,9 +225,11 @@ sub loadconf() {
 		$conffile =~ s/~/$home/;
 		print STDERR "Trying to read config file $conffile\n" if $verbose;
 		if(-r $conffile) {
-			print "Reading config file $conffile\n"; # if $verbose;
+			print STDERR "Reading config file $conffile\n" if $verbose;
 			$confversion = 0;
+			print "usnick: $usnick\n";
 			do $conffile;
+			print "usnick: $usnick\n";
 			die $@ if $@;
 			if($confversion < 1.5) {
 				print STDERR "Not using config file $conffile - it is too old (\$confversion must be >= 1.5)\n";
