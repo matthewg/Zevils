@@ -316,7 +316,17 @@ sub new($;@) {
 	return $self;
 }
 
-sub printparse {
+sub printparse($) {
+	my $parse = shift;
+	my $inrule;
+
+	$tablevel = 0;
+	$parse = $parse->[0];
+	print ${*$parse}, ":\n";
+	print _printparse(@{*$parse}), "\n";
+}
+
+sub _printparse {
 	my @syms = @_;
 	my $sym;
 	my $retval = "";
@@ -327,9 +337,9 @@ sub printparse {
 			my $name = ${*$sym} || "";
 			my @values = @{*$sym};
 
-			$retval .= "\t"x$tablevel. "$name = \n". printparse(@values);
+			$retval .= "\t"x$tablevel. "$name = \n". _printparse(@values);
 		} elsif(ref($sym) eq "ARRAY") {
-			$retval .= printparse(@$sym);
+			$retval .= _printparse(@$sym);
 		} else {
 			$retval .= "\t"x$tablevel. "$sym,\n";
 		}
@@ -436,20 +446,8 @@ sub add_ruleparse($$$;$) {
 						$tmprule->{minreps} = $minreps;
 						$tmprule->{maxreps} = $maxreps;
 						$tmprule->{mode} = $rule->{mode};
-						if($rule->{type} != OP_TYPE_OPS) {
-							$rule->{value} = [
-								{
-									type => $rule->{type},
-									mode => $rule->{mode},
-									value => $rule->{value}
-								},
-								$tmprule
-							];
-							
-							$rule->{type} = OP_TYPE_OPS;
-						} else {
-							push @{$rule->{value}}, $tmprule;
-						}
+						warn "\nType: ".Data::Dumper::Dumper($rule->{type})."\n";
+
 					}
 
 					if(exists($tmprule->{type}) and $tmprule->{type} != $type) { 
@@ -528,7 +526,7 @@ sub add($@) {
 
 	#print "$rule\n======\n";
 	my $parse = $ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements element repeat group option alternation char-val num-val bin-val dec-val hex-val prose-val));
-	#print Data::Dumper::Dumper($parse), "\n======\n";
+	#warn Data::Dumper::Dumper($parse), "\n======\n";
 	my $inrule;
 
 #	rulename => {
@@ -545,20 +543,18 @@ sub add($@) {
 #		]
 #	},
 
-	$tablevel = 0;
+	print STDERR printparse($parse);
+	#$tablevel = 0;
 	#print printparse(@$parse), "\n";
 	foreach $inrule(@$parse) {
 		my $rulename = ${*$inrule}[0]; #rulename is now the glob for rulename
 		$rulename = ${*$rulename}[0]; #This gets the actul rule name.
 		$self->{$rulename} ||= {};
 		my $rule = $self->{$rulename};
-
 		my $defined = ${*$inrule}[1];
 		$defined = join("", @{*$defined});
 		$defined =~ tr/ //d; #Either = or =/
-
 		$self->{nextalt} = 1 if $defined eq "=/";
-
 		my $elements = ${*$inrule}[2];
 		$tablevel = 0;
 		#print "alternation\n";
@@ -685,7 +681,7 @@ sub multival($$) {
 	my($self, $tok) = @_;
 	$tok = $self->{$tok} unless ref($tok);
 
-	return 0 unless $tok;
+	return 0 unless $tok and $tok->{value};
 	return 1 if scalar(@{$tok->{value}}) > 1;
 	return 0;
 }
@@ -703,7 +699,7 @@ sub _matches($$$;$$$@) {
 
 	}
 	$tablevel++;
-	#warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
+	warn "\t"x$tablevel . "_matches($litrule) called with doplay=$doplay".($inplay?(", inplay=".Data::Dumper->new([$inplay])->Terse(1)->Indent(0)->Dump):"").", data='$foodata'\n";
 
 	# We convert @matchrules into a hash for our own convenience
 	my ($matchrule, %matchrules);
@@ -718,6 +714,7 @@ sub _matches($$$;$$$@) {
 	}
 
 	my ($rep, $maxreps, $minreps, $mode, @matchvalues, $matchvalue, $didmatch, $retval, $prevdata, $repplay, $playback, @my_playback, @opmatches);
+	$rule->{type} ||= 0;
 	if($rule->{type} == OP_TYPE_OPS and $tokname eq $litrule) {
 		$retval = gensym;
 	} elsif($rule->{type} == OP_TYPE_OPS) {
@@ -864,7 +861,7 @@ sub _matches($$$;$$$@) {
 		}
 	}
 
-	#warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
+	warn "\t"x$tablevel . "_matches($litrule) returning " . (defined($didmatch) ? " with the following retval:".obj($retval) : "undef") ."\n";
 	$tablevel--;
 
 	if(not defined $didmatch) {
@@ -885,11 +882,6 @@ sub _matches($$$;$$$@) {
 	return @matchrules ? $retval : 1;
 }
 
-
-# Remember to handle "REGEX_RULE continues if next line starts with whitespace" !!
-sub _parse_rules($$) {
-	my($self, $rules) = @_;
-}
 
 # We use this as a bootstrap for grokking ABNF syntax.
 use constant ABNF_PARSETREE => {

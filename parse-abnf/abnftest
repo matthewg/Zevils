@@ -1,19 +1,16 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
+use strict;
 use Data::Dumper;
-require "ABNF.pm";
+use ABNF;
 
-#print Data::Dumper::Dumper($Parse::ABNF::ABNF), "\n";
-#$rule = "rule           =  rulename defined-as elements c-nl\nfoo = bar baz\n";
-#$ret = $Parse::ABNF::ABNF->matches("rulelist", $rule, qw(rule rulename defined-as elements));
+die "Usage: abnftest rule data (give rules on standard input)\n" unless scalar @ARGV == 2;
 
-#print Data::Dumper::Dumper($ret), "\n";
-
-$rules = <<EOF;
-foo = bar baz
-baz = ["the"] quick 1*2(brown fox) / jumped "over" %x3C.3E %d48-50 %b100000
-bar = "alt1"
-bar =/ "alt2"
-EOF
-$newobj = Parse::ABNF->new($rules);
-#print Data::Dumper::Dumper($newobj), "\n";
+my @rules = <STDIN>;
+my $rule = shift;
+my $data = shift;
+my $obj = Parse::ABNF->new(@rules);
+warn Data::Dumper::Dumper($obj), "\n============\n";
+my $parse = $obj->matches($rule, $data, "*");
+die "No match!\n" unless $parse;
+printparse $parse;
