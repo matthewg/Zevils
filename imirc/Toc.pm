@@ -278,6 +278,7 @@ sub sflap_get($;$) {
 		alarm 0;
 	};
 
+	return -1 if $err;
 	if($@) {
 		alarm 0;
 		croak unless $@ eq "alarm\n";
@@ -324,6 +325,7 @@ sub signon($$&;&) {
 	my($username, $password, $socksub, $status) = @_;
 	my($socket, $msg, $config, $buddy, $flags);
 
+	$alarm = "";
 	$username = normalize($username);
 	unless($username and $password) {
 		$err = "You must provide a username and password!";
@@ -333,47 +335,66 @@ sub signon($$&;&) {
 	debug_print("$username is trying to sign on", "signon", 1);
 
 	&$status("Connecting to toc.oscar.aol.com:9898") if ref $status eq "CODE";
-	if(ref $socksub eq "CODE") {
-		$socket = &$socksub;
-	} else {
-		$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898', Timeout => 60);
-	}
+	eval {
+		local $SIG{ALRM} = sub { die "alarm\n" };
+		alarm 5;
 
-	unless($socket) {
-		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
-		$err = "Couldn't create socket: $@";
-		return -1;
-	}
+		if(ref $socksub eq "CODE") {
+			$socket = &$socksub;
+		} else {
+			$socket = IO::Socket::INET->new(PeerAddr => 'toc.oscar.aol.com:9898');
+		}
 
-	debug_print("$username has established a connection to toc.oscar.aol.com", "signon", 2);
-	if($socket->isa("IO::Socket::SSL")) {
-		debug_print("SSL cipher: " . $socket->get_cipher, "SSL", 2);
-		debug_print("SSL cert: " . $socket->get_peer_certificate->subject_name, "SSL", 2);
-		debug_print("SSL CA: " . $socket->get_peer_certificate->issuer_name, "SSL", 2);
-	}
+		unless($socket) {
+			$err = "Couldn't create socket: $@";
+			debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
+			alarm 0;
+			return -1;
+		}
 
-	${*$socket}{'net_toc_username'} = $username;
-	&$status("Connected, switching to FLAP encoding") if ref $status eq "CODE";
-	$socket->print("FLAPON\r\n\r\n") or do {
-		debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
-		$err = "Couldn't write to socket: $@";
-		return -1;
+		debug_print("$username has established a connection to toc.oscar.aol.com", "signon", 2);
+		if($socket->isa("IO::Socket::SSL")) {
+			debug_print("SSL cipher: " . $socket->get_cipher, "SSL", 2);
+			debug_print("SSL cert: " . $socket->get_peer_certificate->subject_name, "SSL", 2);
+			debug_print("SSL CA: " . $socket->get_peer_certificate->issuer_name, "SSL", 2);
+		}
+
+		${*$socket}{'net_toc_username'} = $username;
+		&$status("Connected, switching to FLAP encoding") if ref $status eq "CODE";
+		$socket->print("FLAPON\r\n\r\n") or do {
+			$err = "Couldn't write to socket: $@";
+			debug_print("$username couldn't switch to SFLAP mode: $@", "signon", 1);
+			alarm 0;
+			return -1;
+		};
+
+		debug_print("$username is now in SFLAP mode", "signon", 2);
+
+		$flags = '';
+		fcntl($socket, F_GETFL, $flags) or do {
+			$err = "Couldn't get flags for socket: $!";
+			debug_print("$username couldn't get flags for socket: $!", "signon", 1);
+			alarm 0;
+			return -1;
+		};
+		$flags |= O_NONBLOCK;
+		fcntl($socket, F_SETFL, $flags) or do {
+			$err = "Couldn't set flags for socket: $!";
+			debug_print("$username couldn't set flags for socket: $!", "signon", 1);
+			alarm 0;
+			return -1;
+		};
+
+		alarm 0;
 	};
 
-	debug_print("$username is now in SFLAP mode", "signon", 2);
-
-	$flags = '';
-	fcntl($socket, F_GETFL, $flags) or do {
-		debug_print("$username couldn't get flags for socket: $!", "signon", 1);
-		$err = "Couldn't get flags for socket: $!";
+	return -1 if $err;
+	if($@) {
+		alarm 0;
+		croak unless $@ eq "alarm\n";
+		$err = "connect timed out";
 		return -1;
-	};
-	$flags |= O_NONBLOCK;
-	fcntl($socket, F_SETFL, $flags) or do {
-		debug_print("$username couldn't set flags for socket: $!", "signon", 1);
-		$err = "Couldn't set flags for socket: $!";
-		return -1;
-	};
+	}
 
 	&$status("Switching to SFLAP protocol") if ref $status eq "CODE";
 	$msg = sflap_get($socket, 1);
@@ -1118,6 +1139,7 @@ sub sflap_put($$) {
 		alarm 0;
 	};
 
+	return -1 if $err;
 	if($@) {
 		alarm 0;
 		croak unless $@ eq "alarm\n";
