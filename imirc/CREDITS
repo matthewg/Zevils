@@ -8,3 +8,4 @@ Thanks to:
 	Thread (Debugging)
 	CanDoo (Debugging, chat concepts)
 	Shinnok (Debugging)
+	Karl (Found out that we need to normalize($username) in Toc::signon)
