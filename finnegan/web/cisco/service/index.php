@@ -3,6 +3,14 @@
 $cisco = 1;
 require "../../include/finnegan.inc";
 
+// Destroy any session that might exist in case we have one sitting around.
+// This can happen if the user bails out while in mkwake.php
+ini_set("session.use_cookies", 0);
+session_id($extension);
+$_SESSION = array();
+session_destroy();
+
+
 ?>
 <CiscoIPPhoneMenu>
 <Title>Wake-up Calls</Title>
