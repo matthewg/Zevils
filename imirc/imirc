@@ -73,6 +73,7 @@ sub irc_quit($;$);
 sub irc_invite($$$);
 sub ircirfy($);
 sub bounce_join($$);
+sub process_dcc($$);
 
 $starttime = time;
 
@@ -93,7 +94,7 @@ sub BEGIN {
 		Net::OSCAR->import(qw(:standard normalize));
 	};
 
-	$@ .= "We require Net::OSCAR 0.06 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.05;
+	$@ .= "We require Net::OSCAR 0.07 or newer - you have $Net::OSCAR::VERSION.\n" unless $Net::OSCAR::VERSION >= 0.07;
 	if($@) {
 		print STDERR "We couldn't load some required modules for the following reason:\n";
 		print STDERR "$@\n";
@@ -467,18 +468,32 @@ sub mainloop() {
 						delete $aim_connections->{$nick}->{screennames}->{$screenname};
 						next;
 					}
-					foreach my $connection($aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->connections) {
-						my $fileno = fileno $connection;
-						vec($rin, $fileno, 1) = 1;
-					}
+					my($readers, $writers) = $aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->selector_filenos();
+					$rin |= $readers;
+					$win |= $writers;
 				}
 			}
 
-			$win = $rin;
 			vec($rin, $upstream->fileno, 1) = 1;
+			foreach my $dcc(@dccqueue) {
+				if($dcc->{direction} eq "GET") {
+					vec($rin, $dcc->{socket}->fileno, 1) = 1;
+				} else {
+					vec($win, $dcc->{socket}->fileno, 1) = 1;
+				}
+			}
 
-			$ein = $rin;
-			select($rin, $win, $ein, 0.01);
+			eval {
+				local $SIG{ALRM} = sub { die "timeout\n" };
+				alarm 5;
+				$ein = $rin | $win;
+				select($rin, $win, $ein, undef);
+			};
+			if ($@) {
+				die unless $@ =~ /timeout/; # Why don't testing for eq "timeout\n" work ???
+				goto CLEANUP; # Yeah, yeah, I read Dijkstra's paper too...
+			}
+
 			foreach $nick(keys %$aim_connections) {
 				foreach $screenname(keys %{$aim_connections->{$nick}->{screennames}}) {
 					$aim_connections->{$nick}->{screennames}->{$screenname}->{oscar}->process_connections(\$rin, \$win, \$ein);
@@ -487,128 +502,17 @@ sub mainloop() {
 
 			process_irc_message(irc_recv()) if vec($rin, $upstream->fileno, 1);
 
-			DCC: for($i = 0; $i <= $#dccqueue; $i++) {
-				$dcc = $dccqueue[$i];
-				my $screenname = $dcc->{screenname};
-				if($dcc->{direction} eq "GET") {
-					undef $rv;
-					$! = EAGAIN;
-					while($! == EAGAIN and !defined($rv)) {
-						$buff = ' ' x 102;
-						$rv = $dcc->{socket}->sysread($buff, 102); #A tenth of a kilobyte - should be okay even for slow connections
-						if (!defined($rv) && $! != EAGAIN) {
-							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!", "", "", $screenname));
-							$dcc->{socket}->close;
-							splice(@dccqueue, $i, 1);
-							next DCC;
-						}
-						if(!defined($rv) && ($! == EAGAIN)) {
-							next DCC;
-						}
-						$dcc->{buff} .= $buff;
-						$dcc->{got} += $rv;
-						debug_print("DCC got $rv bytes ($dcc->{got} of $dcc->{size})", "DCC", 2);
-
-						$dcc->{socket}->print(pack("N", $dcc->{got})) if(($dcc->{got} % 2048) == 0 or $dcc->{got} == $dcc->{size}); # Every 2048 bytes, write number of bytes received
-
-						if($dcc->{got} == $dcc->{size}) {
-							debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
-							debug_print($dcc->{buff}, "DCC", 3);
-							$dcc->{socket}->close;
-							irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed.", "", "", $screenname));
-							if(loadbuddies($aim_connections->{$dcc->{from}}->{screennames}->{$dcc->{screenname}}->{oscar}, $dcc->{buff})) {
-								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded.", "", "", $screenname));
-							} else {
-								irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?", "", "", $screenname));
-							}
-							splice(@dccqueue, $i, 1);
-						}
-					}
-				} elsif($dcc->{direction} eq "SEND") {
-					if($dcc->{put} == -1) {
-						undef $rv;
-						vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
-						#Anyone trying to connect to us?
-						if(!select($rin, $win, $ein, 0.01)) {
-							if(time - $dcc->{starttime} > 60*10) {
-								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out.", "", "", $screenname));
-								$dcc->{ssocket}->close;
-								splice(@dccqueue, $i, 1);
-							}
-							next DCC;
-						}
-						$rv = $dcc->{ssocket}->accept;
-						if(defined $rv) {
-							$dcc->{socket} = $rv;
-							$dcc->{put} = 0;
-						} elsif($! and $! != EAGAIN) {
-							irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-							$dcc->{ssocket}->close;
-							splice(@dccqueue, $i, 1);
-							next DCC;
-						}
-					} else {
-						undef $rv;
-						$! = EAGAIN;
-						while($! == EAGAIN and !defined($rv)) {
-							if($dcc->{put} < $dcc->{size}) {
-								$buff = substr($dcc->{buff}, 0, 102, "");
-								$rv = $dcc->{socket}->syswrite($buff, length $buff); #A tenth of a kilobyte - should be okay even for slow connections
-								if (!defined($rv) && $! != EAGAIN) {
-									irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-									$dcc->{socket}->close;
-									$dcc->{ssocket}->close;
-									splice(@dccqueue, $i, 1);
-									next DCC;
-								}
-								if(!defined($rv) && ($! == EAGAIN)) {
-									next DCC;
-								}
-								$dcc->{put} += $rv;
-								debug_print("DCC put $rv bytes ($dcc->{put} of $dcc->{size})", "DCC", 2);
-							}
-
-							if(($dcc->{put} % 2048) == 0 or $dcc->{put} == $dcc->{size}) {
-								debug_print("Waiting for ACK...", "DCC", 3);
-								undef $getrv;
-								$! = EAGAIN;
-								undef $rvbuff;
-								while($! == EAGAIN and !defined($getrv)) {
-									$buff = ' ' x 4;
-									$getrv = $dcc->{socket}->sysread($buff, 4);
-									if(!defined($getrv) && $! != EAGAIN) {
-										irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
-										$dcc->{socket}->close;
-										$dcc->{ssocket}->close;
-										splice(@dccqueue, $i, 1);
-										next DCC;
-									}
-									if(!defined($getrv) && ($! == EAGAIN)) {
-										next DCC;
-									} elsif($getrv < 4) {
-										debug_print("ACK incomplete - got $rvbuff", "DCC", 3);
-										$rvbuff .= $buff;
-										undef $getrv;
-									}
-									$dcc->{got} = unpack("N", $rvbuff . $buff);
-									debug_print("ACK received - client got $dcc->{got} of $dcc->{size} (we put $dcc->{put})", "DCC", 3);
-								}
-							}
-
-							if($dcc->{got} == $dcc->{size}) {
-								debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
-								$dcc->{socket}->close;
-								$dcc->{ssocket}->close;
-								irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed.", "", "", $screenname));
-								splice(@dccqueue, $i, 1);
-							}
-						}
-					}
+			$currtime = time;
+			for(my $i = scalar(@dccqueue) - 1; $i >= 0; $i--) {
+				if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
+					next unless vec($rin, $dcc->{socket}->fileno, 1);
+				} else {
+					next unless vec($win, $dcc->{socket}->fileno, 1);
 				}
+				splice(@dccqueue, $i, 1) unless process_dcc($dcc, $currtime);
 			}
 
-			$currtime = time;
-			foreach $nick(keys %$aim_connections) {
+			CLEANUP: foreach $nick(keys %$aim_connections) {
 				next unless $nick;
 				$connection = $aim_connections->{$nick};
 				foreach $screenname(keys %{$connection->{screennames}}) {
@@ -2819,3 +2723,116 @@ sub bounce_join($$) {
 	irc_send(irc_kick($usnick, $chan, $nick, "This channel is reserved for aimirc usage."));
 	$chantimer{$chan} = time;
 }
+
+
+sub process_dcc($$) {
+	my $dcc = shift;
+	my $time = shift; # Avoid numerous calls to time(2)
+
+	my $screenname = $dcc->{screenname};
+	my $buff;
+	my $rv = undef;
+
+	if($dcc->{direction} eq "GET" or exists($dcc->{needack})) {
+		my $bufflen = $dcc->{needack} ? (4 - length($dcc->{ackbuff})) : 2048;
+		$buff = ' ' x $bufflen;
+		$rv = $dcc->{socket}->sysread($buff, $bufflen); #DCC seems to like 2k chunks - but we're nonblocking, so we'll deal with whatever we get
+		if (!defined($rv)) {
+			if($! == EAGAIN) {
+				return 1; # Why did select tell us we were ready, though?
+			} else {
+				irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC connection dropped: $!", "", "", $screenname));
+				$dcc->{socket}->close;
+				return 0;
+			}
+		}
+
+		if(exists($dcc->{needack})) {
+			$dcc->{ackbuff} .= $buff;
+			if(length($dcc->{ackbuff}) >= 4) {
+				delete $dcc->{needack};
+				($dcc->{got}) = unpack("N", substr($dcc->{ackbuff}, 0, 4, ""));
+				debug_print("ACK received - client got $dcc->{got} of $dcc->{size} (we put $dcc->{put})", "DCC", 3);
+			}
+
+			if($dcc->{got} == $dcc->{size}) {
+				debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+				$dcc->{socket}->close;
+				irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC completed.", "", "", $screenname));
+				return 0;
+			}
+		} else {
+			$dcc->{buff} .= $buff;
+			$dcc->{got} += $rv;
+			debug_print("DCC got $rv bytes ($dcc->{got} of $dcc->{size})", "DCC", 2);
+
+			$dcc->{socket}->print(pack("N", $dcc->{got})) if(($dcc->{got} % 2048) == 0 or $dcc->{got} == $dcc->{size}); # Every 2048 bytes, write number of bytes received
+
+			if($dcc->{got} == $dcc->{size}) {
+				debug_print("DCC $dcc->{direction} $dcc->{what} from $dcc->{from} to $dcc->{to} completed.", "DCC", 1);
+				debug_print($dcc->{buff}, "DCC", 3);
+				$dcc->{socket}->close;
+				irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "DCC completed.", "", "", $screenname));
+				if(loadbuddies($aim_connections->{$dcc->{from}}->{screennames}->{$dcc->{screenname}}->{oscar}, $dcc->{buff})) {
+					irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Buddylist loaded.", "", "", $screenname));
+				} else {
+					irc_send(irc_privmsg($dcc->{to}, $dcc->{from}, "Could not load buddylist - is it in the correct format?", "", "", $screenname));
+				}
+				return 0; # Remove this connection from the DCC pending list
+			}
+		}
+	} elsif($dcc->{direction} eq "SEND") {
+		if($dcc->{put} == -1) {
+			undef $rv;
+			my($rin, $ein) = ('', undef, '');
+			vec($rin, $dcc->{ssocket}->fileno, 1) = 1;
+			$ein = $rin;
+			#Anyone trying to connect to us?
+			if(!select($rin, undef, $ein, 0.01)) {
+				if($time - $dcc->{starttime} > 60*10) {
+					irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection timed out.", "", "", $screenname));
+					$dcc->{ssocket}->close;
+					return 0;
+				}
+				return 1;
+			} else {
+				$rv = $dcc->{ssocket}->accept;
+				if(defined $rv) {
+					$dcc->{socket} = $rv;
+					$dcc->{put} = 0;
+					$dcc->{ssocket}->close;
+					delete $dcc->{ssocket};
+					return 1;
+				} elsif($! and $! != EAGAIN) {
+					irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
+					$dcc->{ssocket}->close;
+					return 0;
+				}
+			}
+		} else {
+			if($dcc->{put} < $dcc->{size}) {
+				$buff = substr($dcc->{buff}, 0, 2048);
+				$rv = $dcc->{socket}->syswrite($buff, length $buff);
+				if (!defined($rv)) {
+					if($! == EAGAIN) {
+						return 1; # Then why did select tell us we were ready?
+					} else {
+						irc_send(irc_privmsg($dcc->{from}, $dcc->{to}, "DCC connection dropped: $!", "", "", $screenname));
+						$dcc->{socket}->close;
+						return 0;
+					}
+				}
+				$dcc->{put} += $rv;
+				substr($buff, 0, $rv) = "";
+				debug_print("DCC put $rv bytes ($dcc->{put} of $dcc->{size})", "DCC", 2);
+			}
+
+			if(($dcc->{put} % 2048) == 0 or $dcc->{put} == $dcc->{size}) {
+				$dcc->{needack} = 1;
+			}
+
+			return 1;
+		}
+	}
+}
+
