@@ -27,9 +27,8 @@ while($wake = mysql_fetch_assoc($wakes)) {
 if($PHONE_MODEL == "CP-7912G") {
 ?>
 
-<Prompt>Select 'Properties' edit, delete, or enable/disable an alarm.</Prompt>
 <SoftKeyItem>
-<Name>Properties</Name>
+<Name>Change</Name>
 <URL>SoftKey:Select</URL>
 <Position>1</Position>
 </SoftKeyItem>
