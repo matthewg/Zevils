@@ -44,6 +44,16 @@ like this:
 	see the file README.ircu - it applies to many other IRC servers,
 	not just ircu.
 
+	Another issue is services.  If you have something like a system
+	announcement bot that sends out a PRIVMSG to any user connecting
+	to the server, IMIRC will get caught in an infinite loop with it;
+	it will complain that your announcer sent it in invalid command.
+	If the announcer sends a PRIVMSG in response to this, the result is
+	an infinite loop.  See the $ignoreuhosts and @ignorehosts options
+	in the IMIRC configuration file for ways to combat this.  To see
+	if you are having this problem, start up IMIRC with the
+	parameters --debug 2 --fork 0 --debuglevel irc=99
+
 Usage:
 	You need an AOL Instant Messenger account.
 	Let's say your AIM account is tocname and the password is tocpass.
