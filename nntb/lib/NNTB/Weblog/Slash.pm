@@ -56,6 +56,8 @@ sub new($;@) {
 	$self->{slash_db} = getCurrentDB();
 	$self->{slash_user} = getCurrentUser();
 
+	croak "You must install the Slash NNTP plugin in order to use NNTB" unless $self->{slash_db}->getDescriptions("plugins")->{NNTP};
+
 	$self->{root} ||= $self->groupname("slash", lc($self->{slash_db}->getVar("sitename", "value")));
 
 	$self->log("Created NNTB::Weblog::Slash: root=$self->{root}", LOG_NOTICE);
