@@ -25,8 +25,6 @@ public:
 	virtual BOOL OpenAudioChannel(H323Connection &connection,
 					BOOL isEncoding, unsigned bufferSize,
 					H323AudioCodec &codec);
-	virtual BOOL OnAlerting(H323Connection *connection,
-					const H323SignalPDU & alertingPDU, const PString & user);
 	virtual BOOL OnConnectionForwarded(H323Connection *connection,
 					const PString & forwardParty,
 					const H323SignalPDU &);

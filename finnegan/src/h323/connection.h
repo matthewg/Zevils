@@ -9,6 +9,7 @@
 #define _CONNECTION_H
 
 #include <h323.h>
+#include <h323pdu.h>
 #include "pconf.h"
 #include "wavchan.h"
 #include "finnegan-call-h323.h"
@@ -24,6 +25,7 @@ public:
 	~MyConnection();
 	virtual void OnEstablished();
 	virtual void OnUserInputIndication(const H245_UserInputIndication & pdu);
+	virtual BOOL OnReceivedAlerting(const H323SignalPDU & pdu);
 };
 
 
