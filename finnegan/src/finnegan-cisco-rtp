@@ -178,7 +178,7 @@ if($Finnegan::Config::Cisco::wake_method eq "multicast") {
 	while($data) {
 		$target_time += SECONDS_PER_PACKET;
 		my $payload = substr($data, 0, PACKET_SIZE, "");
-		$socket->print($rtp->make_packet(SECONDS_PER_PACKET, $payload);
+		$socket->print($rtp->make_packet(SECONDS_PER_PACKET, $payload));
 
 		my $curr_time = time();
 		sleep($target_time - $curr_time) if $target_time - $curr_time > 0;
