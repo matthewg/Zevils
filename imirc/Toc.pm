@@ -78,15 +78,15 @@ sub get_config($) { return $config{$_[0]}; }
 
 =pod
 
-=item aim_strerror(ERRNO)
+=item aim_strerror(ERRNO, PARAMS)
 
 Takes a Toc error number and returns a string describing the error.
 Error messages are taken from PROTOCOL.
 
 =cut
 
-sub aim_strerror($) {
-	my($errno, $params) = shift;
+sub aim_strerror($$) {
+	my($errno, $params) = @_;
 	if($errno == 901) {
 		return "$params not currently available";
 	} elsif($errno == 902) {
@@ -211,7 +211,7 @@ with $_[0] set to the text of the message.
 
 sub signon($$;&) {
 	my($username, $password, $status) = @_;
-	my($socket, $msg, $config);
+	my($socket, $msg, $config, $buddy);
 
 	unless($username and $password) {
 		$err = "You must provide a username and password!";
@@ -245,8 +245,8 @@ sub signon($$;&) {
 		return -1;
 	}
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		debug_print("$username had an error after switching into SFLAP: $1 (" . aim_strerror($1) . ")", "signon", 1);
-		$err = "Error $1: " . aim_strerror($1);
+		debug_print("$username had an error after switching into SFLAP: $1 (" . aim_strerror($1, $2) . ")", "signon", 1);
+		$err = "Error $1: " . aim_strerror($1, $2);
 		return -1;
 	}
 	&$status("We are now in flap mode, signing on") if ref $status eq "CODE";
@@ -274,14 +274,14 @@ sub signon($$;&) {
 		return -1;
 	}
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . aim_strerror($1);
+		$err = "Error $1: " . aim_strerror($1, $2);
 		debug_print("$username had an error after toc_signon: $err", "signon", 1);
 		return -1;
 	}
 	$msg = sflap_get($socket);
 	return -1 if $err;
 	if($msg =~ /^ERROR:(.+):?(.*)/) {
-		$err = "Error $1: " . aim_strerror($1);
+		$err = "Error $1: " . aim_strerror($1, $2);
 		debug_print("$username had an error after toc_signon and get: $err", "signon", 1);
 		return -1;
 	}
@@ -289,16 +289,10 @@ sub signon($$;&) {
 	$config{$username} = $config;
 	$config{$username}{permtype} = $permtype;
 
-	debug_print("$username is about to send toc_init_done", "signon", 2);
+	sflap_do($socket, "toc_init_done");
 
-	&$status("Got config, sending toc_init_done") if ref $status eq "CODE";
-	sflap_put($socket, sflap_encode("toc_init_done")) or do {
-		$err = "Couldn't write to socket: $!";
-		debug_print("$username had an error while trying to send toc_init_done: $err", "signon", 1);
-		return -1;
-	};
-
-	debug_print("$username has succesfully signed on", "signon", 1);
+	_setup($socket);
+	debug_print(_hnick($socket) . " has succesfully signed on", "signon", 1);
 
 	return (0, $socket, $config);
 }
@@ -438,7 +432,6 @@ Valid keys for HASH:
 	city
 	state
 	country
-	email
 	allow_web_searches
 If allow_web_searches is true, directory info can be retrieved over the web, not just via TOC.
 
@@ -446,11 +439,10 @@ If allow_web_searches is true, directory info can be retrieved over the web, not
 
 sub set_directory($%) {
 	my($handle, %info) = @_;
-	my($msg);
+	my($msg, $elem);
 
-	$msg = "toc_set_dir \"";
-	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
-	$msg .= "\"";
+	$msg = quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{state}, $info{country}, $info{allow_web_searches} ? "Y" : ""));
+	$msg = "toc_set_dir $msg";
 	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
@@ -465,11 +457,10 @@ This is very similar to set_directory.
 
 sub directory_search($%) {
 	my($handle, %info) = @_;
-	my($msg);
+	my($msg, $elem);
 
-	$msg = "toc_dir_search \"";
-	$msg .= quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{email}, $info{allow_web_searches}));
-	$msg .= "\"";
+	$msg = quote(join(":", $info{first_name}, $info{middle_name}, $info{last_name}, $info{maiden_name}, $info{city}, $info{city}, $info{state}, $info{country}, $info{allow_web_searches} ? "Y" : ""));
+	$msg = "toc_dir_search $msg";
 	sflap_put($handle, sflap_encode($msg, 0, 1));
 }
 
@@ -633,7 +624,7 @@ sub permtype($;$) {
 		set_config($handle, $config{_hnick($handle)});
 		return $permtype;
 	} else {
-		return $config{_hnick($handle)}->{permtype};
+		return $config{_hnick($handle)}->{permtype} || 4;
 	}
 }
 
@@ -693,29 +684,36 @@ In all other cases, it is called automatically when needed.  Returns the result 
 =cut
 
 sub set_config($$) {
-	my($handle, $config, $ppl, $msg) = @_;
+	my($handle, $config) = @_;
 	$config{_hnick($handle)} = $config;
 
 	sflap_put($handle, sflap_encode(conf2str($config), 0, 1));
-	sflap_do($handle, "toc_add_permit");
-	sflap_do($handle, "toc_add_deny");
-	if($config->{permtype} == 3) {
-		$msg = "toc_add_permit";
-		if($config{_hnick($handle)}->{permit}) {
-			foreach $ppl(keys %{ $config{_hnick($handle)}->{permit} }) {
-				$msg .= " $ppl";
-			}
-		}
-		sflap_do($handle, $msg);
-	} elsif($config->{permtype} == 4) {
-		$msg = "toc_add_deny";
-		if($config{_hnick($handle)}->{deny}) {
-			foreach $ppl(keys %{ $config{_hnick($handle)}->{deny} }) {
-				$msg .= " $ppl";
-			}
-		}
-		sflap_do($handle, $msg);
+	_setup($handle);
+}
+sub _setup($) { 
+	my $handle = shift;
+	my($ppl, $msg, $buddy, $config);
+
+	$config = $config{_hnick($handle)};
+
+	$msg = "toc_add_buddy";
+	foreach $buddy(keys %{$config->{Buddies}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
+	sflap_do($handle, $msg);
+
+	if($config{_hnick($handle)}->{permtype} == 3 or $config{_hnick($handle)}->{permtype} == 1) {
+		sflap_do($handle, "toc_add_permit");
+	} else {
+		sflap_do($handle, "toc_add_deny");
 	}
+
+	$msg = "toc_add_permit";
+	foreach $buddy(keys %{$config->{permit}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
+	sflap_do($handle, $msg);
+
+	$msg = "toc_add_deny";
+	foreach $buddy(keys %{$config->{deny}}) { $buddy = normalize($buddy); $msg .= " $buddy"; }
+	sflap_do($handle, $msg);
+
 }
 
 =pod
