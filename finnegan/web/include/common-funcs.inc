@@ -85,7 +85,8 @@ function set_wake($id, $time, $message, $type, $date, $days, $cal_type) {
 		$set = "$cols[0] = $values[0]";
 		for($i = 1; $i < sizeof($cols); $i++) $set .= ", $cols[$i] = $values[$i]";
 
-		if(!mysql_query("UPDATE wakes SET next_trigger_time=NULL, this_trigger_time=NULL $set WHERE extension='$extension' AND wake_id=$id")) db_error();
+		#if(!mysql_query("UPDATE wakes SET next_trigger_time=NULL, this_trigger_time=NULL $set WHERE extension='$extension' AND wake_id=$id")) db_error();
+		if(!mysql_query("UPDATE wakes SET trigger_time=NULL, snooze_count=0, trigger_date=NULL, trigger+snooze=NULL $set WHERE extension='$extension' AND wake_id=$id")) db_error();
 		$event = "edit";
 	}
 
