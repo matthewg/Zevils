@@ -1,9 +1,8 @@
 Unclassified:
 	Write a TOC server and a set of stress tests and regression tests.
 
-In Progress:
-	Multiple buddies at once in add_buddy/remove_buddy
-	Minimize "flashing"
+Bugs:
+	Reports of miscellaneous reaping problems
 
 Real Soon Now:
 	savebuddies/loadbuddies for buddylist backup
@@ -18,6 +17,12 @@ Real Soon Now:
 			:SomeDude AWAY :foo
 			:SomeDude PRIVMSG AIMServ :signon SomeDude SomePass
 		by keeping track of AWAY for IRCers who haven't signed on.
+	ChanServ/AIMServ conflict
+		MODE loop detection, README.ChanServ, services patches
+
+Probably/Second Priority:
+	#buddies-SCREENNAME (geniusj)
+
 
 Pending/Maybe:
 	(#aimirc-debug or IRC or AIMServ?) stats command
@@ -25,6 +30,7 @@ Pending/Maybe:
 	Handle colors as well as bold, etc.?
 	Code cleanup? (Where?)
 	Default set_info?
+	Ability to join chatrooms in different exchange
 
 Wishlist:
 	Fix #aimirc-debug reload command
