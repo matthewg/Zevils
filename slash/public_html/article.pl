@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+
 my $r = Apache->request if $ENV{SCRIPT_NAME};
 
 use FindBin qw($Bin);

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+
 my ($op,$data)=("/","");
 
 $_=$ENV{SCRIPT_NAME};

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+
 #Adding newsd support to an existing slash-site:
 #
 #	mysqldump -c -t -u root -p -- slash stories > /tmp/stories.sql

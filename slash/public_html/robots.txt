@@ -1,4 +1,4 @@
-# robots.txt for Slashdot.org
+# robots.txt for Slash
 User-agent: *
 Disallow: /index.pl
 Disallow: /article.pl

@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+
 my $r = Apache->request unless $ENV{SLASH_UID};
 
 use DBI;
