@@ -955,20 +955,20 @@ sub format_text_mail {
         $text .= "$who replied to your $LJ::SITENAMESHORT comment in which you said:";
     }
     $text .= "\n\n";
-    $text .= indent($parent->{body}, ">") . "\n\n";
+
+    my $entrytext = $parent->{body};
+    if ($parent->{ispost}) {
+        LJ::CleanHTML::clean_event(\$entrytext, { 'preformatted' => $parent->{opt_preformatted},
+                                  'cuturl' => LJ::item_link($item->{entryu}{user}, $dtalkid, $item->{anum}), });
+    }
+    $text .= indent(html2txt($entrytxt), ">") . "\n\n";
+
     $text .= "Their reply was:\n\n";
     if ($comment->{subject}) {
         $text .= Text::Wrap::wrap("  Subject: ",
                                   "           ",
                                   $comment->{subject}) . "\n\n";
     }
-
-    my $entrytext = $comment->{body};
-    LJ::CleanHTML::clean_event(\$entrytext, { 'preformatted' => $comment->{opt_preformatted},
-                              'cuturl' => LJ::item_link($comment->{u}{user}, $dtalkid, $comment->{anum}), });
-    
-    $text .= indent(html2txt($entrytext));
-    $text .= "\n\n";
 
     if ($comment->{state} eq 'S') {
         $text .= "This comment was screened.  You must respond to it ".
