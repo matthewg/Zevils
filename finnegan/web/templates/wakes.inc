@@ -65,12 +65,11 @@ to let it know that you're awake.  Otherwise, it will act
 as if you've hit a 'snooze button' and call you back in nine minutes.
 See <a href="docs.php#3">the Finnegan documentation</a> for details.
 </p><p>
-Your current wake-up calls are listed below.  To add a wake-up call,
+Your current wake-up calls are listed above.  To add a wake-up call,
 <a href="mkwake.php">click here</a>.  To edit a wake-up call, click
 the link marked 'Edit' in the row for that wake-up call.  To
 delete wake-up calls, check the box in the row for each wake-up call
-you'd like to delete, and then click the button mark 'Delete marked wake-up calls'
-below.
+you'd like to delete, and then click the button mark 'Delete marked wake-up calls'.
 </p><p>
 You can disable a recurring wake-up call to temporarily stop it from being sent.
 Disabled wake-up calls are shown below as shaded and italicized.
