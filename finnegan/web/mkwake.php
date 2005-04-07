@@ -235,10 +235,10 @@ for($i = 0; $i < sizeof($FinneganConfig->messages); $i++) {
 	);
 }
 if($message == -1)
-	$selected = "selected";
+	$selected = "checked";
 else
 	$selected = "";
-$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array(-1, "Random Message", $selected), $TEMPLATE["mkwake"]["message_option"]);
+$message_options .= preg_replace(array("/__NUM__/", "/__NAME__/", "/__SELECTED__/"), array(-1, "Random Message", $selected), $TEMPLATE["mkwake"]["message_option_nolink"]);
 
 echo preg_replace(array(
 		"/__TIME__/",

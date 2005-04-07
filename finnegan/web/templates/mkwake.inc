@@ -81,12 +81,17 @@ END
 	"time_unavailable_recur" => errmsg("Too many wake-up calls are scheduled for that time, no phone lines available.  That time was unavailable on the following days: __DAYS__."),
 	"too_many_wakes" => errmsg("You have too many wake-up calls.  You may only have ten.  Try using recurring wake-up calls instead of setting one-time calls for every day, or delete some of your other wake-up calls.  If you need more wake-up calls, email <a href=\"mailto:finnegan@brandeis.edu\">finnegan@brandeis.edu</a>"),
 
-	"message_link" => <<<END
+	"message_option" => <<<END
 <input type="radio" name="message" value="__NUM__" __SELECTED__><a href="__URL__">__NAME__</a></option><br />
 END
 ,
 
-	"message_option" => <<<END
+	"message_option_nolink" => <<<END
+<input type="radio" name="message" value="__NUM__" __SELECTED__>__NAME__</option><br />
+END
+,
+
+	"message_link" => <<<END
 END
 ,
 
@@ -106,11 +111,11 @@ END
 </p>
 <hr />
 <p><b>Message:</b> (click to preview) <br />
-__MESSAGE_LINKS__
+__MESSAGE_OPTIONS__
 </p>
 <hr />
 <div id="onetime"><p>
-<b>Date</b> (one-time alarms only): <input type="text" name="date" id="date" size="6" maxlength="5" value="__DATE__" onchange="datechanged()" />
+<b>Date</b> (one-time alarms only): <input type="text" name="date" id="date" size="6" maxlength="5" value="__DATE__" onchange="datechanged()" /> <em>(Example: 3/20)</em>
 </p>
 <hr />
 </div><div id="recur"><p>
