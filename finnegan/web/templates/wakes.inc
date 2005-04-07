@@ -58,6 +58,7 @@ END
 </table>
 <p><input type="submit" name="op" value="Delete marked wake-up calls" /></p>
 __DELETE_CONFIRM__
+<hr />
 <p class="status">
 Hint: When Finnegan calls you to wake you up, hit a button
 on your phone's keypad (after picking up the phone) 
