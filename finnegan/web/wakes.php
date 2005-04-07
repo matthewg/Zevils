@@ -36,8 +36,14 @@ reset($_POST);
 
 $result = get_wakes();
 
+if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls") {
+	$delete_confirm = $TEMPLATE["wakes"]["delete_confirm"];
+} else {
+	$delete_confirm = "";
+}
+
 $count = mysql_num_rows($result);
-echo preg_replace("/__COUNT__/", $count, $TEMPLATE["wakes"]["list_start"]);
+echo preg_replace(array("/__COUNT__/", "/__DELETE_CONFIRM__/"), array($count, $delete_confirm), $TEMPLATE["wakes"]["list_start"]);
 while($count && ($row = mysql_fetch_assoc($result))) {
 	$button = "";
 	$delete = "";
@@ -121,8 +127,7 @@ while($count && ($row = mysql_fetch_assoc($result))) {
 		);
 	}
 }
-echo $TEMPLATE["wakes"]["list_end"];
-if(isset($_POST["op"]) && $_POST["op"] == "Delete marked wake-up calls") echo $TEMPLATE["wakes"]["delete_confirm"];
+echo preg_replace("/__DELETE_CONFIRM__/", $delete_confirm, $TEMPLATE["wakes"]["list_end"]);
 mysql_free_result($result);
 
 page_end();

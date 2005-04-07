@@ -82,6 +82,7 @@ Wake-up call list (wakes) items:
 
 	list_start: Start of a user's wake-up call list
 		COUNT: Number of wake-up calls that the user has.
+		DELETE_CONFIRM: Will be replaced with text of 'delete_confirm' if op='delete' was posted.
 	list_item_enable_button: For disabled wake-up calls, an "Enable" button
 		ID: Unique identifier for this wake-up call
 
@@ -108,6 +109,7 @@ Wake-up call list (wakes) items:
 		CAL: Type of calendar that the wake-up call uses: 'Regular'/'Brandeis'/'National Holidays'
 		BUTTON: Enable/disable button (c.f. 'list_item_enable_button', 'list_item_disable_button')
 	list_end: End of the wake-up call list
+		DELETE_CONFIRM: Will be replaced with text of 'delete_confirm' if op='delete' was posted.  Appears both here and in list_start to let you decide where to put it.
 
 	delete_confirm: "Confirm Deletion" button.
 		This template is called if op='delete' was posted.  It should
@@ -138,10 +140,14 @@ New/Edit Wake-Up Call items (mkwake):
 	message_link: This is called to give a link to download each message
 		URL
 		NAME
+		NUM
+		SELECTED
 	message_option: This is called to give the user a chance to select each message
 		NUM
 		SELECTED: "selected" if this is the user's current choice
 		NAME
+		URL
+	message_option_nolink: Same as above, but no URL.
 
 	form: Form for user to enter a new call or edit an existing one.
 		MESSAGE_LINKS: Bunch of mkwake_message_link
