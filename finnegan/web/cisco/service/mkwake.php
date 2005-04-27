@@ -385,10 +385,10 @@ $url = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prompt&amp;do=1";
 if(isset($prev)) {
 	$prevurl = $FinneganCiscoConfig->url_base."/service/mkwake.php?p=$prev&amp;do=0";
 } else if(isset($id)) {
-	//if($PHONE_MODEL == "CP-7912G")
+	if($PHONE_MODEL == "CP-7912G")
 		$prevurl = $FinneganCiscoConfig->url_base . "/service/wakeprops.php?id=$id";
-	//else
-	//	$prevurl = $FinneganCiscoConfig->url_base . "/service/wakes.php";
+	else
+		$prevurl = $FinneganCiscoConfig->url_base . "/service/wakes.php";
 } else {
 	$prevurl = $FinneganCiscoConfig->url_base . "/service/index.php";
 }

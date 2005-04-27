@@ -17,7 +17,10 @@ function nlstrip($contents) {
 function get_extension() {
 	global $PHONE_MODEL;
 
-	return "92896"; //if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") return "92896";
+	if($_SERVER["REMOTE_ADDR"] == "127.0.0.1") {
+		$PHONE_MODEL = "CP-7940G";
+		return "92896";
+	}
 
 	# Cache phone webpages, otherwise phones hate us
 	$extension = "";
@@ -50,7 +53,7 @@ function get_extension() {
 		else
 			cisco_message("Unknown Extension Error", "There was an unknown problem with your extension, $matches[1].  The error was '$check'.");
 	} else {
-		if(preg_match("!Product ID.*?<TD>(.*)!mi", $phonepage, $matches))
+		if(preg_match("!(?:Product ID|Model Number)(?:.|\n)*?<TD>(?:<B>)?(.*?)(?:</B></TD>)?\s*\$!mi", $phonepage, $matches))
 			$PHONE_MODEL = $matches[1];
 		else
 			$PHONE_MODEL = "";

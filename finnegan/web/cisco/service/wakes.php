@@ -16,17 +16,16 @@ while($wake = mysql_fetch_assoc($wakes)) {
 	echo "<MenuItem>\n";
 	echo "<Name>" . format_wake($wake) . "</Name>\n";
 
-	//if($PHONE_MODEL == "CP-7912G")
+	if($PHONE_MODEL == "CP-7912G")
 		echo "<URL>".$FinneganCiscoConfig->url_base."/service/wakeprops.php?id=".$wake["wake_id"]."</URL>\n";
-	//else
-	//	echo "<URL>QueryStringParam:id=".$wake["wake_id"]."</URL>\n";
+	else
+		echo "<URL>QueryStringParam:id=".$wake["wake_id"]."</URL>\n";
 
 	echo "</MenuItem>\n";
 }
 mysql_free_result($wakes);
 
-if(1 == 1) {
-//$PHONE_MODEL == "CP-7912G") {
+if($PHONE_MODEL == "CP-7912G") {
 ?>
 
 <SoftKeyItem>
