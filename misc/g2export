@@ -1,0 +1,212 @@
+#!/usr/bin/perl
+# -*- mode: cperl -*-
+
+use strict;
+use warnings;
+use LWP::UserAgent;
+use User::pwent;
+use File::stat;
+use Data::Dumper qw(Dumper);
+
+our $UA = LWP::UserAgent->new;
+$UA->timeout(30);
+$UA->env_proxy;
+
+use constant URL => "http://images.zevils.com/main.php";
+use constant FSPATH => "/Volumes/SandBox/g2photos";
+our $AUTHTOKEN;
+
+use constant MODE_KEY => 0;
+use constant MODE_VAL => 1;
+use constant ESCAPE_NONE => 0;
+use constant ESCAPE_BACKSLASH => 1;
+use constant ESCAPE_HEX => 2;
+sub doPost {
+  my(%orig_params) = @_;
+  my %params;
+
+  while(my($key, $val) = each(%orig_params)) {
+    $params{"g2_form[$key]"} = $val;
+  }
+  $params{g2_authToken} = $AUTHTOKEN;
+  $params{g2_controller} = "remote:GalleryRemote";
+
+  my $response = $UA->post(URL, \%params);
+  if($response->is_success) {
+    my $content = $response->decoded_content();
+    #warn "$content\n\n";
+
+    my %ret;
+    foreach my $line (split(/\n/, $content)) {
+      next if $line =~ /^#/;
+      chomp($line);
+      my($key, $val);
+      my $mode = MODE_KEY;
+      my $saw_escape = ESCAPE_NONE;
+      my $hex_val;
+      my $output = "";
+
+      foreach my $char (split(//, $line)) {
+	if($saw_escape == ESCAPE_BACKSLASH) {
+	  if($char eq "\\") {
+	    $output = $char;
+	  } elsif($char eq "t") {
+	    $output = "\t";
+	  } elsif($char eq "f") {
+	    $output = "\f";
+	  } elsif($char eq "n") {
+	    $output = "\n";
+	  } elsif($char eq "r") {
+	    $output = "\r";
+	  } elsif($char eq "u") {
+	    $saw_escape = ESCAPE_HEX;
+	    $hex_val = "";
+	    next;
+	  } else {
+	    $output = $char;
+	  }
+
+	  $saw_escape = ESCAPE_NONE;
+	} elsif($saw_escape == ESCAPE_HEX) {
+	  $hex_val .= $char;
+	  if(length($hex_val) >= 4) {
+	    $output = chr(hex($hex_val));
+	    $hex_val = "";
+	    $saw_escape = ESCAPE_NONE;
+	  }
+	} else {
+	  if($char eq "\\") {
+	    $saw_escape = ESCAPE_BACKSLASH;
+	  } elsif($char eq "=" and $mode == MODE_KEY) {
+	    $mode = MODE_VAL;
+	  } else {
+	    $output = $char;
+	  }
+	}
+      } continue {
+	if($mode == MODE_KEY) {
+	  $key .= $output;
+	} else {
+	  $val .= $output;
+	}
+
+	$output = "";
+      }
+
+      $ret{$key} = $val;
+    }
+
+    if($ret{status} != 0) {
+      die "Failure ($ret{status}): $ret{status_text}\n";
+    }
+
+    $AUTHTOKEN = $ret{auth_token} if $ret{auth_token};
+    return %ret;
+  } else {
+    die sprintf("Error while processing %s: %s\n",
+		Dumper(\%params),
+		$response->status_line);
+  }
+}
+
+# Base URL: images.zevils.com/main.php
+# Param: g2_controller=remote:GalleryRemote
+# Parameter is now g2_form[name]=value
+# In add-item, userfile -> userfile_name, g2_userfile -> g2_userfile_name
+# Album/images names are UIDs
+# Param g2_authToken is value of auth_token frmo previous request
+
+my %ret;
+%ret = doPost(cmd => "fetch-albums",
+	      protocol_version => "2.0",
+	      no_perms => "yes");
+
+my(%flat_albums);
+for(my $i = 1; $i <= $ret{album_count}; $i++) {
+  my $name = $ret{"album.name.$i"};
+
+  my $album = {
+	       name => $name,
+	       title => $ret{"album.title.$i"},
+	       summary => $ret{"album.summary.$i"},
+	       parent => $ret{"album.parent.$i"},
+	       subalbums => []
+	      };
+  $flat_albums{$name} = $album;
+}
+
+my $root_album;
+foreach my $album (values %flat_albums) {
+  if($album->{parent}) {
+    my $parent = $flat_albums{$album->{parent}} or die "Couldn't find parent.\n";
+    push @{$parent->{subalbums}}, $album;
+  } else { 
+    $root_album = $album;
+  }
+}
+
+process_album($root_album, FSPATH);
+
+sub cleanpath {
+  my $path = shift;
+  $path =~ s/\[.*?\]//g;
+  $path =~ tr!/!!d;
+  $path;
+}
+
+sub process_album {
+  my($album, $path) = @_;
+
+  return if $album->{title} eq "Becca's Pics";
+  warn "Processing album $album->{title}...\n";
+
+  $path .= "/" . cleanpath($album->{title});
+  unless(-d $path) {
+    mkdir($path) or die "Couldn't make $path: $!\n";
+  }
+
+  my %ret = doPost(cmd => "fetch-album-images",
+		   protocol_version => "2.4",
+		   set_albumName => $album->{name},
+		   albums_too => "no");
+  $album->{caption} = $ret{"album.caption"};
+  $album->{baseurl} = $ret{baseurl};
+
+  my @images;
+  for(my $i = 1; $i <= $ret{image_count}; $i++) {
+    my $caption = $ret{"image.caption.$i"};
+    my $name = $ret{"image.name.$i"};
+    my $title = $ret{"image.title.$i"};
+
+    push @images,
+      {
+       name => $name,
+       title => $title,
+       caption => $caption
+      };
+
+    my $file = "$path/" . cleanpath($caption || $title);
+    if(-f $file and stat($file)->size == $ret{"image.raw_filesize.$i"}) {
+      warn "$file already exists\n";
+    } else {
+      warn "Downloading $file...\n";
+      my $response = $UA->get($album->{baseurl} . $name);
+      if($response->is_success) {
+	my $ct = $response->header("Content-Type");
+	if($ct ne "image/jpeg") {
+	  warn "Unexpected content-type: $ct\n";
+	} else {
+	  open(FILE, ">", $file) or die "Couldn't open $file: $i: $!: " . Dumper(\%ret) . "\n";
+	  print FILE $response->content;
+	  close(FILE);
+	}
+      } else {
+	warn "Couldn't download: " . $response->status_line . "\n";
+      }
+    }
+  }
+
+  $album->{images} = \@images;
+
+  process_album($_, $path) foreach @{$album->{subalbums}};
+}
