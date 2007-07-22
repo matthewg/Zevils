@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+# -*- mode: cperl -*-
+
+use strict;
+use warnings;
+
+undef $/;
+my $data = <>;
+
+while($data =~ /\x44(.*?)\xBA\x46/sg) {
+  my $message = $1;
+  $message =~ s/\x0E\x20\x29/\n/g;
+  $message =~ s/\xA9/\n/g;
+  print $message, "\n-------------------\n";
+}

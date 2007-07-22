@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+# -*- mode: cperl -*-
+
+use strict;
+use warnings;
+use File::stat;
+use POSIX qw(strftime);
+use Fcntl qw(:seek);
+
+# grep -rl 1046 . ~/p910-backup/system/Mail
+# Message text:
+#  Second byte contains start offset
+#  0x0E is end
+# Outgoing: /330-1046/
+# 0x16 -- 0x00 for incoming, 0x04 for outgoing?
+
+undef $/;
+
+my @messages;
+
+foreach my $file (@ARGV) {
+  my $date = stat($file)->mtime;
+
+  open(FILE, $file) or die "Couldn't open file: $!\n";
+  my $buffer;
+
+  seek(FILE, 0x01, SEEK_SET) or die "Couldn't seek: $!\n";
+  read(FILE, $buffer, 1) or die "Couldn't read: $!\n";
+  my($offset) = unpack("C", $buffer);
+  #printf STDERR "Offset: %02X\n", $offset;
+
+  seek(FILE, 0x1A, SEEK_SET) or die "Couldn't seek: $!\n";
+  read(FILE, $buffer, 1) or die "Couldn't read: $!\n";
+  my($padding) = unpack("C", $buffer);
+
+  $offset -= 1 if $padding;
+  seek(FILE, $offset, SEEK_SET) or die "Couldn't seek: $!\n";
+  read(FILE, $buffer, 4096) or die "Couldn't read: $!\n";
+  $buffer =~ s/\x40\xA9+//g;
+  $buffer =~ /^(.*?)[\x0E\xA9].*/s;
+  my $data = $1 or warn "Error getting data for $file\n";
+  $data =~ s/^\x02//;
+  $data =~ s/\x1C/ /g;
+
+  my $sender;
+  if($buffer =~ /\+1636/ or $buffer =~ /\+1312/ or $buffer =~ /\+14047259016/)  {
+    $sender = "Liz";
+  } elsif($buffer =~ /\+14047259000/) {
+    $sender = "Matthew";
+  } else {
+    die "Couldn't figure out sender for $file ($offset)\n";
+  }
+
+  push @messages,
+    [$date,
+     sprintf "<tr><td>%s</td><td>%s</td><td>%s:</td>%s</td></tr>\n",
+     $file,
+     strftime("%Y-%m-%d %H:%M:%S", localtime($date)),
+     $sender,
+     $data];
+}
+
+print "<html><head><title>SMS</title></head><body><table>\n";
+print map { $_->[1] } sort { $a->[0] <=> $b->[0] } @messages;
+print "</table></body></html>\n";
