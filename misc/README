@@ -1,0 +1,32 @@
+g2export will grab all of the images from a Gallery 2 website,
+preserving the album structure on the website as a folder structure on
+the disk and taking file names from captions if available.
+
+ul2shoplist is designed as an iPhone bookmarklet for doing shopping
+lists.  It takes the first unordered list on a page whose first list
+item doesn't contain a class attribute and transforms all of the items
+on that list into checkboxes; when the boxes are checked, they will
+move to the end of the list, and they will return to their original
+location if they're unchecked.  We do our shopping lists on a wiki,
+and this is designed to work with that; the "first list item doesn't
+contain a class attribute" restriction is so that it skips over the
+"table of contents" list that MediaWiki puts in.  I used John Gruber's
+bookmarklet script to convert it to a bookmarklet.
+
+sms2txt and jotter are programs I wrote to export data from my P910
+UIQ smartphone.
+
+jotter takes a Jotter document database (in
+C:\documents\Jotter\Jotter on the phone) on stdin and prints
+the contents of the notes to stdout, separated by a line of dashes.
+
+sms2txt takes a list of Mail files which contain SMS messages as
+command-line arguments and generates an HTML table showing them all as one
+conversation on standard output.  The SMS messages are in one of the folders under
+<tt>C:\system\Mail</tt>.  It will need to be modified if you have
+messages to/from multiple people in a folder; I had all my incoming
+and outgoing messages to/from a single person in one folder.  I didn't
+quite figure out how to determine if a message was incoming or
+outgoing, so that part is a kludge based on some phone number in the
+message which isn't the to/from phone number (the phone number of an
+SMS gateway?); you'll probably need to adjust that.
