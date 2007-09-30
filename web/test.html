@@ -3,16 +3,20 @@
 <head>
 	<meta charset="UTF-8" />
 	<title>Zevils</title>
-	<meta name="viewport" content="width=700, initial-scale=0.45, minimum-scale=0.45" />
-	<link rel="stylesheet" type="text/css" media="screen"  href="main.css" />
+	<meta name="viewport" content="width=700, initial-scale=0.45, minimum-scale=0.45">
+	<link rel="stylesheet" type="text/css" media="screen" href="main.css">
 </head>
 <body>
 
-<div id="top">
-</div>
+<div id="content">
 
+<div id="top">
+<img src="logo.png" alt="Zevils: More fun than a gallon of strawberries." width="435" height="45">
+</div>
+<hr>
 <div id="main">
-<h1 class="code"><a class="permalink" href="#" title="Permalink to 'Lorem Ipsum'">Lorem Ipseum</a></h1>
+<div class="code-article">
+<div class="headline"><h1><a class="permalink" href="#" title="Permalink to 'Lorem Ipsum'">Lorem Ipseum</a></h1></div>
 <p>
 Dolor sic amet, amet ac nonummy diam tristique felis rhoncus.
 </p>
@@ -34,9 +38,11 @@ erat non nulla ultrices rhoncus egestas sed. Placerat a nullam
 ridiculus montes tellus in. Enim aperiam proin libero et nec maecenas,
 risus justo ac, nulla odio.</p> <cite>&mdash;Foous Barus</cite>
 </blockquote>
-<span class="article-tools"><a href="#">1,238 more words; 0 comments</a></span>
-
-<h1 class="code"><a class="permalink" href="#">Lorem Ipsum</a></h1>
+<span class="article-tools"><a href="#">1,238 more words; 0 comments</a></span> <span class="tags">[code]</span>
+</div>
+<hr>
+<div class="code-article">
+<div class="headline"><h1><a class="permalink" href="#">Lorem Ipsum</a></h1></div>
 <p>
 Dolor sic amet, amet ac nonummy diam tristique felis rhoncus.
 ridiculus montes tellus in. Enim <code>aperiam proin libero</code> et nec maecenas,
@@ -52,31 +58,36 @@ risus justo ac, <code>nulla</code> odio.
  &nbsp;&nbsp;&nbsp;&nbsp;their)<br>
 party
 </code></blockquote>
-<span class="article-tools"><a href="#">5 comments</a></span>
-
-<h1 class="link"><a class="permalink" href="#">Layer Tennis</a></h1>
+<span class="article-tools"><a href="#">5 comments</a></span> <span class="tags">[code]</span>
+</div>
+<hr>
+<div class="link-article">
+<div class="headline"><h1><a class="permalink" href="#">Layer Tennis</a></h1></div>
 <p>
 <a href="http://layertennis.com/070928/01.php">Layer Tennis</a> is
 awesome. </p>
-<span class="article-tools"><a href="#">0 comments</a></span>
+<span class="article-tools"><a href="#">0 comments</a></span> <span class="tags">[link]</span>
+</div>
 </div>
 
 <div id="side">
+<p>By <a href="#">Matthew Sachs</a></p>
 <h1>Meta</h1>
 <ul>
-<li>Search: <input type="search" /></li>
 <li><a href="#">Archives</a></li>
 <li><a href="#">Colophon</a></li>
 <li><a href="#">Marshmallows</a></li>
+<li>Search: <input type="search" id="searchbox" /></li>
 </ul>
 
-<h1>Filter</h1>
+<h1>Tags</h1>
 <ul>
-<li><input type="checkbox" checked /><a href="#">Code</a></li>
-<li><input type="checkbox" checked /><a href="#">Writings</a></li>
-<li><input type="checkbox" checked /><a href="#">Status</a></li>
-<li><input type="checkbox" checked /><a href="#">Links</a></li>
-<li><input type="checkbox" checked /><a href="#">Other</a></li>
+<li><a href="#">Code</a><input type="checkbox" label="Code" checked></li>
+<li><a href="#">Writing</a><input type="checkbox" label="Writing" checked></li>
+<li><a href="#">Photos</a><input type="checkbox" label="Photos" checked></li>
+<li><a href="#">Status</a><input type="checkbox" label="Status" checked></li>
+<li><a href="#">Links</a><input type="checkbox" label="Links" checked></li>
+<li><a href="#">Miscellany</a><input type="checkbox" label="Miscellany" checked></li>
 </ul>
 
 <h1>Elsewhere</h1>
@@ -87,9 +98,11 @@ awesome. </p>
 <li><a href="http://xkcd.com/">Raptors</a></li>
 </ul>
 </div>
-
 <div id="bottom">
+<hr>
+<p>Foo bar baz.</p>
 </div>
 
+</div>
 </body>
 </html>
