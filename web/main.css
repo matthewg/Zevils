@@ -12,6 +12,8 @@ code, tt {
 	font-size: 8pt;
 }
 
+
+
 a:link {
 	color: #7284c1;
 	text-decoration: none;
@@ -63,6 +65,10 @@ div.code-article, div.writing-article, div.photo-article, div.status-article, di
 
 .tags {
 	font-size: 8pt;
+}
+
+.category {
+	font-weight: bold;
 }
 
 #main h2 {

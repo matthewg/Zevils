@@ -1,0 +1,303 @@
+/*  
+Theme Name: Zevish
+Theme URI: http://zevils.com/
+Description: Blue and gray -- not just for civil war buffs!
+Version: 0.1
+Author: Matthew Sachs
+Author URI: http://zevils.com/
+
+*/
+
+body {
+   color: black;
+   background-color: #dddddd;
+   font-family: Geneva, Verdana, sans-serif;
+   font-size: 9pt;
+   text-align: center;
+   max-width: 150em;
+}
+
+#page {
+   margin: 0 auto;
+   max-width: 800px;
+   text-align: left;
+}
+
+#header {
+   margin: 0;
+   padding: 0;
+}
+
+//#headerimg 	{}
+
+#content {
+   float: left;
+   width: 80%;
+}
+
+//.widecolumn {}
+//.narrowcolumn {}
+//.postmetadata {}
+
+.entry p {
+   margin-top: 0;
+}
+
+//.alt {
+//	background-color: #f8f8f8;
+//	border-top: 1px solid #ddd;
+//	border-bottom: 1px solid #ddd;
+//	}
+
+#footer {
+   font-size: 7pt;
+   margin-left: 5%;
+   width: 90%;
+   padding-top: 2em;
+   clear: both;
+}
+
+//small {}
+
+#content h1 {
+   font-size: 10pt;
+   font-weight: bold;
+   display: inline;
+}
+
+#content h2 {
+   font-size: 9pt;
+   font-weight: bold;
+   margin-bottom: .2em;
+}
+
+.post {
+   margin: 0;
+   padding: 0;
+}
+
+//#headerimg .description {}
+//h2.pagetitle {}
+//#sidebar h2 {}
+
+a:link {
+   color: #7284c1;
+   text-decoration: none;
+}
+
+a:visited {
+   color: #728471;
+   text-decoration: none;
+}
+
+a:hover {
+   text-decoration: underline;
+}
+
+code, tt, kbd {
+   font-family: Monaco, "Lucida Console", fixed;
+   font-size: 8pt;
+}
+
+//.commentlist li, #commentform input, #commentform textarea {}
+//.commentlist cite, .commentlist cite a {}
+//.commentlist p {}
+//#commentform p {}
+//.commentmetadata {}
+
+#sidebar {
+   width: 15%;
+   float: right;
+   text-align: right;
+   border-left: thin groove;
+   padding-left: .5em;
+}
+
+#s {
+   max-width: 100%;
+}
+
+#searchsubmit {
+   display: none;
+}
+
+#side h2 {
+   margin-bottom: .5em;
+   font-size: 10pt;
+}
+
+#sidebar > ul > li {
+   margin-bottom: .75em;
+   margin-top: 0px;
+   padding-top: 0px;
+   padding-left: 0em;
+   list-style-type: none;
+}
+
+//small, #sidebar ul ul li, #sidebar ul ol li, .nocomments, .postmetadata, blockquote, strike {}
+
+//acronym, abbr, span.caps {}
+// #wp-calendar #prev a, #wp-calendar #next a {}
+// #wp-calendar caption {}
+// #wp-calendar th {}
+
+//.post hr {}
+	display: block;
+	}
+
+// .widecolumn .post {}
+// .narrowcolumn .postmetadata {}
+// .widecolumn .smallattachment {}
+// .widecolumn .attachment {}
+
+.postmetadata {
+   font-size: 8pt;
+}
+
+// h2.pagetitle {}
+// h3.comments {}
+
+/* Begin Images */
+p img {
+	padding: 0;
+	max-width: 100%;
+	}
+
+/*	Using 'class="alignright"' on an image will (who would've
+	thought?!) align the image to the right. And using 'class="centered',
+	will of course center the image. This is much better than using
+	align="center", being much more futureproof (and valid) */
+
+img.centered {
+   display: block;
+   margin-left: auto;
+   margin-right: auto;
+}
+
+img.alignright {
+   padding: 4px;
+   margin: 0 0 2px 7px;
+   display: inline;
+}
+
+img.alignleft {
+   padding: 4px;
+   margin: 0 7px 2px 0;
+   display: inline;
+}
+
+.alignright {
+   float: right;
+}
+
+.alignleft {
+   float: left
+}
+/* End Images */
+
+
+
+
+/* Begin Comments*/
+.alt {
+   margin: 0;
+   padding: 10px;
+}
+
+.commentlist {
+   padding: 0;
+   text-align: justify;
+}
+
+.commentlist li {
+   margin: 15px 0 3px;
+   padding: 5px 10px 3px;
+   list-style: none;
+}
+
+.commentlist p {
+   margin: 10px 5px 10px 0;
+}
+
+#commentform p {
+   margin: 5px 0;
+}
+
+.nocomments {
+   text-align: center;
+   margin: 0;
+   padding: 0;
+}
+
+.commentmetadata {
+   margin: 0;
+   display: block;
+}
+/* End Comments */
+
+
+/* Begin Calendar
+#wp-calendar {
+   empty-cells: show;
+   margin: 10px auto 0;
+   width: 155px;
+}
+
+#wp-calendar #next a {
+	padding-right: 10px;
+	text-align: right;
+	}
+
+#wp-calendar #prev a {
+	padding-left: 10px;
+	text-align: left;
+	}
+
+#wp-calendar a {
+	display: block;
+	}
+
+#wp-calendar caption {
+	text-align: center;
+	width: 100%;
+	}
+
+#wp-calendar td {
+	padding: 3px 0;
+	text-align: center;
+	}
+
+#wp-calendar td.pad:hover { // Doesn't work in IE
+	background-color: #fff; }
+End Calendar */
+
+/*blockquote {
+	margin: 15px 30px 0 10px;
+	padding-left: 20px;
+	border-left: 5px solid #ddd;
+	}
+
+blockquote cite {
+	margin: 5px 0 0;
+	display: block;
+	}
+
+.center {
+	text-align: center;
+	}
+
+hr {
+	display: none;
+	}
+
+a img {
+	border: none;
+	}
+
+.navigation {
+	display: block;
+	text-align: center;
+	margin-top: 10px;
+	margin-bottom: 60px;
+	}*/
+/* End Various Tags & Classes*/

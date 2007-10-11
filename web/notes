@@ -7,3 +7,28 @@ twitter
 technorati
 wordpress
 zen garden
+
+1. Install WordPress
+2. Get it looking like the mockup
+3. Tweak WordPress; plugins, filters, &c.
+	MarkDown
+	SmartyPants
+	That other one that Gruber uses
+	WP-Cache
+	In Series: http://wordpress.org/extend/plugins/in-series/
+	Previous Posts Picker: http://wordpress.org/extend/plugins/previous-post-picker/
+	Code Highlighter: http://wordpress.org/extend/plugins/code-highlighter/
+        Mail From: http://wordpress.org/extend/plugins/mail-from/
+        Comment Timeout: http://wordpress.org/extend/plugins/comment-timeout/
+        Subscribe to Comments: http://wordpress.org/extend/plugins/plugin/subscribe-to-comments/
+        Inline Ajax Page: http://wordpress.org/extend/plugins/inline-ajax-page/
+        Auto Moderate Comments: http://wordpress.org/extend/plugins/ozh-auto-moderate-comments/
+        Cryptographp: http://wordpress.org/extend/plugins/cryptographp/
+        Feeds Widget: http://wordpress.org/extend/plugins/widget-feeds/
+4. Figure out what exactly you want in the sidebar, tweak list of categories
+5. Figure out what to do about 'static' content
+6. Figure out what to do abou tags (have them in addition to categories?)
+7. Bring over legacy content
+8. LiveJournal?
+9. Mint?
+10. Publish!
