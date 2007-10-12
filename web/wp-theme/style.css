@@ -39,7 +39,7 @@ body {
 //.narrowcolumn {}
 //.postmetadata {}
 
-.entry p {
+p {
    margin-top: 0;
 }
 
@@ -53,8 +53,15 @@ body {
    font-size: 7pt;
    margin-left: 5%;
    width: 90%;
-   padding-top: 2em;
+   padding-top: 1ex;
    clear: both;
+}
+
+#footer hr{
+   margin-bottom: 1em;
+   border-style: groove;
+   margin-left: 5%;
+   margin-right: 10%;
 }
 
 //small {}
@@ -74,6 +81,16 @@ body {
 .post {
    margin: 0;
    padding: 0;
+}
+
+.post h2 {
+   margin: 0;
+   padding: 0;
+   margin-bottom: .25em;
+}
+
+.post_categories {
+   font-weight: bold;
 }
 
 //#headerimg .description {}
@@ -121,16 +138,28 @@ code, tt, kbd {
    display: none;
 }
 
-#side h2 {
+#sidebar h2 {
    margin-bottom: .5em;
    font-size: 10pt;
 }
 
-#sidebar > ul > li {
+#sidebar > ol {
+   margin: 0 auto;
+   padding: 0;
+}
+
+#sidebar > ol > li {
+   list-style-type: none;
+}
+
+#sidebar > ol > li > ul {
    margin-bottom: .75em;
    margin-top: 0px;
    padding-top: 0px;
    padding-left: 0em;
+}
+
+#sidebar > ol > li > ul > li {
    list-style-type: none;
 }
 

@@ -1,6 +1,6 @@
 
 <div id="footer">
-<hr />
+<hr>
 <p>Foo bar baz.</p>
 </div>
 
