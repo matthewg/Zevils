@@ -11,23 +11,21 @@ zen garden
 1. Install WordPress
 2. Get it looking like the mockup
 3. Tweak WordPress; plugins, filters, &c.
-	MarkDown
-	SmartyPants
-	That other one that Gruber uses
-	WP-Cache
-	In Series: http://wordpress.org/extend/plugins/in-series/
-	Previous Posts Picker: http://wordpress.org/extend/plugins/previous-post-picker/
+	MarkDown: http://michelf.com/projects/php-markdown/
+	SmartyPants: http://michelf.com/projects/php-smartypants/
+	WP-Cache: http://wordpress.org/extend/plugins/wp-cache/
+	Ajax Comment Preview: http://wordpress.org/extend/plugins/ajax-comment-preview/
 	Code Highlighter: http://wordpress.org/extend/plugins/code-highlighter/
-        Mail From: http://wordpress.org/extend/plugins/mail-from/
         Comment Timeout: http://wordpress.org/extend/plugins/comment-timeout/
         Subscribe to Comments: http://wordpress.org/extend/plugins/plugin/subscribe-to-comments/
-        Inline Ajax Page: http://wordpress.org/extend/plugins/inline-ajax-page/
-        Auto Moderate Comments: http://wordpress.org/extend/plugins/ozh-auto-moderate-comments/
         Cryptographp: http://wordpress.org/extend/plugins/cryptographp/
-        Feeds Widget: http://wordpress.org/extend/plugins/widget-feeds/
+        SABRE: http://wordpress.org/extend/plugins/sabre/
+3. Get comments, logins working nice
+3. Category filter plugin
+3. Fix subscribe-to-comments putting raw HTML in plaintext email
+3. Solve cryptographp losing data (in FF) when wrong answer is given
 4. Figure out what exactly you want in the sidebar, tweak list of categories
 5. Figure out what to do about 'static' content
-6. Figure out what to do abou tags (have them in addition to categories?)
 7. Bring over legacy content
 8. LiveJournal?
 9. Mint?

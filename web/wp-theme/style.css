@@ -43,6 +43,35 @@ p {
    margin-top: 0;
 }
 
+blockquote {
+   margin-top: 0;
+   font-family: Helvetica, Arial, sans-serif;
+}
+
+blockquote p {
+   margin-right: 7em;
+   margin-bottom: .25em;
+   font-style: italic;
+}
+
+blockquote cite {
+   margin-top: .25em;
+   margin-left: .5em;
+   clear: both;
+   font-variant: small-caps;
+   font-style: normal;
+}
+
+pre {
+   font-family: Monaco, "Lucida Console", fixed;
+   font-size: 8pt;
+   background-color: #e9e9e9;
+   padding-left: .25em;
+   border-left-color: #565656;
+   border-left-width: .33em;
+   border-left-style: solid;
+}
+
 //.alt {
 //	background-color: #f8f8f8;
 //	border-top: 1px solid #ddd;
@@ -66,27 +95,42 @@ p {
 
 //small {}
 
-#content h1 {
+h1.index-post-title {
    font-size: 10pt;
    font-weight: bold;
    display: inline;
 }
 
+.navigation {
+	padding-bottom: 1ex;
+}
+
+h1.single-post-title {
+   font-size: 10pt;
+   font-weight: bold;
+   margin-bottom: 1.5ex;
+}
+
 #content h2 {
    font-size: 9pt;
    font-weight: bold;
-   margin-bottom: .2em;
+   margin-bottom: .5ex;
+}
+
+.navigation {
+	margin-bottom: 4ex;
 }
 
 .post {
    margin: 0;
    padding: 0;
+   clear: both;
 }
 
 .post h2 {
    margin: 0;
    padding: 0;
-   margin-bottom: .25em;
+   margin-bottom: .5ex;
 }
 
 .post_categories {
@@ -238,7 +282,7 @@ img.alignleft {
    text-align: justify;
 }
 
-.commentlist li {
+.commentlist > li {
    margin: 15px 0 3px;
    padding: 5px 10px 3px;
    list-style: none;

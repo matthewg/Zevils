@@ -77,6 +77,8 @@ if (!empty($post->post_password) && $_COOKIE['wp-postpass_'. COOKIEHASH] != $pos
 	</p>
 <?php endif; ?>
 
+      <?php display_cryptographp(); ?>
+
 	<p>
 	  <label for="comment">Your Comment</label>
 	<br />
@@ -88,6 +90,7 @@ if (!empty($post->post_password) && $_COOKIE['wp-postpass_'. COOKIEHASH] != $pos
 	</p>
 	<?php do_action('comment_form', $post->ID); ?>
 </form>
+<?php show_manual_subscription_form(); ?>
 <?php } else { // comments are closed ?>
 <p>Sorry, the comment form is closed at this time.</p>
 <?php }
