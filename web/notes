@@ -8,25 +8,27 @@ technorati
 wordpress
 zen garden
 
-1. Install WordPress
-2. Get it looking like the mockup
-3. Tweak WordPress; plugins, filters, &c.
+*. Install WordPress
+*. Get it looking like the mockup
+*. Tweak WordPress; plugins, filters, &c.
 	MarkDown: http://michelf.com/projects/php-markdown/
 	SmartyPants: http://michelf.com/projects/php-smartypants/
 	WP-Cache: http://wordpress.org/extend/plugins/wp-cache/
 	Ajax Comment Preview: http://wordpress.org/extend/plugins/ajax-comment-preview/
 	Code Highlighter: http://wordpress.org/extend/plugins/code-highlighter/
-        Comment Timeout: http://wordpress.org/extend/plugins/comment-timeout/
-        Subscribe to Comments: http://wordpress.org/extend/plugins/plugin/subscribe-to-comments/
-        Cryptographp: http://wordpress.org/extend/plugins/cryptographp/
-        SABRE: http://wordpress.org/extend/plugins/sabre/
-3. Get comments, logins working nice
-3. Category filter plugin
-3. Fix subscribe-to-comments putting raw HTML in plaintext email
-3. Solve cryptographp losing data (in FF) when wrong answer is given
-4. Figure out what exactly you want in the sidebar, tweak list of categories
-5. Figure out what to do about 'static' content
-7. Bring over legacy content
-8. LiveJournal?
-9. Mint?
-10. Publish!
+    Comment Timeout: http://wordpress.org/extend/plugins/comment-timeout/
+    Subscribe to Comments: http://wordpress.org/extend/plugins/plugin/subscribe-to-comments/
+    Cryptographp: http://wordpress.org/extend/plugins/cryptographp/
+    Get Error Message There: http://wordpress.org/extend/plugins/get-error-message-there/
+    Flexo Archives Widget: http://wordpress.org/extend/plugins/flexo-archives-widget/
+*. Get comments working nice
+5. Category filter plugin
+*. Fix subscribe-to-comments putting raw HTML in plaintext email (think this works, need to verify with unblocked email)
+*. Solve cryptographp losing data (in FF) when wrong answer is given
+8. Help text about markdown syntax, disallow raw HTML, do allow code samples(?)
+9. Figure out what exactly you want in the sidebar, tweak list of categories
+10. Figure out what to do about 'static' content
+11. Bring over legacy content
+12. LiveJournal?
+13. Mint?
+14. Publish!

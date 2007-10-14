@@ -15,7 +15,7 @@
                                        } else {
                                          echo('page_item');
                                        }
-                                     ?>">Archives?</li>
+                                     ?>">Archives <ul id="flexo-archives"><?php flexo_widget_archives(array()); ?></ul></li>
 			    <?php wp_meta(); ?>
 			    <li><?php include (TEMPLATEPATH . '/searchform.php'); ?></li>
                           </ul>
@@ -54,10 +54,7 @@
 
 			<?php wp_list_categories('show_count=0&title_li=<h2>Filter</h2>'); ?>
 
-			<?php /* If this is the frontpage */ if ( is_home() || is_page() ) { ?>
-				<?php wp_list_bookmarks(); ?>
-
-			<?php } ?>
+			<?php wp_list_bookmarks(); ?>
 
 			<?php endif; ?>
 		</ol>

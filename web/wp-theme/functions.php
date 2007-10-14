@@ -7,6 +7,62 @@ if ( function_exists('register_sidebar') )
         'after_title' => '</h2>',
     ));
 
+function zevish_extended_wordcount() {
+	global $pages, $page;
+    $pageno = $page;
+    if($page > count($pages)) $pageno = count($pages);
+    $postbody = get_extended($pages[$pageno - 1]);
+    $morewords = "";
+    if($postbody['extended']) {
+    	for($i = $pageno; $i < count($pages); $i++) {
+        	$postbody['extended'] .= $pages[$i];
+        }
+
+		return str_word_count($postbody['extended']);
+    } else {
+    	return 0;
+    }
+}
+
+function zevish_post_metadata() {
+	$wordcount = zevish_extended_wordcount();
+	if(($wordcount != 0) && !comments_open()) {
+		echo '<a href="';
+		the_permalink();
+		echo '" title="';
+		the_title_attribute();
+		echo "\">$wordcount more words</a> &ndash; ";
+	} else if(comments_open()) {
+		if($wordcount == 0) {
+			$wordtext = "";
+		} else {
+			$wordtext = "$wordcount more words; ";
+		}
+	    comments_popup_link($wordtext . '0 comments', $wordtext . '1 comment', $wordtext . '% comments');
+	    echo " &ndash; ";
+	}
+
+	echo '<a href="'; the_permalink(); echo '" title="Permanent link to ';
+	if(the_title('', '', false) == "") {
+		echo "post";
+	} else {
+		the_title_attribute();
+	}
+	echo '">&infin;</a> &ndash; ';
+	the_date();
+	echo " ";
+	the_time();
+	echo ' &ndash; <span class="tagcats">[<span class="post_categories">';
+	the_category(', ');
+	echo '</span>';
+    if(the_tags(', ', ', ', '')) {
+	    echo ", ";
+        the_tags('', ', ', '');
+    }
+    echo ']</span>';
+	edit_post_link('Edit', ' &ndash; ', '');
+}
+
 function kubrick_head() {
 	$head = "<style type='text/css'>\n<!--";
 	$output = '';

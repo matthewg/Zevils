@@ -28,16 +28,16 @@ body {
    padding: 0;
 }
 
-//#headerimg 	{}
+/* #headerimg 	{} */
 
 #content {
    float: left;
    width: 80%;
 }
 
-//.widecolumn {}
-//.narrowcolumn {}
-//.postmetadata {}
+/* .widecolumn {}
+.narrowcolumn {}
+.postmetadata {} */
 
 p {
    margin-top: 0;
@@ -63,7 +63,7 @@ blockquote cite {
 }
 
 pre {
-   font-family: Monaco, "Lucida Console", fixed;
+   font-family: Monaco, "Lucida Console", monospace;
    font-size: 8pt;
    background-color: #e9e9e9;
    padding-left: .25em;
@@ -72,11 +72,11 @@ pre {
    border-left-style: solid;
 }
 
-//.alt {
-//	background-color: #f8f8f8;
-//	border-top: 1px solid #ddd;
-//	border-bottom: 1px solid #ddd;
-//	}
+/* .alt {
+	background-color: #f8f8f8;
+	border-top: 1px solid #ddd;
+	border-bottom: 1px solid #ddd;
+	} */
 
 #footer {
    font-size: 7pt;
@@ -93,7 +93,7 @@ pre {
    margin-right: 10%;
 }
 
-//small {}
+/* small {} */
 
 h1.index-post-title {
    font-size: 10pt;
@@ -137,9 +137,9 @@ h1.single-post-title {
    font-weight: bold;
 }
 
-//#headerimg .description {}
-//h2.pagetitle {}
-//#sidebar h2 {}
+/* #headerimg .description {}
+h2.pagetitle {}
+#sidebar h2 {} */
 
 a:link {
    color: #7284c1;
@@ -156,15 +156,15 @@ a:hover {
 }
 
 code, tt, kbd {
-   font-family: Monaco, "Lucida Console", fixed;
+   font-family: Monaco, "Lucida Console", monospace;
    font-size: 8pt;
 }
 
-//.commentlist li, #commentform input, #commentform textarea {}
-//.commentlist cite, .commentlist cite a {}
-//.commentlist p {}
-//#commentform p {}
-//.commentmetadata {}
+/* .commentlist li, #commentform input, #commentform textarea {}
+.commentlist cite, .commentlist cite a {}
+.commentlist p {}
+#commentform p {}
+.commentmetadata {} */
 
 #sidebar {
    width: 15%;
@@ -207,28 +207,43 @@ code, tt, kbd {
    list-style-type: none;
 }
 
-//small, #sidebar ul ul li, #sidebar ul ol li, .nocomments, .postmetadata, blockquote, strike {}
+#flexo-archives {
+	padding-left: 0;
+	font-size: 9pt;
+}
 
-//acronym, abbr, span.caps {}
-// #wp-calendar #prev a, #wp-calendar #next a {}
-// #wp-calendar caption {}
-// #wp-calendar th {}
+.flexo-list {
+	padding-left: 0;
+	padding-right: .75em;
+	font-size: 8pt;
+}
 
-//.post hr {}
+#flexo-archives li {
+	list-style-type: none;
+}
+
+/* small, #sidebar ul ul li, #sidebar ul ol li, .nocomments, .postmetadata, blockquote, strike {}
+
+acronym, abbr, span.caps {}
+ #wp-calendar #prev a, #wp-calendar #next a {}
+ #wp-calendar caption {}
+ #wp-calendar th {}
+
+.post hr {}
 	display: block;
 	}
 
-// .widecolumn .post {}
-// .narrowcolumn .postmetadata {}
-// .widecolumn .smallattachment {}
-// .widecolumn .attachment {}
+ .widecolumn .post {}
+ .narrowcolumn .postmetadata {}
+ .widecolumn .smallattachment {}
+ .widecolumn .attachment {} */
 
 .postmetadata {
    font-size: 8pt;
 }
 
-// h2.pagetitle {}
-// h3.comments {}
+/* h2.pagetitle {}
+ h3.comments {} */
 
 /* Begin Images */
 p img {
