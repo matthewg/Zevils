@@ -33,9 +33,7 @@ function metastize_widget($args) {
 
 	echo '<li>';
 	include(TEMPLATEPATH . '/searchform.php');
-	echo '</li></ul>';
-	
-	echo "</li>$after_widget";
+	echo "</li></ul>$after_widget";
 }
 
 function metastize_init() {

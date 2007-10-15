@@ -84,7 +84,7 @@
 
 <?php endif; ?>
 
-<?php display_cryptographp(); ?>
+<?php /*display_cryptographp();*/ ?>
 
 <!--<p><small><strong>XHTML:</strong> You can use these tags: <code><?php echo allowed_tags(); ?></code></small></p>-->
 

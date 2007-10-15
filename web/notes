@@ -11,6 +11,7 @@ zen garden
 *. Install WordPress
 *. Get it looking like the mockup
 *. Tweak WordPress; plugins, filters, &c.
+	Akismet
 	MarkDown: http://michelf.com/projects/php-markdown/
 	SmartyPants: http://michelf.com/projects/php-smartypants/
 	WP-Cache: http://wordpress.org/extend/plugins/wp-cache/
@@ -18,13 +19,15 @@ zen garden
 	Code Highlighter: http://wordpress.org/extend/plugins/code-highlighter/
     Comment Timeout: http://wordpress.org/extend/plugins/comment-timeout/
     Subscribe to Comments: http://wordpress.org/extend/plugins/plugin/subscribe-to-comments/
-    Cryptographp: http://wordpress.org/extend/plugins/cryptographp/
     Get Error Message There: http://wordpress.org/extend/plugins/get-error-message-there/
     Flexo Archives Widget: http://wordpress.org/extend/plugins/flexo-archives-widget/
+    Ajax Edit Comments: http://wordpress.org/extend/plugins/wp-ajax-edit-comments/
+    Ajax Comment Posting: http://wordpress.org/extend/plugins/ajax-comment-posting/
 *. Get comments working nice
 5. Category filter plugin
 *. Fix subscribe-to-comments putting raw HTML in plaintext email (think this works, need to verify with unblocked email)
 *. Solve cryptographp losing data (in FF) when wrong answer is given
+7. Add "get new code" cryptographp link
 8. Help text about markdown syntax, disallow raw HTML, do allow code samples(?)
 9. Figure out what exactly you want in the sidebar, tweak list of categories
 10. Figure out what to do about 'static' content
