@@ -21,11 +21,7 @@
 				<p class="postmetadata alt">
 					<small>
 						This entry was posted
-						<?php /* This is commented, because it requires a little adjusting sometimes.
-							You'll need to download this plugin, and follow the instructions:
-							http://binarybonsai.com/archives/2004/08/17/time-since-plugin/ */
-							/* $entry_datetime = abs(strtotime($post->post_date) - (60*120)); echo time_since($entry_datetime); echo ' ago'; */ ?>
-						on <?php the_time('l, Y-m-d') ?> <?php the_time() ?>
+						on <?php sprintf("%s %s", the_date(), the_time()); ?>
 						and is filed under <?php the_category(', ') ?>.
 						You can follow any responses to this entry through the <?php comments_rss_link('RSS 2.0'); ?> feed.
 

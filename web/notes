@@ -8,6 +8,11 @@ technorati
 wordpress
 zen garden
 
+Redirects:
+	/programs -> /code
+	/linux -> /code
+	/programs/viewvc.cgi -> /viewvc.cgi
+
 *. Install WordPress
 *. Get it looking like the mockup
 *. Tweak WordPress; plugins, filters, &c.
@@ -23,15 +28,32 @@ zen garden
     Flexo Archives Widget: http://wordpress.org/extend/plugins/flexo-archives-widget/
     Ajax Edit Comments: http://wordpress.org/extend/plugins/wp-ajax-edit-comments/
     Ajax Comment Posting: http://wordpress.org/extend/plugins/ajax-comment-posting/
+    Page Links To: http://wordpress.org/extend/plugins/page-links-to/
+    Flexi Pages Widget: http://wordpress.org/extend/plugins/flexi-pages-widget/
 *. Get comments working nice
 X. Category filter plugin
 *. Fix subscribe-to-comments putting raw HTML in plaintext email (think this works, need to verify with unblocked email)
 *. Solve cryptographp losing data (in FF) when wrong answer is given
 X. Add "get new code" cryptographp link
 *. Help text about markdown syntax, disallow raw HTML, do allow code samples(?)
-9. Figure out what exactly you want in the sidebar, tweak list of categories
+*. Figure out what exactly you want in the sidebar, tweak list of categories
+*. Favicon
+9. Write content for 'About' page
 10. Figure out what to do about 'static' content
+	program pages
+	SVN repo
+	mailing lists
+	Talks
+	Writing projects
+	Keep:
+		Subnet
+		Unit testing talk
+		Porphyria
+		MT paper?
 11. Bring over legacy content
-12. LiveJournal?
-13. Mint?
-14. Publish!
+12. Figure out backup and replication strategy
+13. LiveJournal?
+14. Mint?
+15. Write about your setup
+16. Publish!
+17. Send Smartypants fraction patch upstream
