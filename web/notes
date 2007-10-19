@@ -24,11 +24,11 @@ zen garden
     Ajax Edit Comments: http://wordpress.org/extend/plugins/wp-ajax-edit-comments/
     Ajax Comment Posting: http://wordpress.org/extend/plugins/ajax-comment-posting/
 *. Get comments working nice
-5. Category filter plugin
+X. Category filter plugin
 *. Fix subscribe-to-comments putting raw HTML in plaintext email (think this works, need to verify with unblocked email)
 *. Solve cryptographp losing data (in FF) when wrong answer is given
-7. Add "get new code" cryptographp link
-8. Help text about markdown syntax, disallow raw HTML, do allow code samples(?)
+X. Add "get new code" cryptographp link
+*. Help text about markdown syntax, disallow raw HTML, do allow code samples(?)
 9. Figure out what exactly you want in the sidebar, tweak list of categories
 10. Figure out what to do about 'static' content
 11. Bring over legacy content

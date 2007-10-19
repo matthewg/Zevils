@@ -65,6 +65,50 @@
 <p>You must be <a href="<?php echo get_option('siteurl'); ?>/wp-login.php?redirect_to=<?php echo urlencode(get_permalink()); ?>">logged in</a> to post a comment.</p>
 <?php else : ?>
 
+<div id="markdown_help">
+<p>Use <a href="http://daringfireball.net/projects/markdown/syntax">Markdown</a>, a wiki-like syntax, to write your comment.  Basic HTML tags will also work.  For source code with syntax hilighting and line numbers, wrap the code in <tt>&lt;pre lang="<em>language</em>" <i>lineno="1"</i>&gt;...&lt;/pre&gt;</tt></p>
+<p id="markdown_syntax_disclosure"><a href="javascript:void">Show Markdown help.</a></p>
+<div id="markdown_syntax">
+<p>Write Markdown text as if you were writing a plain-text email.  Some examples:</p>
+<?php function markdown_example($text) {
+	printf("<table><tr><td><pre>%s</pre></td><td>%s</td></tr></table>", $text, Smartypants(Markdown($text)));
+} ?>
+<ul>
+<li>Paragraphs: Blank lines between blocks of text</li>
+<li>Links: <tt>[link text](http://url.example.com/)</tt> or <tt>[link text][ref]</tt></li>
+<li>Bold and italic: <tt>*Single*</tt> and <tt>**double**</tt> asterisks respectively</li>
+<li>Lists: List items start with <tt>*</tt> or <tt>1.</tt></li>
+<li>Quoting: Like email, quoted lines start with <tt>&gt;</tt></li>
+</ul>
+<?php markdown_example("The rise of the [hamburger](http://hamburger.example.com/)
+as a form of *currency* can be **attributed** to several
+aspects of [Akkadian][akad] [civilization][civ].
+
+   [akad]: http://icanhasgilgamesh.example.com/
+   [civ]: http://uruk.example.com/
+
+Yes, the most delicious hamburger of all is not brown, but
+green. The green of money. Denominations of hamburger
+(and current value in USD:)
+
+* 1/4-pounder (\$3.79)
+* Cuneiform, or \"Cuney\" (\$8.00)
+
+Problems with the currency:
+
+1. Deflation due to hunger
+2. Fraud (soy fillers)
+3. Hamburgers not invented yet
+
+As Dr. Tabi said:
+> Wallets became foetid and repulsive.
+> This was quite the boon for the influential
+> Guild of Wallet-Washers.
+"); ?>
+<ul>
+</div>
+</div>
+
 <form action="<?php echo get_option('siteurl'); ?>/wp-comments-post.php" method="post" id="commentform">
 
 <?php if ( $user_ID ) : ?>
@@ -86,15 +130,14 @@
 
 <?php /*display_cryptographp();*/ ?>
 
-<!--<p><small><strong>XHTML:</strong> You can use these tags: <code><?php echo allowed_tags(); ?></code></small></p>-->
-
 <p><textarea name="comment" id="comment" cols="100%" rows="10" tabindex="4"></textarea></p>
 
+<div id="comment_buttons">
 <p><input name="submit" type="submit" id="submit" tabindex="5" value="Submit Comment" />
 <input type="hidden" name="comment_post_ID" value="<?php echo $id; ?>" />
 </p>
 <?php do_action('comment_form', $post->ID); ?>
-
+</div>
 </form>
 <?php show_manual_subscription_form(); ?>
 

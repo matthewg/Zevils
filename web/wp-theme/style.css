@@ -325,6 +325,21 @@ img.alignleft {
    margin: 0;
    display: block;
 }
+
+#markdown_syntax td {
+	vertical-align: top;
+}
+
+#markdown_syntax pre {
+	border: 0;
+	background-color: #e3e3e3;
+}
+
+#markdown_syntax blockquote, #markdown_syntax blockquote p {
+	margin-right: 0;
+}
+
+ 
 /* End Comments */
 
 
