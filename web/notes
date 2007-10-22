@@ -11,7 +11,10 @@ zen garden
 Redirects:
 	/programs -> /code
 	/linux -> /code
+	/code/files
 	/programs/viewvc.cgi -> /viewvc.cgi
+	/programs/imirc/help.html -> /code/imirc/help/
+	/~matthewg/writings/school/party.html -> /writing/subnet-party
 
 *. Install WordPress
 *. Get it looking like the mockup
@@ -40,9 +43,9 @@ X. Add "get new code" cryptographp link
 *. Favicon
 9. Write content for 'About' page
 10. Figure out what to do about 'static' content
-	program pages
-	SVN repo
-	mailing lists
+	*program pages
+	*SVN repo
+	*mailing lists
 	Talks
 	Writing projects
 	Keep:

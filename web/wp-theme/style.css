@@ -43,6 +43,10 @@ p {
    margin-top: 0;
 }
 
+dt {
+    font-weight: bold;
+}
+
 blockquote {
    margin-top: 0;
    font-family: Helvetica, Arial, sans-serif;
@@ -105,16 +109,21 @@ h1.index-post-title {
 	padding-bottom: 1ex;
 }
 
-h1.single-post-title {
-   font-size: 10pt;
+h1.single-post-title, #post-title {
+   font-size: 12pt;
    font-weight: bold;
-   margin-bottom: 1.5ex;
 }
+
+#page-parent { font-size: 8pt; }
 
 #content h2 {
    font-size: 9pt;
    font-weight: bold;
    margin-bottom: .5ex;
+}
+
+#content h3 {
+	font-size: 10pt;
 }
 
 .navigation {
@@ -162,6 +171,10 @@ a img {
 code, tt, kbd {
    font-family: Monaco, "Lucida Console", monospace;
    font-size: 8pt;
+}
+
+li ul, li ol {
+	padding-left: 1em;
 }
 
 /* .commentlist li, #commentform input, #commentform textarea {}
