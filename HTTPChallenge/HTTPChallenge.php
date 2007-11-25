@@ -10,19 +10,24 @@ $wgHooks['AutoAuthenticate'][] = 'fnHTTPChallenge';
 
 function fnHTTPChallenge(&$user) {
     global $wgSiteName;
-    
+
     wfSetupSession();
 
     if(!isset($_REQUEST["auth"])) return true;
+
+    $realm = $wgSiteName;
+    if(!realm) $realm = "ZevilsWiki";
     
     if(!isset($_SERVER['HTTP_AUTHORIZATION'])) {
-        header('WWW-Authenticate: Basic realm="'.$wgSiteName.'"');
+        header('WWW-Authenticate: Basic realm="'.$realm.'"');
         header('HTTP/1.1 401 Unauthorized');
         die("Please log in.");
     }
 
     list($user, $pw) = explode(':',
                                base64_decode(substr($_SERVER['HTTP_AUTHORIZATION'], 6)));
+
+    die("$user / $pw");
     
     global $wgContLang;
     $name = $wgContLang->ucfirst($user);
