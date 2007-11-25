@@ -21,15 +21,15 @@ function fnHTTPChallenge(&$user) {
     global $wgContLang;
     $name = $wgContLang->ucfirst($user);
     $t = Title::newFromText($name);
-    if(is_null($t)) return null;
+    if(is_null($t)) return false;
 
     global $wgAuth;
     $canonicalName = $wgAuth->getCanonicalName($t->getText());
-    if(!User::isValidUserName($canonicalName)) return null;
+    if(!User::isValidUserName($canonicalName)) return false;
 
     $u = User::newFromName($canonicalName);
-    if(0 == $u->getID()) return null;
-    if(!$u->checkPassword($pw)) return null;
+    if(0 == $u->getID()) return false;
+    if(!$u->checkPassword($pw)) return false;
     $user = $u;
     $user->setCookies();
     
