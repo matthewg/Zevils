@@ -17,6 +17,10 @@ function fnHTTPChallenge(&$user) {
 
     $realm = $wgSiteName;
     if(!realm) $realm = "ZevilsWiki";
+
+    print_r($_SERVER);
+    print_r($_ENV);
+    exit();
     
     if(!isset($_SERVER['HTTP_AUTHORIZATION'])) {
         header('WWW-Authenticate: Basic realm="'.$realm.'"');
