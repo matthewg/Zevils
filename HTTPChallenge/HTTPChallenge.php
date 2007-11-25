@@ -16,6 +16,7 @@ function fnHTTPChallenge(&$user) {
     if(!isset($_REQUEST["auth"])) return true;
 
     if(!isset($_SERVER['PHP_AUTH_USER'])) {
+        header('WWW-Authenticate: Basic realm="'.$wgSiteName.'"');
         header('HTTP/1.1 401 Unauthorized');
         die("Please log in.");
     }
