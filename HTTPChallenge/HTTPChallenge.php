@@ -15,23 +15,8 @@ function fnHTTPChallenge(&$user) {
 
     if(!isset($_REQUEST["auth"])) return true;
 
-    $realm = $wgSiteName;
-    if(!realm) $realm = "ZevilsWiki";
-
-    print_r($_SERVER);
-    print_r($_ENV);
-    exit();
-    
-    if(!isset($_SERVER['HTTP_AUTHORIZATION'])) {
-        header('WWW-Authenticate: Basic realm="'.$realm.'"');
-        header('HTTP/1.1 401 Unauthorized');
-        die("Please log in.");
-    }
-
-    list($user, $pw) = explode(':',
-                               base64_decode(substr($_SERVER['HTTP_AUTHORIZATION'], 6)));
-
-    die("$user / $pw");
+    $user = $_REQUEST['u'];
+    $pw = $_REQUEST['p'];
     
     global $wgContLang;
     $name = $wgContLang->ucfirst($user);
