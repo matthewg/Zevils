@@ -12,7 +12,6 @@ function fnHTTPChallenge(&$user) {
     global $wgRequest;
 
     if(!$wgRequest->getVal("auth")) return true;
-    if($user != null) return true;
     
     $l = $wgRequest->getVal("l");
     $p = $wgRequest->getVal("p");
