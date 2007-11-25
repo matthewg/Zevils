@@ -9,17 +9,17 @@ $wgExtensionCredits['other'][] = array(
 $wgHooks['AutoAuthenticate'][] = 'fnHTTPChallenge';
 
 function fnHTTPChallenge(&$user) {
-    global $wgSiteName;
+    global $wgRequest;
 
-    wfSetupSession();
-
-    if(!isset($_REQUEST["auth"])) return true;
-
-    $user = $_REQUEST['u'];
-    $pw = $_REQUEST['p'];
+    if(!$wgRequest->getVal("auth")) return true;
+    if($user != null) return true;
+    
+    $l = $wgRequest->getVal("l");
+    $p = $wgRequest->getVal("p");
+    if(!$l || !$p) return false;
     
     global $wgContLang;
-    $name = $wgContLang->ucfirst($user);
+    $name = $wgContLang->ucfirst($l);
     $t = Title::newFromText($name);
     if(is_null($t)) return false;
 
@@ -29,7 +29,7 @@ function fnHTTPChallenge(&$user) {
 
     $u = User::newFromName($canonicalName);
     if(0 == $u->getID()) return false;
-    if(!$u->checkPassword($pw)) return false;
+    if(!$u->checkPassword($p)) return false;
     $user = $u;
     $user->setCookies();
     
