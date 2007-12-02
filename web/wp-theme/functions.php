@@ -31,12 +31,12 @@ function zevish_post_metadata() {
 		the_permalink();
 		echo '" title="';
 		the_title_attribute();
-		echo "\">$wordcount more words</a> &ndash; ";
+		echo "\"><span class=\"morewords\">$wordcount</span> more words</a> &ndash; ";
 	} else if(comments_open()) {
 		if($wordcount == 0) {
 			$wordtext = "";
 		} else {
-			$wordtext = "$wordcount more words; ";
+			$wordtext = "<span class=\"morewords\">$wordcount more words</span>; ";
 		}
 	    comments_popup_link($wordtext . '0 comments', $wordtext . '1 comment', $wordtext . '% comments');
 	    echo " &ndash; ";
