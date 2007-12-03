@@ -67,7 +67,7 @@
 
 <div id="markdown_help">
 <p>Use <a href="http://daringfireball.net/projects/markdown/syntax">Markdown</a>, a wiki-like syntax, to write your comment.  Basic HTML tags will also work.  For source code with syntax hilighting and line numbers, wrap the code in <tt>&lt;pre lang="<em>language</em>" <i>lineno="1"</i>&gt;...&lt;/pre&gt;</tt></p>
-<p id="markdown_syntax_disclosure"><a href="javascript:void">Show Markdown help.</a></p>
+<p id="markdown_syntax_disclosure"><a href="">Show Markdown help.</a></p>
 <div id="markdown_syntax">
 <p>Write Markdown text as if you were writing a plain-text email.  Some examples:</p>
 <?php function markdown_example($text) {
