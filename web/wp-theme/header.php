@@ -29,6 +29,7 @@
 	<script src="<?php bloginfo('template_directory')?>/js/jquery.js" type="text/javascript"></script>
 	<script src="<?php bloginfo('template_directory')?>/js/jquery.form.js" type="text/javascript"></script>
 	<script src="<?php bloginfo('template_directory')?>/js/zevish.js" type="text/javascript"></script>
+    <script src="/mint/?js" type="text/javascript"></script>
 <?php wp_head(); ?>
 </head>
 <body>
