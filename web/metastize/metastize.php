@@ -15,7 +15,7 @@ function metastize_widget($args) {
 	
 	echo $before_widget;
 
-	printf("<h2>%s%s%s</h2>", $before_title, "Meta", $after_title);
+	printf("%s%s%s", $before_title, "Meta", $after_title);
 	echo "<ul>";
 	wp_list_pages('title_li=&include=6,32');
 
@@ -25,7 +25,7 @@ function metastize_widget($args) {
 		$class = 'page_item';
 	}
 	printf('<li class="%s">', $class);
-	echo '<a href="javascript:void" id="flexo-archives-header">Archives</a> <ul id="flexo-archives">';
+	echo '<a href="" id="flexo-archives-header">Archives</a> <ul id="flexo-archives">';
 	flexo_widget_archives(array());
 	echo '</ul></li>';
 	
