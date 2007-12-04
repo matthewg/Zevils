@@ -26,6 +26,8 @@ body {
 #header {
    margin: 0;
    padding: 0;
+   padding-top: 2ex;
+   padding-bottom: 2ex;
 }
 
 /* #headerimg 	{} */
@@ -104,9 +106,10 @@ pre {
 /* small {} */
 
 h1.index-post-title {
-   font-size: 10pt;
+   font-size: 11pt;
    font-weight: bold;
    display: inline;
+   padding-bottom: 5ex;
 }
 
 .navigation {
@@ -137,6 +140,8 @@ h1.single-post-title, #post-title {
 .post {
    margin: 0;
    padding: 0;
+   padding-bottom: 2ex;
+   padding-top: 2ex;
    clear: both;
 }
 
