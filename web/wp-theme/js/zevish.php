@@ -7,14 +7,19 @@
 var js_css = document.createElement('link');
 js_css.rel = 'stylesheet';
 js_css.type = 'text/css';
-js_css.href = '<?php bloginfo('template_directory')?>/hide_default.css';
+js_css.href = '/wp-content/themes/zevils/hide_default.css';
 document.getElementsByTagName('head')[0].appendChild(js_css);
+
+<?
+  readfile("jquery.js"); 
+  readfile("jquery.form.js");
+?>
 
 $(document).ready(function() {
 	var markdown_syntax = $('#markdown_syntax');
 	var markdown_syntax_disclosure = $('#markdown_syntax_disclosure > a');
 
-        $('#flexo_archives').show();
+        $('#flexo_archives > ul').hide();
 	markdown_syntax.hide();
 	markdown_syntax_disclosure.click(function(){
 		if(markdown_syntax.is(':hidden')) {

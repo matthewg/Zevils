@@ -17,7 +17,7 @@ while ( have_posts()) : the_post();
 </head>
 <body id="commentspopup">
 
-<h1 id="header"><a href="" title="<?php echo get_option('blogname'); ?>"><?php echo get_option('blogname'); ?></a></h1>
+<h1 id="header"><a href="#" title="<?php echo get_option('blogname'); ?>"><?php echo get_option('blogname'); ?></a></h1>
 
 <h2 id="comments">Comments</h2>
 

@@ -19,7 +19,6 @@
   		bloginfo('name');
   	}
   ?></title>
-<?php wp_head(); ?>
   <meta name="viewport" content="width=700, initial-scale=0.45, minimum-scale=0.45">
 
   <link rel="shortcut icon" href="/favicon.ico" />
@@ -27,10 +26,9 @@
   <link rel="alternate" type="application/rss+xml" title="<?php bloginfo('name'); ?> RSS Feed" href="<?php bloginfo('rss2_url'); ?>" />
   <link rel="pingback" href="<?php bloginfo('pingback_url'); ?>" />
 
-	<script src="<?php bloginfo('template_directory')?>/js/jquery.js" type="text/javascript"></script>
-	<script src="<?php bloginfo('template_directory')?>/js/jquery.form.js" type="text/javascript"></script>
 	<script src="<?php bloginfo('template_directory')?>/js/zevish.php" type="text/javascript"></script>
     <script src="/mint/?js" type="text/javascript"></script>
+<?php wp_head(); ?>
 </head>
 <body>
 <div id="page">
