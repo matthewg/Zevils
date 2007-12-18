@@ -21,7 +21,7 @@
 				<p class="postmetadata alt">
 					<small>
 						This entry was posted
-						on <?php printf("%s %s", the_date(), the_time()); ?>
+						on <?php the_date(); echo " "; the_time()); ?>
 						and is filed under <?php the_category(', ') ?>.
 						You can follow any responses to this entry through the <?php comments_rss_link('RSS 2.0'); ?> feed.
 
