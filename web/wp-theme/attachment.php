@@ -27,7 +27,7 @@
 							http://binarybonsai.com/archives/2004/08/17/time-since-plugin/ */
 							/* $entry_datetime = abs(strtotime($post->post_date) - (60*120)); echo time_since($entry_datetime); echo ' ago'; */ ?>
 						on <?php the_time('l, F jS, Y') ?> at <?php the_time() ?>
-						and is filed under <?php the_category(', ') ?>.
+						and is filed under <?php printf("%s %s", the_date(), the_time()); ?>
 						You can follow any responses to this entry through the <?php comments_rss_link('RSS 2.0'); ?> feed.
 
 						<?php if (('open' == $post-> comment_status) && ('open' == $post->ping_status)) {
