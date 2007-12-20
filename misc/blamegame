@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use SVN::Client;
+use SVN::Wc;
+use Text::Diff::Parser;
+use Data::Dumper qw(Dumper);
+use File::Spec;
+use Cwd qw(abs_path getcwd);
+use IO::String;
+
+@ARGV == 1 or @ARGV == 2 or die "Usage: $0 path [lineno]\n";
+our $SVN = getSVN();
+main(@ARGV);
+
+sub main {
+  my($path, $lineno) = @_;
+  $path = makeRelativePath($path);
+  my $rev = getRevision($path);
+  my $blame = getBlame($path, $rev);
+  if(!$lineno) {
+    showBlame($blame);
+    # prompt for line
+  }
+
+  while(1) {
+    my $changeRev = getBlameRev($blame, $lineno);
+    my $diff = getDiff($path, $changeRev);
+    my($oldLine, $newLine, $diffHunk) =
+      findChangeToLine($diff->[1], $lineno);
+  }
+}
+
+
+sub getSVN {
+  my $auth = SVN::Client::get_simple_provider();
+  return SVN::Client->new(auth => [$auth]);
+}
+
+sub makeRelativePath {
+  my($pathstring) = @_;
+  my $cwd = getcwd();
+  my $canonpath = abs_path($pathstring);
+  $canonpath =~ s!^\Q$cwd\E/?!! or die
+    "'$canonpath' is not inside '$cwd'!\n";
+  $canonpath;
+}
+
+sub getRevision {
+  my($path) = @_;
+  my $revision;
+  $SVN->info($path, undef, 'WORKING', sub {
+               my($path, $info) = @_;
+               $revision = $info->rev;
+             },
+             0);
+  return $revision;
+}
+
+# Takes a line number as input.
+# Correlates svn blame and svn diff to find out where that line was changed.
+# Displays the revision number, top 10 lines of commit log, and 10
+# lines of diff hunk.  Presents options:
+#   log: Page through log
+#   diff: Page through diff
+#   back [n]: Recurse (for line n)
+#   branch: ... some procedure for following branches?
+#           ... and renames?
+
+sub getBlame {
+  my($path, $revision) = @_;
+  my @ret;
+  $SVN->blame($path,
+             $revision,
+             $revision,
+             sub {
+               my($line_no, $revision, $author, $date, $line) = @_;
+               push @ret, [$line_no, $revision, $author, $line];
+             });
+  \@ret;
+}
+
+sub getDiff {
+  my($path, $revision, $prevPath, $prevRevision, $diff_opts) = @_;
+  $prevPath ||= $path;
+  $prevRevision ||= $revision - 1;
+
+  my($outstr, $errstr);
+  my $outfh = IO::String->new($outstr);
+  my $errfh = IO::String->new($errstr);
+  $SVN->diff($diff_opts,
+             $prevPath, $prevRevision,
+             $path, $revision,
+             0, 1, 0,
+             $outfh, $errfh);
+
+  if($errstr) {
+    die "Couldn't diff $prevPath\@$prevRevision vs. $path\@$revision!\n$errstr\n";
+  }
+
+  [$outstr, Text::Diff::Parser->new(Diff => $outstr)];
+};
+
+sub getBlameRev {
+  my($blame, $lineno) = @_;
+  foreach (@$blame) {
+    return $_->[1] if $_->[0] == $lineno;
+  }
+}
+
+sub findChangeToLine {
+  my($diff, $lineno) = @_;
+
+  foreach my $change ($diff->changes) {
+    
+  }
+
+  # changeRev, oldLine, newLine, diffHunk
+}
