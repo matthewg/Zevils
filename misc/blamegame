@@ -8,16 +8,9 @@ use Data::Dumper qw(Dumper);
 use File::Spec;
 use File::Temp qw(tempfile);
 use Cwd qw(abs_path getcwd);
-use Term::Cap;
-use Term::ReadKey;
-use Term::ANSIColor;
-use POSIX qw(floor);
-use List::Util qw(max min);
-
-use constant KEY_LEFT => 68;
-use constant KEY_RIGHT => 67;
-use constant KEY_UP => 65;
-use constant KEY_DOWN => 66;
+use FindBin qw($Bin);
+use lib "$Bin";
+use BlameUI::Console;
 
 @ARGV == 1 or @ARGV == 2 or die "Usage: $0 path [lineno]\n";
 our $SVN = getSVN();
@@ -46,10 +39,55 @@ sub main {
   while(1) {
     my $changeRev = getBlameRev($blame, $lineno);
     my $diff = getDiff($path, $changeRev);
-    my $diff_data = parseDiff($diff);
-    my $target_hunk = findChangeToLine($diff_data, $lineno);
+    my $diffData = parseDiff($diff);
+    my $targetLine = findChangeToLine($diffData, $lineno);
 
-    showDiff($diff_data, $target_hunk);
+    my $ui = BlameUI::Console->new
+      ($diffData,
+       sub {
+         my @ret;
+         my $lineno = 1;
+         my $emitLine = sub {
+           my($fmt, @args) = @_;
+           push @ret, DiffLine->new($lineno, $lineno, sprintf($fmt, @args));
+           $lineno++;
+         };
+         $SVN->log($path,
+                   $changeRev,
+                   $changeRev,
+                   1,
+                   0,
+                   sub {
+                     my($paths, $crev, $auth, $date, $msg) = @_;
+
+                     $emitLine->("r%s | %s | %s", $crev, $auth, $date);
+                     if ($paths) {
+                       $emitLine->("Changed paths:");
+                       foreach my $path (sort keys %$paths) {
+                         my $pathObj = $paths->{$path};
+                         my $copyData = "";
+                         if ($pathObj->copyfrom_path) {
+                           $copyData = sprintf(" (from %s:%s)",
+                                               $pathObj->copyfrom_path,
+                                               $pathObj->copyfrom_rev);
+                         }
+                         $emitLine->("   %s %s%s",
+                                     $pathObj->action,
+                                     $path,
+                                     $copyData);
+                       }
+
+                       $emitLine->("");
+                     }
+
+                     foreach my $line (split(/\n/, $msg)) {
+                       $emitLine->($line);
+                     }
+                   });
+
+         \@ret;
+       });
+    $ui->showDiff($targetLine);
     last;
   }
 }
@@ -152,9 +190,10 @@ sub parseDiff {
   while(@lines) {
     my $line = shift @lines;
     if($line =~ /^\@\@\s+-(\d+),(\d+)\s+\+(\d+),(\d+)\s+\@\@$/) {
-      push @old, [undef, undef, $line];
-      push @new, [undef, undef, $line];
-      push @mixed, [undef, undef, $line];
+      my $diffLine = DiffLine->new(undef, undef, $line);
+      push @old, $diffLine;
+      push @new, $diffLine;
+      push @mixed, $diffLine;
 
       $hunk = {
                start_old => $1,
@@ -191,9 +230,9 @@ sub parseDiff {
 
         $hunkline_old++ if $line_in_old;
         $hunkline_new++ if $line_in_new;
-        my $lineData = [$hunk->{start_old} + $hunkline_old,
-                        $hunk->{start_new} + $hunkline_new,
-                        $hunkline];
+        my $lineData = DiffLine->new($hunk->{start_old} + $hunkline_old,
+                                     $hunk->{start_new} + $hunkline_new,
+                                     $hunkline);
         push @mixed, $lineData;
         if($line_in_old) {
           push @old, $lineData;
@@ -208,7 +247,6 @@ sub parseDiff {
   }
 
   return {
-          hunks => \@hunks,
           old => \@old,
           new => \@new,
           mixed => \@mixed
@@ -216,155 +254,31 @@ sub parseDiff {
 }
 
 sub findChangeToLine {
-  my($diffData, $target_lineno) = @_;
+  my($diffData, $targetLineNo) = @_;
 
-  my $i = 0;
   foreach my $hunk (@{$diffData->{hunks}}) {
-    if($target_lineno > $hunk->{start_new} and
-       $target_lineno < ($hunk->{start_new} + $hunk->{len_new})) {
+    if($targetLineNo > $hunk->{start_new} and
+       $targetLineNo < ($hunk->{start_new} + $hunk->{len_new})) {
 
-      return $i;
+      return $hunk->{start_old};
     }
-  } continue {
-    $i++;
   }
 
   return;
 }
 
+package DiffLine;
 
-sub showDiff {
-  my($diffData, $currHunk) = @_;
-  $currHunk ||= 0;
-  my $mode = "mixed";
+use strict;
+use warnings;
 
-  my($termWidth, $termHeight) = GetTerminalSize();
-  local $SIG{WINCH} = sub {
-    ($termWidth, $termHeight) = GetTerminalSize();
-  };
-
-  my $startLine = 0;
-  ReadMode(4);
-  my $terminal = Term::Cap->Tgetent();
-  my $lastKey = 0;
-  while(1) {
-    $terminal->Tputs("cl", 1, *STDOUT);
-    my $lines = $diffData->{$mode};
-    my $maxLine = $lines->[-1]->[0] + 1;
-    my $lineDigits = floor(log($maxLine) / log(10)) + 1;
-    my $displayLines = $termHeight - 1;
-
-    for(my $termLine = 0; $termLine < $displayLines; $termLine++) {
-      my $lineno = $termLine + $startLine;
-      my $line = $lines->[$lineno];
-      last unless $line;
-      my $lineText = $line->[2];
-      if($lineText =~ /^\@\@/) {
-        print color 'bold';
-        print "...\n";
-        print color 'reset';
-      } else {
-        my $lineLength = length($lineText) + $lineDigits + 1;
-        $termLine += floor($lineLength/$termWidth);
-
-        print color 'red';
-        printf "%${lineDigits}d ", $line->[0];
-        #$lineText = "$termLine / $termHeight";
-        if($lineText =~ /^-/) {
-          print "$lineText\n";
-          print color 'reset';
-        } elsif($lineText =~ /^\+/) {
-          print color 'green';
-          print "$lineText\n";
-          print color 'reset';
-        } else {
-          print color 'reset';
-          print "$lineText\n";
-        }
-      }
-    }
-
-    # Want to not reset to 0 when switching modes
-    my $endLine = $startLine + $displayLines;
-    my $lastLine = scalar(@$lines);
-    print color 'reverse';
-    print "== [$mode] $startLine-$endLine/$lastLine ($lastKey) ==";
-    print color 'reset';
-
-    my $minLine = 0;
-    my $maxStartLine = $lastLine - $displayLines;
-
-    my $key = ReadKey(0);
-    if($key eq " ") {
-      $startLine += $termHeight - 1;
-      $startLine = min($startLine, $maxStartLine);
-    } elsif(ord($key) == KEY_DOWN) {
-      $startLine++;
-      $startLine = min($startLine, $maxStartLine);
-    } elsif($key eq "b") {
-      $startLine -= $termHeight - 1;
-      $startLine = max($startLine, 0);
-    } elsif(ord($key) == KEY_UP) {
-      $startLine--;
-      $startLine = max($startLine, 0);
-    } elsif($key eq "q") {
-      print "\n";
-      last;
-    } elsif($key eq "o" or $key eq "n" or $key eq "m") {
-      if($key eq "o") {
-        $mode = "old";
-      } elsif($key eq "n") {
-        $mode = "new";
-      } else {
-        $mode = "mixed";
-      }
-
-      my($old_lineno, $new_lineno) = ($lines->[$startLine]->[0],
-                                      $lines->[$startLine]->[1]);
-      my $use_line_set;
-      if($old_lineno > $new_lineno) {
-        $use_line_set = 0;
-      } else {
-        $use_line_set = 1;
-      }
-
-      my $newLines = $diffData->{$mode};
-      my($lbound, $ubound) = (0, scalar(@$newLines));
-      my $targetValue = $lines->[$startLine]->[$use_line_set];
-      my $foundIt = 0;
-      while($lbound <= $ubound) {
-        my $thisLine = $lbound + floor(($ubound - $lbound) / 2);
-        my $thisValue = $newLines->[$thisLine]->[$use_line_set];
-        if($thisValue < $targetValue) {
-          $lbound = $thisLine + 1;
-        } elsif($thisValue > $targetValue) {
-          $ubound = $thisLine - 1;
-        } else {
-          $startLine = $thisLine;
-          $foundIt = 1;
-          last;
-        }
-      }
-
-      $startLine = $ubound unless $foundIt;
-    } elsif($key eq "h") {
-      $terminal->Tputs("cl", 1, *STDOUT);
-      print color 'bold';
-      print "Summary of commands:\n";
-      print color 'reset';
-      print <<EOF;
-   SPACE, b: Page down, up
-   Down arrow, Up arrow: Line down, up
-   o, n, m: Only show lines in old version, new version, both
-   q: Quit
-
-Press any key to return to pager...
-EOF
-      ReadKey(0);
-    } else {
-      $lastKey = ord($key);
-    }
-  }
-
-  ReadMode(0);
+sub new {
+  my($class, $oldFileLine, $newFileLine, $lineText) = @_;
+  $class = ref($class) || $class || __PACKAGE__;
+  my $self = [$oldFileLine, $newFileLine, $lineText];
+  bless $self, $class;
 }
+
+sub oldFileLine { shift->[0]; }
+sub newFileLine { shift->[1]; }
+sub lineText { shift->[2]; }
