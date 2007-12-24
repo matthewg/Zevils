@@ -14,82 +14,42 @@ use BlameUI::Console;
 
 @ARGV == 1 or @ARGV == 2 or die "Usage: $0 path [lineno]\n";
 our $SVN = getSVN();
-main(@ARGV);
-#test(@ARGV);
+my($path, $lineno) = @ARGV;
+$path = makeRelativePath($path);
+my $rev = getRevision($path);
+main($path, $rev, $lineno);
 
-sub test {
-  open(FILE, shift);
-  undef $/;
-  my($data) = <FILE>;
-  close(FILE);
-
-  findChangeToLine($data, shift);
-}
+#  if(!$lineno) {
+#    showBlame($blame);
+# prompt for line
+#  }
 
 sub main {
-  my($path, $lineno) = @_;
-  $path = makeRelativePath($path);
-  my $rev = getRevision($path);
+  my($path, $rev, $lineno) = @_;
   my $blame = getBlame($path, $rev);
-  if(!$lineno) {
-    showBlame($blame);
-    # prompt for line
-  }
 
-  while(1) {
-    my $changeRev = getBlameRev($blame, $lineno);
-    my $diff = getDiff($path, $changeRev);
-    my $diffData = parseDiff($diff);
-    my $targetLine = findChangeToLine($diffData, $lineno);
+  my $changeRev = getBlameRev($blame, $lineno);
 
-    my $ui = BlameUI::Console->new
-      ($diffData,
-       sub {
-         my @ret;
-         my $lineno = 1;
-         my $emitLine = sub {
-           my($fmt, @args) = @_;
-           push @ret, DiffLine->new($lineno, $lineno, sprintf($fmt, @args));
-           $lineno++;
-         };
-         $SVN->log($path,
-                   $changeRev,
-                   $changeRev,
-                   1,
-                   0,
-                   sub {
-                     my($paths, $crev, $auth, $date, $msg) = @_;
+  # We know the line number in the current revision.
+  # Find the line number in the blame revision.
+  my $diff = getDiff($path, $rev, $path, $changeRev - 1);
+  my $diffData = parseDiff($diff);
+  my $newTargetLine = findChangeToLine($diffData, $lineno);
 
-                     $emitLine->("r%s | %s | %s", $crev, $auth, $date);
-                     if ($paths) {
-                       $emitLine->("Changed paths:");
-                       foreach my $path (sort keys %$paths) {
-                         my $pathObj = $paths->{$path};
-                         my $copyData = "";
-                         if ($pathObj->copyfrom_path) {
-                           $copyData = sprintf(" (from %s:%s)",
-                                               $pathObj->copyfrom_path,
-                                               $pathObj->copyfrom_rev);
-                         }
-                         $emitLine->("   %s %s%s",
-                                     $pathObj->action,
-                                     $path,
-                                     $copyData);
-                       }
+  # Now get the diff data for the blame revision.
+  $diff = getDiff($path, $changeRev);
+  $diffData = $diff ? parseDiff($diff) : undef;
 
-                       $emitLine->("");
-                     }
+  my $ui = BlameUI::Console->new(
+                                 $diffData,
+                                 $path,
+                                 $changeRev - 1,
+                                 sub { getLogData($path, $changeRev); },
+                                );
+  my($newPath, $newRev, $newLine) =
+    $ui->showDiff($newTargetLine);
 
-                     foreach my $line (split(/\n/, $msg)) {
-                       $emitLine->($line);
-                     }
-                   });
-
-         \@ret;
-       });
-    $ui->showDiff($targetLine);
-    last;
-  }
+  return main($newPath, $newRev, $newLine);
 }
 
 
@@ -150,11 +110,21 @@ sub getDiff {
 
   my($outfh, $outfn) = tempfile();
   my($errfh, $errfn) = tempfile();
-  $SVN->diff(\@diff_opts,
-             $prevPath, $prevRevision,
-             $path, $revision,
-             0, 1, 0,
-             $outfh, $errfh);
+  eval {
+    $SVN->diff(\@diff_opts,
+               $prevPath, $prevRevision,
+               $path, $revision,
+               0, 1, 0,
+               $outfh, $errfh);
+  };
+  if($@) {
+    if($@ =~ /^Filesystem has no item:/) {
+      unlink($outfn, $errfn);
+      return {};
+    } else {
+      die "Couldn't diff $prevPath:$prevRevision vs. $path:$revision:\n$@\n";
+    }
+  }
   $outfh->close();
   $errfh->close();
 
@@ -247,6 +217,7 @@ sub parseDiff {
   }
 
   return {
+          hunks => \@hunks,
           old => \@old,
           new => \@new,
           mixed => \@mixed
@@ -265,6 +236,52 @@ sub findChangeToLine {
   }
 
   return;
+}
+
+sub getLogData {
+  my($path, $rev) = @_;
+
+  my @ret;
+  my $lineno = 1;
+  my $emitLine = sub {
+    my($fmt, @args) = @_;
+    push @ret, DiffLine->new($lineno, $lineno, sprintf($fmt, @args));
+    $lineno++;
+  };
+  $SVN->log($path,
+            $rev,
+            $rev,
+            1,
+            0,
+            sub {
+              my($paths, $crev, $auth, $date, $msg) = @_;
+
+              $emitLine->("r%s | %s | %s", $crev, $auth, $date);
+              if ($paths) {
+                $emitLine->("Changed paths:");
+                foreach my $path (sort keys %$paths) {
+                  my $pathObj = $paths->{$path};
+                  my $copyData = "";
+                  if ($pathObj->copyfrom_path) {
+                    $copyData = sprintf(" (from %s:%s)",
+                                        $pathObj->copyfrom_path,
+                                        $pathObj->copyfrom_rev);
+                  }
+                  $emitLine->("   %s %s%s",
+                              $pathObj->action,
+                              $path,
+                              $copyData);
+                }
+
+                $emitLine->("");
+              }
+
+              foreach my $line (split(/\n/, $msg)) {
+                $emitLine->($line);
+              }
+            });
+
+  \@ret;
 }
 
 package DiffLine;
