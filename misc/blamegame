@@ -25,31 +25,47 @@ main($path, $rev, $lineno);
 #  }
 
 sub main {
-  my($path, $rev, $lineno) = @_;
-  my $blame = getBlame($path, $rev);
+  my($path, $rev, $lineno, $oldPath, $oldRev) = @_;
+  $oldPath ||= $path;
+  if(!$oldRev) {
+    my $blame = getBlame($path, $rev);
+    my $changeRev = getBlameRev($blame, $lineno);
+    $oldRev = $changeRev - 1;
 
-  my $changeRev = getBlameRev($blame, $lineno);
+    # We know the line number in the current revision.
+    # Find the line number in the blame revision.
+    my $diff = getDiff($path, $rev, $oldPath, $oldRev);
+    my $diffData = parseDiff($diff);
+    $lineno = findChangeToLine($diffData, $lineno);
 
-  # We know the line number in the current revision.
-  # Find the line number in the blame revision.
-  my $diff = getDiff($path, $rev, $path, $changeRev - 1);
-  my $diffData = parseDiff($diff);
-  my $newTargetLine = findChangeToLine($diffData, $lineno);
+    $rev = $changeRev;
+  }
 
   # Now get the diff data for the blame revision.
-  $diff = getDiff($path, $changeRev);
-  $diffData = $diff ? parseDiff($diff) : undef;
-
+  my $diff = getDiff($path, $rev, $oldPath, $oldRev);
+  my $diffData = $diff ? parseDiff($diff) : undef;
+  my($copyURL, $copyRev);
+  #my $info = $SVN->info($path,
+  #                      $changeRev,
+  #                      $changeRev,
+  #                      sub {
+  #                        my(undef, $info) = @_;
+  #                        $copyURL = $info->copyfrom_url;
+  #                        $copyRev = $info->copyfrom_rev;
+  #                      },
+  #                      0);
   my $ui = BlameUI::Console->new(
                                  $diffData,
-                                 $path,
-                                 $changeRev - 1,
-                                 sub { getLogData($path, $changeRev); },
+                                 $oldPath,
+                                 $oldRev,
+                                 $copyURL,
+                                 $copyRev,
+                                 sub { getLogData($path, $rev); },
                                 );
-  my($newPath, $newRev, $newLine) =
-    $ui->showDiff($newTargetLine);
+  my($newPath, $newRev, $newLine, $newOldPath, $newOldRev) =
+    $ui->showDiff($lineno);
 
-  return main($newPath, $newRev, $newLine);
+  return main($newPath, $newRev, $newLine, $newOldPath, $newOldRev);
 }
 
 

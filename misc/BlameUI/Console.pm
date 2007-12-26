@@ -15,19 +15,24 @@ use constant KEY_UP => 65;
 use constant KEY_DOWN => 66;
 
 sub new {
-  my($class, $diffData, $getLogFn) = @_;
+  my($class, $diffData, $path, $revision, $copyURL, $copyRev, $getLogFn, $recurseFn) = @_;
   $class = ref($class) || $class || __PACKAGE__;
   my $self = {
+              terminal => Term::Cap->Tgetent(),
+              path => $path,
+              revision => $revision,
+              copyURL => $copyURL,
+              copyRev => $copyRev,
               diffData => $diffData,
               getLogFn => $getLogFn,
+              recurseFn => $recurseFn,
               };
   bless $self, $class;
-  $self->setMode("mixed");
   $self;
 }
 
 sub findLine {
-  my($termLines, $target, $lineTransform) = @_;
+  my($self, $termLines, $target, $lineTransform) = @_;
 
   my($lbound, $ubound) = (0, scalar(@$termLines));
   while($lbound <= $ubound) {
@@ -54,6 +59,7 @@ sub computeBoundaries {
   $self->{lineDigits} = $self->{maxFileLine} ?
     floor(log($self->{maxFileLine}) / log(10)) + 1 :
     1;
+  confess "foo" unless $self->{termHeight};
   $self->{displayLines} = $self->{termHeight} - 1;
   $self->{lastTermLine} = scalar(@{$self->{termLines}});
   $self->{maxStartTermLine} = max($self->{lastTermLine} - $self->{displayLines},
@@ -62,14 +68,26 @@ sub computeBoundaries {
 
 sub setMode {
   my($self, $mode) = @_;
+  # If we're at the first revision of the file, there's no diff
+  # data, so force display of the log message.
+  $mode = "log" unless @{$self->{diffData}->{$mode}};
+
   my $oldMode = $self->{mode};
   my $oldLines = $self->{termLines};
   $self->{mode} = $mode;
 
   if($mode eq "log") {
+    $self->{oldStartTermLine} = $self->{startTermLine};
     $self->{startTermLine} = 0;
-    $self->{diffData}->{log} = $self->{getLogFn}->()
-      unless $self->{diffData}->{log};
+    if(!$self->{diffData}->{log}) {
+      $self->{diffData}->{log} = $self->{getLogFn}->();
+      if(!@{$self->{diffData}->{mixed}}) {
+        unshift @{$self->{diffData}->{log}},
+          DiffLine->new(undef, undef, BOLD . "This is the initial revision of this file." . RESET);
+      }
+    }
+  } elsif($oldMode eq "log") {
+    $self->{startTermLine} = $self->{oldStartTermLine};
   }
   $self->{termLines} = $self->{diffData}->{$mode};
 
@@ -99,7 +117,7 @@ sub setMode {
     }
   }
 
-  $self->computeBoundaries();
+  $self->computeBoundaries() if $self->{termHeight};
 }
 
 sub updateGeometry {
@@ -107,7 +125,7 @@ sub updateGeometry {
   my($termWidth, $termHeight) = GetTerminalSize();
   $self->{termWidth} = $termWidth;
   $self->{termHeight} = $termHeight;
-  $self->computeBoundaries();
+  $self->computeBoundaries() if $self->{mode};
 }
 
 sub scroll {
@@ -122,19 +140,37 @@ sub scroll {
   }
 }
 
+sub clear {
+  my($self) = @_;
+  $self->{terminal}->Tputs("cl", 1, *STDOUT);
+}
+
+sub promptLine {
+  my($self, $prompt) = @_;
+  ReadMode(0);
+  ReadMode(1);
+  $self->{terminal}->Tputs("cr", 1, *STDOUT);
+  $self->{terminal}->Tputs("ce", 1, *STDOUT);
+  print $prompt;
+
+  chomp(my $ret = ReadLine(0));
+  ReadMode(0);
+  $ret;
+}
+
 sub showDiff {
   my($self, $scrollToFileLine) = @_;
 
   local $SIG{WINCH} = sub {
     $self->updateGeometry();
   };
-  $SIG{WINCH}->();
+  $self->setMode("mixed");
+  $self->updateGeometry();
 
-  my $terminal = Term::Cap->Tgetent();
   $self->{startTermLine} = 0;
   if($scrollToFileLine) {
     $self->{startTermLine} = $self->findLine(
-                                             $self->{lines},
+                                             $self->{termLines},
                                              $scrollToFileLine,
                                              sub { shift->oldFileLine(); }
                                             );
@@ -143,7 +179,7 @@ sub showDiff {
   ReadMode(4);
   my($lastSearch, $searchMode);
   while(1) {
-    $terminal->Tputs("cl", 1, *STDOUT);
+    $self->clear();
     my $endTermLine = $self->{startTermLine} + $self->{displayLines};
 
     my $searchFound = 0;
@@ -181,16 +217,20 @@ sub showDiff {
 
       if($searchMode and !$searchFound) {
         if($searchMode eq "?") {
+          last if $self->{startTermLine} == 0;
           $self->scroll(-$self->{displayLines});
         } else {
+          last if $self->{startTermLine} == $self->{maxStartTermLine};
           $self->scroll($self->{displayLines});
         }
       }
     }
 
+    my $branchFlag = "-";
+    $branchFlag = "c" if $self->{copyURL};
     print
       REVERSE,
-      "== [$self->{mode}] $self->{startTermLine}-$endTermLine/$self->{lastTermLine} ==",
+      "== $branchFlag [$self->{mode}] $self->{path}:$self->{revision} $self->{startTermLine}-$endTermLine/$self->{lastTermLine} ==",
       RESET;
 
     my $key = ReadKey(0);
@@ -205,7 +245,8 @@ sub showDiff {
       $self->scroll(-1);
     } elsif($key eq "q") {
       print "\n";
-      last;
+      ReadMode(0);
+      exit;
     } elsif($key eq "o") {
       $self->setMode("old");
     } elsif($key eq "n") {
@@ -215,13 +256,7 @@ sub showDiff {
     } elsif($key eq "/" or $key eq "?") {
       $searchMode = $key;
 
-      ReadMode(0);
-      ReadMode(1);
-      $terminal->Tputs("cr", 1, *STDOUT);
-      $terminal->Tputs("ce", 1, *STDOUT);
-      print $key;
-
-      chomp(my $search = ReadLine(0));
+      my $search = $self->promptLine($key);
       if(!$search and $lastSearch) {
         $search = $lastSearch;
 
@@ -233,18 +268,30 @@ sub showDiff {
       }
       $lastSearch = $search;
 
-      ReadMode(0);
       ReadMode(4);
     } elsif($key eq "l") {
       $self->setMode("log");
+    } elsif($key eq "r") {
+      my $newTargetLine = $self->promptLine("New line number: ");
+      return $self->{path},
+             $self->{revision},
+             $newTargetLine;
+    } elsif($key eq "p") {
+      my $newTargetPath = $self->promptLine("New target path: ");
+      return $self->{path},
+             $self->{revision},
+             $scrollToFileLine,
+             $newTargetPath,
+             $self->{revision};
     } elsif($key eq "h") {
-      $terminal->Tputs("cl", 1, *STDOUT);
       print BOLD, "Summary of commands:\n", RESET;
       print <<EOF;
    SPACE, b: Page down, up
    Down arrow, Up arrow: Line down, up
    /, ?: Search forwards, backwards
    l: Show commit log message
+   r: Recurse to and older revision
+   p: Change target path
    o, n, m: Only show lines in old version, new version, both
    q: Quit
 

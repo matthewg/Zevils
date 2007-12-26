@@ -1,0 +1,243 @@
+#!/usr/bin/perl
+
+# trac2mw
+# Converts a trac wiki to MediaWiki format
+# Input:
+#   MySQL XML export of the Trac database
+# Output:
+#   MediaWiki XML, suitable for feeding to Special:Import
+#
+# by Matthew Sachs <matthewg@zevils.com>
+#
+#This work is hereby released into the Public Domain. To view a copy
+#of the public domain dedication, visit:
+#  http://creativecommons.org/licenses/publicdomain/
+
+# Name of your MediaWiki
+use constant WIKI_NAME => "MyWiki";
+
+# Front page of your MediaWiki
+use constant WIKI_BASE => "http://example.com/Wiki/Main_Page";
+
+# To whitelist pages, list them here, one per line, e.g.
+#   @includePages = qw(
+#   FooBar
+#   FooBaz
+#   );
+#
+# If any pages are listed, only pages on the list will be included.
+my @includePages = qw(
+);
+
+# Pages can be renamed.
+# Trac page name => MediaWiki page name
+my %renamePages = (WikiStart => "Main Page");
+
+# Trac -> MediaWiki author map.
+# TracUser => [MediaWiki username, MediaWiki user ID]
+# Example:
+#   my %authors = (
+#     matthew => ["Matthew", 1],
+#     liz => ["Liz", 2]
+#   );
+my %authors = ();
+
+# END CONFIGURATION
+
+
+use strict;
+use warnings;
+use XML::LibXML;
+use POSIX qw(strftime);
+
+our $VERSION = "0.1";
+
+sub fixWikiList {
+  my($in) = @_;
+
+  my $ret = "";
+  my @rows = split(/\n/, $in);
+  my @inlists = ();
+
+  foreach my $row (@rows) {
+    $row =~ s/^ ( *)([#*])//;
+    my($space, $toplist) = ($1, $2);
+
+    while(length($space) < @inlists) {
+      pop @inlists;
+    }
+    push @inlists, $toplist;
+
+    $ret .= join("", @inlists) . $row . "\n";
+  }
+
+  return $ret;
+}
+
+sub fixWikiTable {
+  my($in) = @_;
+  my $ret = "{|\n";
+  my @rows = split(/\n/, $in);
+
+  foreach my $row (@rows) {
+    $ret .= "|-\n";
+    $row =~ s/^\|\|//;
+    $row =~ s/\|\|$//;
+    foreach my $col (split(/\|\|/, $row)) {
+      $ret .= "| $col\n";
+    }
+  }
+
+  $ret =~ s/\n\| -$/\n/;
+  $ret .= "|}\n";
+  return $ret;
+}
+
+sub fixWikiText {
+  my($text) = @_;
+
+  # [wiki:Foo] -> [Foo]
+  $text =~ s/\[wiki:/[/g;
+
+  # [Link] -> [[Link]]
+  $text =~ s/\[([a-z0-9 _-]+)\]/[[$1]]/ig;
+
+  # <sp><sp>* -> **
+  $text =~ s/((?:^(?: +)(?:[*#])(?:.*)$(?:\n?))+)/fixWikiList($1)/gem;
+
+  # CamelCase -> [[CamelCase]]
+  $text =~ s^ ([A-Z][a-z0-9]+[A-Z][a-z0-9]+[a-zA-Z0-9]*)\b^ [[$1]]^g;
+
+  # Table syntax
+  $text =~ s/((?:^\|\|.*\|\|$(?:\n?))+)/fixWikiTable($1)/gem;
+
+  return $text;
+}
+
+
+my $parser = XML::LibXML->new();
+my $doc = $parser->parse_file(shift);
+my $root = $doc->documentElement();
+
+my @wikiPages = $root->findnodes("//table_data[\@name='wiki']/row");
+my %pages;
+foreach my $node (@wikiPages) {
+  my $name = $node->find("field[\@name='name']")->[0]->textContent();
+  next unless grep { $_ eq $name } @includePages;
+
+  $name = $renamePages{$name} if $renamePages{$name};
+
+  my $text = $node->find("field[\@name='text']")->[0]->textContent();
+  my $author = $node->find("field[\@name='author']")->[0]->textContent();
+  my $time = $node->find("field[\@name='time']")->[0]->textContent();
+  my $version = $node->find("field[\@name='version']")->[0]->textContent();
+  $version--;
+  $pages{$name} ||= [];
+  $pages{$name}->[$version] = {
+                               text => $text,
+                               author => $author,
+                               time => $time,
+                              };
+}
+
+my $outDoc = XML::LibXML::Document->new();
+my $mw = XML::LibXML::Element->new("mediawiki");
+$outDoc->setDocumentElement($mw);
+
+use constant MW_NS => "http://www.mediawiki.org/xml/export-0.3/";
+use constant XSI_NS => "http://www.w3.org/2001/XMLSchema-instance";
+
+$mw->setNamespace(XSI_NS, "xsi");
+$mw->setNamespace(MW_NS);
+$mw->setAttributeNS(XSI_NS, "schemaLocation", "http://www.mediawiki.org/xml/export-0.3/ http://www.mediawiki.org/xml/export-0.3.xsd");
+$mw->setAttributeNS(MW_NS, "version", "0.3");
+$mw->setAttribute("xml:lang", "en");
+
+my $siteinfo = XML::LibXML::Element->new("siteinfo");
+$mw->addChild($siteinfo);
+$siteinfo->appendTextChild("sitename", WIKI_NAME);
+$siteinfo->appendTextChild("base", WIKI_BASE);
+$siteinfo->appendTextChild("generator", "trac2mw $VERSION");
+$siteinfo->appendTextChild("case", "first-letter");
+
+my $namespaces = XML::LibXML::Element->new("namespaces");
+$siteinfo->addChild($namespaces);
+foreach my $ns ([-2, "Media"], [-1, "Special"],
+                [0, ""], [1, "Talk"],
+                [2, "User"],
+                [3, "User talk"],
+                [4, "ZevilsWiki"],
+                [5, "ZevilsWiki talk"],
+                [6, "Image"],
+                [7, "Image talk"],
+                [8, "MediaWiki"],
+                [9, "MediaWiki talk"],
+                [10, "Template"],
+                [11, "Template talk"],
+                [12, "Help"],
+                [13, "Help talk"],
+                [14, "Category"],
+                [15, "Category talk"],) {
+
+  my $nsElement = XML::LibXML::Element->new("namespace");
+  $namespaces->addChild($nsElement);
+  $nsElement->setAttribute("key", $ns->[0]);
+  $nsElement->appendText($ns->[1]);
+}
+
+my $pageID = 1000;
+while(my($page, $revisions) = each(%pages)) {
+  my $pageNode = XML::LibXML::Element->new("page");
+  $mw->addChild($pageNode);
+  $pageNode->appendTextChild("title", $page);
+  $pageNode->appendTextChild("id", $pageID);
+
+  my $revID = 1;
+  foreach my $revision(@$revisions) {
+    my($text, $author, $time) = ($revision->{text},
+                                 $revision->{author},
+                                 $revision->{time});
+
+    $text = fixWikiText($text);
+
+    my $revision = XML::LibXML::Element->new("revision");
+    $pageNode->addChild($revision);
+    $revision->appendTextChild("id", $pageID + $revID);
+    $revision->appendTextChild("timestamp",
+                               strftime("%Y-%m-%dT%H:%M:%SZ",
+                                        gmtime($time)));
+
+    my $contributor = XML::LibXML::Element->new("contributor");
+    $revision->addChild($contributor);
+    my($user_id) = $authors{$author};
+    if($user_id) {
+      $contributor->appendTextChild("username", $user_id->[0]);
+      $contributor->appendTextChild("id", $user_id->[1]);
+    }
+
+    my $textNode = XML::LibXML::Element->new("text");
+    $revision->addChild($textNode);
+    $textNode->setAttribute("xml:space", "preserve");
+    $textNode->appendText($text);
+  } continue {
+    $revID++;
+  }
+} continue {
+  $pageID += 1000;
+}
+
+$outDoc->toFH(\*STDOUT, 1);
+
+=pod
+
+      <text xml:space="preserve">&lt;big&gt;'''Welcome to Zevils Wiki'''&lt;/big&gt;
+
+To create [[Public:PublicIndex|public pages]] that any user can read, put &quot;Public:&quot; at the beginning of their name.  All [[PrivateIndex|other pages]] are only viewable by registered users.
+
+* [[Special:Userlogin|Create a new user]] (for existing users to give someone else access)</text>
+    </revision>
+  </page>
+
+('CamelCase',1,1186098687,'trac','127.0.0.1','= !CamelCase =\r\nNew words created by smashing together capitalized words.\r\n\r\nCamelCase is the original wiki convention for creating hyperlinks, with the additional requirement that the capitals are followed by a lower-case letter; hence “AlabamA” and “ABc” will not be links.\r\n\r\n== Customizing the Wiki behavior ==\r\n\r\nSome people dislike linking by CamelCase.  While Trac remains faithful to the original Wiki style, it provides a number of ways to accomodate users with different preferences:\r\n * There\'s an option (`ignore_missing_pages` in `[wiki]`) to simply ignore links to missing pages
+
+=cut
