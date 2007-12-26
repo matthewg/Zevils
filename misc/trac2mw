@@ -166,8 +166,8 @@ foreach my $ns ([-2, "Media"], [-1, "Special"],
                 [0, ""], [1, "Talk"],
                 [2, "User"],
                 [3, "User talk"],
-                [4, "ZevilsWiki"],
-                [5, "ZevilsWiki talk"],
+                [4, WIKI_NAME],
+                [5, WIKI_NAME . " talk"],
                 [6, "Image"],
                 [7, "Image talk"],
                 [8, "MediaWiki"],
@@ -227,17 +227,3 @@ while(my($page, $revisions) = each(%pages)) {
 }
 
 $outDoc->toFH(\*STDOUT, 1);
-
-=pod
-
-      <text xml:space="preserve">&lt;big&gt;'''Welcome to Zevils Wiki'''&lt;/big&gt;
-
-To create [[Public:PublicIndex|public pages]] that any user can read, put &quot;Public:&quot; at the beginning of their name.  All [[PrivateIndex|other pages]] are only viewable by registered users.
-
-* [[Special:Userlogin|Create a new user]] (for existing users to give someone else access)</text>
-    </revision>
-  </page>
-
-('CamelCase',1,1186098687,'trac','127.0.0.1','= !CamelCase =\r\nNew words created by smashing together capitalized words.\r\n\r\nCamelCase is the original wiki convention for creating hyperlinks, with the additional requirement that the capitals are followed by a lower-case letter; hence “AlabamA” and “ABc” will not be links.\r\n\r\n== Customizing the Wiki behavior ==\r\n\r\nSome people dislike linking by CamelCase.  While Trac remains faithful to the original Wiki style, it provides a number of ways to accomodate users with different preferences:\r\n * There\'s an option (`ignore_missing_pages` in `[wiki]`) to simply ignore links to missing pages
-
-=cut
