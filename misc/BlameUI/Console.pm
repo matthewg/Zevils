@@ -15,18 +15,19 @@ use constant KEY_UP => 65;
 use constant KEY_DOWN => 66;
 
 sub new {
-  my($class, $diffData, $path, $revision, $copyURL, $copyRev, $getLogFn, $recurseFn) = @_;
+  my($class, $urlBase, $diffData, $oldPath, $oldRev, $newPath, $newRev, $copyURL, $copyRev) = @_;
   $class = ref($class) || $class || __PACKAGE__;
   my $self = {
+              urlBase => $urlBase,
               terminal => Term::Cap->Tgetent(),
-              path => $path,
-              revision => $revision,
+              oldPath => $oldPath,
+              oldRev => $oldRev,
+              newPath => $newPath,
+              newRev => $newRev,
               copyURL => $copyURL,
               copyRev => $copyRev,
               diffData => $diffData,
-              getLogFn => $getLogFn,
-              recurseFn => $recurseFn,
-              };
+             };
   bless $self, $class;
   $self;
 }
@@ -37,6 +38,7 @@ sub findLine {
   my($lbound, $ubound) = (0, scalar(@$termLines));
   while($lbound <= $ubound) {
     my $thisLineNo = $lbound + floor(($ubound - $lbound) / 2);
+    return unless defined($termLines->[$thisLineNo]);
     my $thisValue = $lineTransform->($termLines->[$thisLineNo]);
     if($thisValue < $target) {
       $lbound = $thisLineNo + 1;
@@ -70,7 +72,7 @@ sub setMode {
   my($self, $mode) = @_;
   # If we're at the first revision of the file, there's no diff
   # data, so force display of the log message.
-  $mode = "log" unless @{$self->{diffData}->{$mode}};
+  $mode = "log" unless $self->{diffData}->{$mode} and @{$self->{diffData}->{$mode}};
 
   my $oldMode = $self->{mode};
   my $oldLines = $self->{termLines};
@@ -155,6 +157,7 @@ sub promptLine {
 
   chomp(my $ret = ReadLine(0));
   ReadMode(0);
+  ReadMode(4);
   $ret;
 }
 
@@ -186,7 +189,8 @@ sub showDiff {
     while(!$searchFound) {
       $searchFound = 1 unless $searchMode;
 
-      for(my $termLine = 0; $termLine < $self->{displayLines}; $termLine++) {
+      my $wrappedLines = 0;
+      for(my $termLine = 0; $termLine + $wrappedLines < $self->{displayLines}; $termLine++) {
         my $fileLineNo = $termLine + $self->{startTermLine};
         my $line = $self->{termLines}->[$fileLineNo];
         last unless $line;
@@ -194,9 +198,9 @@ sub showDiff {
         if($lineText =~ /^\@\@/) {
           print BOLD, "...\n", RESET;
         } else {
-          my $lineLength = length($lineText);
+          my $lineLength = min(length($lineText) - 1, 0);
           $lineLength += $self->{lineDigits} + 1 unless $self->{mode} eq "log";
-          $termLine += floor($lineLength/$self->{termWidth});
+          $wrappedLines += floor($lineLength/$self->{termWidth});
 
           printf "%s%$self->{lineDigits}d ", RED, $line->oldFileLine
             unless $self->{mode} eq "log";
@@ -230,7 +234,7 @@ sub showDiff {
     $branchFlag = "c" if $self->{copyURL};
     print
       REVERSE,
-      "== $branchFlag [$self->{mode}] $self->{path}:$self->{revision} $self->{startTermLine}-$endTermLine/$self->{lastTermLine} ==",
+      "== $branchFlag [$self->{mode}] $self->{oldRev}:$self->{newRev} $self->{startTermLine}-$endTermLine/$self->{lastTermLine} {$self->{oldPath}:$self->{oldRev}} / {$self->{newPath}:$self->{newRev}} ==",
       RESET;
 
     my $key = ReadKey(0);
@@ -273,16 +277,37 @@ sub showDiff {
       $self->setMode("log");
     } elsif($key eq "r") {
       my $newTargetLine = $self->promptLine("New line number: ");
-      return $self->{path},
-             $self->{revision},
-             $newTargetLine;
+      if($newTargetLine) {
+        ReadMode(0);
+        return $newTargetLine;
+      }
     } elsif($key eq "p") {
-      my $newTargetPath = $self->promptLine("New target path: ");
-      return $self->{path},
-             $self->{revision},
-             $scrollToFileLine,
-             $newTargetPath,
-             $self->{revision};
+      my $default = $self->{copyURL};
+      my $dfdata = $default ? " ($default)" : "";
+      my $newTargetPath = $self->promptLine("New target path$dfdata: ");
+      $newTargetPath ||= $default;
+
+      if($newTargetPath) {
+        if($newTargetPath !~ m!://!) {
+          $newTargetPath =~ s!^/!!;
+          my $base = $self->{urlBase};
+          $base =~ s!/$!!;
+          $newTargetPath = "$base/$newTargetPath";
+        }
+
+        $default = $self->{copyRev} || $self->{oldRev};
+        $dfdata = $default ? " ($default)" : "";
+        my $newTargetRev = $self->promptLine("New target revision$dfdata: ");
+        $newTargetRev ||= $default;
+        if($newTargetPath and $newTargetRev) {
+          ReadMode(0);
+          return $scrollToFileLine,
+            $newTargetPath,
+            $newTargetRev,
+            $self->{oldPath},
+            $self->{oldRev};
+        }
+      }
     } elsif($key eq "h") {
       print BOLD, "Summary of commands:\n", RESET;
       print <<EOF;

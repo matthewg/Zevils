@@ -12,12 +12,10 @@ use FindBin qw($Bin);
 use lib "$Bin";
 use BlameUI::Console;
 
-@ARGV == 1 or @ARGV == 2 or die "Usage: $0 path [lineno]\n";
+@ARGV == 2 or die "Usage: $0 path [lineno]\n";
 our $SVN = getSVN();
-my($path, $lineno) = @ARGV;
-$path = makeRelativePath($path);
-my $rev = getRevision($path);
-main($path, $rev, $lineno);
+our $URL_BASE;
+main(@ARGV);
 
 #  if(!$lineno) {
 #    showBlame($blame);
@@ -25,47 +23,97 @@ main($path, $rev, $lineno);
 #  }
 
 sub main {
-  my($path, $rev, $lineno, $oldPath, $oldRev) = @_;
-  $oldPath ||= $path;
-  if(!$oldRev) {
-    my $blame = getBlame($path, $rev);
-    my $changeRev = getBlameRev($blame, $lineno);
-    $oldRev = $changeRev - 1;
+  my($path, $lineNo) = @_;
+  my $rev;
 
-    # We know the line number in the current revision.
-    # Find the line number in the blame revision.
-    my $diff = getDiff($path, $rev, $oldPath, $oldRev);
-    my $diffData = parseDiff($diff);
-    $lineno = findChangeToLine($diffData, $lineno);
-
-    $rev = $changeRev;
+  $path =~ s/\@(\d+)$//;
+  $rev = $1;
+  if($path =~ m!^/! or $path =~ m!://!) {
+    $rev ||= 'HEAD';
+  } else {
+    $path = fixRelativePath($path);
+    $rev ||= 'WORKING';
   }
 
-  # Now get the diff data for the blame revision.
-  my $diff = getDiff($path, $rev, $oldPath, $oldRev);
-  my $diffData = $diff ? parseDiff($diff) : undef;
-  my($copyURL, $copyRev);
-  #my $info = $SVN->info($path,
-  #                      $changeRev,
-  #                      $changeRev,
-  #                      sub {
-  #                        my(undef, $info) = @_;
-  #                        $copyURL = $info->copyfrom_url;
-  #                        $copyRev = $info->copyfrom_rev;
-  #                      },
-  #                      0);
+  my($urlPath);
+  my $info = $SVN->info($path,
+                        $rev,
+                        $rev,
+                        sub {
+                          my($path, $info) = @_;
+                          $rev = $info->rev();
+                          $urlPath = $info->URL();
+                          $URL_BASE = $info->repos_root_URL();
+                        },
+                        0);
+
+  my($blameRev, $blameLine) = findChange($urlPath,
+                                         $rev,
+                                         $lineNo);
+
+  my $oldPath = $urlPath;
+  my $oldRev = $blameRev - 1;
+  my $newPath = $urlPath;
+  my $newRev = $blameRev;
+  $lineNo = $blameLine;
+  while(1) {
+    my @newData =
+      showChange($lineNo, $oldPath, $oldRev, $newPath, $newRev);
+    last unless @newData;
+
+    if(@newData == 1) {
+      # Just a new line number
+      $newPath = $oldPath;
+      ($blameRev, $blameLine) = findChange($oldPath,
+                                           $oldRev,
+                                           $newData[0]);
+      warn "findChange($oldPath, $oldRev, $newData[0]) == $blameRev, $blameLine)\n";
+      ($lineNo, $oldRev, $newRev) = ($blameLine, $blameRev - 1, $blameRev);
+    } else {
+      ($lineNo, $oldPath, $oldRev, $newPath, $newRev) = @newData;
+    }
+  }
+}
+
+sub findChange {
+  my($path, $rev, $lineNo) = @_;
+
+  my $blame = getBlame($path, $rev);
+  #die Dumper($blame), "\n";
+  my $changeRev = getBlameRev($blame, $lineNo);
+  my $preChangeRev = $changeRev - 1;
+  warn Dumper($blame), "\n";
+  warn "Need diff: $path:$preChangeRev vs. $path:$rev\n";
+
+  # We know the line number in the current revision.
+  # Find the line number in the blame revision.
+  my $diff = getDiff($path, $preChangeRev, $path, $rev);
+  my $diffData = parseDiff($diff);
+  my $oldLineNo = findChangeToLine($diffData, $lineNo);
+
+  ($changeRev, $oldLineNo);
+}
+
+sub showChange {
+  my($lineNo, $oldPath, $oldRev, $newPath, $newRev) = @_;
+
+  # Get the diff data for the blame revision.
+  my $diff = getDiff($oldPath, $oldRev, $newPath, $newRev);
+  my $diffData = $diff ? parseDiff($diff) : {};
+  my($logData, $copyURL, $copyRev) = getLogData($newPath, $newRev);
+  $diffData->{log} = $logData;
   my $ui = BlameUI::Console->new(
+                                 $URL_BASE,
                                  $diffData,
                                  $oldPath,
                                  $oldRev,
+                                 $newPath,
+                                 $newRev,
                                  $copyURL,
                                  $copyRev,
-                                 sub { getLogData($path, $rev); },
                                 );
-  my($newPath, $newRev, $newLine, $newOldPath, $newOldRev) =
-    $ui->showDiff($lineno);
 
-  return main($newPath, $newRev, $newLine, $newOldPath, $newOldRev);
+  return $ui->showDiff($lineNo);
 }
 
 
@@ -75,7 +123,7 @@ sub getSVN {
   return SVN::Client->new(auth => \@auth);
 }
 
-sub makeRelativePath {
+sub fixRelativePath {
   my($pathstring) = @_;
   my $cwd = getcwd();
   my $canonpath = abs_path($pathstring);
@@ -83,27 +131,6 @@ sub makeRelativePath {
     "'$canonpath' is not inside '$cwd'!\n";
   $canonpath;
 }
-
-sub getRevision {
-  my($path) = @_;
-  my $revision;
-  $SVN->info($path, undef, 'WORKING', sub {
-               my($path, $info) = @_;
-               $revision = $info->rev;
-             },
-             0);
-  return $revision;
-}
-
-# Takes a line number as input.
-# Correlates svn blame and svn diff to find out where that line was changed.
-# Displays the revision number, top 10 lines of commit log, and 10
-# lines of diff hunk.  Presents options:
-#   log: Page through log
-#   diff: Page through diff
-#   back [n]: Recurse (for line n)
-#   branch: ... some procedure for following branches?
-#           ... and renames?
 
 sub getBlame {
   my($path, $revision) = @_;
@@ -120,16 +147,14 @@ sub getBlame {
 }
 
 sub getDiff {
-  my($path, $revision, $prevPath, $prevRevision, @diff_opts) = @_;
-  $prevPath ||= $path;
-  $prevRevision ||= $revision - 1;
+  my($oldPath, $oldRev, $newPath, $newRev, @diff_opts) = @_;
 
   my($outfh, $outfn) = tempfile();
   my($errfh, $errfn) = tempfile();
   eval {
     $SVN->diff(\@diff_opts,
-               $prevPath, $prevRevision,
-               $path, $revision,
+               $oldPath, $oldRev,
+               $newPath, $newRev,
                0, 1, 0,
                $outfh, $errfh);
   };
@@ -138,7 +163,7 @@ sub getDiff {
       unlink($outfn, $errfn);
       return {};
     } else {
-      die "Couldn't diff $prevPath:$prevRevision vs. $path:$revision:\n$@\n";
+      die "Couldn't diff $oldPath:$oldRev vs. $newPath:$newRev:\n$@\n";
     }
   }
   $outfh->close();
@@ -149,7 +174,7 @@ sub getDiff {
   my $errstr = <ERRFH>;
   close(ERRFH);
   if($errstr) {
-    die "Couldn't diff $prevPath\@$prevRevision vs. $path\@$revision!\n$errstr\n";
+    die "Couldn't diff $$oldPath:$oldRev vs. $newPath:$newRev:\n$errstr\n";
   }
 
   open(OUTFH, $outfn) or die "Couldn't open outfn '$outfn': $!\n";
@@ -171,7 +196,7 @@ sub parseDiff {
   my($diff) = @_;
 
   my(@hunks, @old, @new, @mixed, $hunk);
-  my($line_old, $line_new, $hunkline_old, $hunkline_new);
+  my($line_old, $line_new, $hunkline_old, $hunkline_new, $advance_old, $advance_new) = (0, 0, 0, 0, 0, 0);
   my @lines = split(/\n/, $diff);
   while(@lines) {
     my $line = shift @lines;
@@ -214,11 +239,33 @@ sub parseDiff {
           $line_in_new = 1;
         }
 
-        $hunkline_old++ if $line_in_old;
-        $hunkline_new++ if $line_in_new;
+        # If we have a diff like:
+        #    foo
+        #   -bar
+        #   +baz
+        #    buzz
+        # then we want bar and baz to both be on line 2 of both old and new.
+        # So, we can't advance either line counter until we see buzz.
+        if($line_in_old) {
+          $hunkline_old += $advance_old;
+          $advance_old = 0;
+        }
+        if($line_in_new) {
+          $hunkline_new += $advance_new;
+          $advance_new = 0;
+        }
         my $lineData = DiffLine->new($hunk->{start_old} + $hunkline_old,
                                      $hunk->{start_new} + $hunkline_new,
                                      $hunkline);
+        if($line_in_old and $line_in_new) {
+          $hunkline_old++;
+          $hunkline_new++;
+        } elsif($line_in_old) {
+          $advance_old++;
+        } elsif($line_in_new) {
+          $advance_new++;
+        }
+
         push @mixed, $lineData;
         if($line_in_old) {
           push @old, $lineData;
@@ -258,6 +305,8 @@ sub getLogData {
   my($path, $rev) = @_;
 
   my @ret;
+  my($copyfromPath, $copyfromRev);
+
   my $lineno = 1;
   my $emitLine = sub {
     my($fmt, @args) = @_;
@@ -282,6 +331,11 @@ sub getLogData {
                     $copyData = sprintf(" (from %s:%s)",
                                         $pathObj->copyfrom_path,
                                         $pathObj->copyfrom_rev);
+
+                    if($pathObj->URL eq $path) {
+                      $copyfromPath = $pathObj->copyfrom_path;
+                      $copyfromRev = $pathObj->copyfrom_rev;
+                    }
                   }
                   $emitLine->("   %s %s%s",
                               $pathObj->action,
@@ -297,8 +351,9 @@ sub getLogData {
               }
             });
 
-  \@ret;
+  (\@ret, $copyfromPath, $copyfromRev);
 }
+
 
 package DiffLine;
 
