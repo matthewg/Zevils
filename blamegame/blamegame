@@ -17,11 +17,6 @@ our $SVN = getSVN();
 our $URL_BASE;
 main(@ARGV);
 
-#  if(!$lineno) {
-#    showBlame($blame);
-# prompt for line
-#  }
-
 sub main {
   my($path, $lineNo) = @_;
   my $rev;
@@ -56,18 +51,33 @@ sub main {
   my $newPath = $urlPath;
   my $newRev = $blameRev;
   $lineNo = $blameLine;
+  my $currUI;
   while(1) {
-    my @newData =
-      showChange($lineNo, $oldPath, $oldRev, $newPath, $newRev);
+    my @newData;
+    eval {
+      @newData =
+        showChange($lineNo, $oldPath, $oldRev, $newPath, $newRev);
+    };
+    if($@) {
+      die "$@\n" unless $currUI;
+      $currUI->showError($@);
+      next;
+    }
     last unless @newData;
+    $currUI = shift @newData;
 
     if(@newData == 1) {
       # Just a new line number
       $newPath = $oldPath;
-      ($blameRev, $blameLine) = findChange($oldPath,
-                                           $oldRev,
-                                           $newData[0]);
-      warn "findChange($oldPath, $oldRev, $newData[0]) == $blameRev, $blameLine)\n";
+      eval {
+        ($blameRev, $blameLine) = findChange($oldPath,
+                                             $oldRev,
+                                             $newData[0]);
+      };
+      if($@) {
+        $currUI->showError($@);
+        next;
+      }
       ($lineNo, $oldRev, $newRev) = ($blameLine, $blameRev - 1, $blameRev);
     } else {
       ($lineNo, $oldPath, $oldRev, $newPath, $newRev) = @newData;
@@ -79,11 +89,8 @@ sub findChange {
   my($path, $rev, $lineNo) = @_;
 
   my $blame = getBlame($path, $rev);
-  #die Dumper($blame), "\n";
-  my $changeRev = getBlameRev($blame, $lineNo);
+  my $changeRev = getBlameRevForLine($blame, $lineNo);
   my $preChangeRev = $changeRev - 1;
-  warn Dumper($blame), "\n";
-  warn "Need diff: $path:$preChangeRev vs. $path:$rev\n";
 
   # We know the line number in the current revision.
   # Find the line number in the blame revision.
@@ -113,7 +120,7 @@ sub showChange {
                                  $copyRev,
                                 );
 
-  return $ui->showDiff($lineNo);
+  return ($ui, $ui->showDiff($lineNo));
 }
 
 
@@ -185,7 +192,7 @@ sub getDiff {
   $outstr;
 };
 
-sub getBlameRev {
+sub getBlameRevForLine {
   my($blame, $lineno) = @_;
   foreach (@$blame) {
     return $_->[1] if $_->[0] == $lineno;

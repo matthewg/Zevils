@@ -5,14 +5,18 @@ use warnings;
 use Term::Cap;
 use Term::ReadKey;
 use Term::ANSIColor qw(:constants);
-use POSIX qw(floor);
+use POSIX qw(floor ceil);
 use List::Util qw(max min);
 use Carp qw(confess);
+use File::Basename;
 
 use constant KEY_LEFT => 68;
 use constant KEY_RIGHT => 67;
 use constant KEY_UP => 65;
 use constant KEY_DOWN => 66;
+
+our $IN_READMODE = 0;
+END { ReadMode(0) if $IN_READMODE; }
 
 sub new {
   my($class, $urlBase, $diffData, $oldPath, $oldRev, $newPath, $newRev, $copyURL, $copyRev) = @_;
@@ -30,6 +34,17 @@ sub new {
              };
   bless $self, $class;
   $self;
+}
+
+sub setReadMode {
+  my($self, $mode) = @_;
+  # Don't allow switching directly from one to the other.
+  # We want ReadMode(0) to always reset to the mode before
+  # the program started.
+  ReadMode(0) if $IN_READMODE and $mode;
+
+  ReadMode($mode);
+  $IN_READMODE = $mode;
 }
 
 sub findLine {
@@ -61,7 +76,6 @@ sub computeBoundaries {
   $self->{lineDigits} = $self->{maxFileLine} ?
     floor(log($self->{maxFileLine}) / log(10)) + 1 :
     1;
-  confess "foo" unless $self->{termHeight};
   $self->{displayLines} = $self->{termHeight} - 1;
   $self->{lastTermLine} = scalar(@{$self->{termLines}});
   $self->{maxStartTermLine} = max($self->{lastTermLine} - $self->{displayLines},
@@ -111,9 +125,9 @@ sub setMode {
 
     if($lines->[$startLine]) {
       my $target = $get_line_number->($oldLines->[$startLine]);
-      $self->{startTermLine} = findLine($lines,
-                                        $target,
-                                        $get_line_number);
+      $self->{startTermLine} = $self->findLine($lines,
+                                               $target,
+                                               $get_line_number);
     } else {
       $self->{startTermLine} = 0;
     }
@@ -148,17 +162,24 @@ sub clear {
 }
 
 sub promptLine {
-  my($self, $prompt) = @_;
-  ReadMode(0);
-  ReadMode(1);
+  my($self, $prompt, $noEcho) = @_;
+  $self->setReadMode($noEcho ? 2 : 1);
   $self->{terminal}->Tputs("cr", 1, *STDOUT);
   $self->{terminal}->Tputs("ce", 1, *STDOUT);
   print $prompt;
 
   chomp(my $ret = ReadLine(0));
-  ReadMode(0);
-  ReadMode(4);
+  $self->setReadMode(4);
   $ret;
+}
+
+sub showError {
+  my($self, $errText) = @_;
+  my $oldReadMode = $IN_READMODE;
+  $self->clear();
+  print BOLD, "Error: ", RESET, $errText, "\n";
+  $self->promptLine("Press return to continue...\n", 1);
+  $self->setReadMode($oldReadMode);
 }
 
 sub showDiff {
@@ -179,7 +200,7 @@ sub showDiff {
                                             );
   }
 
-  ReadMode(4);
+  $self->setReadMode(4);
   my($lastSearch, $searchMode);
   while(1) {
     $self->clear();
@@ -232,9 +253,29 @@ sub showDiff {
 
     my $branchFlag = "-";
     $branchFlag = "c" if $self->{copyURL};
-    print
+    my $promptLineTemplate = "== $branchFlag [$self->{mode}] $self->{startTermLine}-$endTermLine/$self->{lastTermLine} %s->%s ==";
+
+    my $oldDisplayPath = $self->{oldPath} . '@' . $self->{oldRev};
+    my $newDisplayPath = $self->{newPath} . '@' . $self->{newRev};
+    $oldDisplayPath =~ s!^\Q$self->{urlBase}\E!!;
+    $newDisplayPath =~ s!^\Q$self->{urlBase}\E!!;
+    my $promptLineLength =
+      # -4 for %s %s
+      length($promptLineTemplate) - 4 +
+      length($oldDisplayPath) +
+      length($newDisplayPath);
+    if($promptLineLength > $self->{termWidth}) {
+      # +6 for ... ...
+      my $trimChars = $promptLineLength - $self->{termWidth} + 6;
+      my $trimOld = floor($trimChars / 2);
+      my $trimNew = ceil($trimChars / 2);
+      substr($oldDisplayPath, 0, $trimOld) = "...";
+      substr($newDisplayPath, 0, $trimNew) = "...";
+    }
+
+    print 
       REVERSE,
-      "== $branchFlag [$self->{mode}] $self->{oldRev}:$self->{newRev} $self->{startTermLine}-$endTermLine/$self->{lastTermLine} {$self->{oldPath}:$self->{oldRev}} / {$self->{newPath}:$self->{newRev}} ==",
+      sprintf($promptLineTemplate, $oldDisplayPath, $newDisplayPath),
       RESET;
 
     my $key = ReadKey(0);
@@ -249,7 +290,7 @@ sub showDiff {
       $self->scroll(-1);
     } elsif($key eq "q") {
       print "\n";
-      ReadMode(0);
+      $self->setReadMode(0);
       exit;
     } elsif($key eq "o") {
       $self->setMode("old");
@@ -272,13 +313,13 @@ sub showDiff {
       }
       $lastSearch = $search;
 
-      ReadMode(4);
+      $self->setReadMode(4);
     } elsif($key eq "l") {
       $self->setMode("log");
     } elsif($key eq "r") {
       my $newTargetLine = $self->promptLine("New line number: ");
       if($newTargetLine) {
-        ReadMode(0);
+        $self->setReadMode(0);
         return $newTargetLine;
       }
     } elsif($key eq "p") {
@@ -300,7 +341,7 @@ sub showDiff {
         my $newTargetRev = $self->promptLine("New target revision$dfdata: ");
         $newTargetRev ||= $default;
         if($newTargetPath and $newTargetRev) {
-          ReadMode(0);
+          $self->setReadMode(0);
           return $scrollToFileLine,
             $newTargetPath,
             $newTargetRev,
@@ -326,7 +367,7 @@ EOF
     }
   }
 
-  ReadMode(0);
+  $self->setReadMode(0);
 }
 
 1;
