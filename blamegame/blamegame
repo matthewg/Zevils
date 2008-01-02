@@ -51,7 +51,16 @@ sub main {
   my $newPath = $urlPath;
   my $newRev = $blameRev;
   $lineNo = $blameLine;
-  my $currUI;
+  my $setParams = sub {
+    ($lineNo, $oldPath, $oldRev, $newPath, $newRev) = @_;
+  };
+  my $getParams = sub {
+    ($lineNo, $oldPath, $oldRev, $newPath, $newRev);
+  };
+
+  my($currUI, @oldData);
+  @oldData = $getParams->();
+
   while(1) {
     my @newData;
     eval {
@@ -61,10 +70,12 @@ sub main {
     if($@) {
       die "$@\n" unless $currUI;
       $currUI->showError($@);
+      $setParams->(@oldData);
       next;
     }
     last unless @newData;
     $currUI = shift @newData;
+    @oldData = $getParams->();
 
     if(@newData == 1) {
       # Just a new line number
@@ -76,11 +87,12 @@ sub main {
       };
       if($@) {
         $currUI->showError($@);
+        $setParams->(@oldData);
         next;
       }
       ($lineNo, $oldRev, $newRev) = ($blameLine, $blameRev - 1, $blameRev);
     } else {
-      ($lineNo, $oldPath, $oldRev, $newPath, $newRev) = @newData;
+      $setParams->(@newData);
     }
   }
 }
@@ -232,6 +244,7 @@ sub parseDiff {
         my $hunkline = shift @lines;
 
         my $linetext = $hunkline;
+        last unless $linetext;
         $linetext =~ s/^([ +-])// or die
           "Unexpected hunk line: $hunkline\n";
 

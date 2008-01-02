@@ -95,13 +95,6 @@ sub setMode {
   if($mode eq "log") {
     $self->{oldStartTermLine} = $self->{startTermLine};
     $self->{startTermLine} = 0;
-    if(!$self->{diffData}->{log}) {
-      $self->{diffData}->{log} = $self->{getLogFn}->();
-      if(!@{$self->{diffData}->{mixed}}) {
-        unshift @{$self->{diffData}->{log}},
-          DiffLine->new(undef, undef, BOLD . "This is the initial revision of this file." . RESET);
-      }
-    }
   } elsif($oldMode eq "log") {
     $self->{startTermLine} = $self->{oldStartTermLine};
   }
@@ -192,7 +185,7 @@ sub showDiff {
   $self->updateGeometry();
 
   $self->{startTermLine} = 0;
-  if($scrollToFileLine) {
+  if($scrollToFileLine and $self->{mode} ne "log") {
     $self->{startTermLine} = $self->findLine(
                                              $self->{termLines},
                                              $scrollToFileLine,
@@ -211,7 +204,7 @@ sub showDiff {
       $searchFound = 1 unless $searchMode;
 
       my $wrappedLines = 0;
-      for(my $termLine = 0; $termLine + $wrappedLines < $self->{displayLines}; $termLine++) {
+      for(my $termLine = 0; ($termLine + $wrappedLines) < $self->{displayLines}; $termLine++) {
         my $fileLineNo = $termLine + $self->{startTermLine};
         my $line = $self->{termLines}->[$fileLineNo];
         last unless $line;
@@ -219,9 +212,9 @@ sub showDiff {
         if($lineText =~ /^\@\@/) {
           print BOLD, "...\n", RESET;
         } else {
-          my $lineLength = min(length($lineText) - 1, 0);
+          my $lineLength = max(length($lineText) - 1, 0);
           $lineLength += $self->{lineDigits} + 1 unless $self->{mode} eq "log";
-          $wrappedLines += floor($lineLength/$self->{termWidth});
+          $wrappedLines += max(floor($lineLength/$self->{termWidth}), 0);
 
           printf "%s%$self->{lineDigits}d ", RED, $line->oldFileLine
             unless $self->{mode} eq "log";
