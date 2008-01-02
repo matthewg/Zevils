@@ -350,6 +350,7 @@ sub showDiff {
         }
       }
     } elsif($key eq "h") {
+      $self->clear();
       print BOLD, "Summary of commands:\n", RESET;
       print <<EOF;
    SPACE, b: Page down, up
@@ -361,9 +362,8 @@ sub showDiff {
    o, n, m: Only show lines in old version, new version, both
    q: Quit
 
-Press any key to return to pager...
 EOF
-      ReadKey(0);
+      $self->promptLine("Press return to continue...\n", 1);
     }
   }
 
