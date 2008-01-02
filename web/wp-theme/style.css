@@ -104,9 +104,11 @@ pre {
 }
 
 .footnotes hr {
-   color: black;
+   /* color: black;
    background-color: black;
-   height: 1px;
+   height: 1px; */
+   margin-left: 15%;
+   margin-right: 15%;
 }
 
 /* small {} */
