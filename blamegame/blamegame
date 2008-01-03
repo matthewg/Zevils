@@ -45,6 +45,7 @@ sub main {
   my($blameRev, $blameLine) = findChange($urlPath,
                                          $rev,
                                          $lineNo);
+  die "Line $lineNo doesn't exist in $urlPath\@$rev\n" unless $blameRev;
 
   my $oldPath = $urlPath;
   my $oldRev = $blameRev - 1;
@@ -102,6 +103,7 @@ sub findChange {
 
   my $blame = getBlame($path, $rev);
   my $changeRev = getBlameRevForLine($blame, $lineNo);
+  return unless $changeRev;
   my $preChangeRev = $changeRev - 1;
 
   # We know the line number in the current revision.
