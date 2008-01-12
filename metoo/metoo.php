@@ -67,27 +67,55 @@ function phorum_mod_metoo_javascript_register($data) {
     return $data;
 }
 
-function phorum_mod_metoo_read($data) {
-    return $data;
-}
-
 function phorum_mod_metoo_set_flags($data) {
-    $userdata = array(
-        "user_id" => $user_id,
-        "mod_metoo" => array (
-                              
-            "foodata" => "Some user data",
-            "bardata" => "Some more user data"
-        )
-    );
-    phorum_api_user_save($userdata);
+    global $PHORUM;
+    $user = $PHORUM["user"];
+    if(!isset($user["user_id"])) return;
 
     $message_id = $data["message_id"];
+    if(!$message_id) {
+        return;
+    }
+    
+    $user_data = array();
+    if(isset($user["mod_metoo"])) {
+        $user_data = $user["mod_metoo"];
+    }
+    $user_message_data = array();
+    if(isset($user_data[$message_id])) {
+        $user_message_data = $user_data[$message_id];
+    }
+
     $message = phorum_db_get_message($message_id);
     $meta = $message["meta"];
     if(!isset($meta["mod_metoo"]) || !is_array($meta["mod_metoo"])) {
         $meta["mod_metoo"] = array();
     }
+    $message_data = $meta["mod_metoo"];
+    
+    foreach($data["add_flags"] as $add_flag) {
+        $metoo_message_data[$add_flag] = true;
+        if(isset($message_data[$add_flag])) {
+            $message_data[$add_flag] += 1;
+        } else {
+            $message_data[$add_flag] = 1;
+        }
+    }
+    foreach($data["remove_flags"] as $remove_flag) {
+        unset($metoo_message_data[$remove_flag]);
+        $message_data[$remove_flag] -= 1;
+        if($message_data[$remove_flag] == 0) {
+            unset($message_data[$remove_flag]);
+        }
+    }
+    $user_data[$message_id] = $user_message_data;
+    
+    $userdata = array(
+        "user_id" => $user_id,
+        "mod_metoo" => $user_data
+    );
+    phorum_api_user_save($userdata);
+    
     phorum_db_update_message($message_id, array("meta" => $meta));
 }
 
