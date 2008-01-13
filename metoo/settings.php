@@ -25,7 +25,7 @@ if(count($_POST)) {
     }
 }
 
-$flags = $METOO_DEFAULT_FLAGS;
+$flags = phorum_mod_metoo_default_flags();
 if(isset($PHORUM["mod_metoo"])) {
     $flags = $PHORUM["mod_metoo"]["flags"];
 }
@@ -51,7 +51,8 @@ $frm->hidden("mod", "metoo");
 
 $row = $frm->addrow("Flags",
                     $frm->text_box("metoo_flags",
-                                   $flags_txt)
+                                   $flags_txt,
+                                   50)
                 );
 $frm->addhelp($row, "Flags", "List of flags, separated by commas.  For a group of exclusive flags, separate them by pipes.  For instance: Interesting,Informative,Off-Topic,Agree|Disagree,Good|Evil");
 
