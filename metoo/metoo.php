@@ -15,6 +15,8 @@ function phorum_mod_metoo_default_flags() {
 function phorum_mod_metoo_common($data) {
     global $PHORUM;
 
+    if(phorum_page == 'metoo_ajax') return;
+
     if(empty($PHORUM["mod_metoo"]["mod_metoo_installed"])) {
         $field = phorum_api_custom_profile_field_byname("mod_metoo");
         if(!empty($field['deleted'])) {
@@ -33,12 +35,14 @@ function phorum_mod_metoo_common($data) {
             'html_disabled' => 0
         ));
 
-        phorum_db_update_settings(array(
-            'mod_metoo' => array(
-                                 'mod_metoo_installed' => 1,
-                                 'flags' => phorum_mod_metoo_default_flags()
-                           )
-        ));
+        $config = array();
+        if(isset($PHORUM["mod_metoo"])) {
+            $config = $PHORUM["mod_metoo"];
+        }
+        if(!isset($config["flags"])) {
+            $config["flags"] = phorum_mod_metoo_default_flags();
+        }
+        phorum_db_update_settings(array("mod_metoo" => $config));
     }
 }
 

@@ -3,21 +3,21 @@
 if(!defined("PHORUM_ADMIN")) return;
 
 require_once("./mods/metoo/metoo.php");
+global $PHORUM;
 
 if(count($_POST)) {
+    $mod_metoo = $PHORUM["mod_metoo"];
+    
     $flags_tmp = explode(",", $_POST["metoo_flags"]);
     $flags = array();
     foreach($flags_tmp as $flag_group) {
         $flag_group_elements = explode("|", $flag_group);
         $flags[] = $flag_group_elements;
     }
-    
-    $PHORUM["mod_metoo"] = array(
-        "flags" => $flags
-    );
 
+    $mod_metoo["flags"] = $flags;
     if(!phorum_db_update_settings(array(
-        "mod_metoo" => $PHORUM["mod_metoo"]
+        "mod_metoo" => $mod_metoo
     ))) {
         phorum_admin_error("Updating the settings in the database failed.");
     } else {

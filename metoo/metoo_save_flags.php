@@ -3,6 +3,7 @@
 header("Content-type: text/plan");
 chdir("../..");
 include_once("./common.php");
+define('phorum_page', 'metoo_ajax');
 include_once("./mods/metoo/metoo.php");
 
 $message_id = $_POST["messageID"];
