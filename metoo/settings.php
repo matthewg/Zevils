@@ -2,6 +2,8 @@
 
 if(!defined("PHORUM_ADMIN")) return;
 
+require_once("./mods/metoo/metoo.php");
+
 if(count($_POST)) {
     $flags_tmp = explode(",", $_POST["metoo_flags"]);
     $flags = array();
@@ -22,6 +24,18 @@ if(count($_POST)) {
         phorum_admin_okmsg("Settings updated");
     }
 }
+
+$flags = $METOO_DEFAULT_FLAGS;
+if(isset($PHORUM["mod_metoo"])) {
+    $flags = $PHORUM["mod_metoo"]["flags"];
+}
+
+$flag_groups = array();
+foreach($flags as $flag_group) {
+    $flag_groups[] = join("|", $flag_group);
+}
+$flags_txt = join(",", $flag_groups);
+
 ?>
 
 <div style="font-size: xx-large; font-weight: bold">MeToo Module</div>
@@ -36,7 +50,8 @@ $frm->hidden("module", "modsettings");
 $frm->hidden("mod", "metoo");
 
 $row = $frm->addrow("Flags",
-                    $frm->text_box("metoo_flags", "")
+                    $frm->text_box("metoo_flags",
+                                   $flags_txt)
                 );
 $frm->addhelp($row, "Flags", "List of flags, separated by commas.  For a group of exclusive flags, separate them by pipes.  For instance: Interesting,Informative,Off-Topic,Agree|Disagree,Good|Evil");
 

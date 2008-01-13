@@ -2,10 +2,49 @@
 
 if(!defined("PHORUM")) return;
 
-//{HOOK tpl_display_metoo_flags MESSAGE}
+require_once("./include/api/custom_profile_fields.php");
+
+$METOO_DEFAULT_FLAGS = array(array("Interesting"),
+                             array("Informative"),
+                             array("Entertaining"),
+                             array("Agree", "Disagree"),
+                             array("Good", "Evil"));
+
+
+function phorum_mod_metoo_common($data) {
+    global $PHORUM;
+
+    if(empty($PHORUM["mod_metoo"]["mod_metoo_installed"])) {
+        $field = phorum_api_custom_profile_field_byname("mod_metoo");
+        if(!empty($field['deleted'])) {
+            phorum_api_custom_profile_field_restore($field['id']);
+            $id = $field['id'];
+        } elseif(!empty($field)) {
+            $id = $field['id'];
+        } else {
+            $id = NULL;
+        }
+
+        phorum_api_custom_profile_field_configure(array(
+            'id' => $id,
+            'name' => 'mod_metoo',
+            'length' => 65000,
+            'html_disabled' => 0
+        ));
+
+        phorum_db_update_settings(array(
+            'mod_metoo' => array(
+                                 'mod_metoo_installed' => 1,
+                                 'flags' => $METOO_DEFAULT_FLAGS
+                           )
+        ));
+    }
+}
+
+//{HOOK tpl_mod_metoo_display_flags MESSAGES}
 function phorum_mod_metoo_display_flags($data) {
     global $PHORUM;
-    
+
     if(!isset($PHORUM["mod_metoo"]) || !is_array($PHORUM["mod_metoo"])) {
         return $data;
     }
@@ -15,7 +54,7 @@ function phorum_mod_metoo_display_flags($data) {
         return $data;;
     }
 
-    $message = $data[0];
+    $message = $data;
     $message_id = $message["message_id"];
     $message_flags = array();
     if(isset($message["mod_metoo"])) {
@@ -28,29 +67,32 @@ function phorum_mod_metoo_display_flags($data) {
         $user_message_flags = $user["mod_metoo"][$message_id];
     }
 
-    echo('<div class="metoo_flags" id="metoo_post_flags_' . $message_id . '>');
+    echo('<div class="metoo_flags" metoo_message_id="' . $message_id . '">' . "\n");
+    
     foreach($flags as $flag_group) {
-        echo('<div class="metoo_flag_group">');
+        echo("\t" . '<span class="metoo_flag_group">' . "\n");
         foreach($flag_group as $flag) {
             $flag_value = 0;
             if(isset($message_flags[$flag])) {
                 $flag_value = $message_flags[$flag];
             }
-            
-            if($user_message_flags[$flag]) {
-                echo('<div class="metoo_flag metoo_flag_selected">');
-            } else {
-                echo('<div class="metoo_flag metoo_flag_unselected">');
-            }
 
-            echo('<div class="metoo_flag_name">' . $flag . '</div>');
-            echo(' <div class="metoo_flag_value">(' . $flag_value . ')</div>');
+            echo("\t\t");
+            if($user_message_flags[$flag]) {
+                echo('<span class="metoo_flag metoo_flag_selected">');
+            } else {
+                echo('<span class="metoo_flag metoo_flag_unselected">');
+            }
+            echo("\n");
+
+            echo('<span class="metoo_flag_name">' . $flag . '</span>');
+            echo(' (<span class="metoo_flag_value">' . $flag_value . '</span>)');
             
-            echo('</div>');
+            echo("\n\t\t" . '</span>' . "\n");
         }
-        echo('</div>');
+        echo("\t" . '</span>' . "\n");
     }
-    echo('</div>');
+    echo('</div>' . "\n");
 }
 
 function phorum_mod_metoo_javascript_register($data) {
@@ -61,7 +103,7 @@ function phorum_mod_metoo_javascript_register($data) {
 
     $data[] = array(
         "module" => "metoo",
-        "source" => "file(mods/metoo/metoo_activate_flags.js)"
+        "source" => "file(mods/metoo/metoo_activate_flags.php)"
     );
 
     return $data;
@@ -109,14 +151,19 @@ function phorum_mod_metoo_set_flags($data) {
         }
     }
     $user_data[$message_id] = $user_message_data;
-    
-    $userdata = array(
+
+    $user["mod_metoo"] = $user_data;
+    phorum_api_user_save(array(
         "user_id" => $user_id,
         "mod_metoo" => $user_data
-    );
-    phorum_api_user_save($userdata);
+    ));
     
     phorum_db_update_message($message_id, array("meta" => $meta));
+
+    echo("userdata:\n");
+    print_r($userdata);
+    echo("messagedata:\n");
+    print_r($meta);
 }
 
 ?>

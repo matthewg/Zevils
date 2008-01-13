@@ -7,6 +7,6 @@ version: 0.1
 release_date: Feb 1st, 2008
 category: user_features
 
-hook: read|phorum_mod_metoo_read
-hook: tpl_display_metoo_flags|phorum_mod_metoo_display_flags
+hook: common|phorum_mod_metoo_common
+hook: tpl_mod_metoo_display_flags|phorum_mod_metoo_display_flags
 hook: javascript_register|phorum_mod_metoo_javascript_register

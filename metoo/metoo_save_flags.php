@@ -1,6 +1,7 @@
 <?php
 
 header("Content-type: text/plan");
+chdir("../..");
 include_once("./common.php");
 include_once("./mods/metoo/metoo.php");
 
