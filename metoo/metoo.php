@@ -102,7 +102,7 @@ function phorum_mod_metoo_display_flags($data) {
 
 function phorum_mod_metoo_javascript_register($data) {
     global $PHORUM;
-    if(!$PHORUM["user"]["user_id"]) return;    
+    if(!$PHORUM["user"]["user_id"]) return $data;
 
     $data[] = array(
         "module" => "metoo",
