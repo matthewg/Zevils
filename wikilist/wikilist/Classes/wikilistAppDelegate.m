@@ -6,17 +6,30 @@
 //  Copyright __MyCompanyName__ 2008. All rights reserved.
 //
 
+//TODO:
+//	Name pages
+//  Reorder pages
+//  Delete pages
+//	Implement sync
+//	Implement preferences
+//	Branding stuff (icons, app name, etc.)
+
 #import "wikilistAppDelegate.h"
 #import "FileListController.h"
 #import "PageController.h"
+#import "NewPageController.h"
+
+static wikilistAppDelegate *SharedAppController = nil;
 
 @implementation wikilistAppDelegate
 
 @synthesize window;
 
++ (wikilistAppDelegate *)sharedController { return SharedAppController; }
 
 - init {
 	if (self = [super init]) {
+		SharedAppController = self;
 	}
 	return self;
 }
@@ -62,7 +75,7 @@
     [window makeKeyAndVisible];
 	[fileList reloadData];
 
-	NSString *loadPage = [fileList pageBeingViewed];
+	NSString *loadPage = [self pageLastViewed];
 	NSLog(@"Got default page: %@", loadPage);
 	if(![loadPage isEqualToString:@""]) {
 		[fileList loadPage:loadPage];
@@ -74,6 +87,9 @@
     [window release];
     [super dealloc];
 }
+
+- (NSString *)pageLastViewed { return [[NSUserDefaults standardUserDefaults] objectForKey:@"Page"]; }
+- (void)setPageLastViewed:(NSString *)page { [[NSUserDefaults standardUserDefaults] setObject:page forKey:@"Page"]; }
 
 - (void)clickedButton:(id)sender {
 	UISegmentedControl *buttons = sender;
@@ -87,11 +103,28 @@
 			break;
 		case 2:
 			//Add
-			[fileList addNewPage];
-			[self _loadPage:[fileList lastPage]];
+			[self addNewPage];
 			
 			break;
 	}
+}
+
+- (BOOL)pageExists:(NSString *)pageName { return [fileList pageExists:pageName]; }
+
+- (void)addNewPage {
+	NewPageController *npc = [[NewPageController alloc] init];
+	[navController pushViewController:npc animated:YES];
+	[npc release];
+}
+
+- (void)cancelNewPage:(id)sender {
+	[navController popViewControllerAnimated:YES];
+}
+
+- (void)createPage:(NSString *)pageName asToDoList:(BOOL)isToDoList {
+	[navController popViewControllerAnimated:YES];
+	[fileList addPageNamed:pageName asToDoList:isToDoList];
+	[fileList loadPage:pageName];
 }
 
 @end

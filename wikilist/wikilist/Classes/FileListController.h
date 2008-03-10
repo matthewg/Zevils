@@ -9,17 +9,18 @@
 #import <UIKit/UIKit.h>
 
 @class PageController;
+@class wikilistAppDelegate;
 @interface FileListController : UIViewController <UITableViewDelegate, UITableViewDataSource> {
-	NSMutableArray *paths;
+	NSMutableArray *pages;
+	NSMutableDictionary *pageProperties;
+	NSMutableDictionary *pagesAndProperties;
 	UITableView *tableView;
 }
 
-- (void)addNewPage;
-- (NSString *)lastPage;
-- (NSString *)selectedPage;
+- (void)addPageNamed:(NSString *)name asToDoList:(BOOL)isToDoList;
 - (void)reloadData;
 - (PageController *)pageControllerForPage:(NSString *)page;
-- (NSString *)pageBeingViewed;
 - (void)loadPage:(NSString *)page;
+- (BOOL)pageExists:(NSString *)page;
 
 @end

@@ -17,4 +17,12 @@
 
 @property (nonatomic, retain) UIWindow *window;
 
++ (wikilistAppDelegate *)sharedController;
+- (void)addNewPage;
+- (void)cancelNewPage:(id)sender;
+- (void)createPage:(NSString *)pageName asToDoList:(BOOL)isToDoList;
+- (BOOL)pageExists:(NSString *)pageName;
+- (NSString *)pageLastViewed;
+- (void)setPageLastViewed:(NSString *)page;
+
 @end

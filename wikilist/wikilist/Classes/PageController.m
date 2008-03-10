@@ -7,7 +7,7 @@
 //
 
 #import "PageController.h"
-
+#import "wikilistAppDelegate.h"
 
 @implementation PageController
 
@@ -56,7 +56,7 @@
 - (void)dealloc
 {
 	[self _save];
-	[[NSUserDefaults standardUserDefaults] setObject:@"" forKey:@"Page"];
+	[[wikilistAppDelegate sharedController] setPageLastViewed:@""];
 	[name release];
 	[directory release];
 	[fileName release];

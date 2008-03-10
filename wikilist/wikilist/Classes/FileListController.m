@@ -8,6 +8,7 @@
 
 #import "FileListController.h"
 #import "PageController.h"
+#import "wikilistAppDelegate.h"
 
 @implementation FileListController
 
@@ -16,17 +17,64 @@
 				stringByAppendingPathComponent:@"wikilist"];
 }
 
+- (NSString *)_getPListFile {
+	return [[self _getNoteDir] stringByAppendingPathComponent:@"pages.plist"];
+}
+
+- (void)_savePList {
+	NSData *data = [NSPropertyListSerialization
+		dataFromPropertyList:pagesAndProperties 
+		format:NSPropertyListBinaryFormat_v1_0
+		errorDescription:nil];
+	[data writeToFile:[self _getPListFile] atomically:YES];
+}
+
 - (void)_getNotes {
-	[paths release];
+	pages = nil;
+	pageProperties = nil;
+	[pagesAndProperties release];
+	pagesAndProperties = nil;
+	
 	NSString *dir = [self _getNoteDir];
-	paths = [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil] mutableCopy];
-	if(!paths) {
+	if(![[NSFileManager defaultManager] fileExistsAtPath:dir])
 		[[NSFileManager defaultManager]
 			createDirectoryAtPath:dir
 			withIntermediateDirectories:YES
 			attributes:nil
 			error:nil];
-		paths = [[NSMutableArray alloc] init];
+			
+	NSData *savedData = [[NSData alloc] initWithContentsOfFile:[self _getPListFile]];
+	if(savedData) {
+		pagesAndProperties = [NSPropertyListSerialization
+			propertyListFromData:savedData
+			mutabilityOption:YES
+			format:nil
+			errorDescription:nil];
+		[savedData release];
+		if(pagesAndProperties) {
+			[pagesAndProperties retain];
+
+			pageProperties = [pagesAndProperties objectForKey:@"PageProperties"];
+			if(!pageProperties) {
+				pageProperties = [[NSMutableDictionary alloc] init];
+				[pagesAndProperties setObject:pageProperties forKey:@"PageProperties"];
+				[pageProperties release];
+			}
+			
+			pages = [pagesAndProperties objectForKey:@"Pages"];
+			if(!pages) {
+				pages = [[NSMutableArray alloc] init];
+				[pagesAndProperties setObject:pages forKey:@"Pages"];
+				[pages release];
+			}
+		}
+	}
+	if(!pagesAndProperties) {
+		pages = [[NSMutableArray alloc] init];
+		pageProperties = [[NSMutableDictionary alloc] init];
+		pagesAndProperties = [[NSMutableDictionary alloc] initWithObjectsAndKeys:pages, @"Pages", pageProperties, @"PageProperties", nil];
+		[pageProperties release];
+		[pages release];
 	}
 }
 
@@ -61,40 +109,39 @@
 - (void)didReceiveMemoryWarning
 {
 	[super didReceiveMemoryWarning]; // Releases the view if it doesn't have a superview.
-	// Release anything that's not essential, such as cached data.
-	[paths release];
-	paths = nil;
+	[pagesAndProperties release];
+	pages = nil;
+	pageProperties = nil;
+	pagesAndProperties = nil;
 }
 
 - (void)dealloc
 {
-	[paths release];
+	[pagesAndProperties release];
 	[super dealloc];
 }
 
-- (void)addNewPage {
-	NSString *name = @"Untitled Page";
-	int suffix = 0;
-	while([paths containsObject:name]) {
-		name = [NSString stringWithFormat:@"Untitled Page %d", ++suffix];
-	}
-	
-	[paths addObject:name];
+- (BOOL)pageExists:(NSString *)page {
+	return [pageProperties objectForKey:page] ? YES : NO;
+}
+
+- (void)addPageNamed:(NSString *)name asToDoList:(BOOL)isToDoList {
+	[pages addObject:name];
+	[pageProperties setObject:[NSDictionary dictionaryWithObject:(isToDoList ? @"YES" : @"NO") forKey:@"ToDo"] forKey:name];
+
 	[@"" writeToFile:[[self _getNoteDir] stringByAppendingPathComponent:name] atomically:NO];
+	[self _savePList];
 	[tableView reloadData];
 }
-- (NSString *)lastPage { return [paths lastObject]; }
-- (NSString *)selectedPage { return [paths objectAtIndex:0]; }
 - (void)reloadData { [tableView reloadData]; }
 - (PageController *)pageControllerForPage:(NSString *)page {
-	if(![paths containsObject:page]) return nil;
+	if(![self pageExists:page]) return nil;
 	return [[[PageController alloc] initWithName:page directory:[self _getNoteDir]] autorelease];
 }
-- (NSString *)pageBeingViewed { return [[NSUserDefaults standardUserDefaults] objectForKey:@"Page"]; }
 - (void)loadPage:(NSString *)page {
 	PageController *pageController = [self pageControllerForPage:page];
 	if(pageController) {
-		[[NSUserDefaults standardUserDefaults] setObject:page forKey:@"Page"];
+		[[wikilistAppDelegate sharedController] setPageLastViewed:page];
 		[[self navigationController] pushViewController:pageController animated:YES];
 	}
 }
@@ -106,8 +153,8 @@
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-	if(!paths) [self _getNotes];
-	return [paths count];
+	if(!pages) [self _getNotes];
+	return [pages count];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath withAvailableCell:(UITableViewCell *)availableCell {
@@ -119,13 +166,18 @@
 		CGRect frame = CGRectMake(0, 0, 300, 44);
 		cell = [[[UISimpleTableViewCell alloc] initWithFrame:frame] autorelease];
 	}
-	if(!paths) [self _getNotes];
-	cell.text = [paths objectAtIndex:[indexPath row]];
+	if(!pages) [self _getNotes];
+	cell.text = [pages objectAtIndex:[indexPath row]];
 	return cell;
 }
 
-- (void)tableView:(UITableView *)tableView selectionDidChangeToIndexPath:(NSIndexPath *)newIndexPath fromIndexPath:(NSIndexPath *)oldIndexPath {
-	[self loadPage:[paths objectAtIndex:newIndexPath.row]];
+- (void)tableView:(UITableView *)theTableView selectionDidChangeToIndexPath:(NSIndexPath *)newIndexPath fromIndexPath:(NSIndexPath *)oldIndexPath {
+	[tableView selectRowAtIndexPath:[NSIndexPath indexPathWithIndex:-1] animated:NO scrollPosition:UITableViewScrollPositionNone];
+	[self loadPage:[pages objectAtIndex:newIndexPath.row]];
+}
+
+- (UITableViewCellAccessoryType)tableView:(UITableView *)tableView accessoryTypeForRowWithIndexPath:(NSIndexPath *)indexPath {
+	return UITableViewCellAccessoryDisclosureIndicator;
 }
 
 @end

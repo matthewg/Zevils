@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		0422F4ED0D8386B4000BE269 /* FileListController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0422F4EC0D8386B4000BE269 /* FileListController.m */; };
 		0422F61A0D83B2FD000BE269 /* PageController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0422F6190D83B2FD000BE269 /* PageController.m */; };
+		0422F7510D844290000BE269 /* NewPageController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0422F7500D844290000BE269 /* NewPageController.m */; };
+		0422F8620D846804000BE269 /* NewPageNameCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 0422F8610D846804000BE269 /* NewPageNameCell.m */; };
+		0422F86A0D846ADF000BE269 /* NewPageTypeCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 0422F8690D846ADF000BE269 /* NewPageTypeCell.m */; };
 		1D3623260D0F684500981E51 /* wikilistAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D3623250D0F684500981E51 /* wikilistAppDelegate.m */; };
 		1D3623EC0D0F72F000981E51 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D3623EB0D0F72F000981E51 /* CoreGraphics.framework */; };
 		1D60589B0D05DD56006BFB54 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; };
@@ -21,6 +24,12 @@
 		0422F4EC0D8386B4000BE269 /* FileListController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FileListController.m; sourceTree = "<group>"; };
 		0422F6180D83B2FD000BE269 /* PageController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PageController.h; sourceTree = "<group>"; };
 		0422F6190D83B2FD000BE269 /* PageController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PageController.m; sourceTree = "<group>"; };
+		0422F74F0D844290000BE269 /* NewPageController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NewPageController.h; sourceTree = "<group>"; };
+		0422F7500D844290000BE269 /* NewPageController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NewPageController.m; sourceTree = "<group>"; };
+		0422F8600D846804000BE269 /* NewPageNameCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NewPageNameCell.h; sourceTree = "<group>"; };
+		0422F8610D846804000BE269 /* NewPageNameCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NewPageNameCell.m; sourceTree = "<group>"; };
+		0422F8680D846ADF000BE269 /* NewPageTypeCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NewPageTypeCell.h; sourceTree = "<group>"; };
+		0422F8690D846ADF000BE269 /* NewPageTypeCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NewPageTypeCell.m; sourceTree = "<group>"; };
 		1D30AB110D05D00D00671497 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		1D3623240D0F684500981E51 /* wikilistAppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = wikilistAppDelegate.h; sourceTree = "<group>"; };
 		1D3623250D0F684500981E51 /* wikilistAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = wikilistAppDelegate.m; sourceTree = "<group>"; };
@@ -49,12 +58,18 @@
 		080E96DDFE201D6D7F000001 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
+				0422F8600D846804000BE269 /* NewPageNameCell.h */,
+				0422F8610D846804000BE269 /* NewPageNameCell.m */,
+				0422F74F0D844290000BE269 /* NewPageController.h */,
+				0422F7500D844290000BE269 /* NewPageController.m */,
 				0422F4EB0D8386B4000BE269 /* FileListController.h */,
 				0422F4EC0D8386B4000BE269 /* FileListController.m */,
 				1D3623240D0F684500981E51 /* wikilistAppDelegate.h */,
 				1D3623250D0F684500981E51 /* wikilistAppDelegate.m */,
 				0422F6180D83B2FD000BE269 /* PageController.h */,
 				0422F6190D83B2FD000BE269 /* PageController.m */,
+				0422F8680D846ADF000BE269 /* NewPageTypeCell.h */,
+				0422F8690D846ADF000BE269 /* NewPageTypeCell.m */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -178,6 +193,9 @@
 				1D3623260D0F684500981E51 /* wikilistAppDelegate.m in Sources */,
 				0422F4ED0D8386B4000BE269 /* FileListController.m in Sources */,
 				0422F61A0D83B2FD000BE269 /* PageController.m in Sources */,
+				0422F7510D844290000BE269 /* NewPageController.m in Sources */,
+				0422F8620D846804000BE269 /* NewPageNameCell.m in Sources */,
+				0422F86A0D846ADF000BE269 /* NewPageTypeCell.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
