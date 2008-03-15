@@ -17,7 +17,7 @@
 #import "wikilistAppDelegate.h"
 #import "FileListController.h"
 #import "PageController.h"
-#import "NewPageController.h"
+#import "NewPageNavController.h"
 
 static wikilistAppDelegate *SharedAppController = nil;
 
@@ -55,15 +55,8 @@ static wikilistAppDelegate *SharedAppController = nil;
 	
 	fileList = [[FileListController alloc] init];
 	navController = [[UINavigationController alloc] initWithRootViewController:fileList];
+	[fileList release];
 	
-	UISegmentedControl *buttons = [[UISegmentedControl alloc]
-		initWithItems:[NSArray arrayWithObjects:@"*", @"@", @"+", nil]];
-	buttons.segmentedControlStyle = UISegmentedControlStyleBar;
-	buttons.momentary = YES;
-	[buttons addTarget:self action:@selector(clickedButton:) forControlEvents:UIControlEventValueChanged];
-
-	navController.topViewController.navigationItem.customRightView = buttons;
-
 	//CGSize imageSize = CGSizeMake(100, 46);
 	//fileListController.toolbarItem.image = ...;
 	//[viewControllers addObject:fileList];
@@ -112,17 +105,17 @@ static wikilistAppDelegate *SharedAppController = nil;
 - (BOOL)pageExists:(NSString *)pageName { return [fileList pageExists:pageName]; }
 
 - (void)addNewPage {
-	NewPageController *npc = [[NewPageController alloc] init];
-	[navController pushViewController:npc animated:YES];
-	[npc release];
+	NewPageNavController *npNav = [[NewPageNavController alloc] init];
+	[navController presentModalViewController:npNav animated:YES];
+	[npNav release];
 }
 
 - (void)cancelNewPage:(id)sender {
-	[navController popViewControllerAnimated:YES];
+	[navController dismissModalViewControllerAnimated:YES];
 }
 
 - (void)createPage:(NSString *)pageName asToDoList:(BOOL)isToDoList {
-	[navController popViewControllerAnimated:YES];
+	[navController dismissModalViewControllerAnimated:YES];
 	[fileList addPageNamed:pageName asToDoList:isToDoList];
 	[fileList loadPage:pageName];
 }

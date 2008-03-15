@@ -36,7 +36,7 @@
 	view.dataSource = self;
 	self.view = view;
 	[view release];
-	
+
 	UIButton *cancelButton = [UIButton buttonWithType:UIButtonTypeNavigation];
 	[cancelButton setTitle:@"Cancel" forStates:UIControlStateNormal];
 	self.navigationItem.customLeftView = cancelButton;

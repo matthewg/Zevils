@@ -97,6 +97,17 @@
 	tableView.autoresizingMask = UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth;
 	self.view = tableView;
 	[tableView release];
+	
+	UISegmentedControl *buttons = [[UISegmentedControl alloc]
+		initWithItems:[NSArray arrayWithObjects:@"*", @"@", @"+", nil]];
+	buttons.segmentedControlStyle = UISegmentedControlStyleBar;
+	buttons.momentary = YES;
+	[buttons
+		addTarget:[wikilistAppDelegate sharedController]
+		action:@selector(clickedButton:)
+		forControlEvents:UIControlEventValueChanged];
+
+	self.navigationItem.customRightView = buttons;
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
@@ -142,6 +153,7 @@
 	PageController *pageController = [self pageControllerForPage:page];
 	if(pageController) {
 		[[wikilistAppDelegate sharedController] setPageLastViewed:page];
+		[[self navigationController] popToRootViewControllerAnimated:YES];
 		[[self navigationController] pushViewController:pageController animated:YES];
 	}
 }

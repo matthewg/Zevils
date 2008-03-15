@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 
 @class FileListController;
-@interface wikilistAppDelegate : NSObject  <UIApplicationDelegate, UINavigationBarDelegate, UIModalViewDelegate> {
+@interface wikilistAppDelegate : NSObject  <UIApplicationDelegate, UINavigationBarDelegate> {
     UIWindow *window;
     FileListController *fileList;
 	UINavigationController *navController;
