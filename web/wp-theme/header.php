@@ -25,9 +25,13 @@
   <link rel="stylesheet" href="<?php bloginfo('stylesheet_url'); ?>" type="text/css" media="screen" />
   <link rel="alternate" type="application/rss+xml" title="<?php bloginfo('name'); ?> RSS Feed" href="<?php bloginfo('rss2_url'); ?>" />
   <link rel="pingback" href="<?php bloginfo('pingback_url'); ?>" />
-
-	<script src="<?php bloginfo('template_directory')?>/js/zevish.php" type="text/javascript"></script>
+  <link rel="openid.server" href="http://zevils.com/openid/" />
+  <link rel="openid.delegate" href="http://zevils.com/openid/" />
+  <link rel="pavatar" href="http://zevils.com/pavatar.jpg" />
 <?php wp_head(); ?>
+
+  <script src="<?php bloginfo('template_directory')?>/js/zevish.js" type="text/javascript"></script>
+  <script src="/mint/?js" type="text/javascript"></script>
 </head>
 <body>
 <div id="page">
