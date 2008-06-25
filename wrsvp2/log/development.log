@@ -1221,3 +1221,33 @@ DEPRECATION WARNING: paginate is deprecated and will be removed from Rails 2.0 (
 Rendering  within layouts/meals
 Rendering meals/list
 Completed in 0.07334 (13 reqs/sec) | Rendering: 0.00471 (6%) | DB: 0.00037 (0%) | 200 OK [http://localhost/meals/list]
+
+
+Processing PeopleController#index (for 127.0.0.1 at 2008-06-24 23:49:15) [GET]
+  Session ID: eafde75c0f5fc3edc2e4924df01710f7
+  Parameters: {"action"=>"index", "controller"=>"people"}
+DEPRECATION WARNING: paginate is deprecated and will be removed from Rails 2.0 (Pagination is moving to a plugin in Rails 2.0: script/plugin install svn://errtheblog.com/svn/plugins/classic_pagination)  See http://www.rubyonrails.org/deprecation for details. (called from list at /Volumes/SandBox/msachs/svn/wrsvp2/app/controllers/people_controller.rb:12)
+  [4;36;1mSQL (0.000234)[0m   [0;1mSELECT count(*) AS count_all FROM people [0m
+  [4;35;1mPerson Load (0.000167)[0m   [0mSELECT * FROM people LIMIT 10 OFFSET 0[0m
+Rendering actionlistlayoutfalse within layouts/people
+Rendering people/list
+Completed in 0.01841 (54 reqs/sec) | Rendering: 0.00528 (28%) | DB: 0.00040 (2%) | 200 OK [http://localhost/people]
+
+
+Processing PeopleController#new (for 127.0.0.1 at 2008-06-24 23:49:16) [GET]
+  Session ID: eafde75c0f5fc3edc2e4924df01710f7
+  Parameters: {"action"=>"new", "controller"=>"people"}
+Rendering  within layouts/people
+Rendering people/new
+Rendered people/_form (0.00090)
+Completed in 0.01187 (84 reqs/sec) | Rendering: 0.00386 (32%) | DB: 0.00000 (0%) | 200 OK [http://localhost/people/new]
+
+
+Processing PeopleController#new (for 127.0.0.1 at 2008-06-25 00:13:46) [GET]
+  Session ID: eafde75c0f5fc3edc2e4924df01710f7
+  Parameters: {"action"=>"new", "controller"=>"people"}
+Rendering  within layouts/people
+Rendering people/new
+  [4;36;1mMeal Load (0.000289)[0m   [0;1mSELECT * FROM meals [0m
+Rendered people/_form (0.06478)
+Completed in 0.20946 (4 reqs/sec) | Rendering: 0.08880 (42%) | DB: 0.00029 (0%) | 200 OK [http://localhost/people/new]

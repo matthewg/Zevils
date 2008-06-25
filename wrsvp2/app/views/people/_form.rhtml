@@ -6,5 +6,14 @@
 
 <p><label for="person_attending">Attending</label><br/>
 <select id="person_attending" name="person[attending]"><option value="false" selected>False</option><option value="true">True</option></select></p>
+
+<p><label for="person_meal">Meal</label><br/>
+<%= select("person",
+           "meal_id",
+           Meal.find(:all).collect do |meal|
+             [meal.name, meal.id]
+           end) %>
+</p>
+             
 <!--[eoform:person]-->
 
