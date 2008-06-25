@@ -1,0 +1,27 @@
+<h1>Listing meals</h1>
+
+<table>
+  <tr>
+  <% for column in Meal.content_columns %>
+    <th><%= column.human_name %></th>
+  <% end %>
+  </tr>
+  
+<% for meal in @meals %>
+  <tr>
+  <% for column in Meal.content_columns %>
+    <td><%=h meal.send(column.name) %></td>
+  <% end %>
+    <td><%= link_to 'Show', :action => 'show', :id => meal %></td>
+    <td><%= link_to 'Edit', :action => 'edit', :id => meal %></td>
+    <td><%= link_to 'Destroy', { :action => 'destroy', :id => meal }, :confirm => 'Are you sure?', :method => :post %></td>
+  </tr>
+<% end %>
+</table>
+
+<%= link_to 'Previous page', { :page => @meal_pages.current.previous } if @meal_pages.current.previous %>
+<%= link_to 'Next page', { :page => @meal_pages.current.next } if @meal_pages.current.next %> 
+
+<br />
+
+<%= link_to 'New meal', :action => 'new' %>

@@ -1,0 +1,10 @@
+<%= error_messages_for 'person' %>
+
+<!--[form:person]-->
+<p><label for="person_name">Name</label><br/>
+<%= text_field 'person', 'name'  %></p>
+
+<p><label for="person_attending">Attending</label><br/>
+<select id="person_attending" name="person[attending]"><option value="false" selected>False</option><option value="true">True</option></select></p>
+<!--[eoform:person]-->
+
