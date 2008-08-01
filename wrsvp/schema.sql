@@ -5,10 +5,9 @@ CREATE TABLE meals (
 
 CREATE TABLE groups (
        group_id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
-       login VARCHAR(255) NOT NULL UNIQUE,
-       password VARCHAR(255) NOT NULL,
-       address varchar(4000) NOT NULL
+       street_name varchar(4000) NOT NULL
 );
+CREATE INDEX idx_street_name ON groups (street_name);
 
 CREATE TABLE people (
        person_id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
