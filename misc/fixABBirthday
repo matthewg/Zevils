@@ -1,0 +1,46 @@
+#!/usr/bin/python
+"""
+Fix negative birthday years in Address Book.
+This work is hereby released into the Public Domain.
+"""
+import AddressBook
+import AppKit
+ 
+def personName(person):
+    return "%s %s" % (
+        person.valueForProperty_(AddressBook.kABFirstNameProperty),
+        person.valueForProperty_(AddressBook.kABLastNameProperty)
+        )
+ 
+def formatDate(date):
+    return date.descriptionWithCalendarFormat_("%Y-%m-%d")
+ 
+def fixBirthday(birthday):
+    year = int(birthday.descriptionWithCalendarFormat_("%Y"))
+    if year < 0:
+        return birthday.dateByAddingYears_months_days_hours_minutes_seconds_(
+            -year * 2, 0, 0, 0, 0, 0)
+    else:
+        return None
+ 
+def fixPersonBirthday(person):
+    birthdayProp = AddressBook.kABBirthdayProperty
+ 
+    birthday = person.valueForProperty_(birthdayProp)
+    if birthday == None: return
+ 
+    fixedBirthday = fixBirthday(birthday)
+    if fixedBirthday != None:
+        print "Fixing up %s: %s -> %s" % (
+            personName(person),
+            formatDate(birthday),
+            formatDate(fixedBirthday)
+            )        
+        person.setValue_forProperty_(fixedBirthday, birthdayProp) 
+ 
+book = AddressBook.ABAddressBook.sharedAddressBook()
+ 
+for person in book.people():
+    fixPersonBirthday(person)
+ 
+book.save()
