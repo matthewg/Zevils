@@ -1,0 +1,31 @@
+Index: includes/specials/SpecialRecentchanges.php
+===================================================================
+--- includes/specials/SpecialRecentchanges.php	(revision 49022)
++++ includes/specials/SpecialRecentchanges.php	(working copy)
+@@ -118,8 +118,6 @@
+ 		} else {
+ 			$this->webOutput( $rows, $opts );
+ 		}
+-
+-		$rows->free();
+ 	}
+ 
+ 	/**
+@@ -311,7 +309,16 @@
+ 			$res = $dbr->query( $sql, __METHOD__ );
+ 		}
+ 
+-		return $res;
++                $outRows = array();
++                foreach($res as $row) {
++                    $title = Title::newFromText($row->rc_title, $row->rc_namespace);
++                    if($title->userCanRead()) {
++                        $outRows[] = $row;
++                    }
++                }
++
++                $res->free();
++		return $outRows;
+ 	}
+ 
+ 	/**
