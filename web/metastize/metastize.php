@@ -25,7 +25,7 @@ function metastize_widget($args) {
 		$class = 'page_item';
 	}
 	printf('<li class="%s">', $class);
-	echo '<a href="" id="flexo-archives-header">Archives</a> <ul id="flexo-archives">';
+	echo '<ul id="flexo-archives">';
 	flexo_widget_archives(array());
 	echo '</ul></li>';
 	
