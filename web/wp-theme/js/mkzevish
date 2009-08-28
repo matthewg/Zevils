@@ -1,6 +1,6 @@
 #!/bin/sh
 cat jquery.js \
     jquery.form.js \
-    ../../../plugins/flexo-archives-widget/flexo.js \
+    /Volumes/SandBox/wordpress/wp-content/plugins/flexo-archives-widget/flexo.js \
     base.js \
 | jsmin > zevish.js
