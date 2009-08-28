@@ -9,13 +9,13 @@
 			<li><h2>Meta</h2>
                           <ul>
 			    <?php wp_list_pages('title_li='); ?>
-                            <li class="<?
+                            <li id="flexo-archives" class="<?
                                        if(is_day() || is_month() || is_year()) {
                                          echo('current_page_item');
                                        } else {
                                          echo('page_item');
                                        }
-                                     ?>">Archives <ul id="flexo-archives"><?php flexo_widget_archives(array()); ?></ul></li>
+                                     ?>"></li> <!-- Archives <ul id="flexo-archives"> flexo_widget_archives(array()); </ul></li> -->
 			    <?php wp_meta(); ?>
 			    <li><?php include (TEMPLATEPATH . '/searchform.php'); ?></li>
                           </ul>
