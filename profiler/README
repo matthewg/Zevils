@@ -9,4 +9,5 @@
                   # "/Special:UserLogin"
                   # "/wiki/Special:UserLogin"
                   # "/wiki/index.php?title=Special:UserLogin";
-
+4. Edit $INCLUDE_PATH in public_profiler/config.php to point to
+   the absolute path to root_profiler.
