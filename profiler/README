@@ -1,0 +1,12 @@
+1. Place mediawiki.php in root_profiler/engine/authentication/
+2. Apply profiler.diff
+3. Set the following in system.php:
+    $FORUM = "mediawiki";
+    $FORUM_ROOT = "/filesystem/path/to/your/mediawiki/install";
+                  # e.g. "/home/webdata/wiki/"
+    $FORUM_LOGIN = "/relative/URI/to/Special:UserLogin";
+                  # e.g.:
+                  # "/Special:UserLogin"
+                  # "/wiki/Special:UserLogin"
+                  # "/wiki/index.php?title=Special:UserLogin";
+
