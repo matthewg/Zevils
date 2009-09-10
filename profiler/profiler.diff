@@ -1,0 +1,403 @@
+diff -urN profiler-0.6/public_profiler/campaign_search.php rpgweb-profiler.bak/public_profiler/campaign_search.php
+--- profiler-0.6/public_profiler/campaign_search.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/campaign_search.php	2007-11-03 14:06:29.000000000 -0700
+@@ -7,6 +7,11 @@
+ include_once("$INCLUDE_PATH/engine/db.php");
+ include_once("$INCLUDE_PATH/engine/sid.class.php");
+ include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ include_once("$INCLUDE_PATH/error.php");
+ include_once("$INCLUDE_PATH/system.php");
+ 
+diff -urN profiler-0.6/public_profiler/campaigns.php rpgweb-profiler.bak/public_profiler/campaigns.php
+--- profiler-0.6/public_profiler/campaigns.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/campaigns.php	2007-11-03 14:06:29.000000000 -0700
+@@ -4,6 +4,11 @@
+   include_once("$INCLUDE_PATH/engine/db.php");
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // The session object that will be used through the script.
+   $sid = null;
+diff -urN profiler-0.6/public_profiler/changepwd.php rpgweb-profiler.bak/public_profiler/changepwd.php
+--- profiler-0.6/public_profiler/changepwd.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/changepwd.php	2007-11-03 14:06:29.000000000 -0700
+@@ -9,6 +9,11 @@
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/id.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/error.php");
+ 
+   global $rpgDB;
+diff -urN profiler-0.6/public_profiler/char.php rpgweb-profiler.bak/public_profiler/char.php
+--- profiler-0.6/public_profiler/char.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/char.php	2007-11-03 14:06:29.000000000 -0700
+@@ -12,6 +12,11 @@
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+   include_once("$INCLUDE_PATH/engine/campaign.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/serialization.php");
+ 
+   $sid = RespawnSession(__LINE__, __FILE__);
+diff -urN profiler-0.6/public_profiler/charimg.php rpgweb-profiler.bak/public_profiler/charimg.php
+--- profiler-0.6/public_profiler/charimg.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/charimg.php	2007-11-03 14:06:29.000000000 -0700
+@@ -11,6 +11,11 @@
+   include_once("$INCLUDE_PATH/engine/validation.php");
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/serialization.php");
+ 
+   $sid = RespawnSession(__LINE__, __FILE__);
+diff -urN profiler-0.6/public_profiler/config.php rpgweb-profiler.bak/public_profiler/config.php
+--- profiler-0.6/public_profiler/config.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/config.php	2007-11-03 14:06:29.000000000 -0700
+@@ -2,7 +2,7 @@
+   // config.php
+ 
+   // Define the include path where all external files are located.
+-  $INCLUDE_PATH = '../root_profiler';
++  $INCLUDE_PATH = '/home/mattsachs/rpgweb-profiler/root_profiler';
+ 
+   define ('INCLUDE_PATH',$INCLUDE_PATH);
+ ?>
+diff -urN profiler-0.6/public_profiler/cview.php rpgweb-profiler.bak/public_profiler/cview.php
+--- profiler-0.6/public_profiler/cview.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/cview.php	2007-11-03 14:06:29.000000000 -0700
+@@ -6,6 +6,11 @@
+   include_once("$INCLUDE_PATH/engine/db.php");
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // Check to see if we need to log the user in (check this before the
+   // session cookie, because a new login should always override an
+diff -urN profiler-0.6/public_profiler/del.php rpgweb-profiler.bak/public_profiler/del.php
+--- profiler-0.6/public_profiler/del.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/del.php	2007-11-03 14:06:30.000000000 -0700
+@@ -13,6 +13,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/sid.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/error.php");
+ 
+   global $rpgDB;
+diff -urN profiler-0.6/public_profiler/details.php rpgweb-profiler.bak/public_profiler/details.php
+--- profiler-0.6/public_profiler/details.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/details.php	2007-11-03 14:06:30.000000000 -0700
+@@ -7,6 +7,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/sid.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/validation.php");
+ 
+diff -urN profiler-0.6/public_profiler/edit_campaign.php rpgweb-profiler.bak/public_profiler/edit_campaign.php
+--- profiler-0.6/public_profiler/edit_campaign.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/edit_campaign.php	2007-11-03 14:06:30.000000000 -0700
+@@ -8,6 +8,11 @@
+   include_once("$INCLUDE_PATH/engine/campaign.class.php");
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/serialization.php");
+ 
+   // Try to respawn a session to keep the menu nav in context.
+diff -urN profiler-0.6/public_profiler/faq.php rpgweb-profiler.bak/public_profiler/faq.php
+--- profiler-0.6/public_profiler/faq.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/faq.php	2007-11-03 14:06:30.000000000 -0700
+@@ -4,6 +4,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // Try to respawn a session, only for the sake of the main nav bar
+   // showing the proper buttons.
+diff -urN profiler-0.6/public_profiler/index.php rpgweb-profiler.bak/public_profiler/index.php
+--- profiler-0.6/public_profiler/index.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/index.php	2007-11-03 14:06:30.000000000 -0700
+@@ -17,6 +17,11 @@
+   include_once("$INCLUDE_PATH/system.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/userstats.php");
+ 
+   global $URI_BASE, $URI_HOME, $LOGO;
+diff -urN profiler-0.6/public_profiler/legal.php rpgweb-profiler.bak/public_profiler/legal.php
+--- profiler-0.6/public_profiler/legal.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/legal.php	2007-11-03 14:06:30.000000000 -0700
+@@ -5,6 +5,12 @@
+   include_once("$INCLUDE_PATH/system.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
++
+ 
+   // Try to respawn a session, only for the sake of the main nav bar
+   // showing the proper buttons.
+diff -urN profiler-0.6/public_profiler/login.php rpgweb-profiler.bak/public_profiler/login.php
+--- profiler-0.6/public_profiler/login.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/login.php	2007-11-03 14:06:30.000000000 -0700
+@@ -17,6 +17,11 @@
+   include_once("$INCLUDE_PATH/system.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/userstats.php");
+ 
+   global $URI_BASE, $URI_HOME, $LOGO;
+diff -urN profiler-0.6/public_profiler/logout.php rpgweb-profiler.bak/public_profiler/logout.php
+--- profiler-0.6/public_profiler/logout.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/logout.php	2007-11-03 14:06:30.000000000 -0700
+@@ -6,6 +6,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // Clear the session cookie.
+   $sid = new SId();
+diff -urN profiler-0.6/public_profiler/new.php rpgweb-profiler.bak/public_profiler/new.php
+--- profiler-0.6/public_profiler/new.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/new.php	2007-11-03 14:06:30.000000000 -0700
+@@ -10,6 +10,11 @@
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/validation.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   global $rpgDB;
+ 
+diff -urN profiler-0.6/public_profiler/new_campaign.php rpgweb-profiler.bak/public_profiler/new_campaign.php
+--- profiler-0.6/public_profiler/new_campaign.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/new_campaign.php	2007-11-03 14:06:30.000000000 -0700
+@@ -5,6 +5,11 @@
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/validation.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   global $rpgDB;
+ 
+diff -urN profiler-0.6/public_profiler/preview.php rpgweb-profiler.bak/public_profiler/preview.php
+--- profiler-0.6/public_profiler/preview.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/preview.php	2007-11-03 14:06:30.000000000 -0700
+@@ -10,6 +10,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/system.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // Validate inputs and instantiate the global data.
+   $READONLY = isset($_GET['readonly']);
+diff -urN profiler-0.6/public_profiler/pview.php rpgweb-profiler.bak/public_profiler/pview.php
+--- profiler-0.6/public_profiler/pview.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/pview.php	2007-11-03 14:06:30.000000000 -0700
+@@ -6,6 +6,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/sid.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   // Respawn the user session.
+   $sid = RespawnSession(__LINE__, __FILE__);
+diff -urN profiler-0.6/public_profiler/register.php rpgweb-profiler.bak/public_profiler/register.php
+--- profiler-0.6/public_profiler/register.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/register.php	2007-11-03 14:06:30.000000000 -0700
+@@ -5,6 +5,11 @@
+ 
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+ 
+   $sid = new SId();
+diff -urN profiler-0.6/public_profiler/resetpwd.php rpgweb-profiler.bak/public_profiler/resetpwd.php
+--- profiler-0.6/public_profiler/resetpwd.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/resetpwd.php	2007-11-03 14:06:30.000000000 -0700
+@@ -13,6 +13,11 @@
+   include_once("config.php");
+   include_once("$INCLUDE_PATH/engine/db.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/validation.php");
+   include_once("$INCLUDE_PATH/engine/id.class.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+diff -urN profiler-0.6/public_profiler/save.php rpgweb-profiler.bak/public_profiler/save.php
+--- profiler-0.6/public_profiler/save.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/save.php	2007-11-03 14:06:31.000000000 -0700
+@@ -7,6 +7,11 @@
+   include_once("$INCLUDE_PATH/engine/sid.php");
+   include_once("$INCLUDE_PATH/error.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+ 
+   // Respawn the session.
+diff -urN profiler-0.6/public_profiler/search.php rpgweb-profiler.bak/public_profiler/search.php
+--- profiler-0.6/public_profiler/search.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/search.php	2007-11-03 14:06:31.000000000 -0700
+@@ -7,6 +7,11 @@
+ include_once("$INCLUDE_PATH/engine/db.php");
+ include_once("$INCLUDE_PATH/engine/sid.class.php");
+ include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ include_once("$INCLUDE_PATH/error.php");
+ include_once("$INCLUDE_PATH/system.php");
+ 
+diff -urN profiler-0.6/public_profiler/stats.php rpgweb-profiler.bak/public_profiler/stats.php
+--- profiler-0.6/public_profiler/stats.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/stats.php	2007-11-03 14:06:31.000000000 -0700
+@@ -5,6 +5,11 @@
+   include_once("$INCLUDE_PATH/engine/site.class.php");
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+ 
+   global $URI_BASE, $URI_HOME, $LOGO;
+ 
+diff -urN profiler-0.6/public_profiler/upload.php rpgweb-profiler.bak/public_profiler/upload.php
+--- profiler-0.6/public_profiler/upload.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/upload.php	2007-11-03 14:06:31.000000000 -0700
+@@ -9,6 +9,11 @@
+   include_once("$INCLUDE_PATH/engine/sid.php");
+   include_once("$INCLUDE_PATH/engine/db.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+   include_once("$INCLUDE_PATH/engine/serialization.php");
+ 
+diff -urN profiler-0.6/public_profiler/view.php rpgweb-profiler.bak/public_profiler/view.php
+--- profiler-0.6/public_profiler/view.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/view.php	2007-11-03 14:06:31.000000000 -0700
+@@ -14,6 +14,11 @@
+   include_once("$INCLUDE_PATH/engine/sid.class.php");
+   include_once("$INCLUDE_PATH/engine/db.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+ 
+   $title = 'RPG Web Profiler Error';
+diff -urN profiler-0.6/public_profiler/view_campaign.php rpgweb-profiler.bak/public_profiler/view_campaign.php
+--- profiler-0.6/public_profiler/view_campaign.php	2007-04-03 01:37:22.000000000 -0700
++++ rpgweb-profiler.bak/public_profiler/view_campaign.php	2007-11-03 14:06:31.000000000 -0700
+@@ -8,6 +8,11 @@
+   include_once("$INCLUDE_PATH/engine/campaign.class.php");
+   include_once("$INCLUDE_PATH/engine/character.class.php");
+   include_once("$INCLUDE_PATH/engine/templates.php");
++$mediawiki_root_path = $FORUM_ROOT;
++chdir($mediawiki_root_path);
++require_once("$mediawiki_root_path/includes/WebStart.php");
++require_once("includes/Wiki.php");
++
+   include_once("$INCLUDE_PATH/engine/serialization.php");
+ 
+   // Try to respawn a session to keep the menu nav in context.
