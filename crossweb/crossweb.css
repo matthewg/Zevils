@@ -1,0 +1,19 @@
+.grid * td {
+  width: 1.2em;
+  height: 1.2ex;
+  border: solid black 1px;
+  background-color: white;
+}
+
+.blackCell {
+  background-color: black;
+}
+
+#cluesAcross {
+  width: 50%;
+}
+
+#cluesDown {
+  width: 50%;
+  float: right;
+}
