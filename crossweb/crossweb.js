@@ -24,6 +24,7 @@ function setPuzzle(pDict) {
     PuzzleData.grid[x] = new Array(gridHeight);
     for(var y = 0; y < gridHeight; y++) {
       PuzzleData.grid[x][y] = {letter: pDict.grid[y].substr(x, 1),
+                               clue: null,
                                clueNumber: null};
     }
   }
@@ -45,35 +46,38 @@ function setPuzzle(pDict) {
   
   var clueIdx = 0;
   for(var x = 0; x < gridWidth; x++) {
-    var inClue = false;
+    var clue = null;
     for(var y = 0; y < gridHeight; y++) {
       if(GridData[x][y] == " ") {
-        if(inClue) finishClue(pDict.clues.across[clueIdx], x, y);
-        inClue = false;
-      } else if(!inClue) {
-        inClue = true;
-        PuzzleData.clues.across.push({cell: [x, y],
-                                      text: pDict.clues.across[clueIdx++],
-                                      answer: null});
+        if(clue) finishClue(pDict.clues.across[clueIdx], x, y);
+        clue = null;
+      } else if(!clue) {
+        clue = {cell: [x, y],
+                text: pDict.clues.across[clueIdx++],
+                answer: null};
+        PuzzleData.clues.across.push(clue);
       }
+      PuzzleData.grid[x][y].clue = clue;
     }
-    if(inClue) finishClue(pDict.clues.across[clueIdx], x, y);
+    if(clue) finishClue(clue, x, y);
   }
 
   clueIdx = 0;
   for(var y = 0; y < gridHeight; y++) {
-    var inClue = false;
+    var clue = false;
     for(var x = 0; x < gridWidth; x++) {
       if(GridData[x][y] == " ") {
-        if(inClue) finishClue(pDict.clues.down[clueIdx], x, y);
-        inClue = false;
+        if(clue) finishClue(pDict.clues.down[clueIdx], x, y);
+        clue = null;
       } else if(!inClue) {
-        inClue = true;
-        PuzzleData.clues.down.push({address: [x, y],
-                                    text: pDict.clues.down[clueIdx++]});
+        clue = {cell: [x, y],
+                text: pDict.clues.down[clueIdx++],
+                answer: null};
+        PuzzleData.clues.down.push(clue);
       }
+      PuzzleData.grid[x][y].clue = clue;
     }
-    if(inClue) finishClue(pDict.clues.down[clueIdx], x, y);
+    if(clue) finishClue(clue, x, y);
   }
   
   assert(PuzzleData.clues.across.length == pDict.clues.across.length, "Across clue count mismatch!");
