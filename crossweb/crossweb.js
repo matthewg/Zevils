@@ -24,7 +24,9 @@ function setPuzzle(pDict) {
     PuzzleData.grid[x] = new Array(gridHeight);
     for(var y = 0; y < gridHeight; y++) {
       PuzzleData.grid[x][y] = {letter: pDict.grid[y].substr(x, 1),
-                               clue: null,
+                               clueAcross: null,
+                               clueDown: null,
+                               clueStart: false,
                                clueNumber: null};
     }
   }
@@ -56,8 +58,9 @@ function setPuzzle(pDict) {
                 text: pDict.clues.across[clueIdx++],
                 answer: null};
         PuzzleData.clues.across.push(clue);
+        PuzzleData.grid[x][y].clueStart = true;
       }
-      PuzzleData.grid[x][y].clue = clue;
+      PuzzleData.grid[x][y].clueAcross = clue;
     }
     if(clue) finishClue(clue, x, y);
   }
@@ -74,17 +77,28 @@ function setPuzzle(pDict) {
                 text: pDict.clues.down[clueIdx++],
                 answer: null};
         PuzzleData.clues.down.push(clue);
+        PuzzleData.grid[x][y].clueStart = true;
       }
-      PuzzleData.grid[x][y].clue = clue;
+      PuzzleData.grid[x][y].clueDown = clue;
     }
     if(clue) finishClue(clue, x, y);
   }
   
   assert(PuzzleData.clues.across.length == pDict.clues.across.length, "Across clue count mismatch!");
   assert(PuzzleData.clues.down.length == pDict.clues.down.length, "Down clue count mismatch!");
-  
+
+
+  var clueNumber = 0;
+  for(var x = 0; x < gridWidth; x++) {
+    for(var y = 0; y < gridHeight; y++) {
+      if(PuzzleData.grid[x][y].clueStart) PuzzleData.grid[x][y].clueNumber = ++clueNumber;
+    }
+  }  
+
+
   displayPuzzle();
 }
+
 
 
 function displayPuzzle() {
@@ -92,7 +106,7 @@ function displayPuzzle() {
   for(var y = 0; y < PuzzleData.grid[0].length; y++) {
     gridHTML += "<tr>";
     for(var x = 0; x < PuzzleData.grid.length; x++) {
-      var letter = PuzzleData.grid[x][y];
+      var letter = PuzzleData.grid[x][y].letter;
       if(letter == " ")
         gridHTML += '<td class="blackCell"> </td>';
       else
