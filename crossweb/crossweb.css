@@ -1,12 +1,19 @@
-.grid * td {
-  width: 1.2em;
-  height: 1.2ex;
+.cell {
+  padding-left: 0.25em;
+  padding-bottom: 0.25em;
+  padding-right: 0.25em;
+  padding-top: 0.25em;
+  font-family: sans-serif;
+  text-align: center;
+  vertical-align: middle;
   border: solid black 1px;
   background-color: white;
+  margin: 0;
 }
 
 .blackCell {
   background-color: black;
+  border: none;
 }
 
 #cluesAcross {
@@ -16,4 +23,22 @@
 #cluesDown {
   width: 50%;
   float: right;
+}
+
+#grid tr {
+	padding: 0px;
+	margin: 0px;
+}
+
+#grid {
+	border-collapse: collapse;
+	border-spacing: 0px 0px;
+}
+
+.clueNumber {
+  position: relative;
+  font-size: x-small;
+  top: -2px;
+  left: -2px;
+  color: gray;
 }

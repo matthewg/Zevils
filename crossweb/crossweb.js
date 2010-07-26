@@ -1,8 +1,8 @@
 var PuzzleData = null;
 
 function assert(condition, errMsg) {
-  if(not condition) {
-    throw new Exception(errMsg);
+  if(!condition) {
+    throw errMsg;
   }
 }
 
@@ -14,13 +14,13 @@ function setPuzzle(pDict) {
 
   var gridHeight = pDict.grid.length;
   var gridWidth = pDict.grid[0].length;
-  PuzzleData = {grid = new Array(gridWidth),
-                clues = {across: [], down: []}};
+  PuzzleData = {grid: new Array(gridWidth),
+                clues: {across: [], down: []}};
   
   for(var y = 0; y < gridHeight; y++) {
     assert(pDict.grid[y].length == gridWidth, "Row " + (y+1) + " does not have the same length as row 1!");
   }
-  for(var x = 0; i < gridWidth; x++) {
+  for(var x = 0; x < gridWidth; x++) {
     PuzzleData.grid[x] = new Array(gridHeight);
     for(var y = 0; y < gridHeight; y++) {
       PuzzleData.grid[x][y] = {letter: pDict.grid[y].substr(x, 1),
@@ -32,13 +32,13 @@ function setPuzzle(pDict) {
   }
 
   var finishClue = function(clue, endX, endY) {
-    answer = "";
-    var x = clue.address[0];
-    var y = clue.address[1];
-    assert(x == endX || y == endY, "Clue start X or Y must match end!");
+    var answer = "";
+    var startX = clue.cell[0];
+    var startY = clue.cell[1];
+    assert(startX == endX || startY == endY, "Clue start X or Y must match end!");
     
-    for(; x <= endX; x++) {
-      for(; y <= endY; y++) {
+    for(var x = startX; x <= endX; x++) {
+      for(var y = startY; y <= endY; y++) {
         answer += PuzzleData.grid[x][y].letter;
       }
     }
@@ -47,11 +47,11 @@ function setPuzzle(pDict) {
   }
   
   var clueIdx = 0;
-  for(var x = 0; x < gridWidth; x++) {
+  for(var y = 0; y < gridHeight; y++) {
     var clue = null;
-    for(var y = 0; y < gridHeight; y++) {
-      if(GridData[x][y] == " ") {
-        if(clue) finishClue(pDict.clues.across[clueIdx], x, y);
+    for(var x = 0; x < gridWidth; x++) {
+      if(PuzzleData.grid[x][y].letter == " ") {
+        if(clue) finishClue(clue, x - 1, y);
         clue = null;
       } else if(!clue) {
         clue = {cell: [x, y],
@@ -62,17 +62,17 @@ function setPuzzle(pDict) {
       }
       PuzzleData.grid[x][y].clueAcross = clue;
     }
-    if(clue) finishClue(clue, x, y);
+    if(clue) finishClue(clue, x - 1, y);
   }
 
   clueIdx = 0;
-  for(var y = 0; y < gridHeight; y++) {
-    var clue = false;
-    for(var x = 0; x < gridWidth; x++) {
-      if(GridData[x][y] == " ") {
-        if(clue) finishClue(pDict.clues.down[clueIdx], x, y);
+  for(var x = 0; x < gridWidth; x++) {
+    var clue = null;
+    for(var y = 0; y < gridHeight; y++) {
+      if(PuzzleData.grid[x][y].letter == " ") {
+        if(clue) finishClue(clue, x, y - 1);
         clue = null;
-      } else if(!inClue) {
+      } else if(!clue) {
         clue = {cell: [x, y],
                 text: pDict.clues.down[clueIdx++],
                 answer: null};
@@ -81,7 +81,7 @@ function setPuzzle(pDict) {
       }
       PuzzleData.grid[x][y].clueDown = clue;
     }
-    if(clue) finishClue(clue, x, y);
+    if(clue) finishClue(clue, x, y - 1);
   }
   
   assert(PuzzleData.clues.across.length == pDict.clues.across.length, "Across clue count mismatch!");
@@ -89,8 +89,8 @@ function setPuzzle(pDict) {
 
 
   var clueNumber = 0;
-  for(var x = 0; x < gridWidth; x++) {
-    for(var y = 0; y < gridHeight; y++) {
+  for(var y = 0; y < gridHeight; y++) {
+    for(var x = 0; x < gridWidth; x++) {
       if(PuzzleData.grid[x][y].clueStart) PuzzleData.grid[x][y].clueNumber = ++clueNumber;
     }
   }  
@@ -107,27 +107,31 @@ function displayPuzzle() {
     gridHTML += "<tr>";
     for(var x = 0; x < PuzzleData.grid.length; x++) {
       var letter = PuzzleData.grid[x][y].letter;
-      if(letter == " ")
-        gridHTML += '<td class="blackCell"> </td>';
-      else
-        gridHTML += '<td>' + letter + '</td>';
+      if(letter == " ") {
+        gridHTML += '<td class="cell blackCell">&nbsp;</td>';
+      } else {
+        gridHTML += '<td class="cell">';
+        var clueNumber = PuzzleData.grid[x][y].clueNumber;
+        if(clueNumber) gridHTML += '<div class="clueNumber">' + clueNumber + '</div>';
+        gridHTML += '<div class="gridLetter">' + letter + '</div></td>';
+      }
     }
     gridHTML += "</tr>";
   }
   $("#grid").html(gridHTML);
   
-  var clueListHTML = "<ol>";
+  var clueListHTML = "<p>Across</p><ol>";
   for(var clueIdx in PuzzleData.clues.across) {
     var clue = PuzzleData.clues.across[clueIdx];
-    clueListHTML += '<li value="' + (clue.address[0] + 1) + '">' + clue.text + '</li>';
+    clueListHTML += '<li value="' + clue.clueNumber + '">' + clue.text + '</li>';
   }
   clueListHTML += "</ol>";
   $("#cluesAcross").html(clueListHTML);
 
-  clueListHTML = "<ol>";
+  clueListHTML = "<p>Down</p><ol>";
   for(var clueIdx in PuzzleData.clues.down) {
     var clue = PuzzleData.clues.down[clueIdx];
-    clueListHTML += '<li value="' + (clue.address[1] + 1) + '">' + clue.text + '</li>';
+    clueListHTML += '<li value="' + clue.clueNumber + '">' + clue.text + '</li>';
   }
   clueListHTML += "</ol>";
   $("#cluesDown").html(clueListHTML);
