@@ -1,0 +1,28 @@
+<?!DOCTYPE html>
+<head>
+  <link rel="stylesheet" href="crossweb.css" type="text/css" />
+  <script src="http://code.jquery.com/jquery-1.4.2.min.js" type="text/javascript" />
+  <script src="crossweb.js" type="text/javascript" />
+  <script src="test.js" type="text/javascript" />
+</head>
+<body>
+  <!-- 
+    Mode: Construct, Solve
+    Dropdown to pick a puzzle, or (in Construct mode) New Puzzle
+    Solve mode:
+      Grid (with circles)
+      Clues
+      oneacross.com, Google hints
+    Construct mode:
+      Grid (with circles, editable)
+      Clues (list, entry for each clue, updated as clues move)
+      Clue editor
+      Rotational symmetry checked
+      oneacross.com hints
+  -->
+  <table id="grid"></table>
+  <div id="clueList">
+    <div id="cluesAcross"></div>
+    <div id="cluesDown"></div>
+  </div>
+</body>
