@@ -1,15 +1,21 @@
 .cell {
-  padding-left: 0.25em;
-  padding-bottom: 0.25em;
-  padding-right: 0.25em;
-  padding-top: 0.25em;
   font-family: sans-serif;
   text-align: center;
   vertical-align: middle;
   border: solid black 1px;
   background-color: white;
   margin: 0;
+  padding: 0;
+  width: 1.5em;
+  height: 1.5em;
 }
+
+/*
+  padding-left: 0.25em;
+  padding-bottom: 0.25em;
+  padding-right: 0.25em;
+  padding-top: 0.25em;
+*/
 
 .blackCell {
   background-color: black;
@@ -35,10 +41,24 @@
 	border-spacing: 0px 0px;
 }
 
-.clueNumber {
+
+.cellContainer {
+  display: inline;
   position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.clueNumber {
+  position: absolute;
   font-size: x-small;
-  top: -2px;
-  left: -2px;
+  top: -1.25em;
+  left: 0;
   color: gray;
+}
+
+.gridLetter {
+  position: absolute;
+  top: -.25em;
+  left: .5em;
 }

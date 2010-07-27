@@ -110,10 +110,10 @@ function displayPuzzle() {
       if(letter == " ") {
         gridHTML += '<td class="cell blackCell">&nbsp;</td>';
       } else {
-        gridHTML += '<td class="cell">';
+        gridHTML += '<td class="cell"><div class="cellContainer">';
         var clueNumber = PuzzleData.grid[x][y].clueNumber;
         if(clueNumber) gridHTML += '<div class="clueNumber">' + clueNumber + '</div>';
-        gridHTML += '<div class="gridLetter">' + letter + '</div></td>';
+        gridHTML += '<div class="gridLetter">' + letter + '</div></div></td>';
       }
     }
     gridHTML += "</tr>";
