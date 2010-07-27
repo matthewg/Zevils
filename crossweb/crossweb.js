@@ -56,7 +56,8 @@ function setPuzzle(pDict) {
       } else if(!clue) {
         clue = {cell: [x, y],
                 text: pDict.clues.across[clueIdx++],
-                answer: null};
+                answer: null,
+                clueNumber: null};
         PuzzleData.clues.across.push(clue);
         PuzzleData.grid[x][y].clueStart = true;
       }
@@ -75,7 +76,8 @@ function setPuzzle(pDict) {
       } else if(!clue) {
         clue = {cell: [x, y],
                 text: pDict.clues.down[clueIdx++],
-                answer: null};
+                answer: null,
+                clueNumber: null};
         PuzzleData.clues.down.push(clue);
         PuzzleData.grid[x][y].clueStart = true;
       }
@@ -91,7 +93,15 @@ function setPuzzle(pDict) {
   var clueNumber = 0;
   for(var y = 0; y < gridHeight; y++) {
     for(var x = 0; x < gridWidth; x++) {
-      if(PuzzleData.grid[x][y].clueStart) PuzzleData.grid[x][y].clueNumber = ++clueNumber;
+      if(PuzzleData.grid[x][y].clueStart) {
+        PuzzleData.grid[x][y].clueNumber = ++clueNumber;
+
+        var clue = PuzzleData.grid[x][y].clueAcross;
+        if(clue && !clue.clueNumber) clue.clueNumber = clueNumber;
+
+        clue = PuzzleData.grid[x][y].clueDown;
+        if(clue && !clue.clueNumber) clue.clueNumber = clueNumber;        
+      }
     }
   }  
 
@@ -120,19 +130,21 @@ function displayPuzzle() {
   }
   $("#grid").html(gridHTML);
   
-  var clueListHTML = "<p>Across</p><ol>";
-  for(var clueIdx in PuzzleData.clues.across) {
-    var clue = PuzzleData.clues.across[clueIdx];
-    clueListHTML += '<li value="' + clue.clueNumber + '">' + clue.text + '</li>';
-  }
-  clueListHTML += "</ol>";
-  $("#cluesAcross").html(clueListHTML);
+  var acrossListHTML = '<p>Across</p><dl class="clueList">';
+  var downListHTML = '<p>Down</p><dl class="clueList">';
+  for(var y = 0; y < PuzzleData.grid[0].length; y++) {
+    for(var x = 0; x < PuzzleData.grid.length; x++) {
+      var acrossClue = PuzzleData.grid[x][y].clueAcross;
+      if(acrossClue && acrossClue.cell[0] == x)
+        acrossListHTML += '<dt>' + acrossClue.clueNumber + '.</dt><dd>' + acrossClue.text + '</dd>';
 
-  clueListHTML = "<p>Down</p><ol>";
-  for(var clueIdx in PuzzleData.clues.down) {
-    var clue = PuzzleData.clues.down[clueIdx];
-    clueListHTML += '<li value="' + clue.clueNumber + '">' + clue.text + '</li>';
+      var downClue = PuzzleData.grid[x][y].clueDown;
+      if(downClue && downClue.cell[1] == y)
+        downListHTML += '<dt>' + downClue.clueNumber + '.</dt><dd>' + downClue.text + '</dd>';
+    }
   }
-  clueListHTML += "</ol>";
-  $("#cluesDown").html(clueListHTML);
+  acrossListHTML += "</dl>";
+  downListHTML += "</dl>";
+  $("#cluesAcross").html(acrossListHTML);
+  $("#cluesDown").html(downListHTML);
 }
