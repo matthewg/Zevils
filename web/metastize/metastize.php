@@ -17,7 +17,7 @@ function metastize_widget($args) {
 
 	printf("%s%s%s", $before_title, "Meta", $after_title);
 	echo "<ul>";
-	wp_list_pages('title_li=&include=6,32');
+	wp_list_pages('title_li=&include=6,32,114');
 
 	if(is_day() || is_month() || is_year()) {
 		$class = 'current_page_item';
