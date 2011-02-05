@@ -116,12 +116,14 @@ function clickedRoll(event) {
     var comment = $("#comment").val();
     var savename = $("#savename").val();
 
-    if(DB && savename && !bonus && !pool) {
+    if(savename && !bonus && !pool) {
         delete SAVED_ROLLS[savename];
         updatedSavedRolls();
-        DB.transaction(function(tx) {
-            tx.executeSql("DELETE FROM saved_rolls WHERE name = ?", [savename]);
-        });
+        if(DB) {
+            DB.transaction(function(tx) {
+                tx.executeSql("DELETE FROM saved_rolls WHERE name = ?", [savename]);
+            });
+        }
     } else {
         if(isNaN(bonus)) alert("Invalid bonus!");
         if(isNaN(pool)) alert("Invalid pool!");
