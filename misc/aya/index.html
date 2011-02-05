@@ -138,11 +138,11 @@ function clickedRoll(event) {
         $("#comment").val("");
         $("#savename").val("");
 
+        if(savename) {
+            SAVED_ROLLS[savename] = [bonus, pool];
+            updatedSavedRolls();
+        }
         if(DB) {
-            if(savename) {
-                SAVED_ROLLS[savename] = [bonus, pool];
-                updatedSavedRolls();
-            }
             DB.transaction(function(tx) {
                 tx.executeSql("INSERT INTO roll_history (text) VALUES (?)",
                               [str]);
