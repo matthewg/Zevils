@@ -6,6 +6,12 @@
 <link rel="apple-touch-icon" href="logo-ios.png" />
 <meta name="viewport" content="width=320, maximum-scale=1, initial-scale=1" />
 
+<style type="text/css">
+  input, select {
+      width: 40px;
+  }
+</style>
+
 <title>Dice of Aya</title>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
 <script>
@@ -190,13 +196,13 @@ $(document).ready(function() {
     <form>
       <dl>
         <dt>Bonus:</dt>
-        <dd><input type="text" id="bonus" length="5"></dd>
+        <dd><input type="text" id="bonus"></dd>
         <dt>Pool:</dt>
-        <dd><input type="text" id="pool" length="5"></dd>
+        <dd><input type="text" id="pool"></dd>
         <dt>Comment:</dt>
-        <dd><input type="text" id="comment" length="10"></dd>
+        <dd><input type="text" id="comment"></dd>
         <dt>Save As:</dt>
-        <dd><input type="text" id="savename" length="10"></dd>
+        <dd><input type="text" id="savename"></dd>
         <dd><select id="loadroll"></select></dd>
       </dl>
       <p><input type="submit" id="roll" value="Roll 'Em!"></p>
