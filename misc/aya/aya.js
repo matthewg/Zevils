@@ -156,22 +156,6 @@ function clickedRoll(event) {
 
 
 $(document).ready(function() {
-    if(Modernizr.inputtypes.number) {
-        $("#bonusN").show();
-        $("#poolN").show();
-        $("#bonusT").hide();
-        $("#poolT").hide();
-        $("#bonusN").attr("id", "bonus");
-        $("#poolN").attr("id", "pool");
-    } else {
-        $("#bonusT").show();
-        $("#poolT").show();
-        $("#bonusN").hide();
-        $("#poolN").hide();
-        $("#bonusT").attr("id", "bonus");
-        $("#poolT").attr("id", "pool");
-    }
-
     $("#loadroll").change(loadSavedRoll);
     $("#roll").click(clickedRoll);
 
