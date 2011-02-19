@@ -65,11 +65,6 @@ def get_access_token(oauth_secret, oauth_token, oauth_verifier):
     resp, content = client.request(access_token_url, "POST")
     access_token = dict(cgi.parse_qsl(content))
 
-    print "Status: 200"
-    print "Content-type: text/plain"
-    print ""
-    print "Access token: %r" % access_token
-    """
     cookie["access_token"] = access_token['oauth_token']
     cookie["access_token_secret"] = access_token['oauth_token_secret']
     print "Status: 302 Temporary Moved"
@@ -78,7 +73,6 @@ def get_access_token(oauth_secret, oauth_token, oauth_verifier):
     print "Location: http://zevils.com/misc/twmi/"
     print ""
     print "Redirecting..."
-    """
 
 
 def get_friends(api):
