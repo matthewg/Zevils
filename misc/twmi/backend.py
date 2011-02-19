@@ -1,15 +1,19 @@
 #!/usr/bin/python
 
+import os
+import sys
+PROJECT_ROOT = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "lib"))
+
+
 import cgi
 import cgitb
 import ConfigParser
 import Cookie
 import httplib2
 import oauth2 as oauth
-import os
 import os.path
 import simplejson as json
-import sys
 import time
 import twitter
 import urlparse
@@ -63,7 +67,7 @@ if __name__ == "__main__":
 else:
     path = os.environ.get("PATH_INFO", "")
 
-    oauth_secret = cookie.get("oauth_secret"):
+    oauth_secret = cookie.get("oauth_secret")
     if path == "/verified" and oauth_secret:
         get_access_token(oauth_secret)
     else:
