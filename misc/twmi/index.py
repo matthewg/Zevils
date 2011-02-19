@@ -46,6 +46,7 @@ def get_request_token():
 
     request_token = dict(cgi.parse_qsl(content))
     cookie["oauth_secret"] = request_token["oauth_token_secret"]
+    cookie["oauth_secret"]["path"] = "/misc/twmi/"
 
 
     print "Status: 302 Temporary Moved"
@@ -66,7 +67,9 @@ def get_access_token(oauth_secret, oauth_token, oauth_verifier):
     access_token = dict(cgi.parse_qsl(content))
 
     cookie["access_token"] = access_token['oauth_token']
+    cookie["access_token"]["path"] = "/misc/twmi/"
     cookie["access_token_secret"] = access_token['oauth_token_secret']
+    cookie["access_token_secret"]["path"] = "/misc/twmi/"
     print "Status: 302 Temporary Moved"
     print "Content-type: text/plain"
     print cookie
