@@ -65,6 +65,11 @@ if __name__ == "__main__":
     get_request_token()
 else:
     path = os.environ.get("PATH_INFO", "")
+    print "Status: 200"
+    print "Content-type: text/plain"
+    print ""
+    print "Path: %r" % path
+    print "Cookie: %r" % cookie
 
     oauth_secret = cookie.get("oauth_secret")
     if path == "/verified" and oauth_secret:
