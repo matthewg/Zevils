@@ -94,8 +94,9 @@ if access_token and access_token_secret:
                       access_token_secret=access_token_secret)
     get_friends(api)
 elif path == "/verified" and oauth_secret:
+    form = cgi.FieldStorage()
     get_access_token(oauth_secret=oauth_secret,
-                     oauth_token=cgi.FieldStorage.getfirst("oauth_token"),
-                     oauth_verifier=cgi.FieldStorage.getfirst("oauth_verified"))
+                     oauth_token=form.getfirst("oauth_token"),
+                     oauth_verifier=form.getfirst("oauth_verified"))
 else:
     get_request_token()
