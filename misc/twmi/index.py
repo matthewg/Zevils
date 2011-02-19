@@ -99,6 +99,6 @@ elif path == "/verified" and oauth_secret:
     query_params = dict(cgi.parse_qsl(qs))
     get_access_token(oauth_secret=oauth_secret.value,
                      oauth_token=query_params.get("oauth_token"),
-                     oauth_verifier=query_params.get("oauth_verified"))
+                     oauth_verifier=query_params.get("oauth_verifier"))
 else:
     get_request_token()
