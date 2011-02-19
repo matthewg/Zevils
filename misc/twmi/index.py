@@ -96,7 +96,7 @@ if access_token and access_token_secret:
     get_friends(api)
 elif path == "/verified" and oauth_secret:
     qs = os.environ.get("QUERY_STRING", "")
-    query_params = cgi.parse_qsl(qs)
+    query_params = dict(cgi.parse_qsl(qs))
     get_access_token(oauth_secret=oauth_secret.value,
                      oauth_token=query_params.get("oauth_token"),
                      oauth_verifier=query_params.get("oauth_verified"))
