@@ -16,7 +16,6 @@ import os.path
 import simplejson as json
 import time
 import twitter
-import urlparse
 
 cgitb.enable()
 
@@ -45,7 +44,7 @@ def get_request_token():
     if int(resp['status']) != 200:
         raise "Error getting request token: %r / %r" % (resp, content)
 
-    request_token = dict(urlparse.parse_qsl(content))
+    request_token = dict(cgi.parse_qsl(content))
     cookie["oauth_secret"] = request_token["oauth_token_secret"]
 
 
