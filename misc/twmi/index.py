@@ -57,6 +57,7 @@ def get_request_token():
 
 
 def get_access_token(oauth_secret, oauth_token, oauth_verifier):
+    consumer = oauth.Consumer(consumer_key, consumer_secret)
     token = oauth.Token(oauth_token, oauth_secret)
     token.set_verifier(oauth_verifier)
 
