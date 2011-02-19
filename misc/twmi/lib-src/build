@@ -7,25 +7,25 @@ rm -rf ../lib/*
 
 cd simplejson-2.1.3
 python setup.py clean
-python setup.py bdist_egg
-mv dist/*.egg ../../lib
+python setup.py build
+mv build/lib*/* ../../lib
 python setup.py clean
 rm -rf build
 
 cd ../httplib2-0.6.0
 python setup.py clean
 python setup.py build
-mv build/lib/httplib2 ../../lib
+mv build/lib*/* ../../lib
 python setup.py clean
 
 cd ../simplegeo-python-oauth2-1b585cb
 python setup.py clean
-python setup.py bdist_egg
-mv dist/*.egg ../../lib
+python setup.py build
+mv build/lib*/* ../../lib
 python setup.py clean
 
 cd ../python-twitter-0.8.1
 python setup.py clean
-python setup.py bdist_egg
-mv dist/*.egg ../../lib
+python setup.py build
+mv build/lib*/* ../../lib
 python setup.py clean
