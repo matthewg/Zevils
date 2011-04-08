@@ -27,6 +27,10 @@ function clInput(e) {
     if(e.keyCode == 13) {
         var text = commandline.value;
         var matches = text.match(/^(\S+)\s+(\S.*)$/);
+        if((text.toLowerCase() == "hide") || (text.toLowerCase() == "look")) {
+            // Special case: hide and look don't take arguments.
+            matches = [text, text, ""];
+        }
         if(matches) {
             var command = matches[1].toLowerCase();
             var value = matches[2];
