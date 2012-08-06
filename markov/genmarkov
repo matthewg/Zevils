@@ -1,0 +1,103 @@
+#!/usr/bin/perl -w
+
+use DBI; 
+
+# Create a Markov Chain for a text file and store it in a mysql database.
+# Usage: cat file | genmarkov dbtable db_pass_for_root [nodel]
+# nodel will prevent the program from doing DELETE FROM dbtable
+# You must have a mysql server on localhost with a database named markov.
+# The table you are using must exist and should have a structure similar to the
+# following:
+#	CREATE TABLE test (
+#	  prev varchar(255) DEFAULT '' NOT NULL,
+#	  new varchar(255) DEFAULT '' NOT NULL,
+#	  prob varchar(255) DEFAULT '' NOT NULL
+#	);
+
+
+$max_words = 8;
+
+die "max_words too big!\n"	if $max_words > 9;
+
+warn "Getting text...\n";
+
+while (<STDIN>) { # Store the text in $text since we're going to be making lots
+		  # of passes through it. ($max_words passes to be precise)
+	$text .= $_;
+}
+
+warn "Text stored.\n";
+warn "Getting statistics...\n";
+
+$aword = '[^ \t\n]+';
+$notaword = '[ \t\n]+';
+$text =~ m/^([^ \t\n]+)/;
+$firstword = $1;
+$sequences{""}->{$firstword} = 1;
+$count{""} = 1;
+for ($i = 1; $i <= $max_words; $i++) {
+	$regex = "(";
+	$regex .= ($aword . $notaword) x ($i - 1);
+	$regex .= "$aword)";
+	$regex .= '$';
+	$text =~ m/$regex/;
+	$sequences{$1}->{$firstword} = 1;
+	$count{$1} = 1;
+}
+
+for ($curr_words = 1; $curr_words <= $max_words; $curr_words++) {
+	warn "Getting information for sequences of $curr_words words...\n";
+	$prev = "";
+	for ($offset = 0; $offset <= $curr_words; $offset++) {
+		warn "Offset is $offset.\n";
+		$thetext = $text;
+		$regex = "^";
+		$regex .= ($aword . $notaword) x $offset;
+		$thetext =~ s/$regex//;
+		$regex = "($aword";
+		$regex .= ($notaword . $aword) x ($curr_words - 1);
+		$regex .= ")$notaword($aword)";
+		warn "Using regex: $regex\n";
+		FOO: while ($thetext =~ m/$regex/g) {
+			$prev = $1; $new = $2; 
+			$prev =~ s/[\t\n ]+/ /g;
+			$new =~ s/[\t\n ]+/ /g;
+			next FOO if $prev eq "";
+			$sequences{$prev}->{$new}++;
+			$count{$prev}++;
+			warn "Found $prev->$new.  It's value is now " . $sequences{$prev}->{$new} . ".\n";
+		}
+	}
+}
+
+warn "Calculating probabilities and storing results in db markob, table $ARGV[0]...\n";
+# open WORDS, ">$ARGV[0].mkv" or die "Could not open $ARGV[0].mkv for output: $!\n";
+# open PROBS, ">$ARGV[0].mkp" or die "Could not open $ARGV[0].mkp for output: $!\n";
+# open DATA, ">$ARGV[0].mkd" or die "Could not open $ARGV[0].mkd for output: $!\n";
+$dbh ||= DBI->connect("DBI:mysql:markov", "root", "password");
+die "Unable to connect to SQL Server" unless $dbh;
+
+
+foreach $prev (keys %sequences) {
+	foreach $new (keys %{$sequences{$prev}}) {
+		$theprev = $prev;
+		$prob = $sequences{$theprev}->{$new} / $count{$theprev};
+		warn "Probability of $new is $prob.\n";
+		#print WORDS "$word\n";
+		#print PROBS "$probabilities{$word}\n"; 
+		$theprev =~ s/\\/\\\\/g; $theprev =~ s/\"/\\\"/g; 
+		$new =~ s/\\/\\\\/g; $new =~ s/\"/\\\"/g; 
+		my $sql = "INSERT INTO $ARGV[0] (prev, new, prob) VALUES (\"$theprev\", \"$new\", \"$prob\")\n";
+		$dbh ||= DBI->connect("DBI:markov:$ARGV[0]", "root", "password");
+		$dbh->do("DELETE FROM $ARGV[0]") unless !$ARGV[2];
+		if(!$dbh->do($sql)) {
+			print "ERROR: " . $dbh->errstr . " while attempting to do $sql.\n";
+		}
+	}
+}
+#close WORDS;
+#close PROBS;
+#close DATA;
+
+$dbh->disconnect();
+warn "All done!\n";
